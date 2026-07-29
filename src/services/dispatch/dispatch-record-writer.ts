@@ -105,7 +105,17 @@ export interface DispatchRecord {
    * v3 → v3.1 transition is additive; the new field is
    * defaulted to `null` on read so v3 records upgrade cleanly.
    */
-  readonly version: 3;
+  /**
+   * Slice 2026-07-29-rid-prose-only-sweep Part 34: schema v3.1
+   * is the explicit minor bump that records the
+   * `isolationStartedAt` (Part 7) and `leaseId` (Part 3.A.1 +
+   * Part 4.C) fields as part of the canonical schema. v3
+   * records on disk upgrade transparently — see `upgradeRecord`
+   * in this file. The literal type ('3.1') is the source of
+   * truth for "this record is v3.1-form"; readers check
+   * `version === '3.1'` for forward-compatible dispatching.
+   */
+  readonly version: '3.1';
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly outcome: DispatchOutcome;
@@ -237,7 +247,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
   const record: DispatchRecord = {
-    version: 3,
+    version: '3.1',
     createdAt: now().toISOString(),
     completedAt: null,
     outcome: 'no-execution',
@@ -805,6 +815,21 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     throw new Error('Dispatch record root must be an object');
   }
   const obj = parsed as Record<string, unknown>;
+  // Slice 2026-07-29-rid-prose-only-sweep Part 34: the version
+  // field is now the literal '3.1'. Legacy v2 and v3 records
+  // (version: 2 or version: 3) are accepted transparently and
+  // upgraded to v3.1 on read. The forward-compat check rejects
+  // records with an unknown version string (which would
+  // indicate either a much-older build or a much-newer one
+  // with a schema we have not implemented). v1 records
+  // (pre-audit-trail) must be regenerated.
+  const rawVersion = obj.version;
+  if (rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
+    throw new Error(
+      `Dispatch record version mismatch: expected '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
+      'The v1 → v3.1 migration is in-file; records from much older or newer builds must be regenerated.'
+    );
+  }
   const role = stringField(obj, 'role');
   const requestId = stringField(obj, 'requestId');
   const sessionId = stringField(obj, 'sessionId');
@@ -846,7 +871,7 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     : 'legacy-batch';
 
   return {
-    version: 3,
+    version: '3.1',
     createdAt,
     completedAt,
     outcome,
