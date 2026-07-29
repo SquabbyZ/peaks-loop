@@ -14,11 +14,34 @@
 import type { SubAgentBatchResult } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { HeadroomMode } from '../../services/context/headroom-client.js';
 import type { HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
+// Slice 2026-07-29-dispatch-stall-governance / S6 — `probeShell` is
+// re-exported here so the dispatch chokepoint (`dispatch-commands.ts`)
+// and the sub-agent batch-sync wait can lazily acquire a typed
+// shell-probe report without importing the env service at every
+// call site. Codifies .peaks/memory/2026-07-27-windows-shell-pref.md
+// at the dispatch / tool boundary (AC-6.2).
+export { probeShell, type ShellProbeReport, type ShellProbeOptions } from '../../services/env/shell-probe.js';
 
 export const RECOMMENDED_ROLES = 'rd | qa | ui | txt | qa-business | qa-perf | qa-security | qa-business-<*> | general-purpose';
 
+// Slice 2026-07-29-dispatch-stall-governance / S2 — align the per-
+// heartbeat vocabulary with the dispatch record's aggregate status
+// union. The CLI --status help, the writer's isHeartbeatStatus guard,
+// and this constant must stay byte-identical (the parity test in
+// tests/unit/dispatch/heartbeat-parity.test.ts pins it). Adding
+// `cancelled` / `no-execution` closes AC-2.1; adding `never-started`
+// and `unreadable` closes the S1 status surface.
 export const HEARTBEAT_STATUSES: readonly HeartbeatStatus[] = [
-  'queued', 'running', 'finalizing', 'done', 'failed', 'stale'
+  'queued',
+  'running',
+  'finalizing',
+  'done',
+  'failed',
+  'stale',
+  'cancelled',
+  'no-execution',
+  'never-started',
+  'unreadable'
 ];
 
 export const HEADROOM_MODES: readonly HeadroomMode[] = ['balanced', 'aggressive', 'conservative'];

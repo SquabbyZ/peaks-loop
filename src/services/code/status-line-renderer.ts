@@ -19,6 +19,18 @@ export type SubAgentLiveView = {
   readonly progress: number | null;
   readonly lastBeatAgoSec: number | null;
   readonly isStale: boolean;
+  // Slice 2026-07-29-dispatch-stall-governance / S2 (AC-2.3) — split
+  // "no beat ever seen" (never-started) from "heartbeat seen, then
+  // quiet" (stale). The watch surface renders these as two distinct
+  // buckets so an orchestrator can tell a sub-agent that never picked
+  // up the work apart from one that has gone quiet after starting.
+  readonly isNeverStarted: boolean;
+  // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / AC-5.2)
+  // — the record's stage label, when the dispatcher / sub-agent
+  // supplied one. `null` for records that did not (or could not) emit
+  // a stage; the watch surface renders it as `(stage: <label>)` so a
+  // long-`running` agent is legible.
+  readonly stage: string | null;
 };
 
 export type SwarmSummary = {
@@ -38,12 +50,23 @@ export function viewSubAgent(record: DispatchRecord, now: () => Date = () => new
     ? Math.max(0, Math.floor((now().getTime() - new Date(record.lastBeatAt).getTime()) / 1000))
     : null;
   const isStale = lastBeatAgo !== null && lastBeatAgo > STALE_THRESHOLD_SEC;
+  // Slice 2026-07-29-dispatch-stall-governance / S2 (AC-2.3) — never-
+  // started: no heartbeat ever landed (lastBeatAgo is null AND the
+  // record has not been promoted by a startup-timeout marker).
+  const isNeverStarted = lastBeatAgo === null && record.status === 'queued';
   return {
     role: record.role,
     status: record.status,
     progress: latest ? latest.progress : null,
     lastBeatAgoSec: lastBeatAgo,
-    isStale
+    isStale,
+    isNeverStarted,
+    // S5 — surface the optional stage label so a long-running agent is
+    // legible. Reads from the record's `stage` field (added in the
+    // same slice); undefined on legacy records degrades to null.
+    stage: typeof (record as DispatchRecord & { stage?: string | null }).stage === 'string'
+      ? ((record as DispatchRecord & { stage?: string | null }).stage ?? null)
+      : null
   };
 }
 
@@ -81,6 +104,13 @@ function renderOne(record: DispatchRecord, now: () => Date): string {
   const view = viewSubAgent(record, now);
   const pct = view.progress !== null ? `${view.progress}%` : '?%';
   const ago = view.lastBeatAgoSec !== null ? `${view.lastBeatAgoSec}s ago` : 'no beat';
-  const stale = view.isStale ? ' ⚠ stale' : '';
-  return `${view.role} ${pct} (${ago})${stale}`;
+  // Slice 2026-07-29-dispatch-stall-governance / S2 (AC-2.3) — render
+  // never-started distinctly from stale so the orchestrator's eye can
+  // tell a sub-agent that never picked up the work apart from one that
+  // has gone quiet after starting.
+  const marker = view.isNeverStarted ? ' ⚠ never-started' : view.isStale ? ' ⚠ stale' : '';
+  // S5 (AC-5.2) — surface the optional stage label inline so a long-
+  // `running` agent is legible. Empty stage is omitted silently.
+  const stageSuffix = view.stage && view.stage.length > 0 ? ` [${view.stage}]` : '';
+  return `${view.role} ${pct} (${ago})${marker}${stageSuffix}`;
 }

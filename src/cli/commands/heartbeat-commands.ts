@@ -16,21 +16,18 @@ import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { registerHeartbeatWatchCommand } from './heartbeat-watch-command.js';
-import { appendHeartbeat, type HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
+import {
+  appendHeartbeat,
+  setStage,
+  type HeartbeatStatus
+} from '../../services/dispatch/dispatch-record-writer.js';
+import { isStageLabel, type StageLabel } from '../../services/dispatch/stage-enum.js';
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
 import { writeLogEntry } from '../../services/log/logger.js';
 import {
   HeartbeatOptions,
   HEARTBEAT_STATUSES
 } from './sub-agent-shared.js';
-
-export function registerHeartbeatCommands(program: Command, io: ProgramIO): void {
-  const heartbeat = program
-    .command('heartbeat')
-    .description('24h mode heartbeat utilities for independently watching a batch');
-  registerHeartbeatWatchCommand(heartbeat, io);
-}
 
 export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -43,11 +40,17 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
         'least every 30s (configurable via SKILL.md heartbeatIntervalSec).'
       )
       .requiredOption('--record <path>', 'absolute path to a dispatch record JSON')
-      .requiredOption('--status <state>', 'queued | running | finalizing | done | failed | stale')
+      .requiredOption('--status <state>', 'queued | running | finalizing | done | failed | stale | cancelled | no-execution | never-started | unreadable')
       .requiredOption('--progress <pct>', 'integer 0-100')
       .option('--note <text>', 'free-form progress note (≤ 200 chars)')
+      // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) —
+      // optional --stage flag. The label is bounded (see
+      // src/services/dispatch/stage-enum.ts); an unknown value is
+      // rejected with INVALID_STAGE so the watch surface never
+      // accumulates typo'd labels.
+      .option('--stage <label>', 'bounded stage label (intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing)')
       .option('--project <path>', 'trusted project root (defaults to cwd); used for the R-2 path guard so a malicious --record cannot point at another project\'s dispatch record')
-  ).action((options: HeartbeatOptions) => {
+  ).action((options: HeartbeatOptions & { stage?: string }) => {
     const asJson = options.json === true;
     if (!options.record || !existsSync(options.record)) {
       printResult(io, fail('sub-agent.heartbeat', 'INVALID_RECORD_PATH', `record not found: ${options.record ?? '(empty)'}`, { recordPath: options.record ?? null, truncated: false } as never, [
@@ -88,12 +91,35 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       // root's .peaks/_sub_agents/ subdir.
       const trustedRoot = options.project ?? process.cwd();
       assertSafeDispatchRecordPath(options.record, trustedRoot);
+      // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.2) —
+      // validate the optional --stage against the bounded enum
+      // BEFORE the heartbeat write so the caller gets a specific
+      // INVALID_STAGE error rather than a generic HEARTBEAT_ERROR.
+      let stageLabel: StageLabel | null = null;
+      if (options.stage !== undefined && options.stage.length > 0) {
+        if (!isStageLabel(options.stage)) {
+          printResult(io, fail('sub-agent.heartbeat', 'INVALID_STAGE', `--stage must be one of intake | planning | gathering | analyzing | writing | testing | reviewing | finalizing (got ${options.stage})`, { recordPath: options.record, truncated: false } as never, [
+            'Use one of the bounded stage labels; free-form text is not accepted.'
+          ]), asJson);
+          process.exitCode = 1;
+          return;
+        }
+        stageLabel = options.stage as StageLabel;
+      }
       const result = appendHeartbeat({
         recordPath: options.record as string,
         status: options.status as HeartbeatStatus,
         progress,
         ...(options.note !== undefined ? { note: options.note } : {})
       });
+      // S5 — promote the stage if --stage was supplied. setStage
+      // re-validates and is a no-op when stage is null. The
+      // appendHeartbeat call above already wrote the heartbeat;
+      // setStage is a separate file-locked read-modify-write on the
+      // same record.
+      if (stageLabel !== null) {
+        setStage({ recordPath: options.record as string, stage: stageLabel });
+      }
       printResult(io, ok('sub-agent.heartbeat', {
         // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
         envelopeVersion: '2.1.0',
