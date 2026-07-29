@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-07-27T15:42:05.903Z
+> Last updated: 2026-07-29T00:30:30.025Z
 
 ## Project: peaks-loop
 
@@ -44,10 +44,14 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (8 sessions)
+## Timeline (12 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-07-28 | `2026-07-29-session-a84955` | Untitled | schemaVersion: 2 |
+| 2026-07-28 | `2026-07-28-session-71a3cf` | Untitled | G1. 产出 **1 份用户视角的功能地图**，覆盖 5 大域 + 13 skill + 5 super-command + 14 后置 s |
+| 2026-07-27 | `2026-07-28-session-22381b` | Untitled | rid: 2026-07-28-rid-020b-24h-mode-integration-verify |
+| 2026-07-27 | `2026-07-28-session-6984fe` | rid-018-019 4.0.0 GA pre-publish BLOCKER | PASS: body non-empty for 4.0.0 (2560 bytes) |
 | 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | schemaVersion: 2 |
 | 2026-07-27 | `2026-07-27-session-b4e485` | Untitled | - |
 | 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | schemaVersion: 1 |

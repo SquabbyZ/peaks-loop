@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-24T02:19:15.776Z",
+  "updatedAt": "2026-07-28T19:42:24.479Z",
   "hot": {
     "feedback": [
       {
@@ -428,6 +428,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\archived\\2026-06-26-unknown-sid-root-cause.md",
         "sourceArtifact": "src/cli/commands/dispatch-commands.ts",
         "updatedAt": "2026-07-05"
+      },
+      {
+        "name": "2026-07-28-rid-034-handoff-no-sediment-block",
+        "kind": "lesson",
+        "description": "rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-034-handoff-no-sediment-block.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
       },
       {
         "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
@@ -1098,6 +1106,54 @@
         "updatedAt": "2026-07-16"
       },
       {
+        "name": "24h-loop-audit-2026-07-28",
+        "kind": "project",
+        "description": "peaks-loop 24h 长任务代码审计（2026-07-28） > **状态**：报告-only，未实施、未派 sub-agent、未改代码。 > **触发**：用户 2026-07-28 显式要求\"审视 + 不改代码\"。 > ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-loop-audit.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "24h-mode-p1-phase-1-fully-shipped",
+        "kind": "project",
+        "description": "24h mode P1 ship phase 1/2 (rid-020a) — 完整闭环 > **session**: 2026-07-28-session-6984fe > **status**: PUSHED-TO-ORIGIN ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-mode-p1-phase-1-fully-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "24h-mode-p1-rid-020a-shipped",
+        "kind": "project",
+        "description": "24h mode P1 rid-020a 已 ship 在 main > **status**: COMMITTED-pending-user-authorize-push > **commit**:  > **branch**: m...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-mode-p1-rid-020a-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "24h-mode-p1-rid-split-plan-2026-07-28",
+        "kind": "project",
+        "description": "peaks-code 24h mode — rid-020a + rid-020b 双切片实施计划 > **状态**：实施计划 sediment（companion to v2 re-revised proposal），未派 sub-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-mode-p1-rid-split-plan.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "24h-mode-p1-state-machine-2026-07-28",
+        "kind": "project",
+        "description": "peaks-code 24h mode — P1 实施提案 v2（re-revised 2026-07-28） > **状态**：re-revised proposal sediment，未实施，未派 sub-agent。 > **触...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-mode-p1-state-machine.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "24h-trigger-and-decision-autonomy-2026-07-28",
+        "kind": "project",
+        "description": "24h 长任务触发条件 + 决策自主权边界 > **状态**：报告-only sediment，未实施，未派 sub-agent。 > **触发**：user 2026-07-28 提出\"什么算 24h 长任务 / 长任务决策不需人参...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-24h-trigger-and-decision-autonomy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
         "name": "4-0-0-beta-5-overview",
         "kind": "project",
         "description": "4.0.0-beta.5(发布日 2026-07-08,10 commits 增量,轴心 = **上线 peaks-solo dispatcher**)。 1.",
@@ -1184,6 +1240,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-consumer-project-smoke-test-ice-cola.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "peaks-code-loop-skill-proposal-2026-07-28",
+        "kind": "project",
+        "description": "Skill 提案（2026-07-28） > **状态**：提案 sediment，未实施，未创建 skill，未派 sub-agent。 > **触发**：user 2026-07-28 提出\"创建 peaks-code-loop ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-peaks-code-loop-skill-proposal.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
       },
       {
         "name": "peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer",
@@ -1274,6 +1338,94 @@
         "updatedAt": "2026-07-01"
       },
       {
+        "name": "rid-020b-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-020b 24h mode integration surface — shipped > **Status**: implementation + QA verify PASS, pending user authorize...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-020b-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-27"
+      },
+      {
+        "name": "rid-024-code-commands-split-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-024 code-commands.ts split — shipped > **Status**: implementation + QA verify PASS, pending user authorize commit...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-024-code-commands-split-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-025-heartbeat-watch-and-ban-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-025 heartbeat watch + main-session-monitor ban — shipped > **Status**: implementation + QA verify PASS (after fix...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-025-heartbeat-watch-and-ban-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-026-monotonic-jsonl-store-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-026 monotonic cycle jsonl-store replacement — shipped > **Status**: implementation + QA verify PASS, pending user...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-026-monotonic-jsonl-store-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-027-auto-compact-partial-mode-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-027 auto-compact partial mode — shipped > **Status**: implementation + QA verify PASS-WITH-MINOR, pending user au...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-027-auto-compact-partial-mode-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-028-context-spillover-storage-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-028 context-spillover storage — shipped > **Status**: implementation + QA verify PASS, RD state=implemented + QA ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-028-context-spillover-storage-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-029-dag-wave-barrier-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-029 DAG wave + barrier — shipped > **Status**: implementation + QA verify PASS-WITH-MINOR, RD state=implemented +...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-029-dag-wave-barrier-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-030-dashboard-summary-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-030 dashboard summary — shipped > **Status**: implementation + QA verify PASS-WITH-MINOR, RD state=implemented + ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-030-dashboard-summary-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-031-dispatcher-deprecation-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-031 dispatcher-deprecation (narrower scope) — shipped > **Status**: implementation + QA verify PASS, RD state=imp...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-031-dispatcher-deprecation-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-032-turn-boundary-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-032 A turn-boundary (LLM no-context mode MINIMAL) — shipped > **Status**: implementation + QA verify PASS, RD sta...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-032-turn-boundary-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "rid-033-spillover-lstat-shipped-2026-07-28",
+        "kind": "project",
+        "description": "rid-033 spillover-store lstat target symlink defense-in-depth — shipped > **Status**: implementation + QA verify PASS...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-033-spillover-lstat-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-28"
+      },
+      {
         "name": "token-encrypted-storage-decision",
         "kind": "project",
         "description": "用户 2026-05-29 决策：将来做 Feature B（open-core license/entitlement）时，license key、token、密钥等敏感凭据必须**加密落盘、使用时解密**，而不是明文存储，也不是 ...",
@@ -1336,6 +1488,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\v2-15-0-sticky-mode-and-feedback-promotion.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "worktree-user-auth-hard-gate",
+        "kind": "project",
+        "description": "worktree 显式用户授权硬门禁(2026-07-27) 事件 一次 audit-closeout 治理收尾任务中,peaks-code 编排器自行给  派了 worktree 隔离的子代理,并因 baseline 不干净而执行了...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-27-worktree-user-auth-hard-gate.md",
+        "sourceArtifact": "peaks-audit 2026-07-27 + 用户直接指令",
+        "updatedAt": "2026-07-27"
       }
     ],
     "reference": [
