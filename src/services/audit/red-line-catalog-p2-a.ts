@@ -242,6 +242,14 @@ const SKILL_PRESENCE_MANDATORY: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-skill-presence-mandatory.ts',
 };
 
+const PRD_SOURCE_SNAPSHOT_PLACEMENT: RedLineCatalogEntry = {
+  id: 'rl-prd-source-snapshot-placement-001',
+  rule: 'peaks-prd SKILL.md must declare `## Document snapshot placement (BLOCKING)` heading + Prohibited paths + .peaks/_runtime/<session-id>/prd/source/ path',
+  markers: ['BLOCKING'],
+  phrases: ['document snapshot placement', 'prohibited paths', 'prd/source/'],
+  enforcerRef: 'src/services/audit/enforcers/lint-prd-source-snapshot.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -281,4 +289,9 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // in skills/bee/* SKILL.md. The MANDATORY marker + the heading
   // are now enforced by lint-skill-presence-mandatory.ts.
   SKILL_PRESENCE_MANDATORY,
+  // Slice 2026-07-29-rid-prose-only-sweep-002: close two more
+  // peaks-prd discovered lines (md-292, md-301) with one
+  // enforcer. The enforcer pattern-scans the source-snapshot
+  // placement guidance + prohibited-paths list.
+  PRD_SOURCE_SNAPSHOT_PLACEMENT,
 ];
