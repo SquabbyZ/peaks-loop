@@ -19,6 +19,7 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   appendHeartbeat,
   setStage,
+  tryAutoReleaseLease,
   type HeartbeatStatus
 } from '../../services/dispatch/dispatch-record-writer.js';
 import { isStageLabel, type StageLabel } from '../../services/dispatch/stage-enum.js';
@@ -129,6 +130,31 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
         status: result.record.status,
         truncated: result.truncated
       }, [], ['Continue business logic; heartbeat is fire-and-forget.']), asJson);
+      // Slice 2026-07-29-worktree-l2-extended Part 3.A.2: when the
+      // heartbeat reports a TERMINAL status (done / failed / cancelled
+      // / no-execution) AND the dispatch owns a lease, fire the
+      // detached release. This is the common path: most sub-agents
+      // finalize via heartbeat before the share-reducer calls
+      // markCompleted, so the heartbeat path is the more frequent
+      // release trigger in practice. markCompleted's hook (Part 3.A.1)
+      // remains as the safety net for sub-agents that finalize via
+      // share without a terminal heartbeat. The release is detached
+      // + best-effort; a failure here cannot roll back the heartbeat
+      // write (the printResult above already shipped the response).
+      const terminalHeartbeatStatuses: ReadonlySet<HeartbeatStatus> = new Set([
+        'done', 'failed', 'cancelled', 'no-execution'
+      ]);
+      if (terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) && result.record.leaseId !== null) {
+        try {
+          tryAutoReleaseLease({
+            projectRoot: trustedRoot,
+            sessionId: result.record.sessionId,
+            leaseId: result.record.leaseId
+          });
+        } catch { // best-effort
+          /* swallow */
+        }
+      }
       // Slice 2026-06-23-audit-4th #B1: structured log on success.
       try {
         writeLogEntry({
