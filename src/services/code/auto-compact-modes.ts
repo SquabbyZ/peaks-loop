@@ -6,6 +6,13 @@
  * earlier for 24h long-run scenarios where the user has explicitly
  * opted into higher compaction cadence via `peaks session 24h-mode`.
  *
+ * Slice 2026-07-29-context-evaluation-accuracy Part 22: a new
+ * `autoFire` tier is added between soft-warn and preCompact. peaks-loop
+ * preempts and runs `peaks compact auto --execute` itself when
+ * context crosses `autoFire`; the LLM is NOT asked to "decide"
+ * (the LLM-judged 0.85–0.95 zone was the source of false-positive
+ * "context too low" reports at 60%+ free — the LLM was guessing).
+ *
  * The mode only changes the THRESHOLDS at which the orchestrator fires.
  * The actual partial-compaction behaviour (dropping low-priority context
  * layers) is a follow-up slice; for now `partial` mode is logged +
@@ -15,14 +22,15 @@
 export type AutoCompactMode = 'standard' | 'partial';
 
 export const AUTO_COMPACT_THRESHOLDS: Readonly<Record<AutoCompactMode, {
+  readonly autoFire: number;
   readonly preCompact: number;
   readonly redLine: number;
 }>> = {
-  standard: { preCompact: 0.85, redLine: 0.95 },
-  partial: { preCompact: 0.70, redLine: 0.85 }
+  standard: { autoFire: 0.80, preCompact: 0.85, redLine: 0.95 },
+  partial: { autoFire: 0.65, preCompact: 0.70, redLine: 0.85 }
 };
 
-export function thresholdFor(mode: AutoCompactMode, kind: 'preCompact' | 'redLine'): number {
+export function thresholdFor(mode: AutoCompactMode, kind: 'autoFire' | 'preCompact' | 'redLine'): number {
   return AUTO_COMPACT_THRESHOLDS[mode][kind];
 }
 

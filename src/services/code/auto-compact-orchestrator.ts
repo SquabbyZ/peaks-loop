@@ -102,15 +102,16 @@ const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
  * when 24h long-run mode is active or `--mode partial` is passed.
  */
 export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 'standard'): CompactTrigger {
+  const autoFire = thresholdFor(mode, 'autoFire');
   const preCompact = thresholdFor(mode, 'preCompact');
   const redLine = thresholdFor(mode, 'redLine');
-  if (ratio < preCompact) {
+  if (ratio < autoFire) {
     return ratio < 0.5
       ? { kind: 'none' }
       : {
           kind: 'soft-warn',
           ratio,
-          message: `Context at ${(ratio * 100).toFixed(1)}%; below the ${(preCompact * 100).toFixed(0)}% pre-compact threshold (mode=${mode}).`
+          message: `Context at ${(ratio * 100).toFixed(1)}%; below the ${(autoFire * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`
         };
   }
   if (ratio >= redLine) {
@@ -120,15 +121,29 @@ export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 's
       message: `Context at ${(ratio * 100).toFixed(1)}% ≥ ${(redLine * 100).toFixed(0)}% red line (mode=${mode}). Synchronous compact REQUIRED (LLM cannot opt out).`
     };
   }
-  // pre-compact zone: peaks-loop fires the auto-compact pathway
-  // AUTOMATICALLY (zero-pause contract, v2.13.0). The LLM does NOT
-  // decide; the orchestrator does. D6.e in-flight deferral below is
-  // the only reason to wait.
+  if (ratio < preCompact) {
+    // Part 22: auto-fire zone (0.80 ≤ ratio < 0.85). peaks-loop
+    // preempts and runs `peaks compact auto --execute` itself
+    // without LLM involvement. The LLM is not asked to "decide";
+    // the toolkit is applied synchronously. Closes the
+    // LLM-misjudges-context window that previously let the
+    // ratio drift to 0.95 before the auto-fire kicked in.
+    return {
+      kind: 'auto-fire',
+      ratio,
+      message: `Context at ${(ratio * 100).toFixed(1)}% in auto-fire zone (≥${(autoFire * 100).toFixed(0)}% / <${(preCompact * 100).toFixed(0)}%, mode=${mode}). peaks-loop will fire compact without LLM confirmation.`
+    };
+  }
+  // pre-compact zone (0.85 ≤ ratio < 0.95): kept for backward
+  // compat with operators who configured the higher threshold.
+  // In practice peaks-loop already auto-fired at the lower
+  // threshold; the pre-compact zone today is the "already fired"
+  // zone.
   return {
     kind: 'pre-compact',
     ratio,
     toolkitReady: true,
-    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (≥${(preCompact * 100).toFixed(0)}% / <${(redLine * 100).toFixed(0)}%, mode=${mode}). peaks-loop will automatically fire the auto-compact pathway (zero-pause contract).`
+    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (≥${(preCompact * 100).toFixed(0)}% / <${(redLine * 100).toFixed(0)}%, mode=${mode}). peaks-loop already fired the auto-compact pathway at the auto-fire threshold; the LLM does not need to act.`
   };
 }
 
