@@ -92,6 +92,11 @@ npm i -g peaks-loop
 | 🔁 **跑过一次再来** | `/peaks-solo 按上次那样再跑一次` | 调出你已经沉淀好的战术,自动复跑 |
 | 🆕 **接手陌生仓库** | `/peaks-code 这是新仓库,先带我过一遍` | 摸清结构、识别风险点、给一个上手顺序 |
 | 🧠 **沉淀自己的打法** | `/peaks-solo 这套打法以后还会用,沉淀一下` | 变成你本地常驻的战术,下次说"跑那只"就行 |
+| 🧪 **开闸审计** | `/peaks-audit` | 6 维审计,RD/QA 前的强制入口 |
+| ✅ **4 维验收** | `/peaks-final-review` | 功能/问题/不引入新 bug/不破坏 |
+| 🔌 **IDE 适配** | `/peaks-ide` | hooks + statusline + handle |
+| ⏯ **从断点续跑** | `/peaks-resume` | 扫最深完成的门,AskUserQuestion |
+| 🔬 **切片拆解** | `/peaks-slice-decompose` | 多 pass + 跨 pass 边 + 仲裁 |
 
 每一条路,**一条斜杠命令**就能开跑。
 
@@ -207,6 +212,20 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 **最大的不同:从"代码专用"扩成"多域编排系统"。** 4.x 不再只是写代码 —— 新增了 `peaks-content`(内容生产)、`peaks-doctor`(项目健康)、`peaks-issue-fix-orchestrator`(批量修 issue)、`peaks-sop`(自定义 SOP)四条域编排链,加上 `peaks-solo` 分诊员按你说话自动判断该走哪一域。再加 9 个 IDE 适配、结晶系统重命名、post-run crystallization 机制、5,439 tests 通过。完整变更 → [`CHANGELOG.md`](./CHANGELOG.md)。
 
 </details>
+
+---
+
+## 全量 skill 索引
+
+13 个 user skill · 全部入口都在 `skills/<name>/SKILL.md`:
+
+`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
+
+---
+
+## Ship 摘要(4.x · 14 rid)
+
+`020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034 · GA(4.0.0) · retire-auto-compact-hook` — 涵盖 code-run、24h-mode、spillover、DAG fan-out、dashboard 聚合、CLI surface 收敛(73→9 byte-identical)等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ---
 
