@@ -126,3 +126,188 @@ The CLI surface lives in
 `runSchedulerLoop` function is the async loop; `start` /
 `stop` / `status` are thin shells around pid-file
 management.
+
+---
+
+# Appendix A — NSSM (Non-Sucking Service Manager) detailed install
+
+> **Slice 2026-07-29-rid-prose-only-sweep Part 39.** This
+> appendix is the operator-focused, step-by-step NSSM install
+> recipe for `peaks-cron-scheduler` on Windows. NSSM wraps any
+> long-running process as a real Windows service that starts at
+> boot, restarts on crash, and writes to the Windows Event Log.
+
+## Why NSSM (not Windows Task Scheduler)
+
+Windows Task Scheduler can run `peaks-cron-scheduler start`
+on a schedule, but it does not manage the long-running process:
+if `node` crashes, Task Scheduler will not restart it until
+the next trigger. NSSM (and node-windows, a Node-native
+alternative) treat the process as a service with auto-restart.
+
+## Install NSSM
+
+Download NSSM from <https://nssm.cc/> (the official site
+hosts the binary). NSSM is a single `nssm.exe` (~50 KB); put
+it on PATH (e.g. `C:\Windows\System32` or a custom dir).
+
+For a 64-bit Windows host, NSSM ships 32-bit and 64-bit
+binaries in the same zip — use `win64\nssm.exe`. The 32-bit
+binary works for 32-bit services; the 64-bit binary is the
+default for modern systems.
+
+```sh
+# Verify NSSM is on PATH and reports its version
+nssm version
+# NSSM 2.24, 64-bit
+```
+
+If `nssm` is not on PATH, the install will fail with
+`'nssm' is not recognized`. The peaks-cron-scheduler NSSM
+install does not put NSSM on PATH for the operator; it
+expects NSSM to be installed first.
+
+## Install the service
+
+```sh
+# 1. Install the service. NSSM is happy with `node` + script
+#    args, so the same call works on Windows + POSIX.
+nssm install peaks-cron-scheduler "C:\Program Files\nodejs\node.exe" \
+  "C:\Users\<you>\.claude\skills\peaks-loop\bin\peaks.js" \
+  "cron-scheduler" "start" "--project" "C:\path\to\peaks-project"
+
+# 2. Set the working directory (NSSM inherits the install
+#    caller's cwd by default; that may not be the project).
+nssm set peaks-cron-scheduler AppDirectory "C:\path\to\peaks-project"
+
+# 3. Set environment variables (if needed for proxies / mirrors).
+nssm set peaks-cron-scheduler AppEnvironmentExtra "PEAKS_HOME=C:\Users\<you>\.peaks"
+
+# 4. Configure auto-restart on crash.
+nssm set peaks-cron-scheduler AppExit Default Restart
+nssm set peaks-cron-scheduler AppRestartDelay 5000
+
+# 5. Set log file paths (NSSM redirects stdout/stderr).
+nssm set peaks-cron-scheduler AppStdoutCreationDisposition 4   # OPEN_ALWAYS
+nssm set peaks-cron-scheduler AppStderrCreationDisposition 4
+nssm set peaks-cron-scheduler AppStdout "C:\path\to\logs\peaks-cron-scheduler.out.log"
+nssm set peaks-cron-scheduler AppStderr "C:\path\to\logs\peaks-cron-scheduler.err.log"
+nssm set peaks-cron-scheduler AppRotateFiles 1                   # rotate on size
+nssm set peaks-cron-scheduler AppRotateBytes 10485760              # 10 MB per file
+
+# 6. Start the service.
+nssm start peaks-cron-scheduler
+```
+
+The same NSSM recipe works on POSIX (use `nssm` from your
+distro's package manager) — NSSM runs the same commands on
+both Windows and Linux. The pid-file pattern is the same.
+
+## Verify
+
+```sh
+# 1. NSSM-level status
+nssm status peaks-cron-scheduler
+# SERVICE_RUNNING
+
+# 2. peaks-level status (peaks-cli reads the pid file)
+peaks cron-scheduler status --project C:\path\to\peaks-project
+# {
+#   "data": {
+#     "alive": true,
+#     "pid": 12345,
+#     "scheduleEntries": 1,
+#     "dueTaskCount": 0
+#   }
+# }
+
+# 3. Force a one-shot to verify the schedule is reachable
+peaks cron-scheduler run-once --project C:\path\to\peaks-project
+# {
+#   "data": {
+#     "ran": 1,
+#     "records": [{ ... }]
+#   }
+# }
+```
+
+If `nssm status` reports `SERVICE_STOPPED`, the service
+crashed on startup. Check the log file at
+`<AppStderr>` (typically `C:\path\to\logs\peaks-cron-scheduler.err.log`).
+The most common cause is `nssm` not finding the node binary
+at `<AppStdout>` — verify with
+`nssm get peaks-cron-scheduler AppStdout` + `AppParameters`.
+
+## Uninstall
+
+```sh
+# 1. Stop the service
+nssm stop peaks-cron-scheduler
+
+# 2. Remove the service registration
+nssm remove peaks-cron-scheduler confirm
+
+# 3. (Optional) Remove the log files
+rm "C:\path\to\logs\peaks-cron-scheduler.out.log"
+rm "C:\path\to\logs\peaks-cron-scheduler.err.log"
+
+# 4. (Optional) Remove the cron-schedule state
+#    Note: the peaks-cli schedule lives under .peaks/cron/ and
+#    is NOT in NSSM. Removing NSSM does not affect the schedule.
+peaks cron list --project C:\path\to\peaks-project
+```
+
+If the service refuses to stop, escalate:
+`taskkill /F /IM node.exe /FI "WINDOWTITLE eq peaks-cron-scheduler*"`
+or `nssm set peaks-cron-scheduler AppStopMethodSkip 0` to
+force NSSM to honor `Ctrl+C` instead of `WM_CLOSE`.
+
+## Troubleshooting
+
+- **"nssm: command not found"** — NSSM is not on PATH.
+  Install it (see `Install NSSM` above) and re-run the
+  `nssm install` command.
+- **"SERVICE_PAUSED" on startup** — Windows Defender or
+  another AV is blocking the binary. Add the node binary
+  to the AV exclusion list or sign the peaks-cli install.
+- **Service runs but no log lines** — the AppStdout path is
+  wrong, or the directory is not writable. NSSM needs the
+  AppStderr file's parent directory to exist before
+  service start. `mkdir -p` the log dir before
+  `nssm start`.
+- **Auto-restart not firing** — `AppExit Default Restart`
+  is set, but Windows also has a per-process recovery
+  policy (`sc failure` for native services). For NSSM,
+  `AppRestartDelay` is in milliseconds; 5000 is the
+  default. 0 means "restart immediately", which can cause
+  a crash loop if the underlying issue is fatal.
+- **Schedule has tasks but they don't fire** — verify
+  the schedule file is reachable by the service user
+  (the user the service runs as, not your interactive
+  user). `peaks cron list` from the interactive shell
+  may show entries that the service user cannot see
+  (different HOME / different `PEAKS_HOME` env).
+
+## Production checklist
+
+- [ ] NSSM installed on PATH
+- [ ] Node.js installed at the path NSSM is configured for
+- [ ] peaks-loop installed at the path NSSM is configured for
+- [ ] Project root has a populated `.peaks/cron/schedule.json`
+      (run `peaks cron init` from the project dir first)
+- [ ] Log directory exists and is writable by the service user
+- [ ] `nssm status peaks-cron-scheduler` reports `SERVICE_RUNNING`
+- [ ] `peaks cron-scheduler status` reports `alive: true`
+- [ ] `peaks cron-scheduler run-once` runs the lease-gc-daily
+      task without error
+- [ ] Service survives a reboot (`shutdown /r` then
+      `nssm status peaks-cron-scheduler`)
+
+## Related memory
+
+- [[2026-07-29-worktree-l2-extended-part15]] — peaks-cron
+  init / list / run / peaks-cron-scheduler start (Part 15)
+- [[2026-07-29-worktree-l2-extended-part20]] — first pass
+  NSSM recipe (Part 20)
+- [[2026-07-29-worktree-l2-extended-part14]] — peaks-cron
+  schedule.json shape + built-in `lease-gc-daily` task
