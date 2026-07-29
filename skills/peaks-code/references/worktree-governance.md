@@ -102,5 +102,22 @@ Every sub-agent dispatched by peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-
 
 - [[2026-07-27-worktree-user-auth-hard-gate]] — L2 baseline, shipped earlier.
 - [[2026-07-29-worktree-layer3-deny]] — L3 Minimal Viable rationale.
+- [[2026-07-29-worktree-l2-extended-part1]] — lease foundation + spawn/release CLI.
+- [[2026-07-29-worktree-l2-extended-part2]] — renew/list/gc/status + hook integration + dispatch bridge + lifecycle e2e.
+- [[2026-07-29-worktree-l2-extended-part3]] — auto-release on terminal finalization.
+- [[2026-07-29-worktree-l2-extended-part4]] — observability emitter + v3 schema.
+- [[2026-07-29-worktree-l2-extended-part5]] — leak rate + cross-session aggregation.
+- [[2026-07-29-worktree-l2-extended-part6-9]] — stats summary + v3.1 schema + container contract bridge.
+
+## Lease observability (Parts 4-6)
+
+The L2 ecosystem emits a `lease` category into the existing observability stream (`.peaks/_runtime/<sid>/metrics/slices.jsonl`). Seven `kind` values: `spawn` / `renew` / `release` / `gc` / `autoRelease` / `autoRelease-failed` / `autoRelease-skipped`. Two CLIs read the stream:
+
+- `peaks lease-metrics [--session <sid>] [--project <root>] [--rate] [--all-sessions] [--json]` — per-kind counts + 5-event tail. With `--rate`, adds `estimatedActive` / `estimatedLeaked` / `avgLifetimeMs` / `p99LifetimeMs`. With `--all-sessions`, aggregates across every session under `.peaks/_runtime/`. The two flags are independent; `--rate --all-sessions` is the project-wide leak view.
+- `peaks lease-stats --project <root> --json` — project-wide summary: counts + rate + per-rid (top 20) + per-role + per-isolation breakdown. Always aggregates cross-session. Use this when you want a "status board" rather than the raw event stream.
+
+The `estimated` prefix is intentional: the canonical "alive" set is the on-disk lease files in `.peaks/_runtime/<sid>/worktree-leases/` (queryable via `peaks worktree list`). The aggregation is a metrics-stream view — useful for time-series dashboards, but the FS state is the source of truth for "is this lease still alive right now?".
+
+For dashboards: pipe the JSON envelope into `jq`, paste into a `peaks lease-stats --json` reader, or feed into the `peaks audit metrics` flow. The schema is the same `ObservabilityEvent` v1 used by slice / dispatch / cycle events.
 - [[2026-07-27-rid-016-monorepo-delete-5-subpackages]] — Lesson 1: worktree-only artifact fragility.
 - [[2026-07-24-peaks-code-bridge-002-rootcause]] — peaks-code ↔ superpowers bridge baseline.
