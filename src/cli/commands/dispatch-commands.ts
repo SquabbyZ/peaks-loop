@@ -88,7 +88,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--headroom-mode <mode>', `G7.7: headroom mode (${HEADROOM_MODES.join(' | ')}); default balanced`)
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
       .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
-      .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Only "worktree" is currently recognised; auto-spawns a worktree lease (via `peaks worktree spawn`) and injects PEAKS_WORKTREE_LEASE_ID into the dispatch envelope so the sub-agent can write to the lease worktree without a separate auth grant.')
+      .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
     // 2.7.0 slice-dag-dispatcher MVP: --from-dag short-circuits the single
@@ -188,17 +188,17 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // makes the lease-aware gate (Part 2.B) work for sub-agents:
       // without this injection, the gate has no leaseId to consult and
       // the sub-agent would need a separate `peaks worktree auth grant`.
-      let isolationMode: 'worktree' | 'container' | null = null;
+      let isolationMode: 'worktree' | 'container' | 'vm' | null = null;
       let leaseId: string | null = null;
       let worktreePath: string | null = null;
       let worktreeBranch: string | null = null;
       if (typeof options.isolation === 'string' && options.isolation.length > 0) {
-        if (options.isolation !== 'worktree' && options.isolation !== 'container') {
-          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" | "container" (got "${options.isolation}")`, {
+        if (options.isolation !== 'worktree' && options.isolation !== 'container' && options.isolation !== 'vm') {
+          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" | "container" | "vm" (got "${options.isolation}")`, {
             role,
             toolCall: null,
             dispatchRecordPath: null
-          } as never, ['Drop --isolation or pass --isolation worktree / --isolation container.']), asJson);
+          } as never, ['Drop --isolation or pass --isolation worktree / --isolation container / --isolation vm.']), asJson);
           process.exitCode = 1;
           return;
         }
@@ -257,6 +257,47 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             process.exitCode = 1;
             return;
           }
+        } else if (options.isolation === 'vm') {
+          // Slice 2026-07-29-worktree-l2-extended Part 25: the
+          // VM isolation mode is the L4 follow-up to L4 container.
+          // The CLI contract is shipped (--isolation vm is accepted
+          // by the dispatch parser and reflected in the envelope's
+          // isolationMode type). The VM runtime (Linux KVM / macOS
+          // HyperKit / Windows Hyper-V) is a much larger follow-up
+          // and is intentionally not implemented yet — we
+          // fail-fast with ISOLATION_VM_NOT_YET_IMPLEMENTED so
+          // operators see a clear "this is a placeholder" signal
+          // rather than a silent fallback to worktree.
+          //
+          // The full implementation lives in a future rid; the
+          // design is:
+          //   1. New service: src/services/vm/vm-lease.ts (parallels
+          //      worktree-lease.ts / container-lease.ts) — pure lease
+          //      store with vmId + hypervisor + status.
+          //   2. CLI: 'peaks vm spawn --hypervisor kvm|hyperkit|hyperv
+          //      --image <name> --rid <rid> --role <role>' — runs
+          //      virsh create / hvftool / hvcreate, captures the
+          //      vm id, writes the lease.
+          //   3. CLI: 'peaks vm release --lease-id <id>' — virsh
+          //      destroy + cleanup.
+          //   4. dispatch --isolation vm: shells out to peaks vm
+          //      spawn, injects PEAKS_VM_LEASE_ID env (parallel
+          //      to PEAKS_CONTAINER_LEASE_ID).
+          //   5. PreToolUse gate: when the env var is set AND the
+          //      tool call is bash-with-vm-bearing-command,
+          //      allow via the vm lease.
+          //
+          // Until then: fail-fast.
+          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_VM_NOT_YET_IMPLEMENTED', '--isolation vm is the L4 follow-up to --isolation container (Part 25 contract); the VM runtime (KVM / HyperKit / Hyper-V) is a much larger follow-up rid and is intentionally not implemented yet. Drop --isolation or pass --isolation worktree / --isolation container for now.', {
+            role,
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never, [
+            'The VM contract is shipped (--isolation vm is accepted by the dispatch parser); the runtime is the next rid.',
+            'Use --isolation worktree (L2 production) or --isolation container (L4 docker, Part 12) for now.'
+          ]), asJson);
+          process.exitCode = 1;
+          return;
         }
       }
 
