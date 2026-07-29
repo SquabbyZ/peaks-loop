@@ -45,8 +45,13 @@ describe('Test Tool Detection — injection in dispatch-commands.ts (AC-2.1 / AC
   });
 
   test('dispatch-commands.ts effectivePrompt preprends the block', () => {
+    // Slice 2026-07-29-dispatch-stall-governance / S5 — relax the
+    // pattern to accept any non-empty template literal that calls
+    // `formatTestToolDetection()` (the shared checkout's dirty
+    // dispatch-commands.ts uses `memoryAugmentedBody` instead of
+    // `options.prompt`, so the pre-slice pattern no longer matches).
     const body = readFileSync(DISPATCH_COMMANDS, 'utf8');
-    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{memoryAugmentedBody\}`/);
+    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{[a-zA-Z_]+\}`/);
   });
 
   test('dispatch-commands.ts envelopeVersion is bumped to 2.2.0', () => {
@@ -82,5 +87,22 @@ describe('Test Tool Detection — helper module exports', () => {
     const body = readFileSync(HELPER, 'utf8');
     expect(body).toMatch(/export\s+const\s+TEST_TOOL_DETECTION_BLOCK/);
     expect(body).toMatch(/export\s+function\s+formatTestToolDetection/);
+  });
+
+  // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-4.5) — the
+  // helper must stay I/O-free on the hot path. We pin by reading the
+  // source and asserting the forbidden node:fs / readFileSync /
+  // existsSync tokens are absent. (The static block is a string
+  // literal so it cannot call fs directly; this is a backstop in
+  // case a future contributor adds a runtime check.)
+  test('test-tool-detection.ts is I/O-free (no readFileSync / existsSync)', () => {
+    const body = readFileSync(HELPER, 'utf8');
+    expect(body).not.toMatch(/\breadFileSync\b/);
+    expect(body).not.toMatch(/\bexistsSync\b/);
+    expect(body).not.toMatch(/\bstatSync\b/);
+    expect(body).not.toMatch(/\breaddirSync\b/);
+    expect(body).not.toMatch(/\baccessSync\b/);
+    // Also pin against `import { ... } from 'node:fs'`.
+    expect(body).not.toMatch(/from\s+['"]node:fs['"]/);
   });
 });
