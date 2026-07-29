@@ -187,17 +187,40 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // makes the lease-aware gate (Part 2.B) work for sub-agents:
       // without this injection, the gate has no leaseId to consult and
       // the sub-agent would need a separate `peaks worktree auth grant`.
-      let isolationMode: 'worktree' | null = null;
+      let isolationMode: 'worktree' | 'container' | null = null;
       let leaseId: string | null = null;
       let worktreePath: string | null = null;
       let worktreeBranch: string | null = null;
       if (typeof options.isolation === 'string' && options.isolation.length > 0) {
-        if (options.isolation !== 'worktree') {
-          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" (got "${options.isolation}")`, {
+        if (options.isolation !== 'worktree' && options.isolation !== 'container') {
+          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" | "container" (got "${options.isolation}")`, {
             role,
             toolCall: null,
             dispatchRecordPath: null
-          } as never, ['Drop --isolation or pass --isolation worktree.']), asJson);
+          } as never, ['Drop --isolation or pass --isolation worktree / --isolation container.']), asJson);
+          process.exitCode = 1;
+          return;
+        }
+        if (options.isolation === 'container') {
+          // Slice 2026-07-29-worktree-l2-extended Part 8: container
+          // isolation contract. The actual container runtime
+          // (docker / podman) is NOT YET INTEGRATED — the bridge
+          // lands the CLI contract (--isolation container is
+          // accepted, dispatched, and surfaces in the envelope
+          // + toolCall.args) so downstream tooling can wire
+          // docker run / kill / exec without re-litigating the
+          // dispatch layer. The real container spawn is a
+          // follow-up rid (TODO in spawnContainerLease). The
+          // bridge is intentionally fail-fast: container
+          // requests do NOT silently fall through to worktree.
+          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_CONTAINER_NOT_YET_IMPLEMENTED', '--isolation container is the L4 isolation bridge for Part 8; the container runtime spawn is the next rid (see .peaks/memory/2026-07-29-worktree-l2-extended-part8 if it exists, otherwise open one). Drop --isolation or pass --isolation worktree for now.', {
+            role,
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never, [
+            'The container bridge is contract-complete (envelope + toolCall.args) but the spawn path is a TODO.',
+            'Use --isolation worktree for the current production path; container support lands in the next rid.'
+          ]), asJson);
           process.exitCode = 1;
           return;
         }
