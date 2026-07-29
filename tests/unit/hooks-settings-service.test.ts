@@ -13,6 +13,9 @@ import {
   removeHookInstall,
   SUPERPOWERS_DENIED_SKILLS,
   withSuperpowersSkillDenylist,
+  withTriggeredDenyList,
+  withoutTriggeredDenyList,
+  TRIGGER_PHRASES,
   withoutSuperpowersSkillDenylist,
   listSuperpowersDenyEntries
 } from '../../src/services/skills/hooks-settings-service.js';
@@ -450,5 +453,71 @@ describe('slice 2026-07-29-worktree-layer3-deny: install / uninstall round-trip 
     const settings = await readSettings();
     const deny = (settings.permissions as { deny: string[] }).deny;
     expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+  });
+});
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 27 — trigger-style
+ * deny. When the existing settings file has a superpowers or
+ * raw-git-worktree entry, peaks appends a defensive `Edit`
+ * deny so the chain cannot run without an explicit
+ * `peaks hooks uninstall` first.
+ */
+describe('slice Part 27: trigger-style deny (withTriggeredDenyList)', () => {
+  test('does not modify settings when no trigger phrase is present', () => {
+    const out = withTriggeredDenyList({
+      permissions: { deny: ['UseSkill(other:thing)'] }
+    });
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).toEqual(['UseSkill(other:thing)']);
+    expect(deny.some((d) => d.startsWith('Edit(deny-trigger:'))).toBe(false);
+  });
+
+  test('appends a trigger deny when superpowers:using-git-worktrees appears in deny', () => {
+    const out = withTriggeredDenyList({
+      permissions: { deny: ['UseSkill(superpowers:using-git-worktrees)'] }
+    });
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('Edit(deny-trigger:superpowers:using-git-worktrees)');
+  });
+
+  test('appends a trigger deny when the trigger phrase is in the allow list', () => {
+    const out = withTriggeredDenyList({
+      permissions: { allow: ['Bash(git worktree add:*)'] }
+    });
+    const deny = (out.permissions as { deny: string[] }).deny;
+    // Trigger is `Bash(git worktree add` (no closing paren) so the
+    // deny entry is exactly that prefix. We assert the prefix so
+    // the test does not depend on the trigger-phrase terminator.
+    expect(deny.some((d) => d.startsWith('Edit(deny-trigger:Bash(git worktree add'))).toBe(true);
+  });
+
+  test('is idempotent — running twice yields the same output', () => {
+    const input = { permissions: { deny: ['UseSkill(superpowers:using-git-worktrees)'] } };
+    const once = withTriggeredDenyList(input);
+    const twice = withTriggeredDenyList(once);
+    expect(twice).toEqual(once);
+  });
+
+  test('withoutTriggeredDenyList strips the trigger entries but keeps user entries', () => {
+    const input = {
+      permissions: {
+        deny: [
+          'UseSkill(other:thing)',
+          'Edit(deny-trigger:superpowers:using-git-worktrees)',
+          'Edit(deny-trigger:Bash(git worktree add'
+        ]
+      }
+    };
+    const out = withoutTriggeredDenyList(input);
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).toEqual(['UseSkill(other:thing)']);
+  });
+
+  test('TRIGGER_PHRASES is the source of truth (locked at 6 entries)', () => {
+    expect(TRIGGER_PHRASES.length).toBe(6);
+    expect(TRIGGER_PHRASES).toContain('superpowers:using-git-worktrees');
+    expect(TRIGGER_PHRASES).toContain('Bash(git worktree add');
+    expect(TRIGGER_PHRASES).toContain('Bash(podman run');
   });
 });

@@ -670,3 +670,97 @@ export function readHookStatus(scope: HookScope, projectRoot?: string, options?:
   const settings = exists ? readJsonObjectFile(settingsPath) : {};
   return { scope, settingsPath, exists, installed: isInstalledForIde(settings, ide) };
 }
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 27 — trigger-style deny.
+ *
+ * In addition to the static SUPERPOWERS_DENIED_SKILLS list, peaks
+ * scans the existing settings file for "trigger phrases" that
+ * indicate the user has configured the superpowers chain (or
+ * any other auto-run worktree-creating tool) and appends a
+ * defensive deny to prevent the chain from running raw
+ * `git worktree add` (or `podman run`) directly.
+ *
+ * Triggers detected (substring match on the existing
+ * permissions.deny / permissions.allow list):
+ *
+ *  - `superpowers:using-git-worktrees` — the chain's ground zero
+ *  - `superpowers:brainstorming` etc. — the upstream skill
+ *  - `Bash(git worktree add` — the user has explicitly
+ *    allowed raw git worktree, which our L2 lease-aware gate
+ *    would also intercept (defense in depth)
+ *
+ * Append-only — never replaces, never re-orders, never removes
+ * existing entries. Idempotent: re-running the install with
+ * the same input yields the same output.
+ */
+export const TRIGGER_PHRASES: ReadonlyArray<string> = Object.freeze([
+  'superpowers:using-git-worktrees',
+  'superpowers:brainstorming',
+  'superpowers:writing-plans',
+  'superpowers:subagent-driven-development',
+  'Bash(git worktree add',
+  'Bash(podman run'
+]);
+
+/**
+ * Format a trigger-phrase into a stable `Edit` deny entry. We deny
+ * `Edit` (not `Bash`) on the *settings file* itself, so the
+ * user cannot edit the trigger away without an explicit
+ * `peaks hooks uninstall` first. The skill name (when
+ * applicable) is the value after the colon.
+ */
+function formatTriggerDenyEntry(phrase: string): string {
+  return `Edit(deny-trigger:${phrase})`;
+}
+
+export function withTriggeredDenyList(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
+  const existingDeny: string[] = Array.isArray(
+    (settings.permissions as Record<string, unknown> | undefined)?.deny
+  )
+    ? (((settings.permissions as Record<string, unknown>).deny as unknown[])
+        .filter((d): d is string => typeof d === 'string'))
+    : [];
+  // Detect triggers in the existing allow + deny lists.
+  const existingAllow: string[] = Array.isArray(
+    (settings.permissions as Record<string, unknown> | undefined)?.allow
+  )
+    ? (((settings.permissions as Record<string, unknown>).allow as unknown[])
+        .filter((d): d is string => typeof d === 'string'))
+    : [];
+  const haystack = [...existingDeny, ...existingAllow].join('|');
+  const triggered = TRIGGER_PHRASES.filter((p) => haystack.includes(p));
+  if (triggered.length === 0) return settings;
+  const triggeredEntries = triggered.map(formatTriggerDenyEntry);
+  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
+    ? (settings.permissions as Record<string, unknown>)
+    : {};
+  const otherDeny = existingDeny.filter((d) => !triggeredEntries.includes(d));
+  return {
+    ...settings,
+    permissions: { ...permissions, deny: [...new Set([...otherDeny, ...triggeredEntries])] }
+  };
+}
+
+/** Inverse of withTriggeredDenyList: strip every deny-trigger entry. */
+export function withoutTriggeredDenyList(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
+  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
+    ? (settings.permissions as Record<string, unknown>)
+    : {};
+  const existingDeny: string[] = Array.isArray(permissions.deny)
+    ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
+    : [];
+  const kept = existingDeny.filter((d) => !d.startsWith('Edit(deny-trigger:'));
+  const next: Record<string, unknown> = { ...permissions, deny: kept };
+  if (kept.length === 0) delete next.deny;
+  if (Object.keys(next).length === 0) {
+    const out = { ...settings };
+    delete out.permissions;
+    return out;
+  }
+  return { ...settings, permissions: next };
+}
