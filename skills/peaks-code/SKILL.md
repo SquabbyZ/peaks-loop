@@ -106,6 +106,16 @@ This chapter pins the boundary between `peaks-code` and the **superpowers** skil
 
 **Self-check (read before any tool call):** *Is the tool I am about to call a superpowers auto-runner, or a peaks-rd / peaks-qa sub-agent dispatch?* If it would short-circuit peaks-rd, STOP and dispatch via `peaks sub-agent dispatch rd`.
 
+## Worktree governance (3-layer design, locked 2026-07-29)
+
+> **npm-contract boundary.** Editing this file in `peaks-loop` source propagates to every consumer project on `npm install`. The 3-layer design is binding; downstream projects MAY extend Layer 2 with their own `peaks worktree auth grant` reasons but MUST NOT widen Layer 3's deny list outside the upstream `SUPERPOWERS_DENIED_SKILLS` constant. Full design, sub-agent contract, operator runbook → `references/worktree-governance.md`.
+
+- **L1 — sub-agent system prompt** (`MUST NOT` on superpowers chain in dispatch templates; weakest, prose-only).
+- **L2 — hook + lifecycle gate** (`peaks hooks install` → `peaks gate enforce` → `evaluateWorktreeAuth`; 5 deny codes `REQUIRED / EXPIRED / REQUEST_MISMATCH / CONSUMED / FILE_INVALID`).
+- **L3 — IDE `permissions.deny`** (Claude Code refuses Skill BEFORE LLM sees it; strongest layer).
+
+Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (shipping in rid-L2-extended; until then, fall back to L2 hook gate + manual `peaks worktree auth grant`). Sub-agents MUST also write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in MAIN (`--project .`), not in a worktree. See `references/worktree-governance.md` for the full contract.
+
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 
 Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.87 / 1 / 2 / 2.3 / 2.5 / N / N+1 / N+2 + sub-agent sharing + boundaries). Read that file in full at session start; the sequence is MANDATORY.
@@ -292,5 +302,6 @@ Index of every `references/` file. Read on demand.
 | `references/standards-preflight.md` | Standards preflight. |
 | `references/sub-agent-dispatch.md` | IDE-agnostic dispatch. |
 | `references/swarm-dispatch-contract.md` | Swarm fan-out gate + shape. |
+| `references/worktree-governance.md` | 3-layer worktree design + sub-agent contract + operator runbook. |
 | `references/workflow-gates-and-types.md` | Type classification + 7 gates. |
 | `references/workflow.md` | Workflow flow + transitions. |
