@@ -20,7 +20,7 @@ const SECTION_HARD_CONTRACTS: RedLineCatalogEntry = {
   id: 'rl-section-hard-contracts-001',
   rule: 'Section structure: Hard contracts for browser/IO surface',
   markers: ['MANDATORY', 'BLOCKING'],
-  phrases: ['hard contract', 'hard contracts for browser', 'must be read before'],
+  phrases: ['hard contract', 'hard contracts for browser', 'hard contracts (blocking)', 'must be read before'],
   enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
 };
 
@@ -379,6 +379,61 @@ const PEAKS_CODE_RUNTIME_CONTRACT: RedLineCatalogEntry = {
  * can spread this list into RED_LINE_CATALOG and add their own without
  * touching this file.
  */
+const PEAKS_AUDIT_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-audit-runtime-001',
+  rule: 'peaks-audit SKILL.md must declare the audit-runtime contract (machine-readable audit log, six-dimension audit, author identity)',
+  markers: ['MANDATORY', 'BLOCKING'],
+  phrases: ['audit log is machine-readable', 'six dimensions', '6 dimensions', 'author identity.*local gitconfig'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_CONTENT_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-content-runtime-001',
+  rule: 'peaks-content SKILL.md must declare the content-runtime contract (what this skill do, failure mode, each red line is written)',
+  markers: ['MANDATORY', 'BLOCKING'],
+  phrases: ['what this skill do', 'failure mode', 'each red line is written'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_IDE_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-ide-runtime-001',
+  rule: 'peaks-ide SKILL.md must declare the ide-runtime contract (for any consumer, what this skill do, general workflow-gating tool)',
+  markers: ['MANDATORY'],
+  phrases: ['for any consumer of the v2 envelope', 'what this skill do', 'general workflow-gating tool'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_DOCTOR_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-doctor-runtime-001',
+  rule: 'peaks-doctor SKILL.md must declare the doctor-orchestrator marker',
+  markers: ['MANDATORY'],
+  phrases: ['peaks-loop doctor is a doctor orchestrator'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-issue-fix-orchestrator-runtime-001',
+  rule: 'peaks-issue-fix-orchestrator SKILL.md must declare the deviation note + autonomous work proceed markers',
+  markers: ['MANDATORY'],
+  phrases: ['deviation note', 'autonomous work proceed'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_SOP_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-sop-runtime-001',
+  rule: 'peaks-sop SKILL.md must declare the sop-runtime contract (each red line below, sop lint reports findings)',
+  markers: ['MANDATORY'],
+  phrases: ['each red line below is written', 'sop lint reports findings'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
+
+const PEAKS_SLICE_DECOMPOSE_RUNTIME: RedLineCatalogEntry = {
+  id: 'rl-peaks-slice-decompose-runtime-001',
+  rule: 'peaks-slice-decompose SKILL.md must declare the slice-decompose contract (what this skill do, failure mode)',
+  markers: ['MANDATORY'],
+  phrases: ['what this skill do', 'failure mode ('],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-skill-runtime.ts',
+};
 export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   SECTION_HARD_CONTRACTS,
   SECTION_MANDATORY_ARTIFACT,
@@ -452,4 +507,16 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // enforcer that checks the peaks-code runbook section-marker
   // skeleton. Single catalog entry; multi-marker enforcer.
   PEAKS_CODE_RUNTIME_CONTRACT,
+  // Slice 2026-07-29-rid-prose-only-sweep-010: 8 of the
+  // remaining 22 discovered lines (peaks-audit x4,
+  // peaks-content x2, peaks-ide x2) closed with 6 enforcers
+  // in one file.
+  PEAKS_AUDIT_RUNTIME,
+  PEAKS_CONTENT_RUNTIME,
+  PEAKS_IDE_RUNTIME,
+  PEAKS_DOCTOR_RUNTIME,
+  PEAKS_ISSUE_FIX_ORCHESTRATOR_RUNTIME,
+  PEAKS_SOP_RUNTIME,
+  PEAKS_SLICE_DECOMPOSE_RUNTIME,
 ];
+
