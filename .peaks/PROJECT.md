@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-07-29T00:30:30.025Z
+> Last updated: 2026-07-26T09:46:52.700Z
 
 ## Project: peaks-loop
 
@@ -44,21 +44,13 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (12 sessions)
+## Timeline (4 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-07-28 | `2026-07-29-session-a84955` | Untitled | schemaVersion: 2 |
-| 2026-07-28 | `2026-07-28-session-71a3cf` | Untitled | G1. 产出 **1 份用户视角的功能地图**，覆盖 5 大域 + 13 skill + 5 super-command + 14 后置 s |
-| 2026-07-27 | `2026-07-28-session-22381b` | Untitled | rid: 2026-07-28-rid-020b-24h-mode-integration-verify |
-| 2026-07-27 | `2026-07-28-session-6984fe` | rid-018-019 4.0.0 GA pre-publish BLOCKER | PASS: body non-empty for 4.0.0 (2560 bytes) |
-| 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | schemaVersion: 2 |
-| 2026-07-27 | `2026-07-27-session-b4e485` | Untitled | - |
-| 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | schemaVersion: 1 |
+| 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | - |
 | 2026-07-25 | `2026-07-25-session-6da9d9` | Untitled | $ ./node_modules/.bin/vitest run tests/integration/sub-agent-dispatch- |
 | 2026-07-24 | `2026-07-24-session-fafee4` | Untitled | peaks-rd |
 | 2026-07-24 | `2026-07-24-session-f13da7` | Untitled | **Date:** 2026-07-24 |
-| ? | `2026-06-11-session-edbe91` | Untitled | - |
-| ? | `2026-06-06-session-5b1095` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->

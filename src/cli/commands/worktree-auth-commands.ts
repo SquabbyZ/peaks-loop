@@ -43,14 +43,21 @@ import {
   deserializeLease,
   finalizeLease,
   generateLeaseId,
+  isLeaseActive,
+  isLeaseGcEligible,
   leaseFilePath,
+  leaseStoreDir,
+  listLeasesSync,
+  markExpired,
+  markGc,
   markReleased,
+  renewLease,
   ttlForRole,
   worktreePath,
   type WorktreeLease,
 } from '../../services/worktree/worktree-lease.js';
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync as readFileSyncNode } from 'node:fs';
+import { existsSync, readdirSync, readFileSync as readFileSyncNode, statSync } from 'node:fs';
 
 const DEFAULT_TTL_MS = 5 * 60 * 1_000;
 const ALLOWED_OPERATIONS: ReadonlyArray<OperationType> = [
@@ -519,6 +526,427 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
         fail('worktree.release', 'RELEASE_FAILED', getErrorMessage(error), { leaseId: options.leaseId, sessionId }, [
           'Verify the lease id and re-run.',
           'If the lease was never spawned, no-op.'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // ─── Part 2.A: renew / list / gc / status ────────────────────────────────
+  // These four commands own the rest of the lease lifecycle. The hook
+  // integration (Part 2.B) and dispatch --isolation (Part 2.C) consult
+  // the same on-disk lease files these commands read/write, so the
+  // source-of-truth contract is preserved end-to-end.
+  //
+  //   renew   — extend an active lease's expiresAt
+  //   list    — enumerate every lease in the session store (with filter)
+  //   gc      — prune released/expired worktrees + mark leases 'gc'
+  //   status  — read a single lease in detail
+
+  type RenewOptions = {
+    leaseId: string;
+    ttl?: string;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  type ListOptions = {
+    /** Filter to only leases in this lifecycle state. */
+    status?: 'active' | 'released' | 'expired' | 'gc';
+    /** Show only leases whose expiresAt is in the past (after applying status filter). */
+    expiredOnly?: boolean;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  type GcOptions = {
+    /** Only gc one specific lease id (default: sweep all eligible). */
+    leaseId?: string;
+    /** Dry-run: report what would be gc'd without mutating. */
+    dryRun?: boolean;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  type LeaseStatusOptions = {
+    leaseId: string;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  addJsonOption(
+    auth
+      .command('renew')
+      .description(
+        'Extend an active lease\'s `expiresAt` and persist it. Idempotent for already-active leases. ' +
+          'Default TTL uses `DEFAULT_TTL_BY_ROLE[<lease.role>]`; pass --ttl <ms> to override.'
+      )
+      .requiredOption('--lease-id <id>', 'lease id returned by `peaks worktree spawn`')
+      .option('--ttl <ms>', 'time-to-live in ms from now (default: role-default)')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: RenewOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const file = leaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
+      if (!existsSync(file)) {
+        printResult(
+          io,
+          fail('worktree.renew', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
+            'Run `peaks worktree list` to inspect active leases.',
+            'For a never-spawned lease, this is a no-op.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      let lease: WorktreeLease;
+      try {
+        lease = deserializeLease(readFileSyncNode(file, 'utf8'));
+      } catch (err) {
+        printResult(
+          io,
+          fail('worktree.renew', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
+            'Delete the malformed lease file manually and re-spawn.',
+            'For security, renew never fails open on a malformed lease.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      if (lease.status === 'released' || lease.status === 'gc') {
+        printResult(
+          io,
+          fail(
+            'worktree.renew',
+            'LEASE_NOT_RENEWABLE',
+            `lease is in status '${lease.status}'; only active/expired leases may be renewed`,
+            { leaseId: lease.leaseId, status: lease.status },
+            [
+              'Released leases cannot be renewed. Run `peaks worktree spawn` to start a new lease.',
+              'Gc-marked leases are terminal — re-spawn.'
+            ]
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const now = Date.now();
+      const ttlMs = options.ttl === undefined ? ttlForRole(lease.role) : Number.parseInt(options.ttl, 10);
+      if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
+        printResult(
+          io,
+          fail('worktree.renew', 'INVALID_TTL', '--ttl must be a positive integer (ms)', { ttl: options.ttl }, [
+            'Re-run with --ttl 1800000 (30 min) or omit to use role default.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const renewed = renewLease(lease, now + ttlMs);
+      atomicWriteJson(file, renewed);
+      printResult(
+        io,
+        ok(
+          'worktree.renew',
+          { lease: renewed, sessionId, projectRoot, ttlMs, previousExpiresAt: lease.expiresAt },
+          [],
+          [
+            `Lease ${renewed.leaseId} renewed; new expiresAt: ${new Date(renewed.expiresAt).toISOString()}.`,
+            `Branch ${renewed.branch} at ${renewed.path} remains intact (no ` +
+              '`git worktree` operation was performed — the worktree was always there).'
+          ]
+        ),
+        options.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail('worktree.renew', 'RENEW_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId }, [
+          'Re-run after fixing the failure (see cause in the error message).'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    auth
+      .command('list')
+      .description(
+        'List every lease under the current session\'s lease store. ' +
+          'Optionally filter by --status (active|released|expired|gc) and/or --expired-only. ' +
+          'Leases past their expiresAt with status=active are still listed under "active" by default ' +
+          '(`isLeaseActive` returns false for them, but the on-disk status only flips to "expired" ' +
+          'after `peaks worktree gc` runs).'
+      )
+      .option('--status <state>', 'filter by lease status: active | released | expired | gc')
+      .option('--expired-only', 'only show leases whose expiresAt is in the past')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: ListOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const storeDir = leaseStoreDir(joinPathSession(projectRoot, sessionId));
+      const result = listLeasesSync(storeDir, {
+        readdir: (p) => readdirSync(p),
+        readFile: (p) => readFileSyncNode(p, 'utf8'),
+        existsSync: (p) => existsSync(p)
+      });
+      if (result.kind === 'store-missing') {
+        printResult(
+          io,
+          ok('worktree.list', { sessionId, projectRoot, leases: [], errors: [], storeMissing: true }, [], [
+            `No lease store at ${storeDir}. Spawn a worktree first (\`peaks worktree spawn ...\`).`
+          ]),
+          options.json
+        );
+        return;
+      }
+      const now = Date.now();
+      const annotated = result.leases.map((l) => ({
+        ...l,
+        live: isLeaseActive(l, now),
+        elapsedMs: now - l.createdAt,
+        remainingMs: l.expiresAt - now
+      }));
+      let filtered = annotated;
+      if (options.status) {
+        filtered = filtered.filter((l) => l.status === options.status);
+      }
+      if (options.expiredOnly === true) {
+        filtered = filtered.filter((l) => !l.live);
+      }
+      // Sort by createdAt desc — most-recent first. Stable for diffs.
+      filtered = [...filtered].sort((a, b) => b.createdAt - a.createdAt);
+      printResult(
+        io,
+        ok(
+          'worktree.list',
+          {
+            sessionId,
+            projectRoot,
+            storeDir,
+            totalOnDisk: result.leases.length,
+            returned: filtered.length,
+            errors: result.errors,
+            leases: filtered
+          },
+          result.errors.map((e) => `Malformed lease: ${e.file} (${e.error})`),
+          [
+            `${filtered.length} lease(s) matched (${result.leases.length} on disk).`,
+            result.errors.length > 0 ? 'Some lease files were malformed — see errors[]; they were skipped.' : ''
+          ].filter(Boolean)
+        ),
+        options.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail('worktree.list', 'LIST_FAILED', getErrorMessage(err), { sessionId }, [
+          'Re-run after fixing the failure (see cause in the error message).'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    auth
+      .command('gc')
+      .description(
+        'Sweep released/expired leases: remove their git worktree (if still attached), prune git\'s ' +
+          'worktree references, and mark the lease as "gc". With --lease-id <id>, only that lease is ' +
+          'considered. With --dry-run, report what would be gc\'d without mutating. Expired-active ' +
+          'leases (status=active but past expiresAt) are eligible — they are first marked "expired" ' +
+          'then their worktree is removed.'
+      )
+      .option('--lease-id <id>', 'only consider this specific lease')
+      .option('--dry-run', 'report what would be gc\'d without mutating')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: GcOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const storeDir = leaseStoreDir(joinPathSession(projectRoot, sessionId));
+      const result = listLeasesSync(storeDir, {
+        readdir: (p) => readdirSync(p),
+        readFile: (p) => readFileSyncNode(p, 'utf8'),
+        existsSync: (p) => existsSync(p)
+      });
+      if (result.kind === 'store-missing') {
+        printResult(
+          io,
+          ok('worktree.gc', { sessionId, projectRoot, swept: 0, storeMissing: true }, [], [
+            `No lease store at ${storeDir}; nothing to gc.`
+          ]),
+          options.json
+        );
+        return;
+      }
+      const now = Date.now();
+      const candidates = result.leases
+        .filter((l) => (options.leaseId ? l.leaseId === options.leaseId : true))
+        .filter((l) => isLeaseGcEligible(l, now));
+
+      const dryRun = options.dryRun === true;
+      const swept: Array<{ leaseId: string; path: string; prevStatus: WorktreeLease['status']; gitWorktreeRemoveFailed: boolean }> = [];
+      for (const lease of candidates) {
+        let prevStatus: WorktreeLease['status'] = lease.status;
+        let updated: WorktreeLease = lease;
+        // If the lease is still marked active but past expiresAt, transition to expired first.
+        if (lease.status === 'active' && lease.expiresAt <= now) {
+          updated = markExpired(lease);
+          prevStatus = 'active';
+        }
+        if (!dryRun) {
+          // `git worktree remove --force` is best-effort — if the path is
+          // already gone we still mark the lease gc.
+          let gitWorktreeRemoveFailed = false;
+          try {
+            execSync(`git worktree remove --force "${updated.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+          } catch {
+            gitWorktreeRemoveFailed = true;
+          }
+          // `git worktree prune` clears any stale admin entries. Best-effort.
+          try {
+            execSync('git worktree prune', { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+          } catch {
+            // ignore — prune is idempotent
+          }
+          const finalLease = markGc(updated);
+          atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), lease.leaseId), finalLease);
+          swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed });
+        } else {
+          swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed: false });
+        }
+      }
+
+      printResult(
+        io,
+        ok(
+          'worktree.gc',
+          { sessionId, projectRoot, dryRun, candidates: candidates.length, swept, errors: result.errors },
+          result.errors.map((e) => `Malformed lease: ${e.file} (${e.error})`),
+          [
+            dryRun
+              ? `[dry-run] Would gc ${swept.length} lease(s); no filesystem changes were made.`
+              : `Gc'd ${swept.length} lease(s).`,
+            'For per-lease detail, run `peaks worktree status --lease-id <id>`.'
+          ]
+        ),
+        options.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail('worktree.gc', 'GC_FAILED', getErrorMessage(err), { sessionId }, [
+          'Re-run after fixing the failure (see cause in the error message).'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    auth
+      .command('lease-status')
+      .description(
+        'Show one lease in detail: full lease record + computed `live` flag (active AND not past ' +
+          'expiry) + path/branch/path-exists-on-disk diagnostics. Use this when triaging why a ' +
+          'sub-agent cannot write to a worktree.'
+      )
+      .requiredOption('--lease-id <id>', 'lease id to inspect')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: LeaseStatusOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const file = leaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
+      if (!existsSync(file)) {
+        printResult(
+          io,
+          fail('worktree.lease-status', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
+            'Run `peaks worktree list` to inspect available leases.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      let lease: WorktreeLease;
+      try {
+        lease = deserializeLease(readFileSyncNode(file, 'utf8'));
+      } catch (err) {
+        printResult(
+          io,
+          fail('worktree.lease-status', 'LEASE_FILE_INVALID', getErrorMessage(err), { leaseId: options.leaseId, file }, [
+            'Delete the malformed lease file manually and re-spawn.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const now = Date.now();
+      const pathExists = existsSync(lease.path);
+      let pathIsDirectory = false;
+      if (pathExists) {
+        try {
+          pathIsDirectory = statSync(lease.path).isDirectory();
+        } catch {
+          pathIsDirectory = false;
+        }
+      }
+      printResult(
+        io,
+        ok(
+          'worktree.lease-status',
+          {
+            sessionId,
+            projectRoot,
+            file: '.peaks/_runtime/' + sessionId + '/worktree-leases/' + lease.leaseId + '.json',
+            lease,
+            live: isLeaseActive(lease, now),
+            diagnostics: {
+              now,
+              remainingMs: lease.expiresAt - now,
+              pathExists,
+              pathIsDirectory
+            }
+          },
+          [],
+          [
+            `Lease ${lease.leaseId} is ${isLeaseActive(lease, now) ? 'LIVE' : 'NOT LIVE'} ` +
+              `(status=${lease.status}, remaining=${lease.expiresAt - now}ms).`,
+            `Worktree path ${lease.path} ${pathExists ? (pathIsDirectory ? 'exists (dir)' : 'exists (NOT a dir)') : 'MISSING'}.`
+          ]
+        ),
+        options.json
+      );
+    } catch (err) {
+      printResult(
+        io,
+        fail('worktree.lease-status', 'STATUS_FAILED', getErrorMessage(err), { leaseId: options.leaseId, sessionId }, [
+          'Re-run after fixing the failure (see cause in the error message).'
         ]),
         options.json
       );

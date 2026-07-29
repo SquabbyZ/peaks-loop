@@ -174,6 +174,72 @@ export function isLeaseActive(lease: WorktreeLease, now: number = Date.now()): b
 }
 
 /**
+ * Pure: read every lease file under the session's lease store dir.
+ * Returns leases in the order returned by `fs.readdir` (no sort).
+ * Malformed files are surfaced as `{ file, error }` records so the caller
+ * (the `list` CLI) can warn without aborting the whole list. Missing
+ * directory is not an error — it returns an empty leases array.
+ */
+export interface LeaseReadError {
+  readonly file: string;
+  readonly error: string;
+}
+export type LeaseListResult =
+  | { readonly kind: 'ok'; readonly leases: ReadonlyArray<WorktreeLease>; readonly errors: ReadonlyArray<LeaseReadError> }
+  | { readonly kind: 'store-missing'; readonly storeDir: string };
+
+/**
+ * List every lease file under the session's lease store dir.
+ *
+ * Pure with respect to its inputs: it does NOT sort or filter, and it
+ * does NOT mark anything expired. Callers (the `list` CLI) apply their
+ * own sort/filter and run `markExpired` lazily.
+ */
+export function listLeasesSync(storeDir: string, fs: {
+  readdir: (path: string) => ReadonlyArray<string>;
+  readFile: (path: string) => string;
+  existsSync: (path: string) => boolean;
+}): LeaseListResult {
+  if (!fs.existsSync(storeDir)) {
+    return { kind: 'store-missing', storeDir };
+  }
+  const files = fs.readdir(storeDir).filter((f) => f.endsWith('.json'));
+  const leases: WorktreeLease[] = [];
+  const errors: LeaseReadError[] = [];
+  for (const f of files) {
+    const file = `${storeDir.replace(/[\\/]+$/, '')}/${f}`;
+    try {
+      leases.push(deserializeLease(fs.readFile(file)));
+    } catch (err) {
+      errors.push({ file, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return { kind: 'ok', leases, errors };
+}
+
+/**
+ * Pure: a lease is eligible for `gc` if its status is one of {released,
+ * expired} AND its worktree path is no longer attached to git (`git
+ * worktree list` would not include it). The CLI re-checks with git and
+ * uses this helper as a coarse pre-filter.
+ */
+export function isLeaseGcEligible(lease: WorktreeLease, now: number = Date.now()): boolean {
+  if (lease.status === 'gc') return false;
+  if (lease.status === 'released') return true;
+  // status === 'active' but past expiry → treat as expired candidate
+  return lease.expiresAt <= now;
+}
+
+/**
+ * Pure: derive a new lease from an existing one with an extended
+ * `expiresAt`. Other fields are preserved. The CLI writes the new lease
+ * atomically. Used by `peaks worktree renew --lease-id <id> --ttl <ms>`.
+ */
+export function renewLease(lease: WorktreeLease, newExpiresAt: number): WorktreeLease {
+  return { ...lease, expiresAt: newExpiresAt, status: 'active' };
+}
+
+/**
  * Pure: serialize a lease to JSON with stable field order (deterministic
  * output for diff-friendly audit logs). The CLI passes the result to
  * `atomicWriteJson`. The function does NOT mutate the input.

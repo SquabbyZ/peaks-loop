@@ -23,12 +23,15 @@ import {
   finalizeLease,
   generateLeaseId,
   isLeaseActive,
+  isLeaseGcEligible,
   leaseFilePath,
   leaseStoreDir,
+  listLeasesSync,
   markExpired,
   markGc,
   markReleased,
   recordConsumption,
+  renewLease,
   serializeLease,
   ttlForRole,
   worktreePath,
@@ -255,5 +258,136 @@ describe('serializeLease / deserializeLease round-trip', () => {
     expect(parsed.purpose).toBe(lease.purpose);
     expect(parsed.status).toBe(lease.status);
     expect(parsed.consumedBySubAgents).toEqual(lease.consumedBySubAgents);
+  });
+});
+
+/**
+ * Part 2.A (slice 2026-07-29-worktree-l2-extended) — pure helpers used by
+ * the new `peaks worktree renew | list | gc` commands. CLI IO + git
+ * fixture is exercised by the integration test (Part 2.D).
+ */
+describe('renewLease', () => {
+  test('updates expiresAt, preserves all other fields, status=active', () => {
+    const lease = finalizeLease(makeDraft({ expiresAt: 1_000 }));
+    const renewed = renewLease(lease, 5_000);
+    expect(renewed.expiresAt).toBe(5_000);
+    expect(renewed.status).toBe('active');
+    expect(renewed.leaseId).toBe(lease.leaseId);
+    expect(renewed.rid).toBe(lease.rid);
+    expect(renewed.role).toBe(lease.role);
+    expect(renewed.path).toBe(lease.path);
+    expect(renewed.branch).toBe(lease.branch);
+    expect(renewed.createdAt).toBe(lease.createdAt);
+    expect(renewed.purpose).toBe(lease.purpose);
+  });
+
+  test('renewLease of a released lease flips status back to active (cli gates this; helper is pure)', () => {
+    // The CLI refuses to renew released/gc leases; the pure helper just
+    // sets status='active' unconditionally. Document the contract.
+    const released = markReleased(finalizeLease(makeDraft()));
+    const renewed = renewLease(released, 9_999);
+    expect(renewed.status).toBe('active');
+    expect(renewed.expiresAt).toBe(9_999);
+  });
+
+  test('does not mutate input', () => {
+    const lease = finalizeLease(makeDraft({ expiresAt: 1_000 }));
+    const before = JSON.stringify(lease);
+    renewLease(lease, 5_000);
+    expect(JSON.stringify(lease)).toBe(before);
+  });
+});
+
+describe('isLeaseGcEligible', () => {
+  const now = 10_000;
+  test('released → eligible', () => {
+    const lease = markReleased(finalizeLease(makeDraft({ expiresAt: now + 60_000 })));
+    expect(isLeaseGcEligible(lease, now)).toBe(true);
+  });
+
+  test('active + past expiry → eligible (treated as expired candidate)', () => {
+    const lease = finalizeLease(makeDraft({ expiresAt: now - 1 }));
+    expect(isLeaseGcEligible(lease, now)).toBe(true);
+  });
+
+  test('active + future expiry → NOT eligible', () => {
+    const lease = finalizeLease(makeDraft({ expiresAt: now + 60_000 }));
+    expect(isLeaseGcEligible(lease, now)).toBe(false);
+  });
+
+  test('gc → NOT eligible (terminal)', () => {
+    const lease = markGc(finalizeLease(makeDraft()));
+    expect(isLeaseGcEligible(lease, now)).toBe(false);
+  });
+});
+
+describe('listLeasesSync', () => {
+  function makeFakeFs(files: Record<string, string>): {
+    readdir: (p: string) => ReadonlyArray<string>;
+    readFile: (p: string) => string;
+    existsSync: (p: string) => boolean;
+  } {
+    const paths = new Set(Object.keys(files));
+    return {
+      readdir: (p) => Object.keys(files).filter((k) => k.startsWith(p + '/')).map((k) => k.slice(p.length + 1)),
+      readFile: (p) => {
+        if (!(p in files)) throw new Error(`ENOENT ${p}`);
+        return files[p]!;
+      },
+      existsSync: (p) => paths.has(p) || p === '/store'
+    };
+  }
+
+  test('returns store-missing when the lease directory does not exist', () => {
+    const result = listLeasesSync('/store', {
+      readdir: () => [],
+      readFile: () => '',
+      existsSync: () => false
+    });
+    expect(result.kind).toBe('store-missing');
+    if (result.kind === 'store-missing') {
+      expect(result.storeDir).toBe('/store');
+    }
+  });
+
+  test('returns parsed leases + empty errors when all files are valid', () => {
+    const lease = finalizeLease(makeDraft({ leaseId: 'aaaa1111bbbb2222' }));
+    const files = { '/store/aaaa1111bbbb2222.json': serializeLease(lease) };
+    const result = listLeasesSync('/store', makeFakeFs(files));
+    expect(result.kind).toBe('ok');
+    if (result.kind === 'ok') {
+      expect(result.leases).toHaveLength(1);
+      expect(result.errors).toEqual([]);
+      expect(result.leases[0]?.leaseId).toBe('aaaa1111bbbb2222');
+    }
+  });
+
+  test('skips non-json files', () => {
+    const result = listLeasesSync('/store', {
+      readdir: () => ['aaaa1111bbbb2222.json', 'README.md', '.DS_Store'],
+      readFile: () => serializeLease(finalizeLease(makeDraft({ leaseId: 'aaaa1111bbbb2222' }))),
+      existsSync: () => true
+    });
+    expect(result.kind).toBe('ok');
+    if (result.kind === 'ok') {
+      expect(result.leases).toHaveLength(1);
+      expect(result.errors).toEqual([]);
+    }
+  });
+
+  test('surfaces malformed files as errors without aborting the list', () => {
+    const valid = serializeLease(finalizeLease(makeDraft({ leaseId: 'aaaa1111bbbb2222' })));
+    const files: Record<string, string> = {
+      '/store/aaaa1111bbbb2222.json': valid,
+      '/store/bad.json': '{"leaseId":"only-this-field"}'
+    };
+    const result = listLeasesSync('/store', makeFakeFs(files));
+    expect(result.kind).toBe('ok');
+    if (result.kind === 'ok') {
+      expect(result.leases).toHaveLength(1);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.file).toBe('/store/bad.json');
+      expect(result.errors[0]?.error).toMatch(/rid missing/);
+    }
   });
 });
