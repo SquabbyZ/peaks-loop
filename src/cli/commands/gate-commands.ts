@@ -127,6 +127,10 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
         // the sub-agent process auto-authorize via the lease instead
         // of requiring a separate grant.
         const leaseId = process.env.PEAKS_WORKTREE_LEASE_ID ?? null;
+        // Part 19: container lease (L4) is the parallel path for
+        // `--isolation container` sub-agents. The env is set by the
+        // dispatch command (Part 8 + Part 12) at spawn time.
+        const containerLeaseId = process.env.PEAKS_CONTAINER_LEASE_ID ?? null;
         const wtDecision = evaluateWorktreeAuth({
           projectRoot: options.project,
           sessionId,
@@ -134,7 +138,8 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
           command: toolKind === 'Bash' ? command : null,
           isolation: toolKind === 'Agent' || toolKind === 'EnterWorktree' ? extractIsolation(parsedStdin) : null,
           requestId: null,
-          leaseId: leaseId !== null && /^[a-f0-9]{16}$/.test(leaseId) ? leaseId : null
+          leaseId: leaseId !== null && /^[a-f0-9]{16}$/.test(leaseId) ? leaseId : null,
+          containerLeaseId: containerLeaseId !== null && /^[a-f0-9]{16}$/.test(containerLeaseId) ? containerLeaseId : null
         });
         if (!wtDecision.allow) {
           // Hard block: a worktree-mutating tool call without a current-task user grant.

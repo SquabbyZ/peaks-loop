@@ -43,6 +43,12 @@ import {
   leaseFilePath,
   type WorktreeLease,
 } from '../worktree/worktree-lease.js';
+import {
+  containerLeaseFilePath,
+  deserializeContainerLease,
+  isContainerLeaseActive,
+  type ContainerLease,
+} from '../container/container-lease.js';
 
 export const WORKTREE_AUTH_FILE = 'worktree-auth.json';
 
@@ -84,7 +90,7 @@ export type WorktreeAuthorization = {
 /** Result of a gate check. `allow` permits the tool call; `deny` blocks it. */
 export type WorktreeAuthDecision =
   | { readonly allow: true; readonly authorization: WorktreeAuthorization; readonly remaining: number; readonly viaLease: null }
-  | { readonly allow: true; readonly authorization: null; readonly remaining: 0; readonly viaLease: WorktreeLease }
+  | { readonly allow: true; readonly authorization: null; readonly remaining: 0; readonly viaLease: WorktreeLease | ContainerLease }
   | { readonly allow: false; readonly reason: string; readonly code: WorktreeAuthDenyCode; readonly remediation: string };
 
 export type WorktreeAuthDenyCode =
@@ -103,7 +109,14 @@ export type WorktreeAuthDenyCode =
   /** Lease exists but is not active (status != 'active' OR past expiresAt). */
   | 'WORKTREE_LEASE_NOT_ACTIVE'
   /** Lease exists but its rid does not match the current peaks request. */
-  | 'WORKTREE_LEASE_REQUEST_MISMATCH';
+  | 'WORKTREE_LEASE_REQUEST_MISMATCH'
+  /** Slice 2026-07-29-worktree-l2-extended Part 19: container
+   * lease id is set but the lease file is unreadable / malformed. */
+  | 'CONTAINER_LEASE_FILE_INVALID'
+  /** Container lease exists but is not active (status != 'active' OR past expiresAt). */
+  | 'CONTAINER_LEASE_NOT_ACTIVE'
+  /** Container lease exists but its rid does not match the current peaks request. */
+  | 'CONTAINER_LEASE_REQUEST_MISMATCH';
 
 export type ToolCallKind = 'Bash' | 'Agent' | 'EnterWorktree' | 'Workflow' | 'Other';
 
@@ -129,6 +142,14 @@ export type WorktreeAuthCheckInput = {
    * back to the existing `peaks worktree auth grant` only contract.
    */
   readonly leaseId: string | null;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 19: L4 container
+   * lease id (parallel to `leaseId` for container isolation).
+   * `PEAKS_CONTAINER_LEASE_ID` env is the canonical source.
+   * Permits docker / podman tool calls when the container lease
+   * is active and its rid matches.
+   */
+  readonly containerLeaseId: string | null;
 };
 
 /** Stable identifier of the current "user authorization" — derived from session + tool + key args. */
@@ -382,9 +403,74 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
   // that have adopted the spawn/release CLI (Part 1 + 2.A) use; sub-agents that still rely on
   // `peaks worktree auth grant` are unaffected (their grants already allowed above).
   if (input.leaseId === null || input.leaseId === undefined || input.leaseId.length === 0) {
+    // Part 19: try the container lease fallback before giving up.
+    if (input.containerLeaseId !== null && input.containerLeaseId !== undefined && input.containerLeaseId.length > 0) {
+      return decideFromContainerLease(input);
+    }
     return decision;
   }
-  return decideFromLease(input);
+  const leaseResult = decideFromLease(input);
+  if (leaseResult.allow) return leaseResult;
+  // Part 19: if the worktree lease did not allow, try the container
+  // lease as a second lease path (sub-agents with container
+  // isolation).
+  if (input.containerLeaseId !== null && input.containerLeaseId !== undefined && input.containerLeaseId.length > 0) {
+    return decideFromContainerLease(input);
+  }
+  return leaseResult;
+}
+
+/**
+ * Part 19: L4 container lease fallback. Reads the container
+ * lease file at `.peaks/_runtime/<sid>/container-leases/<id>.json`
+ * and permits the operation iff the lease is `isContainerLeaseActive`
+ * and its `rid` matches the current peaks request. Mirrors
+ * `decideFromLease` for the L4 container surface; the L2 worktree
+ * lease is the L2 path, this is the L4 path.
+ *
+ * On malformed file / non-active / rid mismatch the function
+ * fails closed with the new error codes
+ * (CONTAINER_LEASE_FILE_INVALID / NOT_ACTIVE / REQUEST_MISMATCH).
+ */
+export function decideFromContainerLease(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
+  const containerLeaseId = input.containerLeaseId ?? '';
+  const file = containerLeaseFilePath(`${input.projectRoot}/.peaks/_runtime/${input.sessionId}`, containerLeaseId);
+  if (!existsSync(file)) {
+    return {
+      allow: false,
+      code: 'CONTAINER_LEASE_FILE_INVALID',
+      reason: `No container lease at ${file} (leaseId=${containerLeaseId}).`,
+      remediation: `Run \`peaks container spawn --rid <rid> --role <role> --purpose "<why>"\` to create the lease, then re-run. The PEAKS_CONTAINER_LEASE_ID env is the source of truth (dispatch injects it).`
+    };
+  }
+  let lease: ContainerLease;
+  try {
+    lease = deserializeContainerLease(readFileSync(file, 'utf8'));
+  } catch (err) {
+    return {
+      allow: false,
+      code: 'CONTAINER_LEASE_FILE_INVALID',
+      reason: `Container lease at ${file} is unreadable / malformed: ${(err as Error).message}`,
+      remediation: `Delete the malformed lease file (\`rm ${file}\`) and re-spawn. The gate never fails open on a malformed lease.`
+    };
+  }
+  if (input.requestId !== null && lease.rid !== input.requestId) {
+    return {
+      allow: false,
+      code: 'CONTAINER_LEASE_REQUEST_MISMATCH',
+      reason: `Container lease rid=${lease.rid} does not match current requestId=${input.requestId}.`,
+      remediation: `Either re-spawn a container lease for the current rid, or operate under the lease's own rid.`
+    };
+  }
+  if (!isContainerLeaseActive(lease)) {
+    return {
+      allow: false,
+      code: 'CONTAINER_LEASE_NOT_ACTIVE',
+      reason: `Container lease ${lease.leaseId} is not active (status=${lease.status}, remainingMs=${lease.expiresAt - Date.now()}).`,
+      remediation: `Run \`peaks container release --lease-id ${lease.leaseId}\` to clean up, then \`peaks container spawn ...\` to create a new lease.`
+    };
+  }
+  return { allow: true, authorization: null, remaining: 0, viaLease: lease };
 }
 
 /**

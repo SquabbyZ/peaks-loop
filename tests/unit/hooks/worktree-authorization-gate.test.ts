@@ -22,6 +22,18 @@ import {
   type OperationType,
   type WorktreeAuthorization,
 } from '../../../src/services/hooks/worktree-authorization-gate.js';
+import {
+  containerLeaseFilePath,
+  finalizeContainerLease,
+  generateContainerLeaseId,
+  type ContainerLease,
+} from '../../../src/services/container/container-lease.js';
+
+function writeLeaseLike(filePath: string, lease: ContainerLease): void {
+  const dir = join(filePath, '..');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(filePath, `${JSON.stringify(lease, null, 2)}\n`, 'utf8');
+}
 
 function makeTmp(): string {
   const root = join(tmpdir(), `peaks-worktree-auth-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -705,5 +717,86 @@ describe('isLeaseGcEligible (re-export sanity)', () => {
     const lid = generateLeaseId();
     const lease = finalizeLease(makeLeaseDraft({ leaseId: lid }));
     expect(isLeaseGcEligible(markReleased(lease))).toBe(true);
+  });
+});
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 19: container
+ * lease fallback (L4 surface).
+ */
+describe('evaluateWorktreeAuth container lease fallback (Part 19)', () => {
+  const makeBaseInput = (sessionId: string) => ({
+    projectRoot: tmpRoot,
+    sessionId,
+    toolName: 'Bash' as const,
+    command: 'git worktree add /tmp/x',
+    isolation: null,
+    requestId: null,
+    leaseId: null,
+    containerLeaseId: null
+  });
+
+  test('no grant file + no containerLeaseId → deny WORKTREE_USER_AUTH_REQUIRED (existing path)', () => {
+    const d = evaluateWorktreeAuth({
+      ...makeBaseInput('s-container'),
+      leaseId: null,
+      containerLeaseId: null
+    });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_USER_AUTH_REQUIRED');
+  });
+
+  test('no grant + containerLeaseId pointing at active lease → allow viaLease (container)', () => {
+    const lid = generateContainerLeaseId();
+    const runtime = `${tmpRoot}/.peaks/_runtime/s-container`;
+    const file = containerLeaseFilePath(runtime, lid);
+    const lease = finalizeContainerLease({
+      leaseId: lid,
+      rid: 'rid-2026-07-29-test',
+      role: 'rd',
+      path: tmpRoot,
+      image: 'node:22-slim',
+      containerId: 'container-abc',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60_000,
+      purpose: 'part 19 e2e'
+    });
+    writeLeaseLike(file, lease);
+    const d = evaluateWorktreeAuth({
+      ...makeBaseInput('s-container'),
+      leaseId: null,
+      containerLeaseId: lid
+    });
+    expect(d.allow).toBe(true);
+    if (d.allow) {
+      expect(d.viaLease).not.toBeNull();
+      expect((d.viaLease as { containerId?: string })?.containerId).toBe('container-abc');
+    }
+  });
+
+  test('container lease rid mismatch → deny CONTAINER_LEASE_REQUEST_MISMATCH', () => {
+    const lid = generateContainerLeaseId();
+    const runtime = `${tmpRoot}/.peaks/_runtime/s-container-rid`;
+    const file = containerLeaseFilePath(runtime, lid);
+    const lease = finalizeContainerLease({
+      leaseId: lid,
+      rid: 'rid-A',
+      role: 'rd',
+      path: tmpRoot,
+      image: 'node:22-slim',
+      containerId: 'c1',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60_000,
+      purpose: 'mismatch test'
+    });
+    writeLeaseLike(file, lease);
+    const d = evaluateWorktreeAuth({
+      ...makeBaseInput('s-container-rid'),
+      requestId: 'rid-B',
+      leaseId: null,
+      containerLeaseId: lid
+    });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('CONTAINER_LEASE_REQUEST_MISMATCH');
   });
 });
