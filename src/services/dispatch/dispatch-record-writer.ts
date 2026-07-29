@@ -528,13 +528,41 @@ export function tryAutoReleaseLease(args: {
   }
   // Spawn detached. The CLI itself runs `git worktree remove` and
   // marks the lease released; we trust its at-least-once semantics.
-  try {
-    const child = spawnReleaseProcess(args);
-    child.on('error', () => { /* detached best-effort */ });
-    child.unref();
-  } catch {
-    /* detached best-effort */
-  }
+  // `node:child_process` is loaded via dynamic import so this module
+  // remains ESM-compatible (the compiled heartbeat CLI throws
+  // `require is not defined` if we use `require` here).
+  void (async () => {
+    try {
+      const cp = await import('node:child_process');
+      const child = cp.spawn(
+        process.execPath,
+        [
+          process.argv[1] ?? '',
+          'worktree', 'release',
+          '--lease-id', args.leaseId,
+          '--project', args.projectRoot,
+          '--session', args.sessionId,
+          '--json'
+        ],
+        // `pipe` rather than `ignore` so a spawn failure (e.g. ENOENT
+        // on process.argv[1] in a test) shows up on stderr instead
+        // of vanishing into the void. The release CLI is short-lived
+        // so buffering is irrelevant.
+        { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
+      );
+      if (process.env.PEAKS_WORKTREE_LEASE_DEBUG) {
+        child.stderr?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
+        child.stdout?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
+        child.on('error', (e) => process.stderr.write(`[release error] ${e.message}\n`));
+        child.on('exit', (code) => process.stderr.write(`[release exit] code=${code}\n`));
+      } else {
+        child.stderr?.on('data', () => { /* drain */ });
+        child.stdout?.on('data', () => { /* drain */ });
+        child.on('error', () => { /* detached best-effort */ });
+      }
+      child.unref();
+    } catch { /* best-effort */ }
+  })();
   // NB: we deliberately do NOT log per-call here — every heartbeat
   // that reports done in a busy session would otherwise spam the
   // log. The release CLI itself emits a structured envelope on
@@ -542,27 +570,6 @@ export function tryAutoReleaseLease(args: {
   if (args.logger !== undefined) {
     args.logger(`peaks.worktree.autoRelease leaseId=${args.leaseId} sessionId=${args.sessionId}`);
   }
-}
-
-function spawnReleaseProcess(args: { projectRoot: string; sessionId: string; leaseId: string }): import('node:child_process').ChildProcess {
-  // We import dynamically to avoid a top-level dep on node:child_process
-  // for callers that only need the synchronous writer API. The CLI
-  // writer path is hot during dispatch; deferring the require keeps
-  // the warm path fast.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { spawn } = require('node:child_process') as typeof import('node:child_process');
-  return spawn(
-    process.execPath,
-    [
-      process.argv[1] ?? '',
-      'worktree', 'release',
-      '--lease-id', args.leaseId,
-      '--project', args.projectRoot,
-      '--session', args.sessionId,
-      '--json'
-    ],
-    { stdio: 'ignore', windowsHide: true, detached: true }
-  );
 }
 
 /** Mark a record as completed (success / failed / cancelled / no-execution). */
