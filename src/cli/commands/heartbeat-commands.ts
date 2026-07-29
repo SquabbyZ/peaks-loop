@@ -121,14 +121,29 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       if (stageLabel !== null) {
         setStage({ recordPath: options.record as string, stage: stageLabel });
       }
+      // Slice 2026-07-29-worktree-l2-extended Part 24: the
+      // heartbeat envelope surfaces a `leaseHint` field when the
+      // dispatch owns a lease. The hint is a one-line reminder
+      // for the sub-agent that the lease is the L2 surface it
+      // should clean up before exiting (or, per Part 3.A.2, the
+      // auto-release hook will fire on the next terminal status).
+      // The hint is opt-in via a flag so non-lease dispatches
+      // do not pollute the envelope.
+      const leaseId = result.record.leaseId ?? null;
+      const leaseHint = leaseId !== null
+        ? `You own lease \`${leaseId}\`. Run \`peaks worktree release --lease-id ${leaseId}\` before exit, or report a terminal status (done/failed/cancelled) to let peaks-loop auto-release.`
+        : null;
       printResult(io, ok('sub-agent.heartbeat', {
         // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
-        envelopeVersion: '2.1.0',
+        // Part 24: bumped to 2.2.0 to advertise the new `leaseHint`
+        // field; readers from 2.1.0 ignore the unknown field.
+        envelopeVersion: '2.2.0',
         recordPath: options.record,
         heartbeatCount: result.record.heartbeats.length,
         lastBeatAt: result.record.lastBeatAt,
         status: result.record.status,
-        truncated: result.truncated
+        truncated: result.truncated,
+        leaseHint
       }, [], ['Continue business logic; heartbeat is fire-and-forget.']), asJson);
       // Slice 2026-07-29-worktree-l2-extended Part 3.A.2: when the
       // heartbeat reports a TERMINAL status (done / failed / cancelled
