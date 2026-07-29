@@ -250,6 +250,14 @@ const PRD_SOURCE_SNAPSHOT_PLACEMENT: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-prd-source-snapshot.ts',
 };
 
+const PRD_ARTIFACT_HANDOFF: RedLineCatalogEntry = {
+  id: 'rl-prd-artifact-handoff-001',
+  rule: 'peaks-prd SKILL.md must declare the artifact handoff contract (Preserved behavior + step 5.5 + Transition verification gates)',
+  markers: ['BLOCKING'],
+  phrases: ['preserved behavior', '5.5 — write the immutable handoff', 'transition verification gates'],
+  enforcerRef: 'src/services/audit/enforcers/lint-prd-artifact-handoff.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -294,4 +302,9 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // enforcer. The enforcer pattern-scans the source-snapshot
   // placement guidance + prohibited-paths list.
   PRD_SOURCE_SNAPSHOT_PLACEMENT,
+  // Slice 2026-07-29-rid-prose-only-sweep-004: close three
+  // peaks-prd discovered lines (md-99 / md-166 / md-193) with
+  // one enforcer. The handoff contract requires preserved
+  // behavior, step 5.5, and transition verification gates.
+  PRD_ARTIFACT_HANDOFF,
 ];
