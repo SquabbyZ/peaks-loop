@@ -11,7 +11,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\bin\\peaks-gate-hook.cmd"
+            "command": "peaks gate enforce --project \"${CLAUDE_PROJECT_DIR}\""
           }
         ]
       }
