@@ -29,6 +29,7 @@ import { dirname, resolve } from 'node:path';
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
 import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
 import { withFileLockSync } from 'peaks-loop-shared-channel';
+import { isStageLabel, type StageLabel } from './stage-enum.js';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {
@@ -44,7 +45,17 @@ export type HeartbeatStatus =
   | 'finalizing'
   | 'done'
   | 'failed'
-  | 'stale';
+  | 'stale'
+  // Slice 2026-07-29-dispatch-stall-governance / S2 — align the per-
+  // heartbeat vocabulary with the dispatch record's aggregate status
+  // union so a sub-agent can report any aggregate state through the
+  // heartbeat CLI (and the help text enumerates the same set the
+  // writer accepts). See tests/unit/dispatch/heartbeat-parity.test.ts
+  // for the pinned CLI↔writer parity assertion (AC-2.2).
+  | 'cancelled'
+  | 'no-execution'
+  | 'never-started'
+  | 'unreadable';
 
 export type DispatchRecordStatus =
   | 'queued'
@@ -54,7 +65,14 @@ export type DispatchRecordStatus =
   | 'failed'
   | 'cancelled'
   | 'no-execution'
-  | 'stale';
+  | 'stale'
+  // Slice 2026-07-29-dispatch-stall-governance / S1 — distinguish
+  // *never-started* (record written, no first heartbeat within the
+  // startup budget) from `stale` (heartbeat seen, then quiet) and from
+  // `unreadable` (record body corrupt / unparseable). The startup-
+  // timeout service in ./startup-timeout.ts is the canonical writer.
+  | 'never-started'
+  | 'unreadable';
 
 export type DispatchOutcome =
   | 'success'
@@ -83,6 +101,13 @@ export interface DispatchRecord {
   readonly heartbeats: readonly Heartbeat[];
   readonly lastBeatAt: string | null;
   readonly status: DispatchRecordStatus;
+  // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — bounded,
+  // machine-readable stage label. Free-form `note` was never a stage
+  // — the value is one of a small enum in ./stage-enum.ts (PB-2: a
+  // legacy record missing this field upgrades to `null`, not an
+  // empty string, so the watch surface can distinguish "no stage
+  // ever emitted" from "stage: ''").
+  readonly stage: string | null;
 }
 
 /** Input for the initial write. */
@@ -165,7 +190,11 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     batchId,
     heartbeats: [],
     lastBeatAt: null,
-    status: 'queued'
+    status: 'queued',
+    // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — new
+    // records start with `stage: null`; the sub-agent promotes it
+    // through `setStage` / the heartbeat CLI's `--stage` flag.
+    stage: null
   };
 
   writeAtomic(safePath, record);
@@ -199,7 +228,19 @@ export interface ActiveDispatchEntry {
   readonly role: string;
   readonly batchId: string;
   readonly createdAt: string;
-  readonly status: 'queued' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'stale' | 'no-execution';
+  // Slice 2026-07-29-dispatch-stall-governance / S1 — accept the two new
+  // terminal members from the startup-timeout service.
+  readonly status:
+    | 'queued'
+    | 'running'
+    | 'finalizing'
+    | 'done'
+    | 'failed'
+    | 'cancelled'
+    | 'stale'
+    | 'no-execution'
+    | 'never-started'
+    | 'unreadable';
 }
 
 function activeDispatchIndexPath(projectRoot: string, sessionId: string): string {
@@ -274,7 +315,17 @@ function unregisterActiveDispatch(input: {
   }
   if (input.recordPath in index) {
     index[input.recordPath] = { ...index[input.recordPath]!, status: input.status };
-    if (input.status === 'done' || input.status === 'failed' || input.status === 'cancelled' || input.status === 'no-execution') {
+    // Slice 2026-07-29-dispatch-stall-governance / S1 — `never-started`
+    // and `unreadable` are terminal (the startup-timeout service writes
+    // them as terminal markers). Unregister on the full terminal set.
+    if (
+      input.status === 'done' ||
+      input.status === 'failed' ||
+      input.status === 'cancelled' ||
+      input.status === 'no-execution' ||
+      input.status === 'never-started' ||
+      input.status === 'unreadable'
+    ) {
       delete index[input.recordPath];
     }
     const tmp = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
@@ -463,6 +514,39 @@ export function markDisposed(recordPath: string, now: () => Date = () => new Dat
 }
 
 /**
+ * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — promote
+ * the record's `stage` field. Rejects unknown values with
+ * `INVALID_STAGE`; the LLM-side runner surfaces the error so the
+ * sub-agent can pick from the bounded enum in ./stage-enum.ts.
+ *
+ * Atomic via the same `withFileLockSync` lock as `appendHeartbeat` /
+ * `markCompleted`. `null` is a valid argument ("clear the stage")
+ * but unknown strings are not.
+ */
+export function setStage(input: {
+  recordPath: string;
+  stage: StageLabel | null;
+  now?: () => Date;
+}): { record: DispatchRecord } {
+  if (input.stage !== null && !isStageLabel(input.stage)) {
+    const err = new Error(
+      `stage must be one of the bounded stage labels (got: ${JSON.stringify(input.stage)})`
+    ) as Error & { code: string };
+    err.code = 'INVALID_STAGE';
+    throw err;
+  }
+  return withFileLockSync(input.recordPath, () => {
+    const existing = readRecord(input.recordPath);
+    const next: DispatchRecord = {
+      ...existing,
+      stage: input.stage
+    };
+    writeAtomic(input.recordPath, next);
+    return { record: next };
+  });
+}
+
+/**
  * Read a dispatch record with backward-compat defaults. Old records
  * missing G5 / G6 fields are upgraded on read (no error, no overwrite).
  */
@@ -528,7 +612,14 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     ? (obj.heartbeats.filter(isValidHeartbeat) as Heartbeat[])
     : [];
   const lastBeatAt = typeof obj.lastBeatAt === 'string' ? obj.lastBeatAt : null;
-  const status = isDispatchStatus(obj.status) ? obj.status : 'no-execution';
+  // Slice 2026-07-29-dispatch-stall-governance / S1 (UQ-1) — `no-execution`
+  // keeps its natural "dispatched, never executed" reading; an unparseable
+  // status field now resolves to a *distinct* `unreadable` label so the
+  // caller can tell "corrupt record" apart from "record written, no first
+  // heartbeat" (which is the new `never-started` state).
+  const status: DispatchRecordStatus = isDispatchStatus(obj.status)
+    ? obj.status
+    : 'unreadable';
   const completedAt = typeof obj.completedAt === 'string' ? obj.completedAt : null;
   const outcome: DispatchOutcome = isOutcome(obj.outcome) ? obj.outcome : 'no-execution';
   const artifactPaths = Array.isArray(obj.artifactPaths)
@@ -556,7 +647,15 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     batchId,
     heartbeats,
     lastBeatAt,
-    status
+    status,
+    // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / PB-2)
+    // — legacy records (pre-slice) had no `stage` field. The reader
+    // defaults to `null` so the watch surface can tell "no stage ever
+    // emitted" apart from "stage: ''" (which is itself a *valid*
+    // round-trip through the writer — an empty stage is rejected by
+    // `setStage`, but a record that round-tripped through a non-strict
+    // tool would land here).
+    stage: typeof obj.stage === 'string' && obj.stage.length > 0 ? obj.stage : null
   };
 }
 
@@ -585,7 +684,13 @@ function isValidHeartbeat(v: unknown): v is Heartbeat {
 function isHeartbeatStatus(v: unknown): v is HeartbeatStatus {
   return (
     v === 'queued' || v === 'running' || v === 'finalizing' ||
-    v === 'done' || v === 'failed' || v === 'stale'
+    v === 'done' || v === 'failed' || v === 'stale' ||
+    // Slice 2026-07-29-dispatch-stall-governance / S2 — accept the
+    // S1 terminal members so a sub-agent can report `cancelled`,
+    // `no-execution`, `never-started`, or `unreadable` through the
+    // heartbeat CLI.
+    v === 'cancelled' || v === 'no-execution' ||
+    v === 'never-started' || v === 'unreadable'
   );
 }
 
@@ -593,7 +698,10 @@ function isDispatchStatus(v: unknown): v is DispatchRecordStatus {
   return (
     v === 'queued' || v === 'running' || v === 'finalizing' ||
     v === 'done' || v === 'failed' || v === 'cancelled' ||
-    v === 'no-execution' || v === 'stale'
+    v === 'no-execution' || v === 'stale' ||
+    // Slice 2026-07-29-dispatch-stall-governance / S1 — accept the two
+    // new terminal members from the startup-timeout service.
+    v === 'never-started' || v === 'unreadable'
   );
 }
 

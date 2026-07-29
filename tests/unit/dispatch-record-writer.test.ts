@@ -170,7 +170,14 @@ describe('readRecord backward compat (AC-34)', () => {
     const upgraded = readRecord(path);
     expect(upgraded.heartbeats).toEqual([]);
     expect(upgraded.lastBeatAt).toBeNull();
-    expect(upgraded.status).toBe('no-execution');
+    // Slice 2026-07-29-dispatch-stall-governance / S1 (UQ-1) — the
+    // pre-slice silent fallback was `no-execution`. Post-slice,
+    // `no-execution` is reserved for "dispatched, never executed" (a
+    // record the parent actually wrote and chose not to run) and a
+    // *missing* status field falls back to `unreadable` instead, so the
+    // caller can tell "corrupt record" from "record written, no first
+    // heartbeat" (which is the new `never-started` state).
+    expect(upgraded.status).toBe('unreadable');
     expect(upgraded.batchId).toBe('legacy-batch');
   });
 });
