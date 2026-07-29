@@ -57,6 +57,7 @@ import {
 } from '../../services/dispatch/test-tool-detection.js';
 import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
+import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -308,10 +309,33 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // compressor sees the augmented payload.
       const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
       const memoryBlock = await preflightService.fetchBlock(role);
+      // Slice 2026-07-29-context-evaluation-accuracy: capture the
+      // authoritative context-fill probe before composing the
+      // dispatch prompt. The probe is token-counted (IDE adapter's
+      // `compact` env-var), not a byte estimate. The composer
+      // prepends a `## Context window` block so the dispatched
+      // sub-agent reads the actual ratio instead of guessing
+      // from message length (char/4 estimates diverge by 2-4x
+      // and have caused false "context too low" reports at 60%+
+      // free).
+      let contextProbe: ContextPercentProbe | null = null;
+      try {
+        const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        contextProbe = readContextPercent({
+          projectRoot,
+          sessionId: sid,
+          env: process.env
+        });
+      } catch {
+        // Probe is best-effort; the composer renders a
+        // "no probe available" hint instead of failing the
+        // dispatch.
+      }
       const memoryAugmentedBody = buildDispatchSystemPrompt({
         taskTitle: role,
         taskBody: options.prompt,
         memoryBlock,
+        contextProbe
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
       // block so the sub-agent sees the lease id + worktree path BEFORE

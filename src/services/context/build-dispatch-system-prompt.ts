@@ -13,11 +13,22 @@
  *   3. never pushes the memory block below the task brief
  */
 import type { MemoryPreflightResult } from './memory-preflight-service.js';
+import type { ContextPercentProbe } from './auto-compact-types.js';
 
 export interface DispatchPromptInput {
   taskTitle: string;
   taskBody: string;
   memoryBlock: MemoryPreflightResult;
+  /**
+   * Slice 2026-07-29-context-evaluation-accuracy: the live
+   * context-fill probe. When provided, the composer prepends
+   * a `## Context window` block with the authoritative ratio so
+   * the dispatched sub-agent does NOT estimate context from
+   * message length. The ratio comes from the IDE adapter's
+   * `compact` env-var / statusline (token-counted), NOT from
+   * a byte-counted estimate.
+   */
+  contextProbe?: ContextPercentProbe | null;
 }
 
 /**
@@ -86,9 +97,56 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
  * refusal is in scope before any task-specific prose arrives.
  */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskBody, memoryBlock } = input;
+  const { taskBody, memoryBlock, contextProbe } = input;
+  const contextBlock = renderContextBlock(contextProbe ?? null);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${memoryBlock.block}\n## Task\n${taskBody}\n`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}\n`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${taskBody}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${taskBody}`;
+}
+
+/**
+ * Slice 2026-07-29-context-evaluation-accuracy: emit a
+ * `## Context window` block with the authoritative ratio so the
+ * dispatched sub-agent does not estimate from message length.
+ *
+ * The probe is a token-counted value (from the IDE adapter's
+ * `compact` env-var or statusline). The block also includes a
+ * hard rule: "do not estimate context yourself; trust this
+ * number" — the LLM's char/4 estimate diverges from peaks'
+ * token-counted value by 2-4x, and trusting the LLM's
+ * self-estimate causes false-positive "context too low" reports
+ * at 60%+ free.
+ *
+ * When the probe is null (e.g. the orchestrator did not run
+ * the context probe before dispatch), the block instructs
+ * the sub-agent to call `peaks code context-now` itself
+ * before declaring context pressure.
+ */
+function renderContextBlock(probe: ContextPercentProbe | null): string {
+  if (probe !== null && probe !== undefined) {
+    const usedPct = (probe.ratio * 100).toFixed(1);
+    const freePct = ((1 - probe.ratio) * 100).toFixed(1);
+    const action = probe.ratio >= 0.95
+      ? 'RED-LINE — call `peaks compact auto --execute` immediately.'
+      : probe.ratio >= 0.85
+        ? 'pre-compact zone — consider running `peaks compact auto --execute` proactively.'
+        : probe.ratio >= 0.5
+          ? 'soft-warn zone — continue working; the next dispatch will re-check.'
+          : 'plenty of room — continue without compacting.';
+    return `## Context window (authoritative — do NOT estimate yourself)
+
+Your context is **${usedPct}% used** (${freePct}% free) as measured by the IDE adapter's token-counted statusline (source: \`${probe.source}\`, IDE: \`${probe.ide}\`). This number is the SAME value \`peaks code context-now\` returns — trust it; do not derive a percentage from your message length or any other heuristic (char/4 estimates diverge from token counts by 2-4x and have caused false "context too low" reports at ${freePct}%+ free).
+
+**Action:** ${action}
+
+If you are tempted to declare "context pressure" or "context too low" to the parent, FIRST re-run \`peaks code context-now\` and compare its \`ratio\` field to the number above. Only report context pressure if \`peaks code context-now\` returns \`verdict: red-line\` or \`action: auto-compact-now\`.
+
+`;
+  }
+  return `## Context window (no probe available)
+
+The orchestrator did not capture a context-fill probe before this dispatch. If you need to evaluate context pressure, run \`peaks code context-now --project <root>\` and trust its \`ratio\` field. Do not estimate from message length.
+
+`;
 }
