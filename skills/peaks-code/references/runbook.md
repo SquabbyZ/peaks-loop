@@ -45,6 +45,18 @@ peaks standards init   --project <repo> --apply --json
 # or: peaks standards update --project <repo> --apply --json
 # After apply, verify the files actually exist on disk (see Peaks-Loop Gate G).
 
+# ── Step 1.x — `peaks --help` 路由速查(4.x 收敛后:73→9 字节恒等) ─────────
+#
+#   peaks --help
+#     ├─ doctor / code / skill / session / workflow   (5 super-command)
+#     ├─ make / learn / sop / sub-agent               (4 ops)
+#     └─ (其他 60+ top-level subcommand)
+#
+# 全 73 个原命令收敛到 9 个 super-command 后,surface 字节恒等;
+# 4 ops 路由分别管:动态造 skill / 沉淀学习 / SOP 注册 / sub-agent 派发。
+# 若 LLM 看到 peaks-code runbook 里出现老命令(>9 之外的 raw 名字),
+# 先 `peaks --help` 校验当前 surface,再决定改 runbook 还是改命令。
+
 # 2. Peaks-Loop PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
 # Classify the request type from the PRD: feature | bugfix | refactor | docs | config | chore
 # This drives RD/QA gate strictness — see "Mandatory RD QA repair loop" for the matrix.

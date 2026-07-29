@@ -74,6 +74,23 @@ What the sub-agent **MUST** still do, from this skill's contract:
 
 After returning, Code re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
 
+## G11.5 visibility contract (mandatory, slice 2026-07-28-sub-agent-visibility)
+
+Any RD/QA/SC sub-agent dispatched by `peaks sub-agent dispatch --from-dag` (or by the single-shot `dispatch <role> --prompt ...` path) MUST register an artifact path via `--write-artifact <path>` BEFORE spawning, and the orchestrator MUST surface a 1-line `⏳ Spawning sub-agent via Task tool: <description>` prose to the user BEFORE each `Agent` tool call.
+
+**Hard rules (text-locked, no skip):**
+
+1. **Artifact registration is mandatory for non-trivial RD/QA/SC sub-agents.** The dispatch CLI now exposes two new envelope fields — `artifactsPublicPaths: string[]` and `orchestratorVisibleHint: string` — that the orchestrator reads back to the user. The RD/QA/SC sub-agent MUST register the artifact path it intends to write via `--write-artifact <absolute-path>` so the envelope surfaces the path to the user before the agent actually starts. Skipping `--write-artifact` is a visibility regression: the user cannot tell what file the sub-agent will create.
+2. **Orchestrator surfaces the prose BEFORE spawning.** For every `Agent` tool call that materializes a `peaks sub-agent dispatch` envelope, the orchestrator MUST emit one visible line of prose to the user of the form `⏳ Spawning sub-agent via Task tool: <description>` where `<description>` is ≥ 6 chars and includes the rid. The line lives in the orchestrator's reply text, not in the tool result.
+3. **Fan-out keeps the line singular.** When the envelope returns `dispatchCount > 1` (i.e. `--from-dag` with N ≥ 2 leaves), the orchestrator emits the prose once for the whole batch, not N times. Per-leaf prose defeats the wall-time benefit of fan-out.
+4. **No auto-commit disclaimer survives this contract.** The same prompt template that today forbids `git commit / git push / install hooks / apply settings.json mutations` (slice 2026-06-28 incident) is unchanged. G11.5 layers ABOVE that — visibility first, hard prohibitions second.
+
+**Where the orchestrator reads the values from**: `data.orchestratorVisibleHint` (one line, copy verbatim) and `data.artifactsPublicPaths` (the public list of artifact paths the sub-agent will own). The CLI fills these in; the orchestrator just transcribes.
+
+**Regression guard**: `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts` parses `rd-sub-agent-dispatch.md` and asserts the G11.5 heading is present. Do not delete the heading without updating the guard.
+
+---
+
 ## Test Tool Detection (mandatory)
 
 The dispatch CLI (`peaks sub-agent dispatch`) automatically prepends a Test Tool Detection block to every sub-agent prompt — telling the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`). NEVER use `npx <runner>`. This rule is machine-injected, not a prompt ritual — every sub-agent gets it including rd/qa/ui/txt/sc.

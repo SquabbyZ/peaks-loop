@@ -85,7 +85,10 @@ peaks sub-agent dispatch <role> --prompt <text> [--request-id <rid>] [--session-
       "artifactBytes": 0,
       "totalBytes": 4321
     },
-    "artifactMetas": []
+    "artifactMetas": [],
+    "orchestratorVisibleHint": "⏳ Spawning sub-agent via Task tool: rd for rid=002-2026-06-07, batch-id=… (ETA ~45s)",
+    "artifactsPublicPaths": [],
+    "expectedCompletionSeconds": 45
   },
   "warnings": [],
   "nextActions": [
@@ -247,6 +250,64 @@ once the poller has read them.
 - AC-22..AC-24: R-2 path guard, prompt size limit, atomic write
 - AC-25..AC-32: G5 resource lifecycle (RL-1 batch counter, dispatch record schema, reducer dispose, slice archive, cancel dispose)
 - AC-33..AC-37: G6 heartbeat CLI, schema, poller, status line, E2E
+
+## G11.5 — visibility contract (slice 2026-07-28-sub-agent-visibility)
+
+The dispatch CLI is a `dry-run` primitive — it never spawns the Task
+tool itself. The LLM orchestrator (peaks-code / peaks-rd / peaks-qa)
+executes the returned `data.toolCall` via the IDE's `Task` agent. The
+harness does not always render the spawned agent's progress in the
+user's terminal, so the user frequently sees "peaks dispatched" but
+no Task UI feedback. This rule closes that gap with three
+machine-readable + one prose obligation.
+
+**Envelope additions (single dispatch and `--from-dag`):**
+
+- `data.orchestratorVisibleHint: string` — a single-line prose string
+  the orchestrator MUST echo verbatim in the user-facing turn
+  (i.e. in the orchestrator's response, NOT just the tool call).
+  Format: `⏳ Spawning sub-agent via Task tool: <role> for rid=<rid>, batch-id=<batchId> (ETA ~<seconds>s)`.
+- `data.artifactsPublicPaths: readonly string[]` — public artifact
+  paths the sub-agent will own. Empty when `--write-artifact` is not
+  passed; otherwise contains the single user-supplied path. The
+  orchestrator surfaces this list before fan-out so the user can see
+  what files will appear on disk.
+- `data.expectedCompletionSeconds: number` — ETA budget. Single
+  dispatch defaults to 45s; `--from-dag` defaults to 60s. Use as a
+  hint, not a hard deadline (the heartbeat poller at §G6 still owns
+  the 5-min stale threshold).
+
+**Orchestrator obligations (text-locked, no skip):**
+
+1. Before every `Agent` tool call that materializes a `data.toolCall`
+   returned by `peaks sub-agent dispatch`, the orchestrator MUST emit
+   one line of prose to the user containing
+   `⏳ Spawning sub-agent via Task tool: <description>`. `<description>`
+   MUST be ≥ 6 chars and MUST include the rid. (`description` is the
+   short label rendered by the IDE; the prose line is the user-visible
+   counter-part.) The line is rendered in the assistant's reply text,
+   not in the tool result block.
+2. When the CLI returns a fan-out envelope (`dispatchCount > 1`),
+   the orchestrator MUST emit the prose line once for the whole fan-out
+   (not once per leaf) and then issue all `Agent` tool calls in the
+   same turn. Repeating the line N times defeats the point of fan-out.
+3. If the orchestrator cannot satisfy (1) (e.g. an inline tool call
+   failed and the orchestrator wants to retry), it MUST explain the
+   retry in the next user-visible message — silent retry is a
+   visibility regression.
+
+**Why the prose, not just the envelope field**: the
+`orchestratorVisibleHint` field is machine-readable, but a terminal
+user reads prose. The LLM MUST transcribe the hint into the visible
+reply. The two surfaces are not redundant — the field is for
+downstream tooling, the prose is for the human. Same payload,
+different readers.
+
+**Regression guard**: `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts`
+parses the same SKILL.md text and asserts the G11.5 paragraph is
+present; do not delete the heading without also updating the guard.
+
+---
 
 ## D21 — LLM-side completion signal (mandatory)
 
