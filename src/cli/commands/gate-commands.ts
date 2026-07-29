@@ -187,6 +187,16 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       // Fail-open: a bug in enforcement must not brick Claude Code.
       emitHint(io, `gate enforce: internal error, allowing command (${getErrorMessage(error)})`);
     }
+    // Slice 2026-07-29-windows-console-flash Part 46: actively
+    // exit the process when the gate-enforce handler returns.
+    // The default behavior is to wait for stdin EOF before
+    // exiting, but the hook's stdin pipe may not close promptly
+    // (the parent can keep the handle open even after it has
+    // finished reading the JSON decision), which causes 4
+    // Node.js processes to accumulate in the user's task
+    // manager. An explicit process.exit here forces the gate
+    // process to release all handles and exit immediately.
+    process.exit(process.exitCode || 0);
   });
 
   addJsonOption(
