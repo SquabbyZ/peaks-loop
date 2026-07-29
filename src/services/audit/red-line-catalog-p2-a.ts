@@ -274,6 +274,22 @@ const RD_COVERAGE_DISCIPLINE: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',
 };
 
+const QA_GATEGUARD_PREFLIGHT: RedLineCatalogEntry = {
+  id: 'rl-qa-gateguard-preflight-001',
+  rule: 'peaks-qa SKILL.md must declare the gateguard-fact-force pre-flight BLOCKING section',
+  markers: ['BLOCKING'],
+  phrases: ['gateguard-fact-force conflict', 'pre-flight'],
+  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts',
+};
+
+const QA_RUNTIME_CONTRACT: RedLineCatalogEntry = {
+  id: 'rl-qa-runtime-contract-001',
+  rule: 'peaks-qa SKILL.md must declare the runtime contract (transition gates + Playwright MCP fallback + OpenSpec integration)',
+  markers: ['BLOCKING', 'MANDATORY'],
+  phrases: ['transition verification gates', 'playwright mcp is unavailable', 'when the target repository has openspec/'],
+  enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -328,4 +344,9 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // two enforcers (handoff + coverage discipline).
   RD_HANDOFF_CONTRACT,
   RD_COVERAGE_DISCIPLINE,
+  // Slice 2026-07-29-rid-prose-only-sweep-006: close four
+  // peaks-qa discovered lines (md-26 gateguard + md-113
+  // transition gates + md-165 playwright + md-201 openspec).
+  QA_GATEGUARD_PREFLIGHT,
+  QA_RUNTIME_CONTRACT,
 ];
