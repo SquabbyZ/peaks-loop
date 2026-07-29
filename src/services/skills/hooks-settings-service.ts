@@ -610,7 +610,15 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   // write so the two halves of the install are always co-located. The
   // helper is idempotent and additive: any user-written deny entries
   // are preserved.
-  const merged = withSuperpowersSkillDenylist(withHooksInstalledForIde(settings, ide));
+  //
+  // Slice 2026-07-29-worktree-l2-extended Part 29: also apply
+  // withTriggeredDenyList. If the existing settings file has a
+  // superpowers / git-worktree / podman-run entry (any source),
+  // the install appends a defensive `Edit(deny-trigger:<phrase>)`
+  // entry. The chain cannot run raw `git worktree add` (or
+  // `podman run`) without an explicit `peaks hooks uninstall`
+  // first. Both helpers are pure + idempotent.
+  const merged = withTriggeredDenyList(withSuperpowersSkillDenylist(withHooksInstalledForIde(settings, ide)));
   atomicWriteJson(settingsPath, merged);
   return { ...baseResult, alreadyInstalled: false, applied: true };
 }
@@ -656,7 +664,12 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
   // Strips the peaks-managed `UseSkill(...)` deny entries alongside the
   // hook entries; user-written entries are untouched. The helper self-
   // decomposes an empty `permissions` object.
-  const finalSettings = withoutSuperpowersSkillDenylist(nextSettings);
+  //
+  // Slice 2026-07-29-worktree-l2-extended Part 29: also strip the
+  // trigger-style deny entries via withoutTriggeredDenyList. The
+  // chain of helpers is order-independent (each is idempotent and
+  // additive over the same set of peaks-managed entries).
+  const finalSettings = withoutTriggeredDenyList(withoutSuperpowersSkillDenylist(nextSettings));
   atomicWriteJson(settingsPath, finalSettings);
   return { scope, settingsPath, removed: removedAny };
 }
