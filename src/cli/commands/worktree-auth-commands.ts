@@ -39,6 +39,7 @@ import {
   type WorktreeAuthorization,
 } from '../../services/hooks/worktree-authorization-gate.js';
 import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
+import { emitLeaseEvent } from '../../services/observability/observability-service.js';
 import {
   deserializeLease,
   finalizeLease,
@@ -403,6 +404,15 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       );
 
       atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
+      // Part 4.A: emit spawn metric (fire-and-forget; never blocks).
+      emitLeaseEvent({
+        sessionId,
+        projectRoot,
+        kind: 'spawn',
+        leaseId,
+        rid: options.rid,
+        role: options.role
+      });
 
       printResult(
         io,
@@ -504,6 +514,16 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
 
       const released = markReleased(lease);
       atomicWriteJson(file, released);
+      // Part 4.A: emit release metric (manual path; auto-release is
+      // recorded in dispatch-record-writer's tryAutoReleaseLease).
+      emitLeaseEvent({
+        sessionId,
+        projectRoot,
+        kind: 'release',
+        leaseId: released.leaseId,
+        rid: released.rid,
+        role: released.role
+      });
 
       printResult(
         io,
@@ -657,6 +677,15 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       }
       const renewed = renewLease(lease, now + ttlMs);
       atomicWriteJson(file, renewed);
+      // Part 4.A: emit renew metric.
+      emitLeaseEvent({
+        sessionId,
+        projectRoot,
+        kind: 'renew',
+        leaseId: renewed.leaseId,
+        rid: renewed.rid,
+        role: renewed.role
+      });
       printResult(
         io,
         ok(
@@ -832,6 +861,15 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
           }
           const finalLease = markGc(updated);
           atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), lease.leaseId), finalLease);
+          // Part 4.A: emit gc metric (per swept lease).
+          emitLeaseEvent({
+            sessionId,
+            projectRoot,
+            kind: 'gc',
+            leaseId: lease.leaseId,
+            rid: lease.rid,
+            role: lease.role
+          });
           swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed });
         } else {
           swept.push({ leaseId: lease.leaseId, path: lease.path, prevStatus, gitWorktreeRemoveFailed: false });

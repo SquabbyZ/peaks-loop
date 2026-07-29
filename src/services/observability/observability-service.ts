@@ -34,7 +34,14 @@ export const OBSERVABILITY_CATEGORIES = [
   'post-compact',
   'cycle',
   'token-usage',
-  'monotonic-trigger'
+  'monotonic-trigger',
+  // Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
+  // metrics. Emitted by `peaks worktree spawn / renew / release /
+  // gc` and by the auto-release hook in dispatch finalization (Part
+  // 3.A). Read by `peaks lease metrics`. The `detail.kind` field
+  // discriminates spawn / renew / release / gc / autoRelease /
+  // autoRelease-failed / autoRelease-skipped.
+  'lease'
 ] as const;
 export type ObservabilityCategory = typeof OBSERVABILITY_CATEGORIES[number];
 
@@ -149,6 +156,54 @@ export const OBSERVABILITY_CONSTANTS = {
   CATEGORIES: OBSERVABILITY_CATEGORIES,
   SUBAGENT_ROLES: OBSERVABILITY_SUBAGENT_ROLES
 } as const;
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 4.A: lease lifecycle
+ * observability. Each `peaks worktree spawn / renew / release /
+ * gc` CLI emits a `lease` event; the auto-release hook in
+ * dispatch finalization emits `autoRelease` (success) or
+ * `autoRelease-failed` (detached spawn failed). The
+ * `peaks lease metrics --json` reader aggregates these for the
+ * dashboard.
+ *
+ * Fire-and-forget by contract (mirrors emitCycleEvent /
+ * emitTokenUsageEvent): never throws, written=false on schema
+ * mismatch or IO failure. Callers do not inspect the result.
+ */
+export type LeaseEventKind =
+  | 'spawn'
+  | 'renew'
+  | 'release'
+  | 'gc'
+  | 'autoRelease'
+  | 'autoRelease-failed'
+  | 'autoRelease-skipped';
+
+export function emitLeaseEvent(opts: {
+  sessionId: string;
+  projectRoot: string;
+  kind: LeaseEventKind;
+  leaseId: string;
+  rid?: string;
+  role?: string;
+  /** Reason the autoRelease was skipped (e.g. "no-lease", "non-terminal-status"). */
+  reason?: string;
+}): EmitResult {
+  const detail: Record<string, unknown> = { kind: opts.kind, leaseId: opts.leaseId };
+  if (opts.rid !== undefined) detail['rid'] = opts.rid;
+  if (opts.role !== undefined) detail['role'] = opts.role;
+  if (opts.reason !== undefined) detail['reason'] = opts.reason;
+  return emitObservabilityEvent(
+    {
+      schemaVersion: OBSERVABILITY_SCHEMA_VERSION,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'lease',
+      detail
+    },
+    { projectRoot: opts.projectRoot }
+  );
+}
 
 /**
  * rid-030 F-direction: per-cycle event (cycle started / completed / failed).

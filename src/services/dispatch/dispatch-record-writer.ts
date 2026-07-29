@@ -30,6 +30,7 @@ import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
 import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
 import { withFileLockSync } from 'peaks-loop-shared-channel';
 import { isStageLabel, type StageLabel } from './stage-enum.js';
+import { emitLeaseEvent } from '../observability/observability-service.js';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {
@@ -114,12 +115,21 @@ export interface DispatchRecord {
    * --isolation worktree`). The release hook (see markCompleted +
    * `peaks sub-agent heartbeat --status done`) reads this field to
    * auto-call `peaks worktree release` when the sub-agent
-   * finalizes. `null` means the dispatch did not request isolation
-   * and no release will fire. Persisted for audit + idempotency so
-   * a re-read of an old record still surfaces the lease id even if
-   * the on-disk lease file has since been gc'd.
+   * finalizes. `null` (or absent on legacy records) means the
+   * dispatch did not request isolation and no release will fire.
+   * Persisted for audit + idempotency so a re-read of an old record
+   * still surfaces the lease id even if the on-disk lease file has
+   * since been gc'd.
+   *
+   * The `?` is intentional: legacy records (pre-Part 3.A) have no
+   * `leaseId` at all, and the upgrade path (see `upgradeRecord`)
+   * returns `null` on read. Optional makes the field ergonomically
+   * nullable without forcing every test that builds a literal to
+   * remember the field. The v3 schema migration (Part 4.C) makes
+   * the field structurally required; that ship moves the optional
+   * off the type and updates all literal sites in one pass.
    */
-  readonly leaseId: string | null;
+  readonly leaseId?: string | null;
 }
 
 /** Input for the initial write. */
@@ -532,6 +542,7 @@ export function tryAutoReleaseLease(args: {
   // remains ESM-compatible (the compiled heartbeat CLI throws
   // `require is not defined` if we use `require` here).
   void (async () => {
+    let spawned = false;
     try {
       const cp = await import('node:child_process');
       const child = cp.spawn(
@@ -550,6 +561,7 @@ export function tryAutoReleaseLease(args: {
         // so buffering is irrelevant.
         { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
       );
+      spawned = true;
       if (process.env.PEAKS_WORKTREE_LEASE_DEBUG) {
         child.stderr?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
         child.stdout?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
@@ -561,7 +573,36 @@ export function tryAutoReleaseLease(args: {
         child.on('error', () => { /* detached best-effort */ });
       }
       child.unref();
-    } catch { /* best-effort */ }
+    } catch (e) {
+      // Slice 2026-07-29-worktree-l2-extended Part 4.A: surface
+      // auto-release failures to the observability stream so the
+      // dashboard can alert. The spawn-attempt itself threw (not
+      // a child-process exit-code failure — those are not
+      // catchable from the parent because the child is detached
+      // and unref'd). emitLeaseEvent is fire-and-forget; it
+      // returns a result we don't inspect.
+      emitLeaseEvent({
+        sessionId: args.sessionId,
+        projectRoot: args.projectRoot,
+        kind: 'autoRelease-failed',
+        leaseId: args.leaseId,
+        reason: (e as Error).message
+      });
+    }
+    if (spawned) {
+      // Record the success path. Idempotent with the manual
+      // `peaks worktree release` metric — the release CLI itself
+      // emits a 'release' event when it runs and lands. Two
+      // events for one logical release is acceptable; the
+      // dashboard can dedup or count both under
+      // lease.autoRelease.count.
+      emitLeaseEvent({
+        sessionId: args.sessionId,
+        projectRoot: args.projectRoot,
+        kind: 'autoRelease',
+        leaseId: args.leaseId
+      });
+    }
   })();
   // NB: we deliberately do NOT log per-call here — every heartbeat
   // that reports done in a busy session would otherwise spam the
@@ -613,12 +654,14 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   // and best-effort; a crash here cannot roll back the markCompleted
   // write (we already returned from the lock). The next gc pass is
   // the safety net.
-  if (result.record.leaseId !== null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
+  if (result.record.leaseId != null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
     try {
       tryAutoReleaseLease({
         projectRoot: input.projectRoot,
         sessionId: result.record.sessionId,
-        leaseId: result.record.leaseId
+        // Optional schema field; coalesce to satisfy the
+        // 16-hex validator inside tryAutoReleaseLease.
+        leaseId: result.record.leaseId ?? ''
       });
     } catch { // best-effort; release is async anyway
       /* swallow */
