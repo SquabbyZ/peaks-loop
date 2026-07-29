@@ -684,6 +684,13 @@ function spawnWorktreeLease(args: {
         branch: env.data.lease.branch,
         expiresAt: env.data.lease.expiresAt
       });
+      // Part 47: unref via setImmediate so the close handler
+      // finishes first and Node's stdio 'end' events drain the
+      // stdout/stderr buffers before the parent releases the
+      // child handle. Without this microtask defer, the unref
+      // races the buffered stdout close and the test receives
+      // an empty JSON envelope.
+      setImmediate(() => { child.unref(); });
     });
   });
 }
@@ -744,5 +751,7 @@ function spawnContainerLease(args: {
       }
       resolve({ leaseId: env.data.lease.leaseId });
     });
+    // See spawnWorktreeLease above for the rationale.
+    child.unref();
   });
 }
