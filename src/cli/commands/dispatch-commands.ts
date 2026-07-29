@@ -202,50 +202,60 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           return;
         }
         if (options.isolation === 'container') {
-          // Slice 2026-07-29-worktree-l2-extended Part 8: container
-          // isolation contract. The actual container runtime
-          // (docker / podman) is NOT YET INTEGRATED — the bridge
-          // lands the CLI contract (--isolation container is
-          // accepted, dispatched, and surfaces in the envelope
-          // + toolCall.args) so downstream tooling can wire
-          // docker run / kill / exec without re-litigating the
-          // dispatch layer. The real container spawn is a
-          // follow-up rid (TODO in spawnContainerLease). The
-          // bridge is intentionally fail-fast: container
-          // requests do NOT silently fall through to worktree.
-          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_CONTAINER_NOT_YET_IMPLEMENTED', '--isolation container is the L4 isolation bridge for Part 8; the container runtime spawn is the next rid (see .peaks/memory/2026-07-29-worktree-l2-extended-part8 if it exists, otherwise open one). Drop --isolation or pass --isolation worktree for now.', {
-            role,
-            toolCall: null,
-            dispatchRecordPath: null
-          } as never, [
-            'The container bridge is contract-complete (envelope + toolCall.args) but the spawn path is a TODO.',
-            'Use --isolation worktree for the current production path; container support lands in the next rid.'
-          ]), asJson);
-          process.exitCode = 1;
-          return;
+          // Slice 2026-07-29-worktree-l2-extended Part 12: container
+          // isolation is now live (Part 8 contract was the
+          // bridge; Part 12 is the runtime). Shell out to
+          // `peaks container spawn` to run `docker run` and
+          // write the container lease.
+          isolationMode = 'container';
+          try {
+            const spawnResult = await spawnContainerLease({
+              projectRoot,
+              sessionId: sid,
+              rid,
+              role,
+              purpose: `auto-spawned by dispatch --isolation container (batch=${batchId})`
+            });
+            // Reuse the leaseId variable — same field semantically
+            // (id of the isolation surface the dispatch owns).
+            leaseId = spawnResult.leaseId;
+          } catch (error) {
+            printResult(io, fail('sub-agent.dispatch', 'ISOLATION_CONTAINER_SPAWN_FAILED', getErrorMessage(error), {
+              role,
+              toolCall: null,
+              dispatchRecordPath: null
+            } as never, [
+              'The dispatch aborts when --isolation container lease spawn fails; retry without --isolation or fix the underlying docker error.',
+              'For environments without a docker daemon, use --isolation worktree (the L2 production path).'
+            ]), asJson);
+            process.exitCode = 1;
+            return;
+          }
         }
-        isolationMode = 'worktree';
-        try {
-          const spawnResult = await spawnWorktreeLease({
-            projectRoot,
-            sessionId: sid,
-            rid,
-            role,
-            purpose: `auto-spawned by dispatch --isolation worktree (batch=${batchId})`
-          });
-          leaseId = spawnResult.leaseId;
-          worktreePath = spawnResult.path;
-          worktreeBranch = spawnResult.branch;
-        } catch (error) {
-          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_SPAWN_FAILED', getErrorMessage(error), {
-            role,
-            toolCall: null,
-            dispatchRecordPath: null
-          } as never, [
-            'The dispatch aborts when --isolation worktree lease spawn fails; retry without --isolation or fix the underlying git error.'
-          ]), asJson);
-          process.exitCode = 1;
-          return;
+        if (options.isolation === 'worktree') {
+          isolationMode = 'worktree';
+          try {
+            const spawnResult = await spawnWorktreeLease({
+              projectRoot,
+              sessionId: sid,
+              rid,
+              role,
+              purpose: `auto-spawned by dispatch --isolation worktree (batch=${batchId})`
+            });
+            leaseId = spawnResult.leaseId;
+            worktreePath = spawnResult.path;
+            worktreeBranch = spawnResult.branch;
+          } catch (error) {
+            printResult(io, fail('sub-agent.dispatch', 'ISOLATION_SPAWN_FAILED', getErrorMessage(error), {
+              role,
+              toolCall: null,
+              dispatchRecordPath: null
+            } as never, [
+              'The dispatch aborts when --isolation worktree lease spawn fails; retry without --isolation or fix the underlying git error.'
+            ]), asJson);
+            process.exitCode = 1;
+            return;
+          }
         }
       }
 
@@ -609,6 +619,65 @@ function spawnWorktreeLease(args: {
         branch: env.data.lease.branch,
         expiresAt: env.data.lease.expiresAt
       });
+    });
+  });
+}
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 12: container
+ * isolation bridge. Shells out to `peaks container spawn` to
+ * run `docker run` + write the container lease. Returns the
+ * leaseId the dispatch record needs to persist. The shape is
+ * a subset of the spawnWorktreeLease return (just leaseId);
+ * we do not need the path/branch/expiresAt for the container
+ * path because the envelope surfaces a different set of
+ * fields (image + containerId; see container-lease.ts).
+ */
+function spawnContainerLease(args: {
+  projectRoot: string;
+  sessionId: string;
+  rid: string;
+  role: string;
+  purpose: string;
+}): Promise<{ leaseId: string }> {
+  return new Promise((resolve, reject) => {
+    const child = childProcessSpawn(process.execPath, [
+      process.argv[1] ?? '',
+      'container', 'spawn',
+      '--rid', args.rid,
+      '--role', args.role,
+      '--purpose', args.purpose,
+      '--project', args.projectRoot,
+      '--session', args.sessionId,
+      '--json'
+    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
+    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
+    child.on('error', (err) => reject(new Error(`container spawn subprocess failed: ${err.message}`)));
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`peaks container spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`));
+        return;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stdout);
+      } catch (err) {
+        reject(new Error(`peaks container spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`));
+        return;
+      }
+      if (typeof parsed !== 'object' || parsed === null) {
+        reject(new Error('peaks container spawn envelope is not an object'));
+        return;
+      }
+      const env = parsed as { ok?: boolean; data?: { lease?: { leaseId: string } } };
+      if (env.ok !== true || !env.data?.lease) {
+        reject(new Error(`peaks container spawn envelope missing lease; got: ${stdout.slice(0, 200)}`));
+        return;
+      }
+      resolve({ leaseId: env.data.lease.leaseId });
     });
   });
 }
