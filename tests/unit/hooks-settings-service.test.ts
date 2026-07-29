@@ -10,7 +10,11 @@ import {
   planHookInstall,
   readHookStatus,
   readInstalledEntriesFromSettings,
-  removeHookInstall
+  removeHookInstall,
+  SUPERPOWERS_DENIED_SKILLS,
+  withSuperpowersSkillDenylist,
+  withoutSuperpowersSkillDenylist,
+  listSuperpowersDenyEntries
 } from '../../src/services/skills/hooks-settings-service.js';
 import {
   _resetAdaptersForTesting,
@@ -266,5 +270,185 @@ describe('slice 014: readInstalledEntriesFromSettings reads actual on-disk entri
   test('returns empty when the file has no `hooks` key at all', () => {
     const entries = readInstalledEntriesFromSettings({}, 'claude-code');
     expect(entries).toHaveLength(0);
+  });
+});
+
+/**
+ * Slice 2026-07-29-worktree-layer3-deny: Layer 3 governance writes a
+ * `permissions.deny: ["UseSkill(superpowers:using-git-worktrees)", ...]`
+ * block into the same settings.json the gate-enforce hook is installed
+ * into. The pure helpers `withSuperpowersSkillDenylist` /
+ * `withoutSuperpowersSkillDenylist` / `listSuperpowersDenyEntries` are
+ * the only public API; `applyHookInstall` / `removeHookInstall` invoke
+ * them as part of their atomic write.
+ *
+ * These tests cover the pure helpers AND the end-to-end install/uninstall
+ * round-trip on a real settings.json file. They do NOT exercise
+ * `hooks-commands.ts` (that lives in hooks-commands tests).
+ */
+describe('slice 2026-07-29-worktree-layer3-deny: pure helpers', () => {
+  test('listSuperpowersDenyEntries returns the documented sentinel set', () => {
+    const entries = listSuperpowersDenyEntries();
+    // Single source of truth — the slice must lock this list down.
+    expect(entries).toEqual(['UseSkill(superpowers:using-git-worktrees)']);
+    // Cross-check the upstream constant is non-empty (otherwise the list
+    // would be misleading).
+    expect(SUPERPOWERS_DENIED_SKILLS.length).toBeGreaterThan(0);
+  });
+
+  test('withSuperpowersSkillDenylist adds the deny entry to an empty settings', () => {
+    const out = withSuperpowersSkillDenylist({});
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+  });
+
+  test('withSuperpowersSkillDenylist preserves user-written deny entries', () => {
+    const settings = {
+      permissions: { deny: ['UseSkill(foo:bar)', 'Bash(rm:*)'] }
+    };
+    const out = withSuperpowersSkillDenylist(settings);
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(foo:bar)');
+    expect(deny).toContain('Bash(rm:*)');
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+  });
+
+  test('withSuperpowersSkillDenylist is idempotent — re-running does not duplicate', () => {
+    const once = withSuperpowersSkillDenylist({});
+    const twice = withSuperpowersSkillDenylist(once);
+    const deny = (twice.permissions as { deny: string[] }).deny;
+    const count = deny.filter((d) => d === 'UseSkill(superpowers:using-git-worktrees)').length;
+    expect(count).toBe(1);
+  });
+
+  test('withSuperpowersSkillDenylist replaces a non-array permissions.deny with a fresh array', () => {
+    // Defensive: if the user wrote `deny: "UseSkill(foo:bar)"` (string
+    // instead of array), the install must not propagate the malformed
+    // shape — it replaces with a fresh array containing only our entries.
+    const settings = { permissions: { deny: 'UseSkill(foo:bar)' as unknown as string[] } };
+    const out = withSuperpowersSkillDenylist(settings);
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(Array.isArray(deny)).toBe(true);
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+    // The malformed string entry is NOT carried over (replace, not merge).
+    expect(deny).not.toContain('UseSkill(foo:bar)');
+  });
+
+  test('withSuperpowersSkillDenylist does not mutate the input', () => {
+    const settings = { permissions: { deny: ['Bash(rm:*)'] } };
+    const before = JSON.stringify(settings);
+    withSuperpowersSkillDenylist(settings);
+    expect(JSON.stringify(settings)).toBe(before);
+  });
+
+  test('withoutSuperpowersSkillDenylist strips the entry and preserves user-written ones', () => {
+    const settings = {
+      permissions: {
+        deny: ['UseSkill(foo:bar)', 'UseSkill(superpowers:using-git-worktrees)', 'Bash(rm:*)']
+      }
+    };
+    const out = withoutSuperpowersSkillDenylist(settings);
+    const deny = (out.permissions as { deny: string[] }).deny;
+    expect(deny).not.toContain('UseSkill(superpowers:using-git-worktrees)');
+    expect(deny).toContain('UseSkill(foo:bar)');
+    expect(deny).toContain('Bash(rm:*)');
+  });
+
+  test('withoutSuperpowersSkillDenylist drops an empty permissions object entirely', () => {
+    const settings = {
+      model: 'sonnet',
+      permissions: { deny: ['UseSkill(superpowers:using-git-worktrees)'] }
+    };
+    const out = withoutSuperpowersSkillDenylist(settings);
+    expect(out.permissions).toBeUndefined();
+    expect(out.model).toBe('sonnet');
+  });
+
+  test('withoutSuperpowersSkillDenylist is a no-op when deny is absent', () => {
+    const settings = { model: 'sonnet' };
+    const out = withoutSuperpowersSkillDenylist(settings);
+    expect(out).toEqual(settings);
+  });
+});
+
+describe('slice 2026-07-29-worktree-layer3-deny: install / uninstall round-trip on settings.json', () => {
+  test('install writes the deny entry alongside the gate-enforce hook', async () => {
+    applyHookInstall('project', project);
+    const settings = await readSettings();
+    const deny = (settings.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+    // Gate hook is also installed (single atomic write).
+    expect(settings.hooks).toBeDefined();
+  });
+
+  test('install is idempotent — second call does not duplicate deny entry', async () => {
+    applyHookInstall('project', project);
+    applyHookInstall('project', project);
+    const settings = await readSettings();
+    const deny = (settings.permissions as { deny: string[] }).deny;
+    const count = deny.filter((d) => d === 'UseSkill(superpowers:using-git-worktrees)').length;
+    expect(count).toBe(1);
+  });
+
+  test('install preserves user-written deny entries (additive, not destructive)', async () => {
+    await writeSettings({
+      permissions: { deny: ['UseSkill(foo:bar)', 'Bash(rm:*)'] }
+    });
+    applyHookInstall('project', project);
+    const settings = await readSettings();
+    const deny = (settings.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(foo:bar)');
+    expect(deny).toContain('Bash(rm:*)');
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
+  });
+
+  test('uninstall strips the deny entry but keeps user-written ones', async () => {
+    await writeSettings({
+      permissions: { deny: ['UseSkill(foo:bar)'] }
+    });
+    applyHookInstall('project', project);
+    // Sanity: deny now has both.
+    const afterInstall = await readSettings();
+    const installedDeny = (afterInstall.permissions as { deny: string[] }).deny;
+    expect(installedDeny).toContain('UseSkill(foo:bar)');
+    expect(installedDeny).toContain('UseSkill(superpowers:using-git-worktrees)');
+    removeHookInstall('project', project);
+    const afterUninstall = await readSettings();
+    const deny = (afterUninstall.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(foo:bar)');
+    expect(deny).not.toContain('UseSkill(superpowers:using-git-worktrees)');
+  });
+
+  test('uninstall drops an empty permissions object (no leftover {})', async () => {
+    applyHookInstall('project', project);
+    removeHookInstall('project', project);
+    const settings = await readSettings();
+    expect(settings.permissions).toBeUndefined();
+  });
+
+  test('install + uninstall round-trip preserves all non-hook non-permissions keys', async () => {
+    await writeSettings({
+      model: 'sonnet',
+      env: { SOMETHING: '1' },
+      hooks: { PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'echo other' }] }] }
+    });
+    applyHookInstall('project', project);
+    removeHookInstall('project', project);
+    const settings = await readSettings();
+    expect(settings.model).toBe('sonnet');
+    expect(settings.env).toEqual({ SOMETHING: '1' });
+    // The user-written Write hook survives.
+    const pre = (settings.hooks as { PreToolUse: { matcher: string }[] }).PreToolUse;
+    expect(pre).toHaveLength(1);
+    expect(pre[0]!.matcher).toBe('Write');
+  });
+
+  test('install works when settings.json is completely absent (creates permissions from scratch)', async () => {
+    // No pre-existing settings.json — applyHookInstall creates it.
+    const result = applyHookInstall('project', project);
+    expect(result.applied).toBe(true);
+    const settings = await readSettings();
+    const deny = (settings.permissions as { deny: string[] }).deny;
+    expect(deny).toContain('UseSkill(superpowers:using-git-worktrees)');
   });
 });

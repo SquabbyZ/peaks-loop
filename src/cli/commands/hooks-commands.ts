@@ -11,6 +11,7 @@ import {
   readHookStatus,
   readInstalledEntriesFromSettings,
   removeHookInstall,
+  listSuperpowersDenyEntries,
   type HookScope
 } from '../../services/skills/hooks-settings-service.js';
 import { readJsonObjectFile } from '../../services/ide/shared/atomic-json.js';
@@ -88,6 +89,22 @@ function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyA
  * Returns `{ copied, source, target }` so the install envelope can report
  * it without forcing the caller to inspect the filesystem.
  */
+/**
+ * Slice 2026-07-29-worktree-layer3-deny: read the on-disk
+ * `permissions.deny` block from a settings.json object and return
+ * every peaks-managed entry currently present. Used by `hooks status`
+ * to surface Layer 3 governance state without forcing the caller to
+ * re-read the file. Tolerant of missing / malformed `permissions` —
+ * a missing field returns an empty array, never throws.
+ */
+function readOnDiskDenyEntries(settings: Record<string, unknown>): ReadonlyArray<string> {
+  const permissions = settings.permissions;
+  if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) return [];
+  const deny = (permissions as Record<string, unknown>).deny;
+  if (!Array.isArray(deny)) return [];
+  return deny.filter((d): d is string => typeof d === 'string');
+}
+
 function copyBridgeHookIfPresent(userHome: string): { copied: boolean; source: string; target: string } {
   const source = resolve(__dirname, '..', '..', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh');
   const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-superpowers-bridge.sh');
@@ -140,11 +157,19 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               dryRun: true,
               skipProgress,
               entries: dryRunEntries,
-              bridgeHookCopy: bridgeCopy
+              bridgeHookCopy: bridgeCopy,
+              // Slice 2026-07-29-worktree-layer3-deny: surface the
+              // Layer 3 deny entries the install WOULD write. The
+              // dry-run branch never actually invokes
+              // `applyHookInstall`, so the on-disk snapshot is not
+              // consulted here — the list is the desired-state
+              // constant for clarity in the JSON envelope.
+              permissionsDenyEntries: listSuperpowersDenyEntries()
             },
             [],
             [
               `would install ${dryRunEntries.length} peaks-managed hook entries`,
+              `would write ${listSuperpowersDenyEntries().length} permissions.deny entries (Layer 3 worktree governance)`,
               bridgeCopy.copied
                 ? `would copy bridge hook from ${bridgeCopy.source} to ${bridgeCopy.target}`
                 : 'would not copy bridge hook (source missing or non-global scope)'
@@ -174,6 +199,9 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
             `Installed: ${installedEntries.map((e) => `${e.matcher}→${e.sentinel}`).join(', ')}`,
+            // Slice 2026-07-29-worktree-layer3-deny: surface L3 deny
+            // write alongside the hook install — single atomic write.
+            `Layer 3 deny: wrote ${listSuperpowersDenyEntries().length} permissions.deny entries (worktree governance)`,
             bridgeCopy.copied
               ? `Copied bridge hook: ${bridgeCopy.target}`
               : 'Bridge hook not copied (source missing or non-global scope)'
@@ -181,6 +209,13 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         : (bridgeCopy.copied
             ? [`Bridge hook copied: ${bridgeCopy.target}`]
             : []);
+      // Slice 2026-07-29-worktree-layer3-deny: emit L3 deny bookkeeping
+      // in the JSON envelope so downstream automation (audit / sc) can
+      // confirm Layer 3 was applied without re-reading the file. When
+      // the install is a no-op (`applied: false`) the deny block was
+      // already on disk from a prior install; we still emit the
+      // current desired list for symmetry with the dry-run envelope.
+      const denyEntries = listSuperpowersDenyEntries();
       printResult(
         io,
         ok(
@@ -191,7 +226,9 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             dryRun: false,
             skipProgress,
             entries: installedEntries.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel })),
-            bridgeHookCopy: bridgeCopy
+            bridgeHookCopy: bridgeCopy,
+            permissionsDenyApplied: result.applied,
+            permissionsDenyEntries: denyEntries
           },
           [],
           nextActions
@@ -218,7 +255,20 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       const result = removeHookInstall(scope, projectRoot, { ide });
-      printResult(io, ok('hooks.uninstall', { ...result, ide }), options.json);
+      // Slice 2026-07-29-worktree-layer3-deny: surface L3 deny removal
+      // bookkeeping. `permissionsDenyRemoved` mirrors `removed` (the
+      // service strips deny entries on the same atomic write that
+      // strips the hook entries; they share the same boolean).
+      printResult(
+        io,
+        ok('hooks.uninstall', {
+          ...result,
+          ide,
+          permissionsDenyRemoved: result.removed,
+          permissionsDenyEntries: listSuperpowersDenyEntries()
+        }),
+        options.json
+      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       printResult(io, fail('hooks.uninstall', 'HOOKS_UNINSTALL_FAILED', message, { scope, ide, removed: false }, [message]), options.json);
@@ -248,12 +298,22 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // install left behind.
       const settingsPath = status.settingsPath;
       const settings = existsSync(settingsPath) ? readJsonObjectFile(settingsPath) : {};
+      // Slice 2026-07-29-worktree-layer3-deny: report the Layer 3 deny
+      // entries actually on disk. We read the existing settings.json
+      // (above) and surface its `permissions.deny` block. Any entry
+      // that matches the current `SUPERPOWERS_DENIED_SKILLS` set is
+      // considered "peaks-managed"; user-written entries are passed
+      // through verbatim so the envelope reflects reality. The desired
+      // list is also included for parity with install / uninstall.
+      const onDiskDeny = readOnDiskDenyEntries(settings);
       printResult(
         io,
         ok('hooks.status', {
           ...status,
           ide,
-          entries: readInstalledEntriesFromSettings(settings, ide)
+          entries: readInstalledEntriesFromSettings(settings, ide),
+          permissionsDenyEntries: listSuperpowersDenyEntries(),
+          permissionsDenyOnDisk: onDiskDeny
         }),
         options.json
       );

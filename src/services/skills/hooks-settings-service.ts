@@ -324,6 +324,138 @@ function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  return [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL];
 }
 
+// --- Slice 2026-07-29-worktree-layer3-deny -----------------------------------
+// Layer 3 of the Worktree Governance 3-layer design (see
+// .peaks/memory/2026-07-29-worktree-layer3-deny.md). The gateway is the IDE
+// native `permissions.deny` list — Claude Code refuses to invoke any Skill
+// listed there BEFORE the LLM even sees it. This is the strongest of the three
+// layers because it bypasses the LLM's tool-call decision entirely: the IDE
+// matches the deny entry against the Skill's namespace and returns a
+// permission error, so the LLM observes "skill not available" rather than
+// "skill denied" — true fail-closed.
+//
+// The list is intentionally tiny: only skills that the superpowers chain
+// *forces* downstream from peaks-loop work paths. We do NOT deny every
+// superpowers skill — only the one whose `description` field or SKILL.md body
+// recommends `git worktree add` / native worktree tools as a step. Anything
+// else stays available as a reference (peaks-code's
+// references/external-skill-invocation.md already describes every other
+// superpowers skill as informational).
+//
+// The IDE expects the deny entry in the form `UseSkill(<skill-id>)`. The
+// prefix is fixed; the skill id is the namespace-qualified name. We render
+// the entries at install time and at uninstall time so the sentinel list is
+// the single source of truth.
+
+/**
+ * The set of Skills whose use is denied at the IDE permissions layer for
+ * every `peaks hooks install` call. Each entry is the namespace-qualified
+ * skill id; the helper `formatSuperpowersDenyEntry` wraps it in the IDE's
+ * `UseSkill(...)` envelope.
+ *
+ * Slice 2026-07-29-worktree-layer3-deny: the list is empty-aware. To deny a
+ * new skill, append its id here and re-run `peaks hooks install`. The list
+ * is also the inverse for uninstall: `removeHookInstall` rebuilds the deny
+ * list by filtering out anything whose wrapped form matches one of these
+ * ids.
+ */
+export const SUPERPOWERS_DENIED_SKILLS: ReadonlyArray<string> = [
+  // superpowers:using-git-worktrees is the chain's "ground zero" — its
+  // SKILL.md (lines 47-99) literally instructs the LLM to run
+  // `git worktree add`. Denying this Skill at the IDE layer prevents the
+  // LLM from ever receiving that prompt.
+  'superpowers:using-git-worktrees'
+];
+
+function formatSuperpowersDenyEntry(skillId: string): string {
+  return `UseSkill(${skillId})`;
+}
+
+const SUPERPOWERS_DENY_SENTINELS: ReadonlySet<string> = new Set(
+  SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry)
+);
+
+/**
+ * Merge the peaks-managed Skill denylist into the existing settings object.
+ * Preserves every other `permissions.deny` entry the user (or another tool)
+ * has written so the install is additive, not destructive. The output is
+ * always deterministic: the same input always yields the same output,
+ * regardless of insertion order in the source array.
+ *
+ * Defensive behavior:
+ * - `settings.permissions` is missing or non-object → install creates a
+ *   fresh `permissions: { deny: [...our entries] }` object.
+ * - `settings.permissions.deny` is missing or non-array → install replaces
+ *   the field with a fresh array containing only our entries.
+ * - Duplicate entries (any source) are collapsed to one via `new Set`.
+ *
+ * The function is pure: it does not mutate the input. Atomic write happens
+ * at the call site (`applyHookInstall`).
+ */
+export function withSuperpowersSkillDenylist(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
+  const ourEntries = SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
+  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
+    ? (settings.permissions as Record<string, unknown>)
+    : {};
+  const existingDeny: string[] = Array.isArray(permissions.deny)
+    ? (permissions.deny as string[]).filter((d): d is string => typeof d === 'string')
+    : [];
+  const otherDeny = existingDeny.filter((d) => !SUPERPOWERS_DENY_SENTINELS.has(d));
+  const finalDeny = [...new Set([...otherDeny, ...ourEntries])];
+  return {
+    ...settings,
+    permissions: { ...permissions, deny: finalDeny }
+  };
+}
+
+/**
+ * Inverse of `withSuperpowersSkillDenylist`. Removes every peaks-managed
+ * `UseSkill(...)` entry from the deny list. If the resulting deny list is
+ * empty, the `deny` field itself is deleted; if the `permissions` object
+ * becomes empty, the `permissions` field itself is deleted. This is the
+ * uninstall path: every field we wrote must be removed exactly, and no
+ * other field may be touched.
+ *
+ * Pure (no mutation).
+ */
+export function withoutSuperpowersSkillDenylist(
+  settings: Record<string, unknown>
+): Record<string, unknown> {
+  const permissions = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions))
+    ? (settings.permissions as Record<string, unknown>)
+    : {};
+  if (!Array.isArray(permissions.deny)) {
+    return settings;
+  }
+  const remainingDeny = (permissions.deny as string[])
+    .filter((d): d is string => typeof d === 'string')
+    .filter((d) => !SUPERPOWERS_DENY_SENTINELS.has(d));
+  const nextPermissions: Record<string, unknown> = { ...permissions };
+  if (remainingDeny.length > 0) {
+    nextPermissions.deny = remainingDeny;
+  } else {
+    delete nextPermissions.deny;
+  }
+  if (Object.keys(nextPermissions).length === 0) {
+    // The whole `permissions` object is empty (no deny, no allow, no other
+    // sub-fields). Drop it to avoid leaving an empty object on disk.
+    const { permissions: _omit, ...rest } = settings;
+    return rest as Record<string, unknown>;
+  }
+  return { ...settings, permissions: nextPermissions };
+}
+
+/**
+ * Read-only introspection. Returns the deny entries that `peaks hooks
+ * install` would write today. Useful for `peaks hooks status` and the
+ * dry-run envelope.
+ */
+export function listSuperpowersDenyEntries(): ReadonlyArray<string> {
+  return SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry);
+}
+
 
 
 /** Default (claude-code) peaks-managed hook entries — kept as a stable export for tests. Slice #014: only the gate-enforce entry. */
@@ -473,7 +605,13 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   if (baseResult.alreadyInstalled) {
     return { ...baseResult, applied: false };
   }
-  atomicWriteJson(settingsPath, withHooksInstalledForIde(settings, ide));
+  // Slice 2026-07-29-worktree-layer3-deny: Layer 3 — write the
+  // `permissions.deny` block alongside the gate hook in a single atomic
+  // write so the two halves of the install are always co-located. The
+  // helper is idempotent and additive: any user-written deny entries
+  // are preserved.
+  const merged = withSuperpowersSkillDenylist(withHooksInstalledForIde(settings, ide));
+  atomicWriteJson(settingsPath, merged);
   return { ...baseResult, alreadyInstalled: false, applied: true };
 }
 
@@ -514,7 +652,12 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
   } else {
     delete nextSettings.hooks;
   }
-  atomicWriteJson(settingsPath, nextSettings);
+  // Slice 2026-07-29-worktree-layer3-deny: Layer 3 — symmetric uninstall.
+  // Strips the peaks-managed `UseSkill(...)` deny entries alongside the
+  // hook entries; user-written entries are untouched. The helper self-
+  // decomposes an empty `permissions` object.
+  const finalSettings = withoutSuperpowersSkillDenylist(nextSettings);
+  atomicWriteJson(settingsPath, finalSettings);
   return { scope, settingsPath, removed: removedAny };
 }
 
