@@ -165,7 +165,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // record schema is now v3 (v2 upgraded in place by
     // `upgradeRecord` on read). The on-disk format is the same;
     // only the version marker changed.
-    expect(recordRaw.version).toBe(3);
+    expect(recordRaw.version).toBe('3.1');
     expect(recordRaw.role).toBe('rd');
     expect(recordRaw.requestId).toBe(requestId);
     expect(recordRaw.sessionId).toBe(sessionId);

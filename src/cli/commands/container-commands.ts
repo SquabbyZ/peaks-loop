@@ -45,6 +45,42 @@ import {
 
 const DEFAULT_DOCKER_IMAGE = 'node:22-slim';
 
+/**
+ * Slice 2026-07-29-rid-prose-only-sweep Part 43: L4 podman
+ * runtime adapter. The container CLI supports both docker and
+ * podman as the underlying runtime. The auto-detect order is:
+ *   1. `--runtime docker|podman` if explicit
+ *   2. docker (most common, ships with Docker Desktop on
+ *      macOS/Windows, docker.io on Linux)
+ *   3. podman (RHEL/Fedora default, runs rootless by default,
+ *      same CLI surface as docker)
+ * Each runtime has the same spawn/release shape; the
+ * difference is the binary name (`docker` vs `podman`). The
+ * `--cidfile` flag is supported by both.
+ */
+type ContainerRuntime = 'docker' | 'podman';
+
+function detectContainerRuntime(explicit: ContainerRuntime | undefined): { ok: true; runtime: ContainerRuntime; binary: string } | { ok: false; stderr: string; hint: string } {
+  const tryOrder: ContainerRuntime[] = explicit ? [explicit] : ['docker', 'podman'];
+  for (const r of tryOrder) {
+    try {
+      const version = execSync(`${r} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }).trim();
+      return { ok: true, runtime: r, binary: `${r} (${version.split('\n')[0] ?? ''})` };
+    } catch {
+      /* try next */
+    }
+  }
+  return {
+    ok: false,
+    stderr: explicit
+      ? `explicit --runtime ${explicit} not on PATH`
+      : 'neither docker nor podman is on PATH',
+    hint: explicit
+      ? `Install ${explicit} or pass a different --runtime.`
+      : 'Install docker (Docker Desktop on macOS / Windows) or podman (RHEL / Fedora).'
+  };
+}
+
 type ContainerOptions = {
   session?: string;
   project?: string;
@@ -58,6 +94,8 @@ type SpawnOptions = ContainerOptions & {
   image?: string;
   ttl?: string;
   mount?: string;
+  /** Part 43: explicit runtime selector (docker | podman). */
+  runtime?: string;
 };
 
 type ReleaseOptions = ContainerOptions & {
@@ -69,14 +107,12 @@ function joinPathSession(projectRoot: string, sessionId: string): string {
 }
 
 function checkDockerAvailable(): { ok: true; version: string } | { ok: false; stderr: string } {
-  try {
-    const version = execSync('docker --version', { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }).trim();
-    return { ok: true, version };
-  } catch (err) {
-    return { ok: false, stderr: (err as Error).message };
-  }
+  // Part 43: superseded by detectContainerRuntime above; this
+  // function is preserved for callers that imported it. The
+  // container-commands.ts action handlers all use
+  // detectContainerRuntime directly.
+  return { ok: false, stderr: 'deprecated — use detectContainerRuntime' };
 }
-
 export function registerContainerCommand(program: Command, io: ProgramIO): void {
   const cmd = program.command('container').description('L4 container isolation: spawn/release container leases (Part 12; pairs with --isolation container on dispatch).');
 
@@ -100,14 +136,19 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const sessionId = options.session ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
     try {
-      const docker = checkDockerAvailable();
-      if (!docker.ok) {
+      const explicitRuntime = ((): ContainerRuntime | undefined => {
+        if (options.runtime === 'docker') return 'docker';
+        if (options.runtime === 'podman') return 'podman';
+        return undefined;
+      })();
+      const runtime = detectContainerRuntime(explicitRuntime);
+      if (!runtime.ok) {
         printResult(
           io,
-          fail('container.spawn', 'CONTAINER_RUNTIME_UNAVAILABLE', `docker CLI not available: ${docker.stderr}`, { rid: options.rid, role: options.role, sessionId }, [
-            'Install Docker (Docker Desktop on macOS / Windows, docker.io on Linux).',
+          fail('container.spawn', 'CONTAINER_RUNTIME_UNAVAILABLE', `${runtime.stderr}: ${runtime.hint}`, { rid: options.rid, role: options.role, sessionId }, [
+            'Install docker (Docker Desktop on macOS / Windows) or podman (RHEL / Fedora).',
             'On Windows, ensure WSL2 backend is enabled and the daemon is running.',
-            'For podman, the container-lease module is runtime-agnostic but the Part 12 CLI uses `docker` literally.'
+            'Pass --runtime docker|podman to force a specific runtime.'
           ]),
           options.json
         );
@@ -135,19 +176,19 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       // `--label peaks.leaseId=<id>` lets `peaks container
       // list` / `peaks container gc` find orphans by label
       // when the lease file is missing.
-      const cidFile = `${joinPathSession(projectRoot, sessionId).replace(/\\/g, '/')}/.docker-cid-${leaseId}`;
+      const cidFile = `${joinPathSession(projectRoot, sessionId).replace(/\\/g, '/')}/.${runtime.runtime}-cid-${leaseId}`;
       try {
         execSync(
-          `docker run --rm -d --cidfile "${cidFile}" --label "peaks.leaseId=${leaseId}" --label "peaks.rid=${options.rid}" -v "${mount}:/work" -w /work ${image} sleep infinity`,
+          `${runtime.runtime} run --rm -d --cidfile "${cidFile}" --label "peaks.leaseId=${leaseId}" --label "peaks.rid=${options.rid}" -v "${mount}:/work" -w /work ${image} sleep infinity`,
           { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' }
         );
       } catch (err) {
         printResult(
           io,
-          fail('container.spawn', 'DOCKER_RUN_FAILED', getErrorMessage(err), { rid: options.rid, image, sessionId }, [
+          fail('container.spawn', 'DOCKER_RUN_FAILED', getErrorMessage(err), { rid: options.rid, image, runtime: runtime.runtime, sessionId }, [
             'Verify the image name is reachable on the configured registry.',
             'Verify the host path is mounted correctly (Windows: the path must be visible to WSL2).',
-            'Run `docker ps -a` to inspect any leftover containers with the peaks.leaseId label.'
+            `Run \`${runtime.runtime} ps -a\` to inspect any leftover containers with the peaks.leaseId label.`
           ]),
           options.json
         );
@@ -175,7 +216,8 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
             lease,
             sessionId,
             projectRoot,
-            dockerVersion: docker.version,
+            runtime: runtime.runtime,
+            runtimeVersion: runtime.binary,
             nextActions: [
               `Container id: ${containerId}`,
               `Image: ${image}`,
@@ -248,7 +290,9 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       }
       let dockerRmFailed = false;
       try {
-        execSync(`docker rm --force "${lease.containerId}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+        const releaseRuntime = detectContainerRuntime(undefined);
+        const runtimeCmd = releaseRuntime.ok ? releaseRuntime.runtime : 'docker';
+        execSync(`${runtimeCmd} rm --force "${lease.containerId}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
       } catch {
         dockerRmFailed = true;
       }
