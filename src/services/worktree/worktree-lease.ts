@@ -290,7 +290,10 @@ export function deserializeLease(raw: string): WorktreeLease {
  *  so reads + writes always agree. */
 function joinPath(...segments: ReadonlyArray<string>): string {
   if (segments.length === 0) return '';
-  return segments
-    .map((s) => s.replace(/\\/g, '/'))
-    .reduce<string>((acc, s) => path.join(acc, s));
+  const normalized = segments.map((s) => s.replace(/\\/g, '/'));
+  let acc: string = normalized[0] as string;
+  for (let i = 1; i < normalized.length; i++) {
+    acc = path.join(acc, normalized[i] as string);
+  }
+  return acc;
 }

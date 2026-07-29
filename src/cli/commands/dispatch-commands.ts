@@ -16,6 +16,7 @@
  */
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { spawn as childProcessSpawn } from 'node:child_process';
 import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
@@ -86,6 +87,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--headroom-mode <mode>', `G7.7: headroom mode (${HEADROOM_MODES.join(' | ')}); default balanced`)
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
       .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
+      .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Only "worktree" is currently recognised; auto-spawns a worktree lease (via `peaks worktree spawn`) and injects PEAKS_WORKTREE_LEASE_ID into the dispatch envelope so the sub-agent can write to the lease worktree without a separate auth grant.')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
     // 2.7.0 slice-dag-dispatcher MVP: --from-dag short-circuits the single
@@ -179,6 +181,52 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       const rid = options.requestId ?? 'unknown-rid';
       const batchId = options.batchId ?? randomUUID();
 
+      // Slice 2026-07-29-worktree-l2-extended Part 2.C: --isolation worktree
+      // auto-spawns a worktree lease and injects PEAKS_WORKTREE_LEASE_ID
+      // into the sub-agent dispatch envelope. This is the bridge that
+      // makes the lease-aware gate (Part 2.B) work for sub-agents:
+      // without this injection, the gate has no leaseId to consult and
+      // the sub-agent would need a separate `peaks worktree auth grant`.
+      let isolationMode: 'worktree' | null = null;
+      let leaseId: string | null = null;
+      let worktreePath: string | null = null;
+      let worktreeBranch: string | null = null;
+      if (typeof options.isolation === 'string' && options.isolation.length > 0) {
+        if (options.isolation !== 'worktree') {
+          printResult(io, fail('sub-agent.dispatch', 'INVALID_ISOLATION', `--isolation only accepts "worktree" (got "${options.isolation}")`, {
+            role,
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never, ['Drop --isolation or pass --isolation worktree.']), asJson);
+          process.exitCode = 1;
+          return;
+        }
+        isolationMode = 'worktree';
+        try {
+          const spawnResult = await spawnWorktreeLease({
+            projectRoot,
+            sessionId: sid,
+            rid,
+            role,
+            purpose: `auto-spawned by dispatch --isolation worktree (batch=${batchId})`
+          });
+          leaseId = spawnResult.leaseId;
+          worktreePath = spawnResult.path;
+          worktreeBranch = spawnResult.branch;
+        } catch (error) {
+          printResult(io, fail('sub-agent.dispatch', 'ISOLATION_SPAWN_FAILED', getErrorMessage(error), {
+            role,
+            toolCall: null,
+            dispatchRecordPath: null
+          } as never, [
+            'The dispatch aborts when --isolation worktree lease spawn fails; retry without --isolation or fix the underlying git error.'
+          ]), asJson);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
+
       // G7.7 / G9: resolve headroom options from preferences + CLI overrides.
       // Preferences hard-block when headroom.enabled=false (returns HEADROOM_DISABLED_BY_PREFERENCE).
       // loadPreferences can throw on schema mismatch; we fall back to defaults to avoid
@@ -232,7 +280,21 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         taskBody: options.prompt,
         memoryBlock,
       });
-      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}`;
+      // Part 2.C: when --isolation worktree, prepend an isolation envelope
+      // block so the sub-agent sees the lease id + worktree path BEFORE
+      // headroom-ai compress. The block is short (a few lines) and the
+      // compressor is expected to keep it. We deliberately do NOT set
+      // process.env.PEAKS_WORKTREE_LEASE_ID here — sub-agents are spawned
+      // by the LLM in its own environment, not as children of this CLI;
+      // the lease id travels through the dispatch record + prompt body.
+      const isolationBlock = isolationMode !== null && leaseId !== null
+        ? `\n## Worktree isolation (Part 2.C)\n` +
+          `leaseId: ${leaseId}\n` +
+          `worktreePath: ${worktreePath}\n` +
+          `branch: ${worktreeBranch}\n` +
+          `You MAY ` + '`git worktree add` ' + `and ` + '`git worktree remove` ' + `against this lease without a separate ` + '`peaks worktree auth grant` ' + `— the PreToolUse gate reads the lease file. Run ` + '`peaks worktree release --lease-id ${leaseId}` ' + `when done.\n`
+        : '';
+      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}`;
       let headroomCompressed = false;
       let headroomResult: HeadroomResult | null = null;
       const warnings: string[] = [...decision.warnings];
@@ -251,6 +313,22 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let toolCall: SubAgentToolCall;
       try {
         toolCall = adapter.subAgentDispatcher.buildToolCall({ role, prompt: effectivePrompt, requestId: rid, sessionId: sid });
+        // Part 2.C: stamp the toolCall with `isolation` + a sub-agent
+        // env block so adapters that surface it (Claude Code's Task
+        // tool) propagate the lease id to the spawned process. The
+        // env block is the canonical hook the PreToolUse gate reads
+        // (gate-commands.ts: process.env.PEAKS_WORKTREE_LEASE_ID).
+        if (isolationMode !== null && leaseId !== null) {
+          const existingEnv = (toolCall.args['env'] as Record<string, string> | undefined) ?? {};
+          toolCall = {
+            ...toolCall,
+            args: {
+              ...toolCall.args,
+              isolation: 'worktree',
+              env: { ...existingEnv, PEAKS_WORKTREE_LEASE_ID: leaseId }
+            }
+          };
+        }
         // Slice C of v2.11.1 — observability hook #2/7. Fire-and-forget
         // per PRD Q4 (full-auto must never fail-loud). The
         // synchronous emit returns {written:false} on disk-full; we
@@ -342,7 +420,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
         // an envelopeVersion marker so consumers can detect contract
         // changes (the previous #4 dropped `data.prompt` silently).
-        envelopeVersion: '2.2.0',
+        envelopeVersion: '2.3.0',
         role,
         ide: adapter.subAgentDispatcher.label,
         // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.
@@ -375,7 +453,16 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         artifactMetas: artifactMeta ? [artifactMeta] : [],
         orchestratorVisibleHint,
         artifactsPublicPaths,
-        expectedCompletionSeconds
+        expectedCompletionSeconds,
+        // Part 2.C: when --isolation worktree, surface the lease
+        // handle to the LLM-side runner so it can call
+        // `peaks worktree release --lease-id <id>` after the sub-agent
+        // finishes (or rely on the next gc pass to clean up). When
+        // isolation is not requested, isolation === null.
+        isolation: isolationMode,
+        leaseId,
+        worktreePath,
+        worktreeBranch
       }, warnings, nextActions), asJson);
       // Slice 2026-06-23-audit-4th #B1: structured log on success path.
       // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
@@ -416,3 +503,76 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
  * module loads (slice-dag / dag-orchestrator / contract-store) to the
  * --from-dag codepath only.
  */
+
+/**
+ * Part 2.C (slice 2026-07-29-worktree-l2-extended) — spawn a worktree
+ * lease by shelling out to `peaks worktree spawn` (avoid re-implementing
+ * the lease-write + git-worktree-add sequence in this file). The CLI
+ * does the lease write, the git worktree add, AND the error handling;
+ * we just parse the JSON envelope and surface the leaseId + path.
+ *
+ * Throws on spawn failure; the caller converts the error to a
+ * ISOLATION_SPAWN_FAILED envelope. Synchronous wait is acceptable: the
+ * dispatch is already async, the lease is a few hundred ms of FS work,
+ * and we need the leaseId before we build the dispatch record.
+ */
+function spawnWorktreeLease(args: {
+  projectRoot: string;
+  sessionId: string;
+  rid: string;
+  role: string;
+  purpose: string;
+}): Promise<{ leaseId: string; path: string; branch: string; expiresAt: number }> {
+  return new Promise((resolve, reject) => {
+    const child = childProcessSpawn(process.execPath, [
+      // The compiled CLI lives in dist/cli/peaks.js. We pass the entry
+      // through node so the test suite (which also runs on the same
+      // process) and the production binary share the same path. When
+      // the binary is invoked as `peaks`, the package bin stub does
+      // this for us; here we explicitly use process.execPath + the
+      // resolved entry to avoid PATH surprises.
+      process.argv[1] ?? '',
+      'worktree', 'spawn',
+      '--rid', args.rid,
+      '--role', args.role,
+      '--purpose', args.purpose,
+      '--project', args.projectRoot,
+      '--session', args.sessionId,
+      '--json'
+    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
+    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
+    child.on('error', (err) => reject(new Error(`worktree spawn subprocess failed: ${err.message}`)));
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`peaks worktree spawn exited ${code}; stderr: ${stderr.trim() || '(empty)'}`));
+        return;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stdout);
+      } catch (err) {
+        reject(new Error(`peaks worktree spawn produced unparseable JSON: ${(err as Error).message}; stdout: ${stdout.slice(0, 400)}`));
+        return;
+      }
+      if (typeof parsed !== 'object' || parsed === null) {
+        reject(new Error('peaks worktree spawn envelope is not an object'));
+        return;
+      }
+      const env = parsed as { ok?: boolean; data?: { lease?: { leaseId: string; path: string; branch: string; expiresAt: number } } };
+      if (env.ok !== true || !env.data?.lease) {
+        reject(new Error(`peaks worktree spawn envelope missing lease; got: ${stdout.slice(0, 200)}`));
+        return;
+      }
+      resolve({
+        leaseId: env.data.lease.leaseId,
+        path: env.data.lease.path,
+        branch: env.data.lease.branch,
+        expiresAt: env.data.lease.expiresAt
+      });
+    });
+  });
+}

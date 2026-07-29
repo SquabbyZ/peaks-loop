@@ -163,4 +163,77 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     const batchIds = Object.values(sidecar).map((e) => e.batchId);
     expect(batchIds).toContain(env.data.batchId);
   });
+
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 2.C: --isolation worktree
+   * auto-spawns a worktree lease and injects PEAKS_WORKTREE_LEASE_ID
+   * into the dispatch envelope + toolCall.args. Verify the
+   * bridge end-to-end against a tmp git project (runCli needs a git
+   * repo for `peaks worktree spawn` to succeed).
+   */
+  test('--isolation worktree spawns a lease + injects PEAKS_WORKTREE_LEASE_ID into the envelope', () => {
+    const project = mkdtempSync(join(tmpdir(), 'peaks-p2c-iso-'));
+    projects.push(project);
+    // Initialise a real git repo so `peaks worktree spawn` (which runs
+    // `git worktree add`) succeeds. commit-1 / commit-2 give it some
+    // history.
+    execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe' });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'p2c@test'], { stdio: 'pipe' });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'p2c'], { stdio: 'pipe' });
+    execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe' });
+
+    const sessionId = '2026-07-29-p2c-iso';
+    const requestId = '2026-07-29-p2c-iso-rid';
+    const prompt = 'p2c isolation probe — verify lease injection';
+
+    const r = runCli([
+      'rd',
+      '--prompt', prompt,
+      '--request-id', requestId,
+      '--session-id', sessionId,
+      '--project', project,
+      '--isolation', 'worktree',
+      '--json'
+    ], project);
+
+    expect(r.code).toBe(0);
+    expect(r.stderr).toBe('');
+
+    const env = JSON.parse(r.stdout) as SubAgentDispatchEnvelope;
+    expect(env.ok).toBe(true);
+    expect(env.data.isolation).toBe('worktree');
+    expect(env.data.leaseId).toMatch(/^[a-f0-9]{16}$/);
+    expect(env.data.worktreePath).toContain('worktrees/');
+    expect(env.data.worktreeBranch).toBeTruthy();
+    // The toolCall carries the lease id for adapters that surface it
+    // (and so the sub-agent can set PEAKS_WORKTREE_LEASE_ID locally).
+    expect(env.data.toolCall.args.isolation).toBe('worktree');
+    const env2 = (env.data.toolCall.args.env ?? {}) as Record<string, string>;
+    expect(env2.PEAKS_WORKTREE_LEASE_ID).toBe(env.data.leaseId);
+
+    // The on-disk lease file exists and is valid JSON.
+    const leaseFile = join(project, '.peaks', '_runtime', sessionId, 'worktree-leases', env.data.leaseId + '.json');
+    expect(existsSync(leaseFile)).toBe(true);
+    const lease = JSON.parse(readFileSync(leaseFile, 'utf8')) as { rid: string; status: string };
+    expect(lease.rid).toBe(requestId);
+    expect(lease.status).toBe('active');
+  });
+
+  test('--isolation with an unsupported mode → INVALID_ISOLATION (fail-fast before any sub-agent work)', () => {
+    const project = mkdtempSync(join(tmpdir(), 'peaks-p2c-iso-bad-'));
+    projects.push(project);
+    const r = runCli([
+      'rd',
+      '--prompt', 'p2c invalid isolation',
+      '--request-id', '2026-07-29-p2c-bad-rid',
+      '--session-id', '2026-07-29-p2c-bad',
+      '--project', project,
+      '--isolation', 'totally-bogus',
+      '--json'
+    ], project);
+    expect(r.code).toBe(1);
+    const env = JSON.parse(r.stdout) as { ok: boolean; code: string };
+    expect(env.ok).toBe(false);
+    expect(env.code).toBe('INVALID_ISOLATION');
+  });
 });

@@ -60,6 +60,15 @@ export type DispatchOptions = {
   headroomMode?: string;
   force?: boolean;
   fromDag?: string;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 2.C: dispatch isolation mode.
+   * Only `worktree` is currently recognised. When set, dispatch
+   * auto-spawns a worktree lease (delegates to `peaks worktree spawn`)
+   * and injects `PEAKS_WORKTREE_LEASE_ID=<id>` into the dispatch
+   * envelope so the receiving sub-agent can write to the lease's
+   * worktree without needing a separate `peaks worktree auth grant`.
+   */
+  isolation?: string;
   json?: boolean;
 };
 
