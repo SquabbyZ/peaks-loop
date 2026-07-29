@@ -146,8 +146,6 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
         return false;
       }
     }, 'lease file status=released');
-    // eslint-disable-next-line no-console
-    console.error('DBG lease file released ok, wtPath exists?', existsSync(wtPath));
 
     // 4. assert post-conditions
     const released = JSON.parse(readFileSync(leaseFile, 'utf8')) as { status: string };

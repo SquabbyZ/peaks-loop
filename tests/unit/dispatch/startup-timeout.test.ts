@@ -28,7 +28,7 @@ import type { DispatchRecord, DispatchRecordStatus } from '../../../src/services
 
 function mkRecord(overrides: Partial<DispatchRecord> = {}): DispatchRecord {
   const base: DispatchRecord = {
-    version: 2,
+    version: 3,
     createdAt: '2026-07-29T00:00:00.000Z',
     completedAt: null,
     outcome: 'no-execution',
@@ -49,7 +49,11 @@ function mkRecord(overrides: Partial<DispatchRecord> = {}): DispatchRecord {
     // records had no `stage` field; we default to `null` so the
     // factory matches the writer's `writeInitialDispatchRecord`
     // output.
-    stage: null
+    stage: null,
+    // Slice 2026-07-29-worktree-l2-extended Part 4.C: v3 schema
+    // makes `leaseId` structurally required; factory defaults
+    // to null (no isolation requested).
+    leaseId: null
   };
   return { ...base, ...overrides };
 }

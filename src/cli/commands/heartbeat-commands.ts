@@ -144,17 +144,12 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       const terminalHeartbeatStatuses: ReadonlySet<HeartbeatStatus> = new Set([
         'done', 'failed', 'cancelled', 'no-execution'
       ]);
-      if (terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) && result.record.leaseId != null) {
+      if (terminalHeartbeatStatuses.has(options.status as HeartbeatStatus) && result.record.leaseId !== null) {
         try {
           tryAutoReleaseLease({
             projectRoot: trustedRoot,
             sessionId: result.record.sessionId,
-            // Narrowed by the != null guard above, but TS keeps the
-            // type as `string | undefined` because the field is
-            // optional on the schema. Coalesce to satisfy the
-            // 16-hex validator inside tryAutoReleaseLease (which
-            // would itself return early on undefined).
-            leaseId: result.record.leaseId ?? ''
+            leaseId: result.record.leaseId
           });
         } catch { // best-effort
           /* swallow */

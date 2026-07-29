@@ -84,7 +84,19 @@ export type DispatchOutcome =
 
 /** G2+G5+G6 dispatch record schema (AC-26 + AC-34). */
 export interface DispatchRecord {
-  readonly version: 2;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 4.C: schema v3 makes
+   * `leaseId` a structurally required field (was `leaseId?: string | null`
+   * in v2). The v3 upgrade is a "fill in" migration: every dispatch
+   * writer knows its lease id at construction time (Part 2.C's
+   * --isolation worktree spawns it; non-isolation dispatches stamp
+   * `null`). Readers tolerate both v2 and v3 on disk (see
+   * `upgradeRecord`); the `?` was a Part 4.A ergonomic concession
+   * to keep 4 unit-test literal sites from breaking the build. v3
+   * moves the optional off the type and adds the field to the
+   * 4 literal sites in one pass.
+   */
+  readonly version: 3;
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly outcome: DispatchOutcome;
@@ -110,26 +122,22 @@ export interface DispatchRecord {
   // ever emitted" from "stage: ''").
   readonly stage: string | null;
   /**
-   * Slice 2026-07-29-worktree-l2-extended Part 3.A: the worktree
-   * lease id stamped on this dispatch (via `peaks sub-agent dispatch
-   * --isolation worktree`). The release hook (see markCompleted +
-   * `peaks sub-agent heartbeat --status done`) reads this field to
-   * auto-call `peaks worktree release` when the sub-agent
-   * finalizes. `null` (or absent on legacy records) means the
-   * dispatch did not request isolation and no release will fire.
-   * Persisted for audit + idempotency so a re-read of an old record
-   * still surfaces the lease id even if the on-disk lease file has
-   * since been gc'd.
+   * Slice 2026-07-29-worktree-l2-extended Part 3.A + Part 4.C: the
+   * worktree lease id stamped on this dispatch (via `peaks sub-agent
+   * dispatch --isolation worktree`). The release hook (see
+   * markCompleted + `peaks sub-agent heartbeat --status done`)
+   * reads this field to auto-call `peaks worktree release` when
+   * the sub-agent finalizes. `null` means the dispatch did not
+   * request isolation and no release will fire. Persisted for
+   * audit + idempotency so a re-read of an old record still
+   * surfaces the lease id even if the on-disk lease file has since
+   * been gc'd.
    *
-   * The `?` is intentional: legacy records (pre-Part 3.A) have no
-   * `leaseId` at all, and the upgrade path (see `upgradeRecord`)
-   * returns `null` on read. Optional makes the field ergonomically
-   * nullable without forcing every test that builds a literal to
-   * remember the field. The v3 schema migration (Part 4.C) makes
-   * the field structurally required; that ship moves the optional
-   * off the type and updates all literal sites in one pass.
+   * v3 (Part 4.C) makes this structurally required. v2 records
+   * missing the field upgrade to `null` on read (see
+   * `upgradeRecord`).
    */
-  readonly leaseId?: string | null;
+  readonly leaseId: string | null;
 }
 
 /** Input for the initial write. */
@@ -202,7 +210,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
   const record: DispatchRecord = {
-    version: 2,
+    version: 3,
     createdAt: now().toISOString(),
     completedAt: null,
     outcome: 'no-execution',
@@ -654,14 +662,12 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   // and best-effort; a crash here cannot roll back the markCompleted
   // write (we already returned from the lock). The next gc pass is
   // the safety net.
-  if (result.record.leaseId != null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
+  if (result.record.leaseId !== null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
     try {
       tryAutoReleaseLease({
         projectRoot: input.projectRoot,
         sessionId: result.record.sessionId,
-        // Optional schema field; coalesce to satisfy the
-        // 16-hex validator inside tryAutoReleaseLease.
-        leaseId: result.record.leaseId ?? ''
+        leaseId: result.record.leaseId
       });
     } catch { // best-effort; release is async anyway
       /* swallow */
@@ -804,7 +810,7 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     : 'legacy-batch';
 
   return {
-    version: 2,
+    version: 3,
     createdAt,
     completedAt,
     outcome,

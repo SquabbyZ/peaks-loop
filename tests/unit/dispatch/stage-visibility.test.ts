@@ -120,7 +120,7 @@ describe('setStage (AC-5.1) — bounded label accepted, unknowns refused', () =>
 describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
   it('viewSubAgent surfaces the stage label', () => {
     const base: DispatchRecord = {
-      version: 2,
+      version: 3,
       createdAt: '2026-07-29T00:00:00.000Z',
       completedAt: null,
       outcome: 'no-execution',
@@ -136,7 +136,8 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
       heartbeats: [],
       lastBeatAt: '2026-07-29T00:00:10.000Z',
       status: 'running',
-      stage: 'testing'
+      stage: 'testing',
+      leaseId: null
     };
     const v = viewSubAgent(base, () => new Date('2026-07-29T00:00:11.000Z'));
     expect(v.stage).toBe('testing');
@@ -144,7 +145,7 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
 
   it('viewSubAgent returns stage: null for records that never set it', () => {
     const base: DispatchRecord = {
-      version: 2,
+      version: 3,
       createdAt: '2026-07-29T00:00:00.000Z',
       completedAt: null,
       outcome: 'no-execution',
@@ -160,7 +161,8 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
       heartbeats: [],
       lastBeatAt: '2026-07-29T00:00:10.000Z',
       status: 'running',
-      stage: null
+      stage: null,
+      leaseId: null
     };
     const v = viewSubAgent(base, () => new Date('2026-07-29T00:00:11.000Z'));
     expect(v.stage).toBeNull();
@@ -169,7 +171,7 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
   it('renderStatusLine prefixes the stage inline so a long-running agent is legible', () => {
     const records: DispatchRecord[] = [
       {
-        version: 2,
+        version: 3,
         createdAt: '2026-07-29T00:00:00.000Z',
         completedAt: null,
         outcome: 'no-execution',
@@ -185,7 +187,8 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
         heartbeats: [],
         lastBeatAt: '2026-07-29T00:00:10.000Z',
         status: 'running',
-        stage: 'planning'
+        stage: 'planning',
+        leaseId: null
       }
     ];
     const line = renderStatusLine('[peaks]', records, () => new Date('2026-07-29T00:00:11.000Z'));

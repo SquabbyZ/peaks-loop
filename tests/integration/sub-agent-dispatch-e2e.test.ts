@@ -161,7 +161,11 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
       readonly batchId: string;
       readonly toolCall: { readonly name: string };
     };
-    expect(recordRaw.version).toBe(2);
+    // Slice 2026-07-29-worktree-l2-extended Part 4.C: dispatch
+    // record schema is now v3 (v2 upgraded in place by
+    // `upgradeRecord` on read). The on-disk format is the same;
+    // only the version marker changed.
+    expect(recordRaw.version).toBe(3);
     expect(recordRaw.role).toBe('rd');
     expect(recordRaw.requestId).toBe(requestId);
     expect(recordRaw.sessionId).toBe(sessionId);

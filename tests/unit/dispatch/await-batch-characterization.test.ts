@@ -72,7 +72,7 @@ function recordPath(args: { id: string; status: string; outcome: string }): stri
   writeFileSync(
     path,
     JSON.stringify({
-      version: 2,
+      version: 3,
       status: args.status,
       outcome: args.outcome,
       createdAt: '2026-07-29T00:00:00.000Z'
