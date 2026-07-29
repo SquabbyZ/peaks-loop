@@ -354,6 +354,25 @@ const PEAKS_TXT_RUNTIME_CONTRACT: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
 };
 
+const PEAKS_CODE_RUNTIME_CONTRACT: RedLineCatalogEntry = {
+  id: 'rl-peaks-code-runtime-contract-001',
+  rule: 'peaks-code SKILL.md must declare the runbook section-marker skeleton (Scope, no auto-compact, superpowers bridge, npm-contract, startup sequence, step 0.8 job-shape, local intermediate artifact workspace, pre-rd project scan checklist, step 11 memory sediment, --enforce-job-mode v3.1.2).',
+  markers: ['BLOCKING', 'MANDATORY'],
+  phrases: [
+    'scope (rl-8',
+    'no auto-compact prose ban',
+    'peaks-loop superpowers 协作边界',
+    'npm-contract boundary',
+    'peaks-loop startup sequence',
+    'step 0.8',
+    'peaks-loop local intermediate artifact workspace',
+    'peaks-loop pre-rd project scan checklist',
+    'step 11',
+    'enforce-job-mode (v3.1.2)'
+  ],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-code-runtime.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -428,4 +447,9 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_UI_TRANSITION_GATES,
   PEAKS_SC_TRANSITION_GATES,
   PEAKS_TXT_RUNTIME_CONTRACT,
+  // Slice 2026-07-29-rid-prose-only-sweep-009: close 13 of the
+  // remaining 33 discovered lines (all peaks-code) with one
+  // enforcer that checks the peaks-code runbook section-marker
+  // skeleton. Single catalog entry; multi-marker enforcer.
+  PEAKS_CODE_RUNTIME_CONTRACT,
 ];
