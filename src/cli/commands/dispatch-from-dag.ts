@@ -253,6 +253,9 @@ export async function runDispatchFromDag(
     firstLevel: emittedSliceIds,
     toolCalls: emittedToolCalls,
     existingContractCount: existingContracts.length,
+    expectedCompletionSeconds: 60,
+    artifactsPublicPaths: [],
+    orchestratorVisibleHint: `⏳ Spawning ${emittedSliceIds.length} sub-agents via Task tool from DAG ${options.fromDag}, batch-id=${batchId} (ETA ~60s)`,
     // v2.15.0 follow-up — G12/G11/G2: per-slice metadata (foundation /
     // upstreamSync / complexity) for downstream scheduling decisions.
     sliceMeta: emittedSliceIds.map((id) => {

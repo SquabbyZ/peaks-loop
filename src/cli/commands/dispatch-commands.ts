@@ -333,6 +333,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       if (headroomResult && headroomResult.warning === 'HEADROOM_UNAVAILABLE') {
         nextActions.push('Headroom daemon unavailable; dispatched with G7 metadata-only fallback.');
       }
+      const expectedCompletionSeconds = 45;
+      const artifactsPublicPaths = typeof options.writeArtifact === 'string' && options.writeArtifact.length > 0
+        ? [options.writeArtifact]
+        : [];
+      const orchestratorVisibleHint = `⏳ Spawning sub-agent via Task tool: ${role} for rid=${rid}, batch-id=${batchId} (ETA ~${expectedCompletionSeconds}s)`;
       printResult(io, ok('sub-agent.dispatch', {
         // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
         // an envelopeVersion marker so consumers can detect contract
@@ -367,7 +372,10 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           : null,
         forcedAt: decision.forcedAt,
         contextImpact,
-        artifactMetas: artifactMeta ? [artifactMeta] : []
+        artifactMetas: artifactMeta ? [artifactMeta] : [],
+        orchestratorVisibleHint,
+        artifactsPublicPaths,
+        expectedCompletionSeconds
       }, warnings, nextActions), asJson);
       // Slice 2026-06-23-audit-4th #B1: structured log on success path.
       // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
