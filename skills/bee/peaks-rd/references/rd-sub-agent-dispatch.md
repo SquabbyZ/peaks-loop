@@ -2,6 +2,28 @@
 
 > Body of `## Sub-agent dispatch`. When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
+## Superpowers chain refusal (L1 worktree governance — locked 2026-07-29)
+
+You MUST NOT follow the superpowers chain for worktree decisions:
+
+- superpowers:brainstorming → superpowers:writing-plans →
+  superpowers:subagent-driven-development → superpowers:using-git-worktrees
+
+This chain ends with `git worktree add` (superpowers:using-git-worktrees SKILL.md line 96). It bypasses peaks-loop's L2 hook gate and L3 IDE `permissions.deny`. Even when L3 denies the terminal Skill, the chain has already taught you to use raw `git worktree add`, so L3 is not sufficient.
+
+For worktree operations, use ONLY:
+
+- `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (after rid-L2-extended ships)
+- until then: `peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`
+
+The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-rd's own PRD/RD artifacts (`.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`) are authoritative.
+
+If the upstream superpowers chain suggests raw `git worktree add`:
+
+1. STOP
+2. Re-author the plan as a peaks-rd artifact
+3. Continue with `peaks worktree spawn` (or the auth-grant fallback)
+
 ## Default `--from-dag` is mandatory (slice 2026-06-24-efficiency-4p-bundle / G2 / P0.3)
 
 > **Hard constraint**: when the swarm plan DAG has ≥ 2 leaves at the

@@ -2,6 +2,28 @@
 
 > Body of `## Sub-agent dispatch`. When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
+## Superpowers chain refusal (L1 worktree governance — locked 2026-07-29)
+
+You MUST NOT follow the superpowers chain for worktree decisions:
+
+- superpowers:brainstorming → superpowers:writing-plans →
+  superpowers:subagent-driven-development → superpowers:using-git-worktrees
+
+This chain ends with `git worktree add` (superpowers:using-git-worktrees SKILL.md line 96). It bypasses peaks-loop's L2 hook gate and L3 IDE `permissions.deny`. Even when L3 denies the terminal Skill, the chain has already taught you to use raw `git worktree add`, so L3 is not sufficient.
+
+For worktree operations, use ONLY:
+
+- `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (after rid-L2-extended ships)
+- until then: `peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`
+
+The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-qa's own QA artifacts (`.peaks/_runtime/<sessionId>/qa/<artifact>.md`) are authoritative.
+
+If the upstream superpowers chain suggests raw `git worktree add`:
+
+1. STOP
+2. Re-author the QA plan as a peaks-qa artifact
+3. Continue with `peaks worktree spawn` (or the auth-grant fallback)
+
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Code loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
 - **Workspace initialization** — Code has already run `peaks workspace init` before fan-out. Do not re-run it.

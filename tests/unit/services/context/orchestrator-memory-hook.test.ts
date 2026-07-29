@@ -9,10 +9,18 @@ describe('buildDispatchSystemPrompt', () => {
       taskBody,
       memoryBlock: { available: false, reason: 'MEMORY_INDEX_MISSING' },
     });
-    // Byte-identical: caller composes `${formatTestToolDetection()}\n\n${out}`
-    // which must equal today's pre-change `${formatTestToolDetection()}\n\n${taskBody}`.
-    expect(out).toBe(taskBody);
+    // Slice 2026-07-29-worktree-l1: the L1 worktree-governance block
+    // is prepended in EVERY branch (available / unavailable) so the
+    // superpowers-chain refusal reaches the sub-agent before any task
+    // content. The byte-identical degradation contract (slice 022)
+    // still holds for the task-body portion: the caller composes
+    // `${formatTestToolDetection()}\n\n${out}` and the taskBody sits
+    // immediately after the L1 block.
+    expect(out).toContain(taskBody);
     expect(out).not.toContain('## Project memory relevant to this task');
+    // L1 block must be present even when memory is unavailable.
+    expect(out).toContain('Superpowers chain refusal');
+    expect(out.indexOf('Superpowers chain refusal')).toBeLessThan(out.indexOf(taskBody));
   });
 
   test('prepends memory block when available', () => {

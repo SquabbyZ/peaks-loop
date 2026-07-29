@@ -360,6 +360,15 @@ UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifac
 
 ### G8.6 — UI sub-agent prompt template
 
+**Superpowers chain refusal (L1 worktree governance — locked 2026-07-29):** you MUST NOT follow the superpowers chain for worktree decisions: `superpowers:brainstorming` → `superpowers:writing-plans` → `superpowers:subagent-driven-development` → `superpowers:using-git-worktrees`. The chain ends with `git worktree add` (superpowers:using-git-worktrees SKILL.md line 96) and bypasses peaks-loop's L2 hook gate and L3 IDE `permissions.deny`. Even when L3 denies the terminal Skill, the chain has already taught you to use raw `git worktree add`, so L3 is not sufficient.
+
+For worktree operations, use ONLY:
+
+- `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (after rid-L2-extended ships)
+- until then: `peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`
+
+The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-ui's own UI artifacts (`.peaks/_runtime/<sessionId>/ui/<artifact>.md`) are authoritative. Full design: `skills/peaks-code/references/worktree-governance.md`.
+
 ```
 You are sub-agent role ui, batch <batchId>.
 
