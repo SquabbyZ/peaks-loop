@@ -397,7 +397,14 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // release hook (markCompleted / heartbeat --status done) can
         // auto-fire `peaks worktree release` when the sub-agent
         // completes. Null when --isolation was not requested.
-        leaseId
+        leaseId,
+        // Slice 2026-07-29-worktree-l2-extended Part 7: stamp the
+        // ISO timestamp when the isolation mode was set up. Null
+        // when --isolation was not requested. The dashboard reads
+        // this directly off the dispatch record to compute
+        // isolation duration without cross-referencing the
+        // metrics stream.
+        isolationStartedAt: isolationMode !== null ? new Date().toISOString() : null
       });
       const counter = noteDispatched(projectRoot, sid, batchId);
       if (counter.warning) {

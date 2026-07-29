@@ -95,6 +95,15 @@ export interface DispatchRecord {
    * to keep 4 unit-test literal sites from breaking the build. v3
    * moves the optional off the type and adds the field to the
    * 4 literal sites in one pass.
+   *
+   * Slice 2026-07-29-worktree-l2-extended Part 7: schema v3.1 adds
+   * `isolationStartedAt: string | null` for the L4 isolation
+   * bridge (Part 8 container POC). It's the ISO timestamp of
+   * when the isolation mode was set up (e.g. when the worktree
+   * was spawned). `null` means the dispatch did not request
+   * isolation. The `version` field stays at 3 because the
+   * v3 → v3.1 transition is additive; the new field is
+   * defaulted to `null` on read so v3 records upgrade cleanly.
    */
   readonly version: 3;
   readonly createdAt: string;
@@ -138,6 +147,17 @@ export interface DispatchRecord {
    * `upgradeRecord`).
    */
   readonly leaseId: string | null;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 7: ISO timestamp of
+   * when the isolation mode was set up. For `--isolation worktree`
+   * this is the moment `peaks worktree spawn` returned; for
+   * `--isolation container` (Part 8) it's when the container
+   * runtime reported the container as running. `null` when the
+   * dispatch did not request isolation. Lets the dashboard
+   * compute isolation duration (now - isolationStartedAt) without
+   * cross-referencing the metrics stream.
+   */
+  readonly isolationStartedAt: string | null;
 }
 
 /** Input for the initial write. */
@@ -160,6 +180,13 @@ export type WriteInitialDispatchInput = {
    * request isolation.
    */
   leaseId?: string | null;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 7: ISO timestamp
+   * when the isolation mode was set up. Optional on the input
+   * (defaults to `null`); dispatch-commands.ts passes the spawn
+   * time when `--isolation` is requested.
+   */
+  isolationStartedAt?: string | null;
 };
 
 /** Heartbeat write input. */
@@ -243,6 +270,15 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     // misfire.
     leaseId: typeof input.leaseId === 'string' && /^[a-f0-9]{16}$/.test(input.leaseId)
       ? input.leaseId
+      : null,
+    // Slice 2026-07-29-worktree-l2-extended Part 7: v3.1 field.
+    // ISO timestamp when the isolation mode was set up. Default
+    // null when the dispatch did not request isolation. We do
+    // NOT validate the format — the writer is the source of
+    // truth here, and any ISO 8601 string Date.parse() can
+    // handle is acceptable for the dashboard.
+    isolationStartedAt: typeof input.isolationStartedAt === 'string' && input.isolationStartedAt.length > 0
+      ? input.isolationStartedAt
       : null
   };
 
@@ -839,6 +875,12 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     // in `markCompleted` is a clean no-op for them.
     leaseId: typeof obj.leaseId === 'string' && /^[a-f0-9]{16}$/.test(obj.leaseId)
       ? obj.leaseId
+      : null,
+    // Slice 2026-07-29-worktree-l2-extended Part 7: v3 → v3.1
+    // migration. Legacy records have no `isolationStartedAt`; default
+    // to `null`. v3.1 readers can treat the field as opt-in.
+    isolationStartedAt: typeof obj.isolationStartedAt === 'string' && obj.isolationStartedAt.length > 0
+      ? obj.isolationStartedAt
       : null
   };
 }

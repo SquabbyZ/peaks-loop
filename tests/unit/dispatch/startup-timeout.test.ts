@@ -53,7 +53,10 @@ function mkRecord(overrides: Partial<DispatchRecord> = {}): DispatchRecord {
     // Slice 2026-07-29-worktree-l2-extended Part 4.C: v3 schema
     // makes `leaseId` structurally required; factory defaults
     // to null (no isolation requested).
-    leaseId: null
+    leaseId: null,
+    // Slice 2026-07-29-worktree-l2-extended Part 7: v3.1 schema
+    // adds `isolationStartedAt`. Factory defaults to null.
+    isolationStartedAt: null
   };
   return { ...base, ...overrides };
 }

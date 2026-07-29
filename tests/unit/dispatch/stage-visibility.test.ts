@@ -137,7 +137,10 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
       lastBeatAt: '2026-07-29T00:00:10.000Z',
       status: 'running',
       stage: 'testing',
-      leaseId: null
+      leaseId: null,
+      // Slice 2026-07-29-worktree-l2-extended Part 7: v3.1 record
+      // schema. null when the dispatch did not request isolation.
+      isolationStartedAt: null
     };
     const v = viewSubAgent(base, () => new Date('2026-07-29T00:00:11.000Z'));
     expect(v.stage).toBe('testing');
@@ -162,7 +165,8 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
       lastBeatAt: '2026-07-29T00:00:10.000Z',
       status: 'running',
       stage: null,
-      leaseId: null
+      leaseId: null,
+      isolationStartedAt: null
     };
     const v = viewSubAgent(base, () => new Date('2026-07-29T00:00:11.000Z'));
     expect(v.stage).toBeNull();
@@ -188,7 +192,8 @@ describe('viewSubAgent + renderStatusLine (AC-5.2) — stage rendered', () => {
         lastBeatAt: '2026-07-29T00:00:10.000Z',
         status: 'running',
         stage: 'planning',
-        leaseId: null
+        leaseId: null,
+        isolationStartedAt: null
       }
     ];
     const line = renderStatusLine('[peaks]', records, () => new Date('2026-07-29T00:00:11.000Z'));
