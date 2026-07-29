@@ -650,7 +650,7 @@ function spawnWorktreeLease(args: {
       '--project', args.projectRoot,
       '--session', args.sessionId,
       '--json'
-    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
 
     let stdout = '';
     let stderr = '';
@@ -715,7 +715,7 @@ function spawnContainerLease(args: {
       '--project', args.projectRoot,
       '--session', args.sessionId,
       '--json'
-    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    ], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
