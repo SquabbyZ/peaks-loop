@@ -17,7 +17,7 @@
 </div>
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.1 — Loop Engineering, Engineered" width="92%"/>
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.2 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -128,7 +128,7 @@ Every lane opens with **one slash command**.
 
 ---
 
-## Status · shipping 4.0.1 GA
+## Status · shipping 4.0.2 GA
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -140,7 +140,7 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [`4.0.1`](https://github.com/SquabbyZ/peaks-loop/releases) — GA (2026-07-30) |
+| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — GA (2026-07-30) |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test` · `peaks-slice-decompose`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
 | **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · ~80s full run |
@@ -148,7 +148,7 @@ Every lane opens with **one slash command**.
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
 
-### What 4.0.1 GA actually shipped (2026-07-30)
+### What 4.0.2 GA actually shipped (2026-07-30)
 
 | Epic | Solved | Verified by |
 | --- | --- | --- |

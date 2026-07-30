@@ -17,7 +17,7 @@
 </div>
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.1 — Loop Engineering, Engineered" width="92%"/>
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.2 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -128,7 +128,7 @@ npm i -g peaks-loop
 
 ---
 
-## 当前状态 · 4.0.1 GA
+## 当前状态 · 4.0.2 GA
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -140,7 +140,7 @@ npm i -g peaks-loop
 
 | | |
 | --- | --- |
-| **最新版本** | [`4.0.1`](https://github.com/SquabbyZ/peaks-loop/releases) — GA(2026-07-30) |
+| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — GA(2026-07-30) |
 | **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测 / `peaks-slice-decompose` 切片) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
 | **测试套件** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · 80s 全量 |
@@ -148,7 +148,7 @@ npm i -g peaks-loop
 | **依赖运行时** | Node ≥ 20 |
 | **License** | MIT |
 
-### 4.0.1 GA 这一波实打实修了什么(2026-07-30)
+### 4.0.2 GA 这一波实打实修了什么(2026-07-30)
 
 | Epic | 解决的事 | 怎么验 |
 | --- | --- | --- |
