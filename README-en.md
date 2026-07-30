@@ -219,13 +219,6 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 
 </details>
 
-<details>
-<summary><b>Where did 4.0.0 / 4.0.2 go?</b></summary>
-
-They are permanent npm tombstones — once a version has been published and unpublished, npm blocks any future re-publish as an anti-tampering measure. 4.0.1 is the first version that landed as GA. Full root cause → `.peaks/memory/2026-07-30-4-0-0-ga-release-flow.md`.
-
-</details>
-
 ---
 
 ## Full skill index

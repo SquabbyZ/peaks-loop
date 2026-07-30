@@ -219,13 +219,6 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 </details>
 
-<details>
-<summary><b>4.0.0 / 4.0.2 这些版本怎么不见了?</b></summary>
-
-它们被 npm 永久 tombstone 了 —— 历史上 published-then-unpublished 的版本号无法再 publish。4.0.1 是首次以 GA 形态落地的版本,完整根因 → `.peaks/memory/2026-07-30-4-0-0-ga-release-flow.md`。
-
-</details>
-
 ---
 
 ## 全量 skill 索引
