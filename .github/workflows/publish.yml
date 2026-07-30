@@ -109,9 +109,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+          node-version: 22.x
           # npm CLI 11+ OIDC Trusted Publishing requires setup-node to
           # know which registry to exchange the GitHub Actions OIDC JWT
           # against. Without this, npm CLI treats the publish as
