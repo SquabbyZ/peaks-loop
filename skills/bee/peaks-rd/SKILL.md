@@ -219,6 +219,12 @@ Do not bypass the parallel review fan-out when the slice has a code-review / qa-
 
 **Security / perf audit boundary (v2.12.0):** security and perf audit run as standalone audit skills (`peaks-security-audit`, `peaks-perf-audit`) whose outputs land at `audit/security.md` / `audit/perf.md`. RD does **not** dispatch `security-reviewer` or `perf-baseline-reviewer` sub-agents. See `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
 
+## Karpathy cost self-review (slice 2026-07-30-karpathy-cost-self-review)
+
+The `karpathy-reviewer` sub-agent now reports its own runtime cost in the JSON envelope at `rd/karpathy-review.md` (fields `evaluationCost` + `costRatio`; see `agents/karpathy-reviewer.md` §4). The **orchestrator-side** command `peaks job karpathy-cost-check --review-file <path>` reads that envelope and decides whether to downgrade a `'block'` gateAction to `'warn'` when `costRatio > 10`. **24h-mode is the override** — the check is entirely skipped when `peaks session 24h-mode state` reports `24H_ACTIVE`.
+
+The main RD loop MUST call `peaks job karpathy-cost-check` after every `peaks request transition --state qa-handoff` and before the next-slice work begins. If the decision kind is `downgraded`, the LLM MUST honor the downgraded `warn` and proceed to the next slice; the `'block'` was an artifact of the reviewer's own cost, not the slice's quality. If the decision kind is `reported` (costRatio > 50, gate not `'block'`), the LLM MAY continue; the sediment will be appended by `peaks memory extract` at handoff time. The full design lives in `.peaks/memory/2026-07-30-karpathy-evaluation-cost-self-review-design.md` (sediment locked 2026-07-30).
+
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
 RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md` + `skills/peaks-code/references/headroom-integration.md`.
