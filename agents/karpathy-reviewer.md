@@ -123,6 +123,23 @@ When violations exist, the envelope is:
 }
 ```
 
+When `evaluationCost` is reported, the envelope is:
+
+```json
+{
+  "passed": true,
+  "violations": [],
+  "gateAction": "pass",
+  "evaluationCost": {
+    "wallMs": 45230,
+    "subAgentsDispatched": 3,
+    "tokensEstimated": 18500,
+    "sliceCodeSize": 184
+  },
+  "costRatio": 245.81
+}
+```
+
 **Field semantics**:
 
 | Field | Type | Required | Meaning |
@@ -133,6 +150,12 @@ When violations exist, the envelope is:
 | `violations[].snippet` | string | yes | the offending text (≤ 200 chars); empty string if slice-level |
 | `violations[].hint` | string | yes | actionable suggestion (≤ 200 chars) — what should change |
 | `gateAction` | string | yes | `'pass'` if no violations; `'warn'` if any violation but recoverable; `'block'` if a HARD-blocker (see below) |
+| `evaluationCost` | object | optional | self-reported cost of running THIS reviewer; the field is added in slice 2026-07-30-karpathy-cost-self-review. Absent / older envelopes are accepted by `peaks job karpathy-cost-check` and treated as `costRatio = 0` (no auto-downgrade). |
+| `evaluationCost.wallMs` | number | required when `evaluationCost` is set | wall-clock milliseconds this reviewer spent; measured by the parent orchestrator from the dispatch envelope's `setAt` to the JSON parse timestamp |
+| `evaluationCost.subAgentsDispatched` | number | required when `evaluationCost` is set | how many sub-agents the reviewer fan-out emitted (the 3-way / 5-way fan-out count) |
+| `evaluationCost.tokensEstimated` | number | required when `evaluationCost` is set | rough token count for the reviewer's prompt + response (LLM-side estimate is fine; no need for exact billing) |
+| `evaluationCost.sliceCodeSize` | number | required when `evaluationCost` is set | the slice's diff `+`/`-` line count (from `git diff --stat`) |
+| `costRatio` | number | required when `evaluationCost` is set | `evaluationCost.wallMs / max(evaluationCost.sliceCodeSize, 1)`. Read by `peaks job karpathy-cost-check` to decide whether to auto-downgrade a `'block'` gateAction to `'warn'`. |
 
 **`gateAction` decision table**:
 
@@ -145,6 +168,16 @@ When violations exist, the envelope is:
 | Diff is empty (no changed files) but the slice claims a feature change | `'block'` |
 | The slice introduces secrets, executes arbitrary code, or modifies `~/.claude/settings.json` / `~/.claude/agents/` / `~/.claude/hooks/` | `'block'` |
 | 3+ violations across 3+ different `kind` values | `'block'` (the slice is structurally misaligned, not just imperfect) |
+
+**`costRatio` auto-downgrade** (slice 2026-07-30-karpathy-cost-self-review):
+
+The reviewer itself does NOT downgrade its own `gateAction`. The `costRatio` field is reported verbatim, and `peaks job karpathy-cost-check` (a separate orchestrator-side command) decides whether to flip a `'block'` to `'warn'` based on:
+
+- `costRatio > 10`: `'block'` is downgraded to `'warn'` (the evaluation took 10x longer than the slice's code change; the LLM is being blocked by the gate at a cost the slice did not justify)
+- `costRatio > 50`: a sediment is appended to `.peaks/memory/2026-07-30-karpathy-cost-self-review-archive.md` so the human can review the recurring pattern; `gateAction` stays at `'warn'`
+- 24h-mode is the override: when `peaks session 24h-mode state` reports `24H_ACTIVE`, `peaks job karpathy-cost-check` is ENTIRELY SKIPPED — the reviewer is the trusted arbiter. This applies regardless of `costRatio`. See `.peaks/memory/2026-07-30-karpathy-evaluation-cost-self-review-design.md` for the design rationale.
+
+If the `evaluationCost` field is absent (older reviewer, or the orchestrator did not measure), the cost-check command treats `costRatio = 0` and the hard gate stays in effect. This is by design: missing cost data must not silently downgrade a `'block'`.
 
 ## 5. File write contract
 
