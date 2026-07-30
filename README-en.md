@@ -24,7 +24,7 @@
 
 ## What it is
 
-peaks-loop is a **Loop Engineering crystallization system**, not a workflow tool — what sediments from the runs you do is **not** a procedure, it's a set of **Loop Engineering** method assets that are karpathy-engineered at the rule level and darwin-verified at the change level. The **Loop engineering, engineered** crystallization design lives at [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md).
+peaks-loop is a **Loop Engineering crystallization system**, not a workflow tool — what sediments from the runs you do is **not** a procedure, it's a set of **Loop Engineering** method assets that are karpathy-engineered at the rule level and darwin-verified at the change level.
 
 | Asset layer | Role | One-liner |
 | --- | --- | --- |
@@ -249,40 +249,24 @@ They are permanent npm tombstones — once a version has been published and unpu
 - Questions → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - Tribute: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
 - Recommended combo: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
-- Sediment design → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
-- Loop Engineering crystallization design → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
 
 ---
 
-## Publish (Trusted Publishing · OIDC)
+## Keywords · where peaks-loop is searched
 
-This repo **does not** use npm tokens; it ships via **Trusted Publishing + OIDC**:
+> Handy query terms, listed here so search engines and GitHub's own search hit the long-tail more reliably.
 
-- Maintainers do **not** hold — and will never hold — `NPM_TOKEN`. `~/.npmrc` is sanitized, and npmjs.com has Publishing access set to disallow tokens.
-- Trigger 1: `git tag vX.Y.Z && git push --tags` (matches `.github/workflows/publish.yml`'s `push: tags: v*.*.*` filter).
-- Trigger 2: GitHub UI → Actions → publish → Run workflow (manual fallback for dry-runs / re-publish).
-- Each publish runs the full chain: `install → typecheck → build → vitest → changesets publish`. Nothing lands on npm until every gate passes.
-- Maintainer's local action is two steps: `pnpm changeset` to write the change note + merge the PR (CI does the rest).
-- **Tag is the truth**: the `pnpm exec changeset version` auto-bump step has been removed. Whatever tag you push is the version that gets published.
+**Category**:AI orchestration · workflow orchestration · loop engineering · LLM workflow · AI programmer · multi-agent orchestration · AI coding agent · autonomous workflow · AI engineering platform · dev tooling · agent harness · agentic engineering
 
-**One-time npmjs-side configuration** (operator runs this once after this slice):
+**CLI**:peaks · peaks code · peaks audit · peaks doctor · peaks openspec · peaks release · peaks release-pack · peaks code run · peaks code run --24h · peaks code detect-job · peaks code gate-step-08 · peaks compact auto · peaks compact history · peaks job karpathy-cost-check · peaks dashboard long-run · peaks dashboard summary · peaks session 24h-mode · peaks sub-agent dispatch · peaks worktree spawn · peaks worktree auth grant · peaks hooks install · peaks statusline install · peaks standards init · peaks openspec archive · peaks changeset check · peaks mut run · peaks mut asserts · peaks memory extract · peaks workflow verify-pipeline · peaks request transition · peaks slice check · peaks slice decompose · peaks resume · peaks status · peaks test · peaks solo
 
-1. Log in to https://www.npmjs.com → Settings → Trusted Publishers → Add GitHub Action.
-2. Owner / Org: `SquabbyZ` · Repository: `peaks-loop` · Workflow filename: `publish.yml` · Environment name: leave blank.
-3. Save.
+**Slash commands**:peaks-code · peaks-content · peaks-doctor · peaks-audit · peaks-final-review · peaks-ide · peaks-issue-fix-orchestrator · peaks-sop · peaks-solo · peaks-resume · peaks-status · peaks-test · peaks-slice-decompose
 
-**Revocation** = delete the trusted publisher on the npmjs side. **No** token rotation needed.
+**Use cases**:AI coding assistant · Claude Code enhancement · Codex enhancement · Z Code enhancement · Cursor enhancement · Trae enhancement · Tongyi Lingma enhancement · 24h overnight coding · end-to-end code workflow · content production automation · repo health check · batch issue fix · custom SOP · sediment local tactics · natural language programming · AI co-development · long-running task orchestration · slice decomposition · sub-agent dispatch · DAG orchestration · dashboard monitoring · anti-drift evaluation · independent-context verification · evolution validation
 
-**Common failures**:
+**Engineering**:karpathy style · darwin style · TDD · code review · security scan · lint · typecheck · vitest · c8 coverage · mutation testing · Stryker · CI/CD · GitHub Actions · Trusted Publishing · OIDC · changesets · monorepo · pnpm workspace · OpenSpec · apply gate · coverage evidence · 4-dim review · functional-completeness · problem-resolution · no-new-bugs · existing-functionality-intact
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| publish step reports `Cannot get JWT` | Missing `id-token: write` | check `.github/workflows/publish.yml#permissions` |
-| publish step reports `ENEEDAUTH` or `404 from registry.npmjs.org` | Trusted Publisher not configured on npmjs | run the 3-step config above |
-| publish reports `Cannot publish over previously published version "<ver>"` | That version is a permanent npm tombstone (already published + unpublished once) | bump to an unused version number and retag |
-| Tag pushed but CI never runs | tag format does not match `v*.*.*` | check `git tag` output |
-
-Detailed RD doc: [`docs/superpowers/slices/slice-s1-trusted-publish.md`](./docs/superpowers/slices/slice-s1-trusted-publish.md).
+**Tributes & recommended**:peaks-loop · SquabbyZ · multica-ai/andrej-karpathy-skills · alchaincyf/darwin-skill · affaan-m/ECC · Egonex-AI/Understand-Anything · obra/superpowers
 
 ---
 

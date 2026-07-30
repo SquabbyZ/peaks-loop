@@ -24,7 +24,7 @@
 
 ## 它是什么
 
-peaks-loop 是一个 **Loop Engineering 结晶系统**,不是工作流工具 —— 你跑过的工作里,沉淀下来的不是「流程」,是一套**可被 karpathy 风格工程化、又被 darwin 风格独立验证**的 Loop Engineering 方法资产。**Loop engineering 结晶系统** 的工程实现见 [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)。
+peaks-loop 是一个 **Loop Engineering 结晶系统**,不是工作流工具 —— 你跑过的工作里,沉淀下来的不是「流程」,是一套**可被 karpathy 风格工程化、又被 darwin 风格独立验证**的 Loop Engineering 方法资产。
 
 | 资产层 | 角色 | 一句话 |
 | --- | --- | --- |
@@ -249,40 +249,24 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 - 提问 → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - 致敬: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
 - 组合推荐: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
-- 沉淀设计 → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
-- Loop Engineering 结晶设计 → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
 
 ---
 
-## 发布(Trusted Publishing · OIDC)
+## 关键词 · peaks-loop 在哪里被搜索
 
-本仓库发布链路**不**使用 npm token,改用 **Trusted Publishing + OIDC**:
+> 顺手的查询词,贴在这里方便搜索引擎和 GitHub 内检索命中。
 
-- 维护者**不需要**也不会持有 `NPM_TOKEN` —— `~/.npmrc` 已被清理,npmjs.com 已把 Publishing access 切到 disallow tokens。
-- 触发方式 1:`git tag vX.Y.Z && git push --tags`(走 `.github/workflows/publish.yml` 的 `push: tags: v*.*.*` 触发器)。
-- 触发方式 2:GitHub UI → Actions → publish → Run workflow(手动兜底,可用于 dry-run / 补发)。
-- 每次发布跑完整链路:`install → typecheck → build → vitest → changesets publish`,全部通过才会真正落到 npm。
-- 维护者的本地动作只有两步:`pnpm changeset` 写变更说明 + 合并 PR(剩下的 CI 自动跑)。
-- tag 即真相:本仓库已删除 `pnpm exec changeset version` 自动 bump,推哪个 tag 就发哪个版本。
+**类别 / Category**:AI orchestration · workflow orchestration · loop engineering · LLM workflow · AI programmer · multi-agent orchestration · AI coding agent · autonomous workflow · AI engineering platform · dev tooling
 
-**npmjs 侧一次性配置**(本 slice 完成后由人工做一次):
+**CLI / 命令行**:`peaks` · `peaks code` · `peaks audit` · `peaks doctor` · `peaks openspec` · `peaks release` · `peaks release-pack` · `peaks code run` · `peaks code run --24h` · `peaks code detect-job` · `peaks code gate-step-08` · `peaks compact auto` · `peaks compact history` · `peaks job karpathy-cost-check` · `peaks dashboard long-run` · `peaks dashboard summary` · `peaks session 24h-mode` · `peaks sub-agent dispatch` · `peaks worktree spawn` · `peaks worktree auth grant` · `peaks hooks install` · `peaks statusline install` · `peaks standards init` · `peaks openspec archive` · `peaks changeset check` · `peaks mut run` · `peaks mut asserts` · `peaks memory extract` · `peaks workflow verify-pipeline` · `peaks request transition` · `peaks slice check` · `peaks slice decompose` · `peaks resume` · `peaks status` · `peaks test` · `peaks solo`
 
-1. 登录 https://www.npmjs.com → Settings → Trusted Publishers → Add GitHub Action。
-2. Owner / Org:`SquabbyZ` · Repository:`peaks-loop` · Workflow filename:`publish.yml` · Environment name:留空。
-3. 保存。
+**斜杠命令 / Slash commands**:`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
 
-**撤销** = npmjs 端删 trusted publisher,**无需** rotate token。
+**场景 / Use cases**:AI 编程助手 · Claude Code 增强 · Codex 增强 · Z Code 增强 · Cursor 增强 · Trae 增强 · 通义灵码增强 · 24h 通宵编程 · 端到端代码工作流 · 内容生产自动化 · 仓库体检 · 批量修 issue · 自定义 SOP · 沉淀本地战术 · 自然语言编程 · AI 协作开发 · 长期任务编排 · 切片分解 · 子代理派发 · DAG 编排 · 看板监控 · 反漂移评估 · 独立上下文验证 · 演化校验
 
-**常见故障**:
+**工程 / Engineering**:karpathy 风格 · darwin 风格 · TDD · code review · security scan · lint · typecheck · vitest · c8 coverage · mutation testing · Stryker · CI/CD · GitHub Actions · Trusted Publishing · OIDC · changesets · monorepo · pnpm workspace · OpenSpec · apply gate · coverage evidence · 4 维验收 · 4-dim review
 
-| 现象 | 原因 | 修法 |
-|------|------|------|
-| publish 步骤报 `Cannot get JWT` | 缺 `id-token: write` | 检查 `.github/workflows/publish.yml#permissions` |
-| publish 步骤报 `ENEEDAUTH` 或 `404 from registry.npmjs.org` | npmjs 端没配 trusted publisher | 走上面的 3 步配置 |
-| publish 报 `Cannot publish over previously published version "<ver>"` | 该版本被 npm tombstone(已 publish + unpublish 过的版本永久封禁) | 升一个未用过的版本号重新打 tag |
-| tag 推了但 CI 没跑 | tag 格式不符 `v*.*.*` | 检查 `git tag` 输出 |
-
-详细 RD 文档见 [`docs/superpowers/slices/slice-s1-trusted-publish.md`](./docs/superpowers/slices/slice-s1-trusted-publish.md)。
+**相关项目 / Tributes & recommended**:peaks-loop · SquabbyZ · multica-ai/andrej-karpathy-skills · alchaincyf/darwin-skill · affaan-m/ECC · Egonex-AI/Understand-Anything · obra/superpowers
 
 ---
 
