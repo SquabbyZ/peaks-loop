@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="100%" role="img" aria-label="peaks-loop 13 user skills — full index with category badges">
+  <title>peaks-loop 13 user skills — full index with category badges</title>
+  <defs>
+    <linearGradient id="sib" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07090d"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="sicy" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#7ee787"/>
+    </linearGradient>
+    <linearGradient id="sipp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a371f7"/>
+      <stop offset="1" stop-color="#ff7b72"/>
+    </linearGradient>
+    <filter id="siglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="480" fill="url(#sib)" rx="14"/>
+  <rect x="10" y="10" width="1180" height="460" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+
+  <text x="36" y="40" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">$ peaks skill list --all --format=card</text>
+  <text x="36" y="74" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#e6edf3">13 user skills</text>
+  <text x="222" y="74" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">— 全部入口都在 <tspan fill="#00d4ff">skills/&lt;name&gt;/SKILL.md</tspan></text>
+  <circle cx="1140" cy="68" r="4" fill="#7ee787" filter="url(#siglow)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.0s" repeatCount="indefinite"/>
+  </circle>
+  <text x="1124" y="72" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590" text-anchor="end">13 skills</text>
+
+  <!-- 13 skill cards: 4-4-5 grid -->
+  <g transform="translate(36, 100)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+
+    <!-- row 1 — 4 cards -->
+    <g>
+      <rect width="276" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#00d4ff" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[01] · CODE-DOMAIN</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-code</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">build · fix · onboard</text>
+      <text x="14" y="70" font-size="9" fill="#00d4ff">PRD → RD → QA</text>
+      <text x="266" y="20" font-size="9" fill="#7d8590" text-anchor="end">v4.0.2</text>
+    </g>
+    <g transform="translate(290, 0)">
+      <rect width="276" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#00d4ff" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[02] · CONTENT</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-content</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">draft · ship · archive</text>
+      <text x="14" y="70" font-size="9" fill="#00d4ff">draft → publish</text>
+    </g>
+    <g transform="translate(580, 0)">
+      <rect width="276" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#00d4ff" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[03] · DOCTOR</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-doctor</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">audit · openspec</text>
+      <text x="14" y="70" font-size="9" fill="#00d4ff">red-line + L3</text>
+    </g>
+    <g transform="translate(870, 0)">
+      <rect width="258" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#00d4ff" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[04] · ISSUE-FIX</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-issue-fix-orch</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">sweep · PR draft</text>
+      <text x="14" y="70" font-size="9" fill="#00d4ff">batch fix</text>
+    </g>
+
+    <!-- row 2 — 4 cards -->
+    <g transform="translate(0, 92)">
+      <rect width="276" height="78" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#a371f7" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[05] · SOP</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-sop</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">NL → workflow</text>
+      <text x="14" y="70" font-size="9" fill="#a371f7">custom gates</text>
+    </g>
+    <g transform="translate(290, 92)">
+      <rect width="276" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#00d4ff" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[06] · DISPATCHER</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-solo</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">auto-route · replay</text>
+      <text x="14" y="70" font-size="9" fill="#00d4ff">NL → domain</text>
+    </g>
+    <g transform="translate(580, 92)">
+      <rect width="276" height="78" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#a371f7" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[07] · AUDIT</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-audit</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">6-dim · pre-RD</text>
+      <text x="14" y="70" font-size="9" fill="#a371f7">mandatory gate</text>
+    </g>
+    <g transform="translate(870, 92)">
+      <rect width="258" height="78" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#7ee787" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[08] · SIGN-OFF</text>
+      <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-final-review</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">4-dim acceptance</text>
+      <text x="14" y="70" font-size="9" fill="#7ee787">end-of-workflow</text>
+    </g>
+
+    <!-- row 3 — 5 cards (tight) -->
+    <g transform="translate(0, 184)">
+      <rect width="218" height="78" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#7ee787" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[09] · RESUME</text>
+      <text x="14" y="40" font-size="14" font-weight="700" fill="#e6edf3">/peaks-resume</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">deepest gate</text>
+      <text x="14" y="70" font-size="9" fill="#7ee787">from /compact</text>
+    </g>
+    <g transform="translate(232, 184)">
+      <rect width="218" height="78" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#7ee787" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[10] · STATUS</text>
+      <text x="14" y="40" font-size="14" font-weight="700" fill="#e6edf3">/peaks-status</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">1-screen · live</text>
+      <text x="14" y="70" font-size="9" fill="#7ee787">read-only</text>
+    </g>
+    <g transform="translate(464, 184)">
+      <rect width="218" height="78" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#7ee787" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[11] · TEST</text>
+      <text x="14" y="40" font-size="14" font-weight="700" fill="#e6edf3">/peaks-test</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">vitest · coverage</text>
+      <text x="14" y="70" font-size="9" fill="#7ee787">cross-package</text>
+    </g>
+    <g transform="translate(696, 184)">
+      <rect width="218" height="78" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#a371f7" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[12] · DECOMPOSE</text>
+      <text x="14" y="40" font-size="14" font-weight="700" fill="#e6edf3">/peaks-slice-decompose</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">multi-pass · arbiter</text>
+      <text x="14" y="70" font-size="9" fill="#a371f7">service / file</text>
+    </g>
+    <g transform="translate(928, 184)">
+      <rect width="200" height="78" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="8"/>
+      <rect x="0" y="0" width="4" height="78" fill="#a371f7" filter="url(#siglow)"/>
+      <text x="14" y="20" font-size="10" fill="#7d8590">[13] · IDE</text>
+      <text x="14" y="40" font-size="14" font-weight="700" fill="#e6edf3">/peaks-ide</text>
+      <text x="14" y="58" font-size="10" fill="#7d8590">hooks · statusline</text>
+      <text x="14" y="70" font-size="9" fill="#a371f7">per-IDE install</text>
+    </g>
+  </g>
+
+  <!-- legend strip -->
+  <g transform="translate(36, 388)" font-family="ui-monospace, monospace" font-size="11">
+    <text x="0" y="0" fill="#7d8590">▣ category</text>
+    <g transform="translate(0, 14)">
+      <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#00d4ff"/>
+      <text x="22" y="11" fill="#7d8590">first-class orchestrator (5) — code / content / doctor / issue-fix / solo</text>
+    </g>
+    <g transform="translate(0, 34)">
+      <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#7ee787"/>
+      <text x="22" y="11" fill="#7d8590">primitive / gate (4) — resume / status / test / final-review</text>
+    </g>
+    <g transform="translate(0, 54)">
+      <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#a371f7"/>
+      <text x="22" y="11" fill="#7d8590">meta / cross-cutting (4) — sop / audit / slice-decompose / ide</text>
+    </g>
+  </g>
+</svg>

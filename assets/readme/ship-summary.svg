@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="100%" role="img" aria-label="peaks-loop 4.x ship summary — 19 rids timeline with category chips">
+  <title>peaks-loop 4.x ship summary — 19 rids timeline with category chips</title>
+  <defs>
+    <linearGradient id="shb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07090d"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="shcy" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#7ee787"/>
+    </linearGradient>
+    <linearGradient id="shpp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a371f7"/>
+      <stop offset="1" stop-color="#ff7b72"/>
+    </linearGradient>
+    <filter id="shglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="480" fill="url(#shb)" rx="14"/>
+  <rect x="10" y="10" width="1180" height="460" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+
+  <text x="36" y="40" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">$ peaks ship log --version 4.x --format=timeline</text>
+  <text x="36" y="74" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#e6edf3">Ship 摘要</text>
+  <text x="172" y="74" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">— 4.x · <tspan fill="#7ee787">19 rids</tspan> · 2026-06 → 2026-07</text>
+  <text x="1124" y="72" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590" text-anchor="end">v4.0.2 GA · 4 packages</text>
+
+  <!-- timeline track -->
+  <g transform="translate(36, 110)">
+    <line x1="0" y1="40" x2="1128" height="2" stroke="#1f2937" stroke-width="1"/>
+    <rect x="0" y="38" width="1128" height="4" rx="2" fill="url(#shcy)" filter="url(#shglow)"/>
+  </g>
+
+  <!-- 19 rid nodes evenly spaced along the timeline (cols 1-19) -->
+  <!-- positions: each rid is at 1128/19 = ~59.4 step -->
+  <g transform="translate(36, 150)" font-family="ui-monospace, monospace" font-size="10">
+    <!-- node 009 cli-collapse (cyan) -->
+    <g transform="translate(0, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">009</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">cli-collapse</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">73 → 5</text>
+    </g>
+    <!-- 010 release-precheck (cyan) -->
+    <g transform="translate(60, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">010</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">precheck</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">version</text>
+    </g>
+    <!-- 011 changeset-gate (cyan) -->
+    <g transform="translate(120, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">011</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">changeset</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">hard gate</text>
+    </g>
+    <!-- 014 dynamic subpkg (cyan) -->
+    <g transform="translate(180, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">014</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">subpkg</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">discover</text>
+    </g>
+    <!-- 015 lockstep (cyan) -->
+    <g transform="translate(240, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">015</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">lockstep</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">no lag</text>
+    </g>
+    <!-- 016 fold (cyan) -->
+    <g transform="translate(300, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">016</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">fold</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">5→src</text>
+    </g>
+    <!-- 017 GH release (cyan) -->
+    <g transform="translate(360, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">017</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">gh release</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">tag=ver</text>
+    </g>
+
+    <!-- 020b 24h-mode (purple) -->
+    <g transform="translate(420, 0)">
+      <circle cx="30" cy="0" r="11" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">020b</text>
+      <text x="30" y="28" text-anchor="middle" fill="#7d8590">24h-mode</text>
+      <text x="30" y="42" text-anchor="middle" fill="#7d8590" font-size="8">overnight</text>
+    </g>
+    <!-- 024 code-split (purple) -->
+    <g transform="translate(480, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">024</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">code-split</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">≤ 800</text>
+    </g>
+    <!-- 025 heartbeat (purple) -->
+    <g transform="translate(540, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">025</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">heartbeat</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">watch</text>
+    </g>
+    <!-- 026 jsonl (purple) -->
+    <g transform="translate(600, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">026</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">jsonl</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">monotonic</text>
+    </g>
+    <!-- 027 partial compact (purple) -->
+    <g transform="translate(660, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">027</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">compact</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">partial</text>
+    </g>
+    <!-- 028 spillover (purple) -->
+    <g transform="translate(720, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">028</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">spillover</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">context</text>
+    </g>
+
+    <!-- 029 DAG wave+barrier (cyan) -->
+    <g transform="translate(780, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">029</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">DAG wave</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">+barrier</text>
+    </g>
+    <!-- 030 dashboard (cyan) -->
+    <g transform="translate(840, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#00d4ff" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#00d4ff" font-weight="700">030</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">dashboard</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">summary</text>
+    </g>
+    <!-- 031 dispatcher deprecate (purple) -->
+    <g transform="translate(900, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">031</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">deprecate</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">dispatcher</text>
+    </g>
+    <!-- 032 spill-demo (purple) -->
+    <g transform="translate(960, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">032</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">spill-demo</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">opt-in</text>
+    </g>
+    <!-- 033 lstat defense (purple) -->
+    <g transform="translate(1020, 0)">
+      <circle cx="30" cy="0" r="9" fill="#0d1117" stroke="#a371f7" stroke-width="2" filter="url(#shglow)"/>
+      <text x="30" y="3" text-anchor="middle" fill="#a371f7" font-weight="700">033</text>
+      <text x="30" y="26" text-anchor="middle" fill="#7d8590">lstat</text>
+      <text x="30" y="40" text-anchor="middle" fill="#7d8590" font-size="8">defense</text>
+    </g>
+    <!-- 034 GA + retire (highlighted, bigger) -->
+    <g transform="translate(1080, 0)">
+      <circle cx="30" cy="0" r="13" fill="#0d1117" stroke="#7ee787" stroke-width="2.5" filter="url(#shglow)">
+        <animate attributeName="r" values="13;15;13" dur="1.4s" repeatCount="indefinite"/>
+      </circle>
+      <text x="30" y="3" text-anchor="middle" fill="#7ee787" font-weight="700">034</text>
+      <text x="30" y="30" text-anchor="middle" fill="#7ee787">GA + retire</text>
+      <text x="30" y="44" text-anchor="middle" fill="#7d8590" font-size="8">v4.0.0</text>
+    </g>
+  </g>
+
+  <!-- legend strip -->
+  <g transform="translate(36, 250)" font-family="ui-monospace, monospace" font-size="11">
+    <text x="0" y="0" fill="#7d8590">▣ category</text>
+    <g transform="translate(0, 16)">
+      <circle cx="7" cy="7" r="7" fill="#0d1117" stroke="#00d4ff" stroke-width="1.5"/>
+      <text x="22" y="11" fill="#7d8590">release infra / CLI surface (7) — 009 · 010 · 011 · 014 · 015 · 016 · 017 · 029 · 030</text>
+    </g>
+    <g transform="translate(0, 36)">
+      <circle cx="7" cy="7" r="7" fill="#0d1117" stroke="#a371f7" stroke-width="1.5"/>
+      <text x="22" y="11" fill="#7d8590">orchestrator / refactor (9) — 020b · 024 · 025 · 026 · 027 · 028 · 031 · 032 · 033</text>
+    </g>
+    <g transform="translate(0, 56)">
+      <circle cx="7" cy="7" r="9" fill="#0d1117" stroke="#7ee787" stroke-width="2"/>
+      <text x="26" y="11" fill="#7d8590">GA marker (1) — 034: v2.13.0 contract cleanup + 4.0.0 GA version bump</text>
+    </g>
+  </g>
+
+  <!-- 10 highlight chips at bottom: what was actually shipped -->
+  <g transform="translate(36, 340)" font-family="ui-monospace, monospace" font-size="11">
+    <text x="0" y="0" fill="#7d8590">▣ highlights</text>
+    <g transform="translate(0, 14)">
+      <rect width="220" height="32" rx="16" fill="#0a0e14" stroke="#00d4ff" stroke-width="1"/>
+      <text x="110" y="20" text-anchor="middle" fill="#00d4ff">CLI surface 73 → 5</text>
+    </g>
+    <g transform="translate(232, 14)">
+      <rect width="220" height="32" rx="16" fill="#0a0e14" stroke="#00d4ff" stroke-width="1"/>
+      <text x="110" y="20" text-anchor="middle" fill="#00d4ff">Trusted Publishing + OIDC</text>
+    </g>
+    <g transform="translate(464, 14)">
+      <rect width="200" height="32" rx="16" fill="#0a0e14" stroke="#a371f7" stroke-width="1"/>
+      <text x="100" y="20" text-anchor="middle" fill="#a371f7">24h-mode</text>
+    </g>
+    <g transform="translate(676, 14)">
+      <rect width="220" height="32" rx="16" fill="#0a0e14" stroke="#a371f7" stroke-width="1"/>
+      <text x="110" y="20" text-anchor="middle" fill="#a371f7">context spillover</text>
+    </g>
+    <g transform="translate(908, 14)">
+      <rect width="184" height="32" rx="16" fill="#0a0e14" stroke="#00d4ff" stroke-width="1"/>
+      <text x="92" y="20" text-anchor="middle" fill="#00d4ff">DAG wave + barrier</text>
+    </g>
+    <g transform="translate(0, 56)">
+      <rect width="220" height="32" rx="16" fill="#0a0e14" stroke="#00d4ff" stroke-width="1"/>
+      <text x="110" y="20" text-anchor="middle" fill="#00d4ff">dashboard aggregation</text>
+    </g>
+    <g transform="translate(232, 56)">
+      <rect width="200" height="32" rx="16" fill="#0a0e14" stroke="#7ee787" stroke-width="1"/>
+      <text x="100" y="20" text-anchor="middle" fill="#7ee787">test-rebuild epic</text>
+    </g>
+    <g transform="translate(444, 56)">
+      <rect width="240" height="32" rx="16" fill="#0a0e14" stroke="#a371f7" stroke-width="1"/>
+      <text x="120" y="20" text-anchor="middle" fill="#a371f7">karpathy-cost self-review</text>
+    </g>
+    <g transform="translate(696, 56)">
+      <rect width="200" height="32" rx="16" fill="#0a0e14" stroke="#a371f7" stroke-width="1"/>
+      <text x="100" y="20" text-anchor="middle" fill="#a371f7">compact visibility</text>
+    </g>
+    <g transform="translate(908, 56)">
+      <rect width="184" height="32" rx="16" fill="#0a0e14" stroke="#a371f7" stroke-width="1"/>
+      <text x="92" y="20" text-anchor="middle" fill="#a371f7">retire-auto-compact-hook</text>
+    </g>
+    <text x="0" y="108" font-size="10" fill="#7d8590">详见 <tspan fill="#00d4ff">CHANGELOG.md</tspan></text>
+  </g>
+</svg>

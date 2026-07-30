@@ -229,13 +229,19 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 13 个 user skill · 全部入口都在 `skills/<name>/SKILL.md`:
 
-`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
+<p align="center">
+  <img src="./assets/readme/skill-index.svg" alt="peaks-loop 13 user skills 索引卡" width="92%"/>
+</p>
 
 ---
 
 ## Ship 摘要(4.x · 19 rid)
 
-`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — 涵盖 CLI surface 收敛(73→5 byte-identical)、Trusted Publishing + OIDC、24h-mode、context spillover、DAG wave+barrier、dashboard aggregation、test-rebuild epic、karpathy-cost self-review、compact visibility、retire-auto-compact-hook 等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — 涵盖 CLI surface 收敛(73→5 byte-identical)、Trusted Publishing + OIDC、24h-mode、context spillover、DAG wave+barrier、dashboard aggregation、test-rebuild epic、karpathy-cost self-review、compact visibility、retire-auto-compact-hook 等。
+
+<p align="center">
+  <img src="./assets/readme/ship-summary.svg" alt="peaks-loop 4.x 19 rid 历程表" width="92%"/>
+</p>
 
 ---
 

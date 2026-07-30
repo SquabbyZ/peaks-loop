@@ -229,13 +229,19 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 
 13 user skills · every entry point lives in `skills/<name>/SKILL.md`:
 
-`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
+<p align="center">
+  <img src="./assets/readme/skill-index.svg" alt="peaks-loop 13 user skills — full index with category badges" width="92%"/>
+</p>
 
 ---
 
 ## Ship summary (4.x · 19 rids)
 
-`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — CLI surface collapse (73 → 5 byte-identical), Trusted Publishing + OIDC, 24h-mode, context spillover, DAG wave + barrier, dashboard aggregation, test-rebuild epic, karpathy-cost self-review, compact visibility, retire-auto-compact-hook, and more. See [`CHANGELOG.md`](./CHANGELOG.md).
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — CLI surface collapse (73 → 5 byte-identical), Trusted Publishing + OIDC, 24h-mode, context spillover, DAG wave + barrier, dashboard aggregation, test-rebuild epic, karpathy-cost self-review, compact visibility, retire-auto-compact-hook, and more.
+
+<p align="center">
+  <img src="./assets/readme/ship-summary.svg" alt="peaks-loop 4.x 19-rid ship timeline with category chips" width="92%"/>
+</p>
 
 ---
 
