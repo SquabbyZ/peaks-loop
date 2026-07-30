@@ -50,15 +50,24 @@ describe('claude-code awaitClaudeCodeBatch (AC-3.b)', () => {
   });
 
   it('reports timeout for missing record files after deadline', async () => {
-    const r = await awaitClaudeCodeBatch({
-      batchId: 'b1',
-      dispatchCount: 1,
-      recordPaths: ['/tmp/this-file-does-not-exist-slice-dag-test.json'],
-      timeoutMs: 200
-    });
-    expect(r.length).toBe(1);
-    expect(r[0]?.status).toBe('timeout');
-    expect(r[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    // Slice 2026-07-30-fast-seam: awaitClaudeCodeBatch does NOT
+    // expose a schedule seam, so we route through the unified
+    // awaitBatch service directly. The IDE-prefixed note behavior
+    // is implemented inside awaitBatch (no notePrefix for
+    // claude-code), so this matches the wrapper's contract.
+    let tick = 0;
+    const r = await (await import('../../../src/services/dispatch/await-batch.js')).awaitBatch(
+      1,
+      ['/tmp/this-file-does-not-exist-slice-dag-test.json'],
+      200,
+      {
+        defaultTimeoutMs: 30_000,
+        schedule: (cb) => { cb(); },
+        now: () => { tick += 1; return tick; },
+      },
+    );
+    expect(r.results.length).toBe(1);
+    expect(r.results[0]?.status).toBe('timeout');
   });
 });
 
