@@ -86,7 +86,7 @@ kind: project
 
 - ✅ 4 guidelines 注入保留（不变）
 - ✅ karpathy-reviewer 仍是 3-way fan-out 的硬门（仅在 costRatio ≤ 10 时硬门有效）
-- ✅ 24h-mode 自动 engage 不变
+- ✅ **24h-mode 自动 engage 不变**（T3/T4 → 24H_ACTIVE）。`peaks job karpathy-cost-check` 在 `peaks session 24h-mode state` 为 `24H_ACTIVE` 时**整体跳过**——24h-mode 是 karpathy-cost-check 的"override"，不是被其约束的对象。`peaks dashboard long-run --since 24h` / `peaks session 24h-mode state` / 5 auto-engage triggers / spill / monotonic-guard 全部独立于本设计。
 - ✅ SquabbyZ sole-author + 无 AI 副 trailer 不变
 - ✅ Human-NL-Choice-Only 不变（CLI 仍由 LLM 跑）
 - ⚠️ 新增字段属于 JSON schema 增量，向后兼容（旧 reviewer 读不到 costRatio 时默认走 hard gate 路径）
