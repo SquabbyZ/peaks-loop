@@ -417,10 +417,10 @@ jobs:
         # `contents: read` for the rest of the chain. The
         # existing publish step's `if:` predicate is preserved
         # verbatim.
-        if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
         permissions:
           contents: write   # required for gh release create
           id-token: write   # preserved for npm OIDC trust
+        if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
         env:
           GH_TOKEN: ${{ github.token }}
           NOTES_FILE: ${{ steps.step-extract-release-notes.outputs['notes_file'] || format('{0}/peaks-release-notes/v{1}.md', env.RUNNER_TEMP, needs.publish.outputs.root_version) }}

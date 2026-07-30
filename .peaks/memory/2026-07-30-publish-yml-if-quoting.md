@@ -48,21 +48,39 @@ earlier:
   time the publish step's failure was visible because
   we were watching the run interactively.
 
-## Fix
+## Fix (corrected 2026-07-30 after run #95)
 
-Wrap the `if:` expression in double quotes:
+Two-part fix; quoting alone is not enough:
 
-```yaml
-- name: Create GitHub Release
-  if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
-  permissions:
-    contents: write
-    id-token: write
-  ...
-```
+1. **Quote the `if:` expression** (handles `||` / `&&`
+   operator parsing):
+   ```yaml
+   if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
+   ```
+2. **Put `permissions:` BEFORE `if:` in the step block.**
+   The GitHub Actions parser refuses the order
+   `if: ... / permissions: ...` (it treats the `if:` value
+   as spanning the next sibling key and then flags that
+   sibling as 'Unexpected value'). The reverse order
+   `permissions: / if: ...` parses cleanly.
 
-This is a no-op semantically — the expression's truth value
-is identical. Verified on commit `b7ac90ca` (2026-07-30).
+   Final shape:
+   ```yaml
+   - name: Create GitHub Release
+     permissions:
+       contents: write
+       id-token: write
+     if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
+     env: ...
+   ```
+
+The quoting alone (commit b7ac90ca) was NOT sufficient —
+run #95 still failed with the same 'Line: 421, Col: 9'
+error. The field-order fix (commit pending) is what
+unblocks the workflow. Both commits are needed.
+
+This is a no-op semantically — the expression's truth
+value and the permission scopes are identical.
 
 ## How to apply (future iterations)
 
