@@ -14,6 +14,11 @@ import {
 import { readHookStatus as readSettingsStatus } from '../../services/skills/hooks-settings-service.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
+import {
+  decideCompactStatusline,
+  renderCompactStatusline,
+} from '../../services/compact-statusline/compact-statusline-service.js';
+import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 
 const STDIN_READ_TIMEOUT_MS = 250;
 
@@ -221,4 +226,43 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       process.exitCode = 1;
     }
   });
+
+  // peaks statusline compact (slice 2026-07-30-compact-visibility)
+  addJsonOption(
+    statusline
+      .command('compact')
+      .description(
+        'Render the single-line auto-compact indicator the LLM embeds ' +
+          "in Claude Code's statusline. Default output is plain text; " +
+          'pass --json for the structured envelope.'
+      )
+      .option('--project <path>', 'project root (auto-detected from cwd when omitted)')
+      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+      .action((options: { project?: string; sessionId?: string; json?: boolean }) => {
+        try {
+          const projectRoot = options.project !== undefined
+            ? options.project
+            : (findProjectRoot(process.cwd()) ?? process.cwd());
+          const sid = options.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
+          const state = decideCompactStatusline({
+            projectRoot,
+            sessionId: sid,
+            now: Date.now(),
+          });
+          const label = renderCompactStatusline(state);
+          // For non-JSON mode we print the LABEL DIRECTLY to stdout
+          // (no envelope wrapping) because the consumer is the IDE
+          // statusline, not a peaks-Loop caller.
+          if (options.json === true) {
+            printResult(io, ok('statusline.compact', { label, state }), options.json);
+          } else {
+            process.stdout.write(`${label}\n`);
+          }
+        } catch (error: unknown) {
+          const message = getErrorMessage(error);
+          printResult(io, fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]), options.json);
+          process.exitCode = 1;
+        }
+      }),
+  );
 }
