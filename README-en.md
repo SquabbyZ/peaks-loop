@@ -79,7 +79,7 @@ No CLI to memorize. No manifest to hand-author. No second terminal to open. **Se
 Code, content, project health, issue sweeps, custom workflows — **4.x ships five first-class domains**, each with its own orchestrator. Same discipline on every lane: "gate fails = stop, run the next gate".
 
 <p align="center">
-  <img src="./assets/readme/domains.svg" alt="peaks-loop five domains and primitives" width="92%"/>
+  <img src="./assets/readme/command-palette.svg" alt="peaks-loop 13 slash commands — command palette" width="92%"/>
 </p>
 
 | Domain | Send this slash command | It will… |
@@ -131,7 +131,7 @@ Every lane opens with **one slash command**.
 ## Status · shipping 4.0.1 GA
 
 <p align="center">
-  <img src="./assets/readme/status.svg" alt="peaks-loop 4.0.1 GA status card" width="92%"/>
+  <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
 </p>
 
 | | |

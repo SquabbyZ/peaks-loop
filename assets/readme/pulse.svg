@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" role="img" aria-label="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress">
+  <title>peaks-loop live metrics — 4 tiles + sparkline + pipeline progress</title>
+  <defs>
+    <linearGradient id="pbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e14"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="pcyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#7ee787"/>
+    </linearGradient>
+    <linearGradient id="ppurple" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a371f7"/>
+      <stop offset="1" stop-color="#ff7b72"/>
+    </linearGradient>
+    <filter id="pglow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="360" fill="url(#pbg)" rx="14"/>
+  <rect x="14" y="14" width="1172" height="332" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+
+  <text x="40" y="48" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">$ peaks status --live</text>
+  <text x="40" y="80" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#e6edf3">live</text>
+  <text x="100" y="80" font-family="system-ui, sans-serif" font-size="26" font-weight="300" fill="#7d8590">— v4.0.1 GA · 4 packages</text>
+  <circle cx="1118" cy="76" r="4" fill="#7ee787" filter="url(#pglow)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="1100" y="80" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590" text-anchor="end">● live</text>
+
+  <!-- 4 tiles -->
+  <g transform="translate(40, 110)">
+    <!-- tile 1: tests -->
+    <g>
+      <rect width="260" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="8"/>
+      <text x="18" y="26" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">▣ CASES</text>
+      <text x="18" y="64" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#e6edf3">285<tspan font-size="20" fill="#7d859e">+</tspan></text>
+      <text x="18" y="84" font-family="ui-monospace, monospace" font-size="11" fill="#7ee787">▲ 161 → 285+ since 4.0.0-beta.35</text>
+      <text x="220" y="26" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590" text-anchor="end">4 pkgs</text>
+    </g>
+    <!-- tile 2: speed -->
+    <g transform="translate(285, 0)">
+      <rect width="260" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="8"/>
+      <text x="18" y="26" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">▣ WALL</text>
+      <text x="18" y="64" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#e6edf3">80<tspan font-size="20" fill="#7d859e">s</tspan></text>
+      <text x="18" y="84" font-family="ui-monospace, monospace" font-size="11" fill="#7ee787">▼ 3h+ → 80s on full suite</text>
+      <text x="220" y="26" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590" text-anchor="end">pnpm test:full</text>
+    </g>
+    <!-- tile 3: rid -->
+    <g transform="translate(570, 0)">
+      <rect width="260" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="8"/>
+      <text x="18" y="26" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">▣ SHIPPED</text>
+      <text x="18" y="64" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#e6edf3">19<tspan font-size="20" fill="#7d859e"> rids</tspan></text>
+      <text x="18" y="84" font-family="ui-monospace, monospace" font-size="11" fill="#7ee787">▲ 009 → 034 · 2026-07-30</text>
+      <text x="220" y="26" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590" text-anchor="end">4.x</text>
+    </g>
+    <!-- tile 4: cli surface -->
+    <g transform="translate(855, 0)">
+      <rect width="265" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="8"/>
+      <text x="18" y="26" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">▣ CLI</text>
+      <text x="18" y="64" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#e6edf3">5<tspan font-size="20" fill="#7d859e"> super</tspan></text>
+      <text x="18" y="84" font-family="ui-monospace, monospace" font-size="11" fill="#7ee787">▼ 73 → 5 byte-identical</text>
+      <text x="225" y="26" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590" text-anchor="end">code · audit · doctor · openspec · release</text>
+    </g>
+  </g>
+
+  <!-- pipeline progress -->
+  <g transform="translate(40, 230)" font-family="ui-monospace, monospace" font-size="12">
+    <text x="0" y="0" fill="#7d8590">▣ pipeline  <tspan fill="#7ee787">●</tspan>  unit <tspan fill="#7ee787">●</tspan>  integration <tspan fill="#7ee787">●</tspan>  code-audit <tspan fill="#7ee787">●</tspan>  security-scan <tspan fill="#7ee787">●</tspan>  qa-review <tspan fill="#7ee787">●</tspan>  review-signoff <tspan fill="#7ee787">●</tspan>  evolution-eval</text>
+    <rect x="0" y="14" width="1120" height="10" rx="5" fill="#1f2937"/>
+    <rect x="0" y="14" width="1120" height="10" rx="5" fill="url(#pcyan)" filter="url(#pglow)"/>
+    <text x="0" y="46" fill="#7d8590">commit ddf0dd71 · 4.0.1 GA · 2026-07-30 · SquabbyZ</text>
+    <text x="1120" y="46" fill="#7d8590" text-anchor="end">all 7 gates green ✓</text>
+  </g>
+
+  <!-- sparkline strip (commits 12w) -->
+  <g transform="translate(40, 296)">
+    <text x="0" y="0" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">▣ commits (12w)</text>
+    <g transform="translate(0, 12)">
+      <rect x="0"   y="6" width="74" height="14" rx="2" fill="#00d4ff" opacity="0.30"/>
+      <rect x="80"  y="0" width="74" height="20" rx="2" fill="#00d4ff" opacity="0.50"/>
+      <rect x="160" y="3" width="74" height="17" rx="2" fill="#00d4ff" opacity="0.65"/>
+      <rect x="240" y="0" width="74" height="20" rx="2" fill="#00d4ff" opacity="0.80"/>
+      <rect x="320" y="6" width="74" height="14" rx="2" fill="#a371f7" opacity="0.55"/>
+      <rect x="400" y="0" width="74" height="20" rx="2" fill="#a371f7" opacity="0.85"/>
+      <rect x="480" y="3" width="74" height="17" rx="2" fill="#a371f7" opacity="0.65"/>
+      <rect x="560" y="6" width="74" height="14" rx="2" fill="#00d4ff" opacity="0.70"/>
+      <rect x="640" y="0" width="74" height="20" rx="2" fill="#00d4ff" opacity="0.90"/>
+      <rect x="720" y="0" width="74" height="20" rx="2" fill="#00d4ff" opacity="0.95"/>
+      <rect x="800" y="3" width="74" height="17" rx="2" fill="#7ee787" opacity="0.85"/>
+      <rect x="880" y="0" width="74" height="20" rx="2" fill="#7ee787" opacity="0.95"/>
+      <rect x="960" y="0" width="74" height="20" rx="2" fill="#7ee787" opacity="0.95"/>
+      <text x="1040" y="14" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">12w</text>
+    </g>
+  </g>
+</svg>

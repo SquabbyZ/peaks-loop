@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="100%" role="img" aria-label="peaks-loop 13 slash commands — command palette">
+  <title>peaks-loop 13 slash commands — command palette</title>
+  <defs>
+    <linearGradient id="cbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e14"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="ccyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#7ee787"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="480" fill="url(#cbg)" rx="14"/>
+  <rect x="14" y="14" width="1172" height="452" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+
+  <!-- palette window -->
+  <g transform="translate(40, 40)">
+    <rect width="1120" height="400" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="10"/>
+
+    <!-- search box -->
+    <rect x="20" y="20" width="1080" height="44" fill="#161b22" stroke="#30363d" stroke-width="1" rx="6"/>
+    <text x="36" y="48" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">⌘K</text>
+    <line x1="68" y1="32" x2="68" y2="52" stroke="#30363d"/>
+    <text x="84" y="48" font-family="ui-monospace, monospace" font-size="15" fill="#7d8590">type a slash command…</text>
+    <rect x="950" y="32" width="135" height="20" rx="4" fill="#1f2937"/>
+    <text x="958" y="46" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">13 commands · ⏎ run</text>
+
+    <!-- 13 command rows (5-col x 3-row grid, last row has 3) -->
+    <g font-family="ui-monospace, SFMono-Regular, monospace" font-size="13">
+      <!-- row 1 -->
+      <g transform="translate(20, 84)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">CODE</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-code</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">build · fix · onboard</text>
+        <text x="12" y="78" font-size="10" fill="#00d4ff">PRD → RD → QA</text>
+      </g>
+      <g transform="translate(238, 84)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">CONTENT</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-content</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">draft · ship · archive</text>
+        <text x="12" y="78" font-size="10" fill="#00d4ff">draft → publish</text>
+      </g>
+      <g transform="translate(456, 84)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">DOCTOR</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-doctor</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">audit · openspec</text>
+        <text x="12" y="78" font-size="10" fill="#00d4ff">red-line + L3</text>
+      </g>
+      <g transform="translate(674, 84)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">ISSUE</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-issue-fix</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">sweep · PR draft</text>
+        <text x="12" y="78" font-size="10" fill="#00d4ff">batch fix</text>
+      </g>
+      <g transform="translate(892, 84)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">SOP</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-sop</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">NL → workflow</text>
+        <text x="12" y="78" font-size="10" fill="#a371f7">custom gates</text>
+      </g>
+
+      <!-- row 2 -->
+      <g transform="translate(20, 180)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">DISPATCHER</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-solo</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">auto-route · replay</text>
+        <text x="12" y="78" font-size="10" fill="#00d4ff">NL → domain</text>
+      </g>
+      <g transform="translate(238, 180)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">GATE</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-audit</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">6-dim · pre-RD</text>
+        <text x="12" y="78" font-size="10" fill="#a371f7">mandatory</text>
+      </g>
+      <g transform="translate(456, 180)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">SIGN-OFF</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-final-review</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">4-dim acceptance</text>
+        <text x="12" y="78" font-size="10" fill="#7ee787">end-of-workflow</text>
+      </g>
+      <g transform="translate(674, 180)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">DECOMPOSE</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-slice-decompose</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">multi-pass · arbiter</text>
+        <text x="12" y="78" font-size="10" fill="#a371f7">service / file</text>
+      </g>
+      <g transform="translate(892, 180)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">RESUME</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-resume</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">deepest gate · ask</text>
+        <text x="12" y="78" font-size="10" fill="#7ee787">from /compact</text>
+      </g>
+
+      <!-- row 3 (only 3 — last col empty) -->
+      <g transform="translate(20, 276)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">STATUS</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-status</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">1-screen · live</text>
+        <text x="12" y="78" font-size="10" fill="#7ee787">read-only</text>
+      </g>
+      <g transform="translate(238, 276)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#7ee787" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">TEST</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-test</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">vitest · coverage</text>
+        <text x="12" y="78" font-size="10" fill="#7ee787">cross-package</text>
+      </g>
+      <g transform="translate(456, 276)">
+        <rect width="208" height="84" fill="#0a0e14" stroke="#a371f7" stroke-width="1" rx="6"/>
+        <text x="12" y="22" font-size="11" fill="#7d8590">IDE</text>
+        <text x="12" y="46" font-size="15" font-weight="700" fill="#e6edf3">/peaks-ide</text>
+        <text x="12" y="66" font-size="11" fill="#7d8590">hooks · statusline</text>
+        <text x="12" y="78" font-size="10" fill="#a371f7">per-IDE install</text>
+      </g>
+    </g>
+
+    <!-- legend -->
+    <g transform="translate(674, 286)" font-family="ui-monospace, monospace" font-size="11">
+      <text x="0" y="0" fill="#7d8590">▣ legend</text>
+      <g transform="translate(0, 16)">
+        <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#00d4ff"/>
+        <text x="22" y="11" fill="#7d8590">first-class orchestrator (5)</text>
+      </g>
+      <g transform="translate(0, 36)">
+        <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#7ee787"/>
+        <text x="22" y="11" fill="#7d8590">primitive / gate (4)</text>
+      </g>
+      <g transform="translate(0, 56)">
+        <rect width="14" height="14" rx="3" fill="#0a0e14" stroke="#a371f7"/>
+        <text x="22" y="11" fill="#7d8590">meta / cross-cutting (4)</text>
+      </g>
+      <text x="0" y="92" font-size="10" fill="#7d8590" font-style="italic">send slash → 4.x routes to the right bee</text>
+    </g>
+  </g>
+</svg>

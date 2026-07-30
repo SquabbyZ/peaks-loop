@@ -79,7 +79,7 @@ npm i -g peaks-loop
 代码、内容、项目健康、issue 修复、自定义工作流 —— **4.x 已经覆盖五条域**,每条域都有专门编排器,按"门禁不通过就停"的纪律一条一条跑。
 
 <p align="center">
-  <img src="./assets/readme/domains.svg" alt="peaks-loop 五条域 / 通用原语" width="92%"/>
+  <img src="./assets/readme/command-palette.svg" alt="peaks-loop 13 slash commands — command palette" width="92%"/>
 </p>
 
 | 域 | 你发这条命令 | 它会做什么 |
@@ -131,7 +131,7 @@ npm i -g peaks-loop
 ## 当前状态 · 4.0.1 GA
 
 <p align="center">
-  <img src="./assets/readme/status.svg" alt="peaks-loop 4.0.1 GA status card" width="92%"/>
+  <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
 </p>
 
 | | |
