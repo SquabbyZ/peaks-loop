@@ -44,3 +44,5 @@ coverage/
 .superpowers/brainstorm/
 tmp-mut-test/
 tmp-shared-channel-*/
+**/.tmp-mut-test/
+**/.tmp-shared-channel-*/
