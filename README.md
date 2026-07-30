@@ -236,9 +236,9 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 ---
 
-## Ship 摘要(4.x · 14 rid)
+## Ship 摘要(4.x · 19 rid)
 
-`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — 涵盖 CLI surface 收敛(73→5 byte-identical)、24h-mode、spillover、DAG fan-out、dashboard 聚合、Trusted Publishing + OIDC、test-rebuild epic、karpathy-cost self-review、compact visibility 等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — 涵盖 CLI surface 收敛(73→5 byte-identical)、Trusted Publishing + OIDC、24h-mode、context spillover、DAG wave+barrier、dashboard aggregation、test-rebuild epic、karpathy-cost self-review、compact visibility、retire-auto-compact-hook 等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ---
 

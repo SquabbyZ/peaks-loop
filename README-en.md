@@ -236,9 +236,9 @@ They are permanent npm tombstones — once a version has been published and unpu
 
 ---
 
-## Ship summary (4.x · 14+ rids)
+## Ship summary (4.x · 19 rids)
 
-`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — CLI surface collapse (73 → 5 byte-identical), 24h-mode, spillover, DAG fan-out, dashboard aggregation, Trusted Publishing + OIDC, test-rebuild epic, karpathy-cost self-review, compact visibility, and more. See [`CHANGELOG.md`](./CHANGELOG.md).
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — CLI surface collapse (73 → 5 byte-identical), Trusted Publishing + OIDC, 24h-mode, context spillover, DAG wave + barrier, dashboard aggregation, test-rebuild epic, karpathy-cost self-review, compact visibility, retire-auto-compact-hook, and more. See [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
