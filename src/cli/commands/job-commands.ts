@@ -16,6 +16,11 @@ import {
   JobBlockInputSchema,
 } from '../../services/job/job-types.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
+import {
+  buildCostCheckEnvelope,
+  runKarpathyCostCheck,
+} from '../../services/karpathy-cost/karpathy-cost-check-service.js';
+import { read24hState } from '../../services/24h-mode/store.js';
 
 function projectRoot(opts: any): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
@@ -310,6 +315,41 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'handoff')!);
+
+  job
+    .command('karpathy-cost-check')
+    .description('Read the slice\'s rd/karpathy-review.md and decide whether to downgrade a block gateAction to warn (slice 2026-07-30-karpathy-cost-self-review).')
+    .requiredOption('--review-file <path>', 'path to rd/karpathy-review.md (or its .json sibling if the file is JSON)')
+    .option('--project <repo>')
+    .option('--session-id <sid>')
+    .action(async (opts) => {
+      const project = projectRoot(opts);
+      const sessionId = opts.sessionId ?? getCurrentSessionId(project);
+      if (!sessionId) {
+        return printResult(
+          io,
+          fail('karpathy-cost-check', 'NO_ACTIVE_SESSION', 'karpathy-cost-check requires --session-id (or an active peaks-code session)', { project }, [
+            'Re-run with --session-id <sid>',
+            'Or run `peaks workspace init` to create a session first',
+          ]),
+          opts,
+        );
+      }
+      const is24hModeActive = (): boolean => {
+        try {
+          const snapshot = read24hState(project, sessionId);
+          return snapshot.state === '24H_ACTIVE';
+        } catch {
+          return false;
+        }
+      };
+      const out = runKarpathyCostCheck({
+        reviewFilePath: opts.reviewFile,
+        is24hModeActive,
+      });
+      printResult(io, buildCostCheckEnvelope(out), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'karpathy-cost-check')!);
 
   program.addCommand(job);
 }
