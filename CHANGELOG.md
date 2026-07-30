@@ -1,6 +1,6 @@
 # Changelog
 
-## 4.0.0 — 2026-07-28 (GA release)
+## 4.0.1 — 2026-07-30 (GA release)
 
 ### Features
 
