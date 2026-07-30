@@ -17,7 +17,7 @@
 </div>
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.2 — Loop Engineering, Engineered" width="92%"/>
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.3 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -128,7 +128,7 @@ npm i -g peaks-loop
 
 ---
 
-## 当前状态 · 4.0.2 GA
+## 当前状态 · 4.0.3 GA
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -148,7 +148,7 @@ npm i -g peaks-loop
 | **依赖运行时** | Node ≥ 20 |
 | **License** | MIT |
 
-### 4.0.2 GA 这一波实打实修了什么(2026-07-30)
+### 4.0.3 GA 这一波实打实修了什么(2026-07-30)
 
 | Epic | 解决的事 | 怎么验 |
 | --- | --- | --- |

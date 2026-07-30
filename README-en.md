@@ -17,7 +17,7 @@
 </div>
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.2 — Loop Engineering, Engineered" width="92%"/>
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.3 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -128,7 +128,7 @@ Every lane opens with **one slash command**.
 
 ---
 
-## Status · shipping 4.0.2 GA
+## Status · shipping 4.0.3 GA
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -148,7 +148,7 @@ Every lane opens with **one slash command**.
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
 
-### What 4.0.2 GA actually shipped (2026-07-30)
+### What 4.0.3 GA actually shipped (2026-07-30)
 
 | Epic | Solved | Verified by |
 | --- | --- | --- |

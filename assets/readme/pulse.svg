@@ -24,7 +24,7 @@
 
   <text x="36" y="40" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">$ peaks status --live --format radial</text>
   <text x="36" y="74" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#e6edf3">pulse</text>
-  <text x="120" y="74" font-family="system-ui, sans-serif" font-size="22" font-weight="300" fill="#7d8590">— v4.0.2 GA · 4 packages</text>
+  <text x="120" y="74" font-family="system-ui, sans-serif" font-size="22" font-weight="300" fill="#7d8590">— v4.0.3 GA · 4 packages</text>
   <circle cx="1140" cy="68" r="4" fill="#7ee787" filter="url(#pglow)">
     <animate attributeName="opacity" values="1;0.3;1" dur="1.0s" repeatCount="indefinite"/>
   </circle>

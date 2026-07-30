@@ -41,7 +41,7 @@
       <text x="14" y="40" font-size="15" font-weight="700" fill="#e6edf3">/peaks-code</text>
       <text x="14" y="58" font-size="10" fill="#7d8590">build · fix · onboard</text>
       <text x="14" y="70" font-size="9" fill="#00d4ff">PRD → RD → QA</text>
-      <text x="266" y="20" font-size="9" fill="#7d8590" text-anchor="end">v4.0.2</text>
+      <text x="266" y="20" font-size="9" fill="#7d8590" text-anchor="end">v4.0.3</text>
     </g>
     <g transform="translate(290, 0)">
       <rect width="276" height="78" fill="#0a0e14" stroke="#00d4ff" stroke-width="1" rx="8"/>
