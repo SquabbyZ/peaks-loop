@@ -108,24 +108,67 @@ grep -A 2 'peaks-loop-shared' package.json | head -5
 > unpublish policy). Do NOT push the tag without
 > explicit user authorization.**
 
+Pre-state at the time of writing (commit `4e30914f`):
+- Local `v4.0.0` tag EXISTS, points at HEAD (`9dc2497` =
+  `docs(readme): add 4.0.0 GA release banner SVG`).
+- Remote `v4.0.0` tag does NOT exist (registry latest is
+  `4.0.0-beta.36`; no prior 4.0.0 was ever published).
+- `.changeset/` is drained (commit `4e30914f` removed
+  `release-4.0.0.md`; gate-changeset will pass).
+- `peaks release precheck` reports:
+  - rootVsShared: ok
+  - tagCollision: warning (false positive — local tag is the
+    intended 4.0.0; the gate layer is precheck only, NOT a
+    publish.yml hard gate)
+  - changesetStaged: ok
+  - workspaceLockstep: ok
+
+The `tagCollision` warning is acceptable because publish.yml
+does NOT refuse to publish when a local tag matches the
+target version. The publish.yml hard gate (the
+`git describe --tags --exact-match` check at line ~390)
+only fires if the pushed tag's commit does NOT match the
+root `package.json#version`.
+
 ```bash
 # User runs these (NOT the LLM):
-git tag v4.0.0
-git push origin v4.0.0
-# or:
+git push --tags
+# or, if remote already has a stale v4.0.0-beta.21 tag
+# (it should NOT — verified 2026-07-30 — but be safe):
+git push origin :refs/tags/v4.0.0-beta.21
 git push --tags
 ```
 
 publish.yml triggers:
 - install + build (incl. peaks-loop-shared build)
 - vitest (4 packages / 219 cases)
-- conditional changeset version: this file IS staged, so
-  pnpm exec changeset version runs first to confirm bumps
+- gate-changeset: passes (no staged changesets)
+- Auto-bump: idempotency no-op (local version 4.0.0
+  matches tag 4.0.0)
+- gate-cli-version: passes (shared/dist/version.js 4.0.0
+  matches root 4.0.0)
 - release-pack.mjs: publishes peaks-loop-shared FIRST, then
   peaks-loop-shared-channel, then peaks-loop-mut, then
   peaks-loop (root, last)
-- gate-cli-version: refuses if shared/dist/version.js
-  doesn't match root package.json#version
+- Each publish step uses OIDC trusted publishing — no
+  NPM_TOKEN in any step.
+
+## 6.1 Pre-push sanity (user runs locally)
+
+```bash
+# Confirm local tag points at the commit you want to publish
+git show v4.0.0 --no-patch --format='%H %s'
+# expected: 9dc2497 docs(readme): add 4.0.0 GA release banner SVG
+# (or the current HEAD's commit sha + subject)
+
+# Confirm registry has no prior 4.0.0
+npm view peaks-loop@4.0.0 2>&1 | grep -c 'No match'
+# expected: 1 (no 4.0.0 on registry)
+
+# Confirm the test suite is green one more time
+pnpm test:full
+# expected: 4 packages / 219 cases / all green
+```
 
 ## 7. Post-publish verification
 
