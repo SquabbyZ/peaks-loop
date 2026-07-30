@@ -27,6 +27,14 @@
   <sub>👆 18s looping GIF (full 30s mp4 is no longer shipped with the npm package — see <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Releases</a> · 13MB · 480p)</sub>
 </p>
 
+<p align="center">
+  <img
+    src="./assets/readme/releases-banner.svg"
+    alt="peaks-loop 4.0.0 GA release banner — first stable cutover from 4.0.0-beta.36"
+    width="92%"
+  />
+</p>
+
 ---
 
 ## What it is

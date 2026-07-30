@@ -27,6 +27,14 @@
   <sub>👆 18s 循环 GIF(完整 30s mp4 不再随 npm 包发布,见 <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Release</a> · 13MB · 480p)</sub>
 </p>
 
+<p align="center">
+  <img
+    src="./assets/readme/releases-banner.svg"
+    alt="peaks-loop 4.0.0 GA release banner — first stable cutover from 4.0.0-beta.36"
+    width="92%"
+  />
+</p>
+
 ---
 
 ## 它是什么
