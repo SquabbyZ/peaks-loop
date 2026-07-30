@@ -28,7 +28,7 @@
  * the LLM-runner keeps working with context < 95% without human
  * intervention.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import {
@@ -455,6 +455,31 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     target
   });
 
+  // Slice 2026-07-30-compact-visibility: append a compact-history
+  // event so the new 'peaks compact history' CLI and the
+  // 'peaks statusline compact' indicator have a record. The
+  // append is best-effort: a write failure must NOT block the
+  // compact return envelope.
+  try {
+    appendCompactHistoryEvent({
+      projectRoot: input.projectRoot,
+      sessionId,
+      event: {
+        schemaVersion: 1,
+        ts: now.toISOString(),
+        target,
+        mode,
+        ide: dispatch.ide,
+        pathway: dispatch.pathway,
+        beforeRatio: probe.ratio,
+        redLine: isRedLine,
+        ok: dispatch.ok,
+        checkpointPath,
+        dispatchMessage: dispatch.message,
+      },
+    });
+  } catch { /* best-effort; do not fail the compact return */ }
+
   return {
     ok: dispatch.ok,
     code: dispatch.ok
@@ -481,6 +506,38 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
 /** Re-export for callers that need to surface the trigger shape. */
 export type { CompactTrigger, ConvergencePlan, InFlightBatchProbe, AutoCompactResult };
+
+/**
+ * Slice 2026-07-30-compact-visibility: JSONL history of every
+ * auto-compact dispatch. Appended at the end of `executeAutoCompact`
+ * so the new 'peaks compact history' CLI + the
+ * 'peaks statusline compact' indicator have a record. One file
+ * per session (gitignored under `.peaks/_runtime/<sessionId>/`).
+ */
+export interface CompactHistoryEvent {
+  readonly schemaVersion: 1;
+  readonly ts: string;
+  readonly target: 'main' | 'sub-agent' | 'worker';
+  readonly mode: 'standard' | 'partial' | 'aggressive';
+  readonly ide: string;
+  readonly pathway: string;
+  readonly beforeRatio: number;
+  readonly redLine: boolean;
+  readonly ok: boolean;
+  readonly checkpointPath: string;
+  readonly dispatchMessage: string;
+}
+
+export function appendCompactHistoryEvent(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly event: CompactHistoryEvent;
+}): void {
+  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const path = join(dir, 'compact-history.jsonl');
+  appendFileSync(path, JSON.stringify(input.event) + '\n', 'utf8');
+}
 // Keep dirname import live for symmetry with sibling services that
 // use it for path joins; tree-shaking removes it in builds.
 void dirname;
