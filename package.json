@@ -55,7 +55,7 @@
     "dev:watch": "node ./scripts/watch.mjs",
     "pretest": "node ./scripts/sync-version.mjs && pnpm --filter peaks-loop-shared build && node ./scripts/check-build-integrity.mjs",
     "test": "vitest run",
-    "test:full": "vitest run",
+    "test:full": "pnpm -r --include-workspace-root --workspace-concurrency=2 run test",
     "test:fast": "vitest run --maxWorkers=8 -t \"^((?!@slow|@integration|@replay).)*$\" tests/unit",
     "test:dev": "vitest run tests/unit",
     "test:dev:cli": "vitest run tests/unit",

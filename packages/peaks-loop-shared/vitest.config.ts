@@ -13,5 +13,13 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 20_000,
     hookTimeout: 30000,
+    // The peaks-loop-shared package's public surface (fs / paths /
+    // version) is exercised through the root tests/unit/packages
+    // (was) — that was deleted as redundant in commit 08e92d8f. The
+    // shared package has no package-local test files because the
+    // root suite is the canonical test surface for these pure
+    // utilities. Without passWithNoTests the empty workspace would
+    // fail pnpm -r run test under the new test:full wrapper.
+    passWithNoTests: true,
   },
 });
