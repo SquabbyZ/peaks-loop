@@ -401,38 +401,17 @@ jobs:
           fi
           echo "Exact-tag gate OK: HEAD=${exact_tag} == v${root_version}"
 
-      - name: Create GitHub Release (rid-017 D2 + D4, non-interactive, no --draft, no --generate-notes)
-        # 2026-07-27 follow-up (rid-017): the publish chain must
-        # create a published (non-draft) GitHub Release BEFORE
-        # `node ./scripts/release-pack.mjs` runs. The release body
-        # is the file written by `Extract release notes from root
-        # CHANGELOG.md` above; --generate-notes is intentionally
-        # absent so the maintainer-authored CHANGELOG body is the
-        # only source. --verify-tag (or equivalent fail-closed)
-        # prevents the step from synthesizing a missing tag. Only
-        # the default GITHUB_TOKEN is used; no PAT, no
-        # NODE_AUTH_TOKEN, no actions/create-release action. The
-        # per-step `permissions:` block scopes `contents: write`
-        # to this step only; the workflow-level block keeps
-        # `contents: read` for the rest of the chain. The
-        # existing publish step's `if:` predicate is preserved
-        # verbatim.
-        permissions:
-          contents: write   # required for gh release create
-          id-token: write   # preserved for npm OIDC trust
+      - name: Create GitHub Release
         if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
+        permissions:
+          contents: write
+          id-token: write
         env:
           GH_TOKEN: ${{ github.token }}
-          NOTES_FILE: ${{ steps.step-extract-release-notes.outputs['notes_file'] || format('{0}/peaks-release-notes/v{1}.md', env.RUNNER_TEMP, needs.publish.outputs.root_version) }}
         run: |
           set -euo pipefail
           root_version=$(node -e "console.log(require('./package.json').version)")
           tag="v${root_version}"
-          notes_path="${RUNNER_TEMP:-/tmp}/peaks-release-notes/${tag}.md"
-          if [ ! -s "${notes_path}" ]; then
-            echo "::error title=release-notes-missing::${notes_path} was not produced by the extract step; refusing to create a release"
-            exit 1
-          fi
           gh release create "${tag}" \
             --title "peaks-loop ${tag}" \
             --notes-file "${notes_path}" \
