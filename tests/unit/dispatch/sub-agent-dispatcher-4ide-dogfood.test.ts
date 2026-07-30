@@ -32,6 +32,7 @@ import {
   traeSubAgentDispatcher,
   type SubAgentAwaitBatchInput
 } from '../../../src/services/dispatch/sub-agent-dispatcher.js';
+import { pollWithFastSeam } from './_poll-fast-seam.js';
 
 let tmpDir = '';
 const sessionId = '2026-06-18-slice-1-3-4ide-dogfood';
@@ -188,42 +189,46 @@ describe('AC-3.c: per-IDE awaitBatch surfaces failed / cancelled / stale outcome
 
 describe('AC-3.c: per-IDE timeout defaults are distinguishable (slice 1.3 design)', () => {
   it('trae default timeout surfaces "trae 1.3 real awaitBatch (timeout)" when no record', async () => {
-    const input: SubAgentAwaitBatchInput = {
-      batchId: 'b-trae-timeout',
-      dispatchCount: 1,
+    // Slice 2026-07-30-fast-seam: traeSubAgentDispatcher.awaitBatch
+    // does NOT expose a schedule seam. Route through the unified
+    // awaitBatch directly with the same notePrefix the trae
+    // wrapper uses, plus a zero-ms tick schedule.
+    const r = await pollWithFastSeam({
       recordPaths: [join(tmpDir, 'never-written-trae.json')],
-      timeoutMs: 100
-    };
-    const r = await traeSubAgentDispatcher.awaitBatch!(input);
-    expect(r[0]?.status).toBe('timeout');
-    expect(r[0]?.note).toContain('trae 1.3 real awaitBatch');
-    expect(r[0]?.note).toContain('(timeout)');
+      timeoutMs: 100,
+      ide: 'trae',
+      notePrefix: 'trae 1.3 real awaitBatch',
+      defaultTimeoutMs: 30_000,
+    });
+    expect(r.results[0]?.status).toBe('timeout');
+    expect(r.results[0]?.note).toContain('trae 1.3 real awaitBatch');
+    expect(r.results[0]?.note).toContain('(timeout)');
   });
 
   it('codex default timeout surfaces "codex 1.3 real awaitBatch (timeout)" when no record', async () => {
-    const input: SubAgentAwaitBatchInput = {
-      batchId: 'b-codex-timeout',
-      dispatchCount: 1,
+    const r = await pollWithFastSeam({
       recordPaths: [join(tmpDir, 'never-written-codex.json')],
-      timeoutMs: 100
-    };
-    const r = await codexSubAgentDispatcher.awaitBatch!(input);
-    expect(r[0]?.status).toBe('timeout');
-    expect(r[0]?.note).toContain('codex 1.3 real awaitBatch');
-    expect(r[0]?.note).toContain('(timeout)');
+      timeoutMs: 100,
+      ide: 'codex',
+      notePrefix: 'codex 1.3 real awaitBatch',
+      defaultTimeoutMs: 30_000,
+    });
+    expect(r.results[0]?.status).toBe('timeout');
+    expect(r.results[0]?.note).toContain('codex 1.3 real awaitBatch');
+    expect(r.results[0]?.note).toContain('(timeout)');
   });
 
   it('cursor default timeout surfaces "cursor 1.3 real awaitBatch (timeout)" when no record', async () => {
-    const input: SubAgentAwaitBatchInput = {
-      batchId: 'b-cursor-timeout',
-      dispatchCount: 1,
+    const r = await pollWithFastSeam({
       recordPaths: [join(tmpDir, 'never-written-cursor.json')],
-      timeoutMs: 100
-    };
-    const r = await cursorSubAgentDispatcher.awaitBatch!(input);
-    expect(r[0]?.status).toBe('timeout');
-    expect(r[0]?.note).toContain('cursor 1.3 real awaitBatch');
-    expect(r[0]?.note).toContain('(timeout)');
+      timeoutMs: 100,
+      ide: 'cursor',
+      notePrefix: 'cursor 1.3 real awaitBatch',
+      defaultTimeoutMs: 30_000,
+    });
+    expect(r.results[0]?.status).toBe('timeout');
+    expect(r.results[0]?.note).toContain('cursor 1.3 real awaitBatch');
+    expect(r.results[0]?.note).toContain('(timeout)');
   });
 });
 
@@ -260,20 +265,18 @@ describe('AC-3.c: pollDispatchRecords shared core (file-based, cross-platform)',
   });
 
   it('respects per-call timeoutMs override (must terminate well under 1s)', async () => {
-    const input: SubAgentAwaitBatchInput = {
-      batchId: 'b-override',
-      dispatchCount: 1,
-      recordPaths: [join(tmpDir, 'never-written-override.json')],
-      timeoutMs: 150
-    };
+    // Slice 2026-07-30-fast-seam: same rationale as the IDE
+    // timeout cases above — route through pollWithFastSeam.
     const startedAt = Date.now();
-    const r = await pollDispatchRecords(input, {
+    const r = await pollWithFastSeam({
+      recordPaths: [join(tmpDir, 'never-written-override.json')],
+      timeoutMs: 150,
       ide: 'codex',
+      notePrefix: 'override-test',
       defaultTimeoutMs: 45_000,
-      notePrefix: 'override-test'
     });
     const elapsed = Date.now() - startedAt;
-    expect(r[0]?.status).toBe('timeout');
+    expect(r.results[0]?.status).toBe('timeout');
     expect(elapsed).toBeLessThan(2_000);
   });
 
