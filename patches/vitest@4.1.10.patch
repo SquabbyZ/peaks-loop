@@ -1,0 +1,20 @@
+diff --git a/dist/chunks/cli-api.BK8pd4xc.js b/dist/chunks/cli-api.BK8pd4xc.js
+index 1fbd189a39af6fbc5dac2d572ce1e414e52afdfa..9d41d494826caa7ab92d7f91acb8c79ff3b0fa2c 100644
+--- a/dist/chunks/cli-api.BK8pd4xc.js
++++ b/dist/chunks/cli-api.BK8pd4xc.js
+@@ -3085,7 +3085,14 @@ class ForksPoolWorker {
+ 			env: this.env,
+ 			execArgv: this.execArgv,
+ 			stdio: "pipe",
+-			serialization: "advanced"
++			serialization: "advanced",
++			// Slice 2026-07-30-windows-popup — pinned by patches/vitest+4.1.10.patch.
++			// vitest 4.1.10 fork() default is windowsHide:false
++			// which causes a console popup on Windows when each
++			// test worker spawns. Upstream config option has not
++			// landed (verified against /config/pool.html
++			// 2026-07-30). See patches/README.md for rationale.
++			windowsHide: true,
+ 		});
+ 		if (this._fork.stdout) {
+ 			this.stdout.setMaxListeners(1 + this.stdout.getMaxListeners());
