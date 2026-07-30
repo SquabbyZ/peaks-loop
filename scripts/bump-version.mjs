@@ -209,7 +209,32 @@ if (to) {
   }
 }
 
+// 2026-07-30 (4.0.0 GA root cause, part 2): an EXPLICIT target that
+// already equals the current root version is NOT an error — it is the
+// normal shape of a planned GA release. The operator bumps
+// package.json to 4.0.0, commits, tags `v4.0.0`, and pushes; the
+// publish workflow then resolves the tag to `--to 4.0.0`, which
+// equals the current version. Previously this exited 1 and killed the
+// run.
+//
+// The root manifest is already correct in that case, so we leave it
+// alone — but the workspace subpackages must STILL be bumped in
+// lockstep (AC6 / rid-015), because their versions are what
+// `pnpm pack` writes into every `workspace:*` pin. Skipping them is
+// exactly the stale-tarball defect class that AC6 exists to prevent.
+//
+// Without an explicit target (the default patch+1 path) an equal
+// version genuinely means the bump computation produced nothing, so
+// that case still fails loudly.
 if (next === current) {
+  if (to) {
+    console.log(
+      `[bump-version] root already at explicit target ${current}; leaving root manifest untouched`,
+    );
+    bumpWorkspacePackages(current);
+    console.log(`[bump-version] peaks-loop ${current} -> ${current} (root unchanged, subpackages bumped)`);
+    process.exit(0);
+  }
   console.error(`[bump-version] no-op: target version equals current version ${current}`);
   process.exit(1);
 }
