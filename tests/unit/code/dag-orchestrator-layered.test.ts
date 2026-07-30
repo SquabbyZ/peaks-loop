@@ -73,7 +73,12 @@ describe('runLayeredDag — foundation-first scheduling via dependsOn', () => {
     const result = await runLayeredDag(dag, {
       projectRoot: '/tmp',
       sessionId: 'test',
-      runSlice: makeRunner(20, rec),
+      // Slice 2026-07-30-fixture-stub: makeRunner(1, rec) (was 20).
+      // The dependency-ordering assertions check rec.startMs /
+      // rec.endMs relative ordering, not absolute magnitude —
+      // 1ms is enough to guarantee ordering when the orchestrator
+      // serializes per layer. 4-node DAG goes from ~80ms to ~4ms.
+      runSlice: makeRunner(1, rec),
       writeContractFn: noopWriter
     });
     expect([...result.completed].sort()).toEqual(['B1', 'B2', 'F1', 'F2']);

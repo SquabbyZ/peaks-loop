@@ -134,8 +134,12 @@ describe('checkGate — command', () => {
   });
 
   test('blocked when the command exceeds the timeout', async () => {
+    // Slice 2026-07-30-fixture-stub: commandTimeoutMs: 50 (was
+    // 150) keeps the contract assertion the same while shaving
+    // 100ms off the wall-clock cost. The spawn-and-kill cost is
+    // structural, not tunable — but the wait can be tightened.
     await seed('s', [{ id: 'slow', phase: 'p', check: { type: 'command', run: [process.execPath, '-e', 'setTimeout(()=>{}, 5000)'] } }]);
-    const result = await checkGate({ projectRoot: project, id: 's', gateId: 'slow', allowCommands: true, commandTimeoutMs: 150 });
+    const result = await checkGate({ projectRoot: project, id: 's', gateId: 'slow', allowCommands: true, commandTimeoutMs: 50 });
     expect(result.result).toBe('blocked');
     expect(result.reason).toMatch(/timed out/);
   });

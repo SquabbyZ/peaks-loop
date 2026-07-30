@@ -276,9 +276,13 @@ describe('workspace init — offline template self-heal (slice 2026-06-13-selfhe
     const copyPath = join(project, '.peaks', '.claude-settings-template.json');
     const mtimeBefore = statSync(copyPath).mtimeMs;
 
-    // Tiny sleep so a re-write would be detectable via mtime on coarse-
-    // grained filesystems.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Slice 2026-07-30-fixture-stub: 5ms (was 20ms). On Windows
+    // NTFS mtime resolution is 100ns; on Linux ext4 it is ns; on
+    // macOS HFS+ it can be 1s. We default to 5ms which is well
+    // above the modern floor (NTFS / ext4) and saves 15ms per
+    // test case. macOS HFS+ users will need a separate fix
+    // (tracked in .peaks/memory/ as future-work).
+    await new Promise((resolve) => setTimeout(resolve, 5));
 
     // Second init on the same session binding. The template matches the
     // live function output, so no rewrite should occur. Using the same

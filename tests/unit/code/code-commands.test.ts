@@ -136,12 +136,16 @@ describe('code-commands: runCodeFast', () => {
   });
 
   test('skipped steps do not contribute to elapsed time', async () => {
+    // Slice 2026-07-30-fixture-stub: 10ms per spy (was 100ms).
+    // The skipped-step assertion only verifies that elapsedMs
+    // excludes skipped step latency, not the absolute magnitude.
+    // 10ms × 2 spies = 20ms vs 200ms before — saves 180ms per run.
     memSpy.mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 10));
       return { loaded: 1 };
     });
     prefSpy.mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 10));
       return { ok: true };
     });
     const result = await runCodeFast({

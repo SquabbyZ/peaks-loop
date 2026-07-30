@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -86,12 +86,19 @@ describe('binding-store v2.16.0', () => {
   test('heartbeat updates lastHeartbeat', () => {
     const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     const before = readBinding(projectRoot)!.instances[sid]?.lastHeartbeat;
-    // Sleep 10ms to ensure timestamp differs.
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    return wait(10).then(() => {
+    // Slice 2026-07-30-fixture-stub: vi.useFakeTimers + advance
+    // is the deterministic equivalent of "sleep 10ms to ensure
+    // timestamp differs" — it pins the wall clock without a real
+    // wait, and it makes the test resilient to slow CI nodes
+    // (Date.now() inside heartbeat is now under our control).
+    vi.useFakeTimers();
+    try {
+      vi.advanceTimersByTime(10);
       const after = heartbeat(projectRoot, sid);
       expect(after?.instances[sid]?.lastHeartbeat).not.toBe(before);
-    });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('dropInstance removes entry', () => {

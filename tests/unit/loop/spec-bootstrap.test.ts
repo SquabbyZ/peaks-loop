@@ -101,8 +101,9 @@ describe('peaks loop spec bootstrap — --force flag (P1)', () => {
     ]);
     const specPath = join(tmpRoot, '.peaks', '_runtime', TMP_SESSION, 'loop', 'demo-3', 'spec.yaml');
     const firstMtime = (require('node:fs') as typeof import('node:fs')).statSync(specPath).mtimeMs;
-    // Wait a hair so mtime changes deterministically.
-    await new Promise((r) => setTimeout(r, 20));
+    // Slice 2026-07-30-fixture-stub: 5ms (was 20ms) — see
+    // workspace-init-claude-hooks for the mtime-resolution rationale.
+    await new Promise((r) => setTimeout(r, 5));
     captured = [];
     await program.parseAsync([
       'node', 'peaks', 'loop', 'spec', 'bootstrap', 'demo-3',
