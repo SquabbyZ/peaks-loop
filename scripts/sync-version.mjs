@@ -52,3 +52,12 @@ for (const ext of ['js', 'd.ts', 'd.ts.map']) {
   }
 }
 
+// Slice 2026-07-30 — the targeted unlink above is now a
+// regression-test pin for Bug-04; the load-bearing dist
+// invalidation moved up to `clean-dist.mjs`, which wipes every
+// packages/*/dist wholesale before any subpackage build runs.
+// This narrow unlink stays because it is unit-tested by
+// tests/unit/scripts/sync-version-invalidation.test.ts and
+// catching the Bug-04 lineage on its own is cheap insurance
+// against future pipeline reorderings.
+

@@ -45,7 +45,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs && node ./scripts/check-build-integrity.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",
@@ -53,7 +53,7 @@
     "predev": "node ./scripts/sync-version.mjs",
     "dev": "tsx src/cli/index.ts",
     "dev:watch": "node ./scripts/watch.mjs",
-    "pretest": "node ./scripts/sync-version.mjs && pnpm --filter peaks-loop-shared build",
+    "pretest": "node ./scripts/sync-version.mjs && pnpm --filter peaks-loop-shared build && node ./scripts/check-build-integrity.mjs",
     "test": "vitest run tests/unit/cli-program.core.test.ts tests/unit/cli-program.stateful.test.ts tests/unit/cli-program.workflow.test.ts tests/unit/cli-program.workflow-cli.test.ts tests/unit/cli-program.workspace.test.ts tests/unit/cli",
     "test:full": "vitest run",
     "test:fast": "vitest run --maxWorkers=8 -t \"^((?!@slow|@integration|@replay).)*$\" tests/unit",
