@@ -9,7 +9,7 @@
 [![ci](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
-[![tests](https://img.shields.io/badge/tests-5%2C439%20passed-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
+[![tests](https://img.shields.io/badge/tests-285%2B%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&github=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 [English](./README-en.md) · **简体中文**
@@ -17,22 +17,7 @@
 </div>
 
 <p align="center">
-  <img
-    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.gif"
-    alt="peaks-loop 30 秒演示(前 18 秒 · install + 斜杠命令 + 5 域 + 沉淀成 bee)"
-    width="92%"
-    style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
-  />
-  <br>
-  <sub>👆 18s 循环 GIF(完整 30s mp4 不再随 npm 包发布,见 <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Release</a> · 13MB · 480p)</sub>
-</p>
-
-<p align="center">
-  <img
-    src="./assets/readme/releases-banner.svg"
-    alt="peaks-loop 4.0.0 GA release banner — first stable cutover from 4.0.0-beta.36"
-    width="92%"
-  />
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.1 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -51,6 +36,10 @@ peaks-loop 是一个 **Loop Engineering 结晶系统**,不是工作流工具 —
 - **工程化每条规则 = karpathy 风格 · 验证每次改进 = darwin 风格** —— 两条缺一不可。砍掉 karpathy,原则没人写清;砍掉 darwin,改得对不对没人验。这一对是 co-equal 的双层结构,不是先后两步。
 - `/peaks-code` 是 **code-domain** 长任务 Loop Engineering 编排器,不是通用编排器;非代码域(`peaks-content` / `peaks-doctor` / `peaks-issue-fix-orchestrator` / `peaks-sop`)都是独立的 `peaks-*` 蜂,不是 `peaks-code` 的子类。
 - 跑两次稳定就沉淀成本地战术(bee);跑翻车的会让你重定义。bee 跟着你的口味长。
+
+<p align="center">
+  <img src="./assets/readme/architecture.svg" alt="peaks-loop 四层资产 / 七道闸门 / 一条工程脊柱" width="92%"/>
+</p>
 
 ---
 
@@ -89,6 +78,10 @@ npm i -g peaks-loop
 
 代码、内容、项目健康、issue 修复、自定义工作流 —— **4.x 已经覆盖五条域**,每条域都有专门编排器,按"门禁不通过就停"的纪律一条一条跑。
 
+<p align="center">
+  <img src="./assets/readme/domains.svg" alt="peaks-loop 五条域 / 通用原语" width="92%"/>
+</p>
+
 | 域 | 你发这条命令 | 它会做什么 |
 | --- | --- | --- |
 | 💻 **代码域 (code-domain) only** | `/peaks-code 帮我实现这个功能` | PRD → RD → 实现 → QA → UI → 切片,跑完交你拍板 |
@@ -113,7 +106,7 @@ npm i -g peaks-loop
 ## 为什么大家会选它
 
 - **自然语言即界面** —— 你不学 CLI、不背命令。**用一条斜杠命令(比如 `/peaks-code xxx`)** 显式触发到对应编排器,后面说什么都行。LLM 替你跟 peaks-loop 跑命令。
-- **门禁真挡事,不是装饰** —— 219 个测试用例(4 packages 全绿)、QA 闸口、review 验收默认全开。**审计不通过就停,QA 没过就停**。
+- **门禁真挡事,不是装饰** —— 285+ 测试用例(4 packages 全绿)、QA 闸口、review 验收默认全开。**审计不通过就停,QA 没过就停**。
 - **跑过的事会变成本地战术(bee)** —— 沉淀下来的 loop engineering 落到你本地的 `~/.peaks/` 池子里,跑两次稳定就自动晋升;跑翻车的会让你重新定义。**下次说"跑那只"整套流程自动就位**,你那几只战术会跟着你的口味长。
 - **搭在你已经用的工具上** —— 不是新发明一个 AI CLI,而是架在 **Claude Code** 和 **Z Code** 之上。不抢你的 shell、不抢你的 prompt、不抢你的 IDE。其他工具适配中,欢迎共建。
 - **你拍板,它执行** —— 影响资产的决策都给你选;其余的它自己跑。**0 学习成本,1 分钟上手。**
@@ -129,22 +122,37 @@ npm i -g peaks-loop
 | 安全扫描 | ✅ 开 | 凭据、SSRF、注入、危险 IO |
 | QA 复核 | ✅ 开 | 任务级闸门,坏在哪道停在哪道 |
 | review 验收 | ✅ 开 | 改完不立刻出门,review 通过才出门 |
+| 反漂移评估 (Evolution Evaluation) | ✅ 开 | 改进必须过独立评估者 + 反方怀疑者,过不了就回滚 |
 
 **所有闸门默认开,你想关哪一道才需要单独说。**
 
 ---
 
-## 当前状态 · 4.x 正式版
+## 当前状态 · 4.0.1 GA
+
+<p align="center">
+  <img src="./assets/readme/status.svg" alt="peaks-loop 4.0.1 GA status card" width="92%"/>
+</p>
 
 | | |
 | --- | --- |
-| **最新版本** | [`4.0.0-beta.34`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x 正式版筹备中 |
-| **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测) |
+| **最新版本** | [`4.0.1`](https://github.com/SquabbyZ/peaks-loop/releases) — GA(2026-07-30) |
+| **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测 / `peaks-slice-decompose` 切片) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
-| **测试套件** | 219 passed · 0 failed (4 packages: peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) |
+| **测试套件** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · 80s 全量 |
 | **适配 IDE** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder(适配中,欢迎共建) |
 | **依赖运行时** | Node ≥ 20 |
 | **License** | MIT |
+
+### 4.0.1 GA 这一波实打实修了什么(2026-07-30)
+
+| Epic | 解决的事 | 怎么验 |
+| --- | --- | --- |
+| **测试体系从零重建** | 旧 559 文件单测卡 3 小时跑不完;现 11 test files / 161 cases 单测已上线,加上子包测试与新增切片,全量 4 packages 285+ cases 全绿,`pnpm test:full` ~80s。删旧断言、写生产合约、4 维分拆(render/behavior/integration/a11y)。 | commit `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
+| **Karpathy 评估成本自审** | LLM 在 1-2 个 slice 后不再"今天差不多了明天继续"——`karpathy-reviewer` 报 `costRatio`,>10 时 `peaks job karpathy-cost-check` 自动降级 `block`→`warn`。24h-mode 仍是 override。 | `peaks job karpathy-cost-check --review-file <path>` · 21 cases 单测 |
+| **Compact 显性可见** | `peaks compact history` 给 LLM 看本次会话所有 compact 事件;`peaks statusline compact` 单行指示给 IDE 状态栏( `--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)`)。 | `auto-compact-orchestrator` append 到 `compact-history.jsonl` · 19 cases 单测 |
+| **子包独立单测 + `pnpm test:full` 覆盖全 workspace** | `peaks-loop-mut` / `peaks-loop-shared-channel` 各自 4 维单测;`peaks-loop-shared` 0 file (passWithNoTests);root 镜像冗余删除。 | commit `593ffcdf` → `08e92d8f` · `pnpm test:full` 一次跑完 4 packages |
+| **CLI surface 收敛(73 → 5 super-commands)** | 5 个 super-command(`peaks code / audit / doctor / openspec / release / release-pack`)替换 73 个 leaf command,byte-identical 契约保留,改动对外透明。 | rid-009 · 26 routing test |
 
 ---
 
@@ -153,17 +161,7 @@ npm i -g peaks-loop
 > **0 学习成本。** 这是组合起来用最大的好处 —— 不只是效果俱佳,更是因为这四个项目的**接口对齐到了"自然语言"**,你只需要说一句话,谁替你跑命令、按什么闸门、按什么战术手册,完全不用你记。
 
 <p align="center">
-  <a href="https://github.com/affaan-m/ECC">
-    <img src="https://img.shields.io/badge/ECC-affaan--m-6366f1?style=for-the-badge&logo=github&logoColor=white" alt="affaan-m/ECC" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/Egonex-AI/Understand-Anything">
-    <img src="https://img.shields.io/badge/Understand--Anything-Egonex--AI-22c55e?style=for-the-badge&logo=github&logoColor=white" alt="Egonex-AI/Understand-Anything" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/obra/superpowers">
-    <img src="https://img.shields.io/badge/superpowers-obra-f59e0b?style=for-the-badge&logo=github&logoColor=white" alt="obra/superpowers" />
-  </a>
+  <img src="./assets/readme/footer.svg" alt="peaks-loop 推荐组合" width="92%"/>
 </p>
 
 | 角色 | 项目 | 一句话 |
@@ -219,14 +217,12 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 **最大的不同:从"代码专用"扩成"多域编排系统"。** 4.x 不再只是写代码 —— 新增了 `peaks-content`(内容生产)、`peaks-doctor`(项目健康)、`peaks-issue-fix-orchestrator`(批量修 issue)、`peaks-sop`(自定义 SOP)四条域编排链,加上 `peaks-solo` 分诊员按你说话自动判断该走哪一域。再加 9 个 IDE 适配、结晶系统重命名、post-run crystallization 机制。完整变更 → [`CHANGELOG.md`](./CHANGELOG.md)。
 
-### 4.0.0 GA 这一波实打实修了什么(2026-07-30)
+</details>
 
-| Epic | 解决的事 | 怎么验 |
-| --- | --- | --- |
-| **测试体系从零重建** | 旧 559 文件单测卡 3 小时跑不完;现 219 cases 4 packages 全绿,`pnpm test:full` ~67s。删旧断言、写生产合约、4 维分拆(render/behavior/integration/a11y)。 | commit `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
-| **Karpathy 评估成本自审** | LLM 在 1-2 个 slice 后不再"今天差不多了明天继续"——`karpathy-reviewer` 报 `costRatio`,>10 时 `peaks job karpathy-cost-check` 自动降级 `block`→`warn`。24h-mode 仍是 override。 | `peaks job karpathy-cost-check --review-file <path>` · 21 cases 单测 |
-| **Compact 显性可见** | `peaks compact history` 给 LLM 看本次会话所有 compact 事件;`peaks statusline compact` 单行指示给 IDE 状态栏( `--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)`)。 | `auto-compact-orchestrator` append 到 `compact-history.jsonl` · 19 cases 单测 |
-| **子包独立单测 + `pnpm test:full` 覆盖全 workspace** | `peaks-loop-mut` / `peaks-loop-shared-channel` 各自 4 维单测;`peaks-loop-shared` 0 file (passWithNoTests);root 镜像冗余删除。 | commit `593ffcdf` → `08e92d8f` · `pnpm test:full` 一次跑完 4 packages |
+<details>
+<summary><b>4.0.0 / 4.0.2 这些版本怎么不见了?</b></summary>
+
+它们被 npm 永久 tombstone 了 —— 历史上 published-then-unpublished 的版本号无法再 publish。4.0.1 是首次以 GA 形态落地的版本,完整根因 → `.peaks/memory/2026-07-30-4-0-0-ga-release-flow.md`。
 
 </details>
 
@@ -242,7 +238,7 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 ## Ship 摘要(4.x · 14 rid)
 
-`020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034 · GA(4.0.0) · retire-auto-compact-hook` — 涵盖 code-run、24h-mode、spillover、DAG fan-out、dashboard 聚合、CLI surface 收敛(73→9 byte-identical)等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — 涵盖 CLI surface 收敛(73→5 byte-identical)、24h-mode、spillover、DAG fan-out、dashboard 聚合、Trusted Publishing + OIDC、test-rebuild epic、karpathy-cost self-review、compact visibility 等。详见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ---
 
@@ -265,8 +261,9 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 - 维护者**不需要**也不会持有 `NPM_TOKEN` —— `~/.npmrc` 已被清理,npmjs.com 已把 Publishing access 切到 disallow tokens。
 - 触发方式 1:`git tag vX.Y.Z && git push --tags`(走 `.github/workflows/publish.yml` 的 `push: tags: v*.*.*` 触发器)。
 - 触发方式 2:GitHub UI → Actions → publish → Run workflow(手动兜底,可用于 dry-run / 补发)。
-- 每次发布跑完整链路:`install → typecheck → build → vitest → changesets version → changesets publish`,全部通过才会真正落到 npm。
+- 每次发布跑完整链路:`install → typecheck → build → vitest → changesets publish`,全部通过才会真正落到 npm。
 - 维护者的本地动作只有两步:`pnpm changeset` 写变更说明 + 合并 PR(剩下的 CI 自动跑)。
+- tag 即真相:本仓库已删除 `pnpm exec changeset version` 自动 bump,推哪个 tag 就发哪个版本。
 
 **npmjs 侧一次性配置**(本 slice 完成后由人工做一次):
 
@@ -282,7 +279,7 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 |------|------|------|
 | publish 步骤报 `Cannot get JWT` | 缺 `id-token: write` | 检查 `.github/workflows/publish.yml#permissions` |
 | publish 步骤报 `ENEEDAUTH` 或 `404 from registry.npmjs.org` | npmjs 端没配 trusted publisher | 走上面的 3 步配置 |
-| `changeset version` 把 `package.json` 改了我没想要 | 漏掉了手动 version | 提交前先本地 `pnpm changeset version`,CI 端为 no-op |
+| publish 报 `Cannot publish over previously published version "<ver>"` | 该版本被 npm tombstone(已 publish + unpublish 过的版本永久封禁) | 升一个未用过的版本号重新打 tag |
 | tag 推了但 CI 没跑 | tag 格式不符 `v*.*.*` | 检查 `git tag` 输出 |
 
 详细 RD 文档见 [`docs/superpowers/slices/slice-s1-trusted-publish.md`](./docs/superpowers/slices/slice-s1-trusted-publish.md)。

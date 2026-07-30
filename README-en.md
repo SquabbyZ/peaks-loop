@@ -8,8 +8,8 @@
 [![publish](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/publish.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=publish)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/publish.yml)
 [![ci](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](./LICENSE)
-[[![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
-[![tests](https://img.shields.io/badge/tests-5%2C439%20passed-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
+[![tests](https://img.shields.io/badge/tests-285%2B%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&github=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 **English** · [简体中文](./README.md)
@@ -17,22 +17,7 @@
 </div>
 
 <p align="center">
-  <img
-    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.gif"
-    alt="peaks-loop 30-second demo (first 18s · install + slash command + 5 domains + sediment into bee)"
-    width="92%"
-    style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
-  />
-  <br>
-  <sub>👆 18s looping GIF (full 30s mp4 is no longer shipped with the npm package — see <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Releases</a> · 13MB · 480p)</sub>
-</p>
-
-<p align="center">
-  <img
-    src="./assets/readme/releases-banner.svg"
-    alt="peaks-loop 4.0.0 GA release banner — first stable cutover from 4.0.0-beta.36"
-    width="92%"
-  />
+  <img src="./assets/readme/hero.svg" alt="peaks-loop 4.0.1 — Loop Engineering, Engineered" width="92%"/>
 </p>
 
 ---
@@ -51,6 +36,10 @@ peaks-loop is a **Loop Engineering crystallization system**, not a workflow tool
 - **Engineering principles = karpathy-style · Verify every improvement = darwin-style** — both are required, not optional. Drop karpathy and your principles are never written down; drop darwin and your changes are never verified. They are co-equal layers, not sequential steps.
 - `/peaks-code` is the **code-domain** long-task Loop Engineering orchestrator, not a general orchestrator; non-code lanes (`peaks-content` / `peaks-doctor` / `peaks-issue-fix-orchestrator` / `peaks-sop`) ship as independent `peaks-*` bees, **not** as subclasses of `peaks-code`.
 - Twice-clean runs sediment into your local tactic pool (bee); broken runs come back for you to redefine. Your few bees grow with your taste.
+
+<p align="center">
+  <img src="./assets/readme/architecture.svg" alt="peaks-loop four asset layers, seven gates, one engineering spine" width="92%"/>
+</p>
 
 ---
 
@@ -89,6 +78,10 @@ No CLI to memorize. No manifest to hand-author. No second terminal to open. **Se
 
 Code, content, project health, issue sweeps, custom workflows — **4.x ships five first-class domains**, each with its own orchestrator. Same discipline on every lane: "gate fails = stop, run the next gate".
 
+<p align="center">
+  <img src="./assets/readme/domains.svg" alt="peaks-loop five domains and primitives" width="92%"/>
+</p>
+
 | Domain | Send this slash command | It will… |
 | --- | --- | --- |
 | 💻 **Code (code-domain) only** | `/peaks-code build this feature` | PRD → RD → code → QA → UI → slice, ready for your sign-off |
@@ -100,6 +93,11 @@ Code, content, project health, issue sweeps, custom workflows — **4.x ships fi
 | 🔁 **Replay** | `/peaks-solo run it like last time` | pull up your sedimented tactic, replay it |
 | 🆕 **Onboard** | `/peaks-code this is a new repo, walk me through it` | map structure, flag risks, hand you a learning order |
 | 🧠 **Sediment** | `/peaks-solo I'll do this again — save it` | ground it locally as a reusable tactic |
+| 🧪 **Open the audit gate** | `/peaks-audit` | 6-dim audit, mandatory entry before RD / QA |
+| ✅ **4-dim sign-off** | `/peaks-final-review` | functional / problem / no-new-bugs / no-regression |
+| 🔌 **IDE adapter** | `/peaks-ide` | hooks + statusline + handle |
+| ⏯ **Resume from a checkpoint** | `/peaks-resume` | scan the deepest finished gate, AskUserQuestion |
+| 🔬 **Slice decomposition** | `/peaks-slice-decompose` | multi-pass + cross-pass edges + arbitration |
 
 Every lane opens with **one slash command**.
 
@@ -108,7 +106,7 @@ Every lane opens with **one slash command**.
 ## Why people pick it
 
 - **Natural language is the interface.** No CLI to learn, no commands to memorize. **Use an explicit slash command (e.g. `/peaks-code xxx`)** to route to the right orchestrator; everything after the slash is plain language. The LLM runs the commands on your behalf.
-- **Gates that actually block, not decorate.** 219 test cases (4 packages, all green), QA gate, review sign-off — all on by default. **Audit fails = stop. QA fails = stop.**
+- **Gates that actually block, not decorate.** 285+ test cases across 4 packages, all green by default; QA gate, review sign-off — all on. **Audit fails = stop. QA fails = stop.**
 - **Run-once flows become local tactics (bees).** Sedimented loop engineering lands in your local `~/.peaks/` pool — twice-clean runs auto-promote to standing tactics, broken runs come back for you to redefine. **Next time, just say "run that one" and the whole playbook slots back in.** Your few tactics grow with your taste.
 - **Sits on top of what you already run.** Not a new AI CLI to learn — it rides on **Claude Code** and **Z Code**. No shell grab, no prompt grab, no IDE grab. Other tools: adapters in progress, contributions welcome.
 - **You decide, it executes.** Decisions that touch your assets are yours; everything else it runs on its own. **Zero learning cost. One minute to first task.**
@@ -124,22 +122,37 @@ Every lane opens with **one slash command**.
 | Security scan | ✅ on | secrets, SSRF, injection, dangerous IO |
 | QA review | ✅ on | task-level gate — fails loud, stops clean |
 | Review sign-off | ✅ on | nothing ships without eyes on it |
+| Anti-drift evaluation (Evolution Evaluation) | ✅ on | every improvement needs an independent scorer + a regression skeptic, otherwise revert |
 
 **All gates on by default. You only speak to turn one off.**
 
 ---
 
-## Status · shipping 4.x
+## Status · shipping 4.0.1 GA
+
+<p align="center">
+  <img src="./assets/readme/status.svg" alt="peaks-loop 4.0.1 GA status card" width="92%"/>
+</p>
 
 | | |
 | --- | --- |
-| **Latest** | [`4.0.0-beta.34`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
-| **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test`) |
+| **Latest** | [`4.0.1`](https://github.com/SquabbyZ/peaks-loop/releases) — GA (2026-07-30) |
+| **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test` · `peaks-slice-decompose`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
-| **Test suite** | 219 passed · 0 failed (4 packages: peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) |
+| **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · ~80s full run |
 | **IDE adapters** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder (adapters in progress — contributions welcome) |
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
+
+### What 4.0.1 GA actually shipped (2026-07-30)
+
+| Epic | Solved | Verified by |
+| --- | --- | --- |
+| **Test suite rebuilt from scratch** | Old 559-file unit suite took 3+ hours; the 11-file / 161-case rebuild runs in ~80s, and combined with sub-package tests and later slices the workspace-wide total is 285+ cases across 4 packages. Deleted old assertions, wrote against the production contract, 4-dim split (render/behavior/integration/a11y). | commits `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
+| **Karpathy evaluation cost self-review** | LLM no longer "done for today, will continue tomorrow" after 1–2 slices — `karpathy-reviewer` reports `costRatio`; `peaks job karpathy-cost-check` auto-downgrades `block` → `warn` above 10. 24h-mode stays the override. | `peaks job karpathy-cost-check --review-file <path>` · 21-case unit test |
+| **Compact visibility** | `peaks compact history` for the LLM to read every compact event of the current session; `peaks statusline compact` for the IDE statusline (`--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)`). | `auto-compact-orchestrator` appends to `compact-history.jsonl` · 19-case unit test |
+| **Sub-package coverage + workspace-wide `pnpm test:full`** | Independent 4-dim tests for `peaks-loop-mut` / `peaks-loop-shared-channel`; `peaks-loop-shared` 0 file (`passWithNoTests`); redundant root mirror removed. | commits `593ffcdf` → `08e92d8f` · `pnpm test:full` runs all 4 packages in one go |
+| **CLI surface collapsed (73 → 5 super-commands)** | Five super-commands (`peaks code / audit / doctor / openspec / release / release-pack`) replace 73 leaf commands, byte-identical contract preserved, opaque to downstream callers. | rid-009 · 26 routing tests |
 
 ---
 
@@ -148,17 +161,7 @@ Every lane opens with **one slash command**.
 > **Zero learning cost.** That's the biggest reason to use them together — not just that the effect is excellent, but that **all four projects speak the same interface: natural language + a choice.** You say one sentence; the LLM runs the commands, applies the gates, and follows the playbook.
 
 <p align="center">
-  <a href="https://github.com/affaan-m/ECC">
-    <img src="https://img.shields.io/badge/ECC-affaan--m-6366f1?style=for-the-badge&logo=github&logoColor=white" alt="affaan-m/ECC" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/Egonex-AI/Understand-Anything">
-    <img src="https://img.shields.io/badge/Understand--Anything-Egonex--AI-22c55e?style=for-the-badge&logo=github&logoColor=white" alt="Egonex-AI/Understand-Anything" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/obra/superpowers">
-    <img src="https://img.shields.io/badge/superpowers-obra-f59e0b?style=for-the-badge&logo=github&logoColor=white" alt="obra/superpowers" />
-  </a>
+  <img src="./assets/readme/footer.svg" alt="peaks-loop recommended stack" width="92%"/>
 </p>
 
 | Role | Project | One-liner |
@@ -214,16 +217,28 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 
 **The biggest shift: from "code-only tool" to multi-domain orchestration system.** 4.x no longer just writes code — it ships four new domain orchestrators: `peaks-content` (content production), `peaks-doctor` (project health), `peaks-issue-fix-orchestrator` (batch issue fix), `peaks-sop` (custom SOPs). On top of that, `peaks-solo` auto-routes to the right domain from plain language. Plus 9 IDE adapters, crystallization-system renaming, post-run crystallization. Full list → [`CHANGELOG.md`](./CHANGELOG.md).
 
-### What 4.0.0 GA actually shipped (2026-07-30)
+</details>
 
-| Epic | Solved | Verified by |
-| --- | --- | --- |
-| **Test suite rebuilt from scratch** | Old 559-file unit suite took 3+ hours; now 219 cases across 4 packages all green, `pnpm test:full` in ~67s. Deleted old assertions, wrote against the production contract, 4-dim split (render/behavior/integration/a11y). | commits `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
-| **Karpathy evaluation cost self-review** | LLM no longer "done for today, will continue tomorrow" after 1–2 slices — `karpathy-reviewer` reports `costRatio`; `peaks job karpathy-cost-check` auto-downgrades `block` → `warn` above 10. 24h-mode stays the override. | `peaks job karpathy-cost-check --review-file <path>` · 21-case unit test |
-| **Compact visibility** | `peaks compact history` for the LLM to read every compact event of the current session; `peaks statusline compact` for the IDE statusline ( `--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)` ). | `auto-compact-orchestrator` appends to `compact-history.jsonl` · 19-case unit test |
-| **Sub-package coverage + workspace-wide `pnpm test:full`** | Independent 4-dim tests for `peaks-loop-mut` / `peaks-loop-shared-channel`; `peaks-loop-shared` 0 file (passWithNoTests); redundant root mirror removed. | commits `593ffcdf` → `08e92d8f` · `pnpm test:full` runs all 4 packages in one go |
+<details>
+<summary><b>Where did 4.0.0 / 4.0.2 go?</b></summary>
+
+They are permanent npm tombstones — once a version has been published and unpublished, npm blocks any future re-publish as an anti-tampering measure. 4.0.1 is the first version that landed as GA. Full root cause → `.peaks/memory/2026-07-30-4-0-0-ga-release-flow.md`.
 
 </details>
+
+---
+
+## Full skill index
+
+13 user skills · every entry point lives in `skills/<name>/SKILL.md`:
+
+`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
+
+---
+
+## Ship summary (4.x · 14+ rids)
+
+`009 · 010 · 011 · 014 · 015 · 016 · 017 · 020b · 024 · 025 · 026 · 027 · 028 · 029 · 030 · 031 · 032 · 033 · 034` — CLI surface collapse (73 → 5 byte-identical), 24h-mode, spillover, DAG fan-out, dashboard aggregation, Trusted Publishing + OIDC, test-rebuild epic, karpathy-cost self-review, compact visibility, and more. See [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
@@ -236,6 +251,38 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 - Recommended combo: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
 - Sediment design → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
 - Loop Engineering crystallization design → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
+
+---
+
+## Publish (Trusted Publishing · OIDC)
+
+This repo **does not** use npm tokens; it ships via **Trusted Publishing + OIDC**:
+
+- Maintainers do **not** hold — and will never hold — `NPM_TOKEN`. `~/.npmrc` is sanitized, and npmjs.com has Publishing access set to disallow tokens.
+- Trigger 1: `git tag vX.Y.Z && git push --tags` (matches `.github/workflows/publish.yml`'s `push: tags: v*.*.*` filter).
+- Trigger 2: GitHub UI → Actions → publish → Run workflow (manual fallback for dry-runs / re-publish).
+- Each publish runs the full chain: `install → typecheck → build → vitest → changesets publish`. Nothing lands on npm until every gate passes.
+- Maintainer's local action is two steps: `pnpm changeset` to write the change note + merge the PR (CI does the rest).
+- **Tag is the truth**: the `pnpm exec changeset version` auto-bump step has been removed. Whatever tag you push is the version that gets published.
+
+**One-time npmjs-side configuration** (operator runs this once after this slice):
+
+1. Log in to https://www.npmjs.com → Settings → Trusted Publishers → Add GitHub Action.
+2. Owner / Org: `SquabbyZ` · Repository: `peaks-loop` · Workflow filename: `publish.yml` · Environment name: leave blank.
+3. Save.
+
+**Revocation** = delete the trusted publisher on the npmjs side. **No** token rotation needed.
+
+**Common failures**:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| publish step reports `Cannot get JWT` | Missing `id-token: write` | check `.github/workflows/publish.yml#permissions` |
+| publish step reports `ENEEDAUTH` or `404 from registry.npmjs.org` | Trusted Publisher not configured on npmjs | run the 3-step config above |
+| publish reports `Cannot publish over previously published version "<ver>"` | That version is a permanent npm tombstone (already published + unpublished once) | bump to an unused version number and retag |
+| Tag pushed but CI never runs | tag format does not match `v*.*.*` | check `git tag` output |
+
+Detailed RD doc: [`docs/superpowers/slices/slice-s1-trusted-publish.md`](./docs/superpowers/slices/slice-s1-trusted-publish.md).
 
 ---
 

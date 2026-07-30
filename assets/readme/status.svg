@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" role="img" aria-label="peaks-loop 4.0.1 GA status card">
+  <title>peaks-loop 4.0.1 GA status card</title>
+  <defs>
+    <linearGradient id="sbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="saccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58a6ff"/>
+      <stop offset="1" stop-color="#f78166"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="360" fill="url(#sbg)" rx="14"/>
+  <rect x="20" y="20" width="1160" height="320" fill="none" stroke="#30363d" stroke-width="1.5" rx="10"/>
+
+  <text x="60" y="64" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">$ peaks status --ga</text>
+  <text x="60" y="108" font-family="system-ui, sans-serif" font-size="34" font-weight="700" fill="#e6edf3">4.0.1 GA · 4 维验收已签</text>
+  <text x="60" y="140" font-family="system-ui, sans-serif" font-size="16" fill="#8b949e">first stable cutover from 4.0.0-beta.37 · 2026-07-30</text>
+
+  <!-- 4 metric tiles -->
+  <g font-family="system-ui, sans-serif" fill="#e6edf3">
+    <g transform="translate(60, 168)">
+      <rect width="260" height="74" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="20" y="32" font-size="12" fill="#7d8590" font-family="ui-monospace, monospace">TESTS</text>
+      <text x="20" y="62" font-size="30" font-weight="700">285<tspan font-size="20" fill="#8b949e">+ cases</tspan></text>
+    </g>
+    <g transform="translate(330, 168)">
+      <rect width="260" height="74" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="20" y="32" font-size="12" fill="#7d8590" font-family="ui-monospace, monospace">PACKAGES</text>
+      <text x="20" y="62" font-size="30" font-weight="700">4<tspan font-size="20" fill="#8b949e"> npm</tspan></text>
+    </g>
+    <g transform="translate(600, 168)">
+      <rect width="260" height="74" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="20" y="32" font-size="12" fill="#7d8590" font-family="ui-monospace, monospace">RUNTIME</text>
+      <text x="20" y="62" font-size="30" font-weight="700">Node<tspan font-size="20" fill="#8b949e"> ≥ 20</tspan></text>
+    </g>
+    <g transform="translate(870, 168)">
+      <rect width="270" height="74" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="20" y="32" font-size="12" fill="#7d8590" font-family="ui-monospace, monospace">LICENSE</text>
+      <text x="20" y="62" font-size="30" font-weight="700">MIT</text>
+    </g>
+  </g>
+
+  <!-- 4 epic chips -->
+  <g font-family="ui-monospace, monospace" font-size="14">
+    <g transform="translate(60, 264)">
+      <rect width="240" height="32" rx="16" fill="#0d1117" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="120" y="21" text-anchor="middle" fill="#58a6ff">test-rebuild · 161→285+</text>
+    </g>
+    <g transform="translate(310, 264)">
+      <rect width="220" height="32" rx="16" fill="#0d1117" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="110" y="21" text-anchor="middle" fill="#58a6ff">karpathy-cost-self</text>
+    </g>
+    <g transform="translate(540, 264)">
+      <rect width="220" height="32" rx="16" fill="#0d1117" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="110" y="21" text-anchor="middle" fill="#58a6ff">compact-visibility</text>
+    </g>
+    <g transform="translate(770, 264)">
+      <rect width="240" height="32" rx="16" fill="#0d1117" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="120" y="21" text-anchor="middle" fill="#58a6ff">workspace test:full</text>
+    </g>
+    <g transform="translate(1020, 264)">
+      <rect width="120" height="32" rx="16" fill="#0d1117" stroke="#f78166" stroke-width="1.5"/>
+      <text x="60" y="21" text-anchor="middle" fill="#f78166">5 super-cmds</text>
+    </g>
+  </g>
+
+  <text x="60" y="328" font-family="ui-monospace, monospace" font-size="13" fill="#7d8590">commit: 7c386d8b (release: ship GA as 4.0.1) · CHANGELOG: 4.0.1 — 2026-07-30</text>
+</svg>

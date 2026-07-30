@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="100%" role="img" aria-label="peaks-loop architecture — 4 asset layers, 7-gate pipeline, 6 first-class domains">
+  <title>peaks-loop architecture — 4 asset layers, 7 gates, one engineering spine</title>
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="aaccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58a6ff"/>
+      <stop offset="1" stop-color="#f78166"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="480" fill="url(#abg)" rx="14"/>
+  <rect x="20" y="20" width="1160" height="440" fill="none" stroke="#30363d" stroke-width="1.5" rx="10"/>
+
+  <!-- header -->
+  <text x="60" y="64" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">$ peaks architecture --layers</text>
+  <text x="60" y="106" font-family="system-ui, sans-serif" font-size="32" font-weight="700" fill="#e6edf3">四层资产 · 七道闸门 · 一条工程脊柱</text>
+
+  <!-- 4 asset layers -->
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#e6edf3">
+    <g transform="translate(60, 154)">
+      <rect width="240" height="86" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="20" y="30" font-family="ui-monospace, monospace" font-size="13" fill="#58a6ff">Loop Engineering Asset</text>
+      <text x="20" y="54" font-size="12" fill="#8b949e">方法系统 · 一等公民</text>
+      <text x="20" y="72" font-size="12" fill="#8b949e">为什么有这条 loop、何时触发、怎样算成功</text>
+    </g>
+    <g transform="translate(320, 154)">
+      <rect width="240" height="86" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="20" y="30" font-family="ui-monospace, monospace" font-size="13" fill="#58a6ff">Bee Asset</text>
+      <text x="20" y="54" font-size="12" fill="#8b949e">可执行体 · 一等公民</text>
+      <text x="20" y="72" font-size="12" fill="#8b949e">Loop Engineering 资产的可执行体,蜂群里的每只 bee</text>
+    </g>
+    <g transform="translate(580, 154)">
+      <rect width="240" height="86" rx="8" fill="#161b22" stroke="#7d8590" stroke-width="1.5"/>
+      <text x="20" y="30" font-family="ui-monospace, monospace" font-size="13" fill="#7d8590">Workflow Trace</text>
+      <text x="20" y="54" font-size="12" fill="#8b949e">证据 · 不是主资产</text>
+      <text x="20" y="72" font-size="12" fill="#8b949e">不可变的单次执行记录,供结晶与评估反查</text>
+    </g>
+    <g transform="translate(840, 154)">
+      <rect width="240" height="86" rx="8" fill="#161b22" stroke="#f78166" stroke-width="1.5"/>
+      <text x="20" y="30" font-family="ui-monospace, monospace" font-size="13" fill="#f78166">Evolution Evaluation</text>
+      <text x="20" y="54" font-size="12" fill="#8b949e">反漂移闸门 · 强制项</text>
+      <text x="20" y="72" font-size="12" fill="#8b949e">独立上下文评估者 + 反方怀疑者,过了才留</text>
+    </g>
+  </g>
+
+  <!-- arrow between -->
+  <g stroke="#30363d" stroke-width="1.5" fill="none">
+    <path d="M300 197 L320 197" marker-end="url(#arr)"/>
+    <path d="M560 197 L580 197" marker-end="url(#arr)"/>
+    <path d="M820 197 L840 197" marker-end="url(#arr)"/>
+  </g>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#7d8590"/>
+    </marker>
+  </defs>
+
+  <!-- 7 gates -->
+  <text x="60" y="284" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">$ peaks gate list</text>
+  <g font-family="ui-monospace, monospace" font-size="13" fill="#e6edf3">
+    <g transform="translate(60, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">unit tests</text>
+    </g>
+    <g transform="translate(230, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">integration</text>
+    </g>
+    <g transform="translate(400, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">code audit</text>
+    </g>
+    <g transform="translate(570, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">security scan</text>
+    </g>
+    <g transform="translate(740, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">QA review</text>
+    </g>
+    <g transform="translate(910, 310)">
+      <rect width="160" height="34" rx="6" fill="#0d1117" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#22c55e">✓</text>
+      <text x="34" y="22">review sign-off</text>
+    </g>
+    <g transform="translate(60, 354)">
+      <rect width="1010" height="34" rx="6" fill="#0d1117" stroke="#f78166" stroke-width="1.5"/>
+      <text x="14" y="22" fill="#f78166">✓</text>
+      <text x="34" y="22" fill="#e6edf3">anti-drift evaluation (Evolution Evaluation · 独立上下文的评估者 + 反方怀疑者)</text>
+    </g>
+  </g>
+
+  <!-- bottom strip -->
+  <text x="60" y="424" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">karpathy 工程化每条规则 · darwin 验证每次改进 · co-equal 双层结构,不是先后两步</text>
+</svg>

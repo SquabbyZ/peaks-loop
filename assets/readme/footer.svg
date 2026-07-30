@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" width="100%" role="img" aria-label="peaks-loop footer — recommended stack and tribute">
+  <title>peaks-loop footer — recommended stack and tribute</title>
+  <defs>
+    <linearGradient id="fbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="facc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58a6ff"/>
+      <stop offset="1" stop-color="#f78166"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="240" fill="url(#fbg)" rx="14"/>
+  <rect x="20" y="20" width="1160" height="200" fill="none" stroke="#30363d" stroke-width="1.5" rx="10"/>
+
+  <text x="60" y="60" font-family="ui-monospace, monospace" font-size="14" fill="#7d8590">$ peaks recommend --stack</text>
+  <text x="60" y="100" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#e6edf3">组合起来用 · 一句话就够</text>
+
+  <!-- 4 badges in row -->
+  <g font-family="system-ui, sans-serif">
+    <g transform="translate(60, 134)">
+      <rect width="252" height="60" rx="8" fill="#161b22" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="20" y="28" font-family="ui-monospace, monospace" font-size="12" fill="#6366f1">tactical handbook</text>
+      <text x="20" y="48" font-size="14" fill="#e6edf3">affaan-m/ECC</text>
+    </g>
+    <g transform="translate(322, 134)">
+      <rect width="252" height="60" rx="8" fill="#161b22" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="20" y="28" font-family="ui-monospace, monospace" font-size="12" fill="#22c55e">code understanding</text>
+      <text x="20" y="48" font-size="14" fill="#e6edf3">Egonex-AI/Understand-Anything</text>
+    </g>
+    <g transform="translate(584, 134)">
+      <rect width="252" height="60" rx="8" fill="#161b22" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="20" y="28" font-family="ui-monospace, monospace" font-size="12" fill="#f59e0b">process &amp; discipline</text>
+      <text x="20" y="48" font-size="14" fill="#e6edf3">obra/superpowers</text>
+    </g>
+    <g transform="translate(846, 134)">
+      <rect width="294" height="60" rx="8" fill="#161b22" stroke="url(#facc)" stroke-width="2"/>
+      <text x="20" y="28" font-family="ui-monospace, monospace" font-size="12" fill="#f78166">sediment + gates · you are here</text>
+      <text x="20" y="48" font-size="14" font-weight="600" fill="#e6edf3">peaks-loop</text>
+    </g>
+  </g>
+</svg>
