@@ -42,3 +42,5 @@ coverage/
 # superpowers brainstorm ephemeral state — per-run process state (port/pid/instance id/stop marker).
 # content/*.html under <session-id>/ stays tracked (it is the user's brainstorm artifact catalog).
 .superpowers/brainstorm/
+tmp-mut-test/
+tmp-shared-channel-*/
