@@ -401,23 +401,6 @@ jobs:
           fi
           echo "Exact-tag gate OK: HEAD=${exact_tag} == v${root_version}"
 
-      - name: Create GitHub Release
-        if: "github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')"
-        permissions:
-          contents: write
-          id-token: write
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          root_version=$(node -e "console.log(require('./package.json').version)")
-          tag="v${root_version}"
-          gh release create "${tag}" \
-            --title "peaks-loop ${tag}" \
-            --notes-file "${notes_path}" \
-            --verify-tag \
-            --fail-on-no-commits
-
       - name: Publish to npm (OIDC + scripts/release-pack.mjs)
         # All-in-one publish script:
         #   - packs each workspace package with `pnpm pack` (rewrites
