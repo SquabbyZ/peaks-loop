@@ -252,22 +252,6 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 ---
 
-## 关键词 · peaks-loop 在哪里被搜索
-
-> 顺手的查询词,贴在这里方便搜索引擎和 GitHub 内检索命中。
-
-**类别 / Category**:AI orchestration · workflow orchestration · loop engineering · LLM workflow · AI programmer · multi-agent orchestration · AI coding agent · autonomous workflow · AI engineering platform · dev tooling
-
-**CLI / 命令行**:`peaks` · `peaks code` · `peaks audit` · `peaks doctor` · `peaks openspec` · `peaks release` · `peaks release-pack` · `peaks code run` · `peaks code run --24h` · `peaks code detect-job` · `peaks code gate-step-08` · `peaks compact auto` · `peaks compact history` · `peaks job karpathy-cost-check` · `peaks dashboard long-run` · `peaks dashboard summary` · `peaks session 24h-mode` · `peaks sub-agent dispatch` · `peaks worktree spawn` · `peaks worktree auth grant` · `peaks hooks install` · `peaks statusline install` · `peaks standards init` · `peaks openspec archive` · `peaks changeset check` · `peaks mut run` · `peaks mut asserts` · `peaks memory extract` · `peaks workflow verify-pipeline` · `peaks request transition` · `peaks slice check` · `peaks slice decompose` · `peaks resume` · `peaks status` · `peaks test` · `peaks solo`
-
-**斜杠命令 / Slash commands**:`/peaks-code` · `/peaks-content` · `/peaks-doctor` · `/peaks-audit` · `/peaks-final-review` · `/peaks-ide` · `/peaks-issue-fix-orchestrator` · `/peaks-sop` · `/peaks-solo` · `/peaks-resume` · `/peaks-status` · `/peaks-test` · `/peaks-slice-decompose`
-
-**场景 / Use cases**:AI 编程助手 · Claude Code 增强 · Codex 增强 · Z Code 增强 · Cursor 增强 · Trae 增强 · 通义灵码增强 · 24h 通宵编程 · 端到端代码工作流 · 内容生产自动化 · 仓库体检 · 批量修 issue · 自定义 SOP · 沉淀本地战术 · 自然语言编程 · AI 协作开发 · 长期任务编排 · 切片分解 · 子代理派发 · DAG 编排 · 看板监控 · 反漂移评估 · 独立上下文验证 · 演化校验
-
-**工程 / Engineering**:karpathy 风格 · darwin 风格 · TDD · code review · security scan · lint · typecheck · vitest · c8 coverage · mutation testing · Stryker · CI/CD · GitHub Actions · Trusted Publishing · OIDC · changesets · monorepo · pnpm workspace · OpenSpec · apply gate · coverage evidence · 4 维验收 · 4-dim review
-
-**相关项目 / Tributes & recommended**:peaks-loop · SquabbyZ · multica-ai/andrej-karpathy-skills · alchaincyf/darwin-skill · affaan-m/ECC · Egonex-AI/Understand-Anything · obra/superpowers
-
 ---
 
 <div align="center">

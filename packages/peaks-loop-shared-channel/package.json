@@ -2,6 +2,17 @@
   "name": "peaks-loop-shared-channel",
   "version": "0.0.7",
   "description": "Dispatcher-mediated shared channel and its filesystem safety primitives for peaks-loop.",
+  "keywords": [
+    "peaks-loop",
+    "peaks-loop-shared-channel",
+    "loop-engineering",
+    "file-locking",
+    "shared-channel",
+    "ai-orchestration",
+    "monorepo",
+    "typescript",
+    "esm"
+  ],
   "license": "MIT",
   "type": "module",
   "exports": {

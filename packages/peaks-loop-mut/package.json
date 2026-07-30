@@ -2,6 +2,17 @@
   "name": "peaks-loop-mut",
   "version": "0.1.2",
   "description": "Mutation testing + assertion scanning + ECC cache for peaks-loop (workspace-internal)",
+  "keywords": [
+    "peaks-loop",
+    "peaks-loop-mut",
+    "loop-engineering",
+    "mutation-testing",
+    "stryker",
+    "ai-orchestration",
+    "code-quality",
+    "monorepo",
+    "typescript"
+  ],
   "license": "MIT",
   "type": "module",
   "exports": {

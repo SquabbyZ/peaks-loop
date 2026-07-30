@@ -252,22 +252,6 @@ They are permanent npm tombstones — once a version has been published and unpu
 
 ---
 
-## Keywords · where peaks-loop is searched
-
-> Handy query terms, listed here so search engines and GitHub's own search hit the long-tail more reliably.
-
-**Category**:AI orchestration · workflow orchestration · loop engineering · LLM workflow · AI programmer · multi-agent orchestration · AI coding agent · autonomous workflow · AI engineering platform · dev tooling · agent harness · agentic engineering
-
-**CLI**:peaks · peaks code · peaks audit · peaks doctor · peaks openspec · peaks release · peaks release-pack · peaks code run · peaks code run --24h · peaks code detect-job · peaks code gate-step-08 · peaks compact auto · peaks compact history · peaks job karpathy-cost-check · peaks dashboard long-run · peaks dashboard summary · peaks session 24h-mode · peaks sub-agent dispatch · peaks worktree spawn · peaks worktree auth grant · peaks hooks install · peaks statusline install · peaks standards init · peaks openspec archive · peaks changeset check · peaks mut run · peaks mut asserts · peaks memory extract · peaks workflow verify-pipeline · peaks request transition · peaks slice check · peaks slice decompose · peaks resume · peaks status · peaks test · peaks solo
-
-**Slash commands**:peaks-code · peaks-content · peaks-doctor · peaks-audit · peaks-final-review · peaks-ide · peaks-issue-fix-orchestrator · peaks-sop · peaks-solo · peaks-resume · peaks-status · peaks-test · peaks-slice-decompose
-
-**Use cases**:AI coding assistant · Claude Code enhancement · Codex enhancement · Z Code enhancement · Cursor enhancement · Trae enhancement · Tongyi Lingma enhancement · 24h overnight coding · end-to-end code workflow · content production automation · repo health check · batch issue fix · custom SOP · sediment local tactics · natural language programming · AI co-development · long-running task orchestration · slice decomposition · sub-agent dispatch · DAG orchestration · dashboard monitoring · anti-drift evaluation · independent-context verification · evolution validation
-
-**Engineering**:karpathy style · darwin style · TDD · code review · security scan · lint · typecheck · vitest · c8 coverage · mutation testing · Stryker · CI/CD · GitHub Actions · Trusted Publishing · OIDC · changesets · monorepo · pnpm workspace · OpenSpec · apply gate · coverage evidence · 4-dim review · functional-completeness · problem-resolution · no-new-bugs · existing-functionality-intact
-
-**Tributes & recommended**:peaks-loop · SquabbyZ · multica-ai/andrej-karpathy-skills · alchaincyf/darwin-skill · affaan-m/ECC · Egonex-AI/Understand-Anything · obra/superpowers
-
 ---
 
 <div align="center">
