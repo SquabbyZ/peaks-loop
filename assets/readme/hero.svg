@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="100%" role="img" aria-label="peaks-loop v4.0.1 terminal session — live peaks-code run with 4-pane status HUD">
-  <title>peaks-loop v4.0.1 terminal session — live peaks-code run with 4-pane status HUD</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="100%" role="img" aria-label="peaks-loop v4.0.1 — multi-pane terminal session with live epoch + status lights + radial gate">
+  <title>peaks-loop v4.0.1 — multi-pane terminal session with live epoch + status lights + radial gate</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0a0e14"/>
+      <stop offset="0" stop-color="#07090d"/>
       <stop offset="1" stop-color="#0d1117"/>
     </linearGradient>
     <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
@@ -13,114 +13,314 @@
       <stop offset="0" stop-color="#a371f7"/>
       <stop offset="1" stop-color="#ff7b72"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.2" result="b"/>
+    <radialGradient id="ambient" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#00d4ff" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <!-- outer frame -->
-  <rect width="1200" height="540" fill="url(#bg)" rx="14"/>
-  <rect x="14" y="14" width="1172" height="512" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+  <!-- ambient background -->
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <rect width="1200" height="600" fill="url(#ambient)"/>
+  <rect x="10" y="10" width="1180" height="580" fill="none" stroke="#1f2937" stroke-width="1" rx="12"/>
 
-  <!-- macOS-style window chrome -->
-  <g transform="translate(0, 0)">
-    <rect x="14" y="14" width="1172" height="36" fill="#161b22" rx="10"/>
-    <rect x="14" y="40" width="1172" height="10" fill="#161b22"/>
-    <circle cx="40" cy="32" r="6" fill="#ff5f57"/>
-    <circle cx="62" cy="32" r="6" fill="#febc2e"/>
-    <circle cx="84" cy="32" r="6" fill="#28c840"/>
-    <text x="120" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#7d8590">peaks@loop · v4.0.1 · GA · ~/peaks-loop — bash — 120×42</text>
-    <text x="1140" y="36" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590" text-anchor="end">23:54:08</text>
-  </g>
+  <!-- ============ MAIN WINDOW (left 60%) ============ -->
+  <g transform="translate(24, 24)">
+    <rect width="700" height="552" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="10"/>
+    <!-- chrome -->
+    <rect width="700" height="32" fill="#161b22" rx="10"/>
+    <rect y="22" width="700" height="10" fill="#161b22"/>
+    <circle cx="20" cy="16" r="5" fill="#ff5f57"/>
+    <circle cx="38" cy="16" r="5" fill="#febc2e"/>
+    <circle cx="56" cy="16" r="5" fill="#28c840"/>
+    <!-- tabs -->
+    <rect x="80" y="6" width="160" height="20" rx="4" fill="#0d1117" stroke="#30363d"/>
+    <text x="92" y="20" font-family="ui-monospace, monospace" font-size="11" fill="#e6edf3">● peaks · main</text>
+    <rect x="244" y="6" width="160" height="20" rx="4" fill="#161b22" stroke="#30363d"/>
+    <text x="256" y="20" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">  .peaks/_runtime/2026-07-30-602e5c</text>
+    <text x="688" y="20" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590" text-anchor="end">23:54:08</text>
 
-  <!-- terminal area -->
-  <g transform="translate(30, 70)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
-    <!-- prompt 1 -->
-    <text x="0" y="0" font-size="15" fill="#7d8590">$</text>
-    <text x="20" y="0" font-size="15" fill="#00d4ff">peaks</text>
-    <text x="78" y="0" font-size="15" fill="#e6edf3">code</text>
-    <text x="124" y="0" font-size="15" fill="#7d8590">run</text>
-    <text x="160" y="0" font-size="15" fill="#a371f7">"build this feature"</text>
-    <text x="332" y="0" font-size="15" fill="#7d8590">--24h</text>
-    <text x="384" y="0" font-size="15" fill="#7d8590">&gt;</text>
-    <rect x="402" y="-14" width="9" height="18" fill="#7ee787" filter="url(#glow)">
-      <animate attributeName="opacity" values="1;0;1" dur="1.06s" repeatCount="indefinite"/>
-    </rect>
-
-    <!-- trace output (typed stream) -->
-    <g font-size="12" fill="#7d8590">
-      <text x="0" y="26"><tspan fill="#a371f7">[trace]</tspan> session=2026-07-30-602e5c · change-id=004-c8 · mode=full-auto</text>
-      <text x="0" y="46"><tspan fill="#a371f7">[trace]</tspan> routing → <tspan fill="#00d4ff">peaks-code</tspan> (code-domain)</text>
-      <text x="0" y="66"><tspan fill="#00d4ff">[rd]</tspan> 5 sub-agents dispatched (PRD · RD · QA · UI · SC) · DAG wave 0/3</text>
-      <text x="0" y="86"><tspan fill="#00d4ff">[rd]</tspan> writing <tspan fill="#e6edf3">.peaks/_runtime/2026-07-30-602e5c/rd/requests/004-build-feat.md</tspan></text>
-      <text x="0" y="106"><tspan fill="#7ee787">[gate]</tspan> unit · 161/161 · 4.1s</text>
-      <text x="0" y="126"><tspan fill="#7ee787">[gate]</tspan> integration · 12/12 · 1.3s</text>
-      <text x="0" y="146"><tspan fill="#7ee787">[gate]</tspan> code-audit · 0 violation · 0.8s</text>
-      <text x="0" y="166"><tspan fill="#7ee787">[gate]</tspan> security-scan · 0 finding · 0.5s</text>
-      <text x="0" y="186"><tspan fill="#7ee787">[gate]</tspan> qa-review · verdict=PASS · cost-ratio=3.4 · 4-dim=ok · 6.2s</text>
-      <text x="0" y="206"><tspan fill="#7ee787">[gate]</tspan> review-signoff · <tspan fill="#7ee787">✓</tspan> passed</text>
-      <text x="0" y="226"><tspan fill="#a371f7">[eval]</tspan> darwin-skore <tspan fill="#7ee787">+0.83</tspan> · skeptic-2 <tspan fill="#7ee787">RETAIN</tspan> · 1.9s</text>
-      <text x="0" y="246"><tspan fill="#ff7b72">[ui]</tspan> ready for handoff — 7/7 gates green · total wall 16.3s</text>
+    <!-- prompt -->
+    <g transform="translate(16, 60)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+      <text x="0" y="0" font-size="14" fill="#7d8590">$</text>
+      <text x="18" y="0" font-size="14" fill="#00d4ff">peaks</text>
+      <text x="74" y="0" font-size="14" fill="#e6edf3">code</text>
+      <text x="118" y="0" font-size="14" fill="#7d8590">run</text>
+      <text x="150" y="0" font-size="14" fill="#a371f7">"build this feature"</text>
+      <text x="318" y="0" font-size="14" fill="#7d8590">--24h</text>
+      <text x="370" y="0" font-size="14" fill="#7d8590">--project .</text>
+      <text x="466" y="0" font-size="14" fill="#7d8590">&gt;</text>
+      <rect x="484" y="-12" width="9" height="16" fill="#7ee787" filter="url(#glow)">
+        <animate attributeName="opacity" values="1;0;1" dur="1.06s" repeatCount="indefinite"/>
+      </rect>
     </g>
 
-    <!-- 4-pane HUD bottom row -->
-    <g transform="translate(0, 280)">
+    <!-- trace -->
+    <g transform="translate(16, 86)" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">
+      <text x="0" y="0"><tspan fill="#a371f7">[trace]</tspan> session=2026-07-30-602e5c · change-id=004-c8 · mode=full-auto · epoch=<tspan id="epoch" fill="#7ee787">1753918448</tspan></text>
+      <text x="0" y="18"><tspan fill="#a371f7">[trace]</tspan> routing → <tspan fill="#00d4ff">peaks-code</tspan> (code-domain) · LLM=opus-5</text>
+      <text x="0" y="36"><tspan fill="#00d4ff">[rd]</tspan> 5 sub-agents dispatched (PRD · RD · QA · UI · SC) · DAG wave 0/3</text>
+      <text x="0" y="54"><tspan fill="#00d4ff">[rd]</tspan> writing <tspan fill="#e6edf3">.peaks/_runtime/2026-07-30-602e5c/rd/requests/004-build-feat.md</tspan></text>
+      <text x="0" y="72"><tspan fill="#7ee787">[gate]</tspan> unit · 161/161 · 4.1s</text>
+      <text x="0" y="90"><tspan fill="#7ee787">[gate]</tspan> integration · 12/12 · 1.3s</text>
+      <text x="0" y="108"><tspan fill="#7ee787">[gate]</tspan> code-audit · 0 violation · 0.8s</text>
+      <text x="0" y="126"><tspan fill="#7ee787">[gate]</tspan> security-scan · 0 finding · 0.5s</text>
+      <text x="0" y="144"><tspan fill="#7ee787">[gate]</tspan> qa-review · verdict=PASS · cost-ratio=3.4 · 4-dim=ok · 6.2s</text>
+      <text x="0" y="162"><tspan fill="#7ee787">[gate]</tspan> review-signoff · <tspan fill="#7ee787">✓</tspan> passed</text>
+      <text x="0" y="180"><tspan fill="#a371f7">[eval]</tspan> darwin-skore <tspan fill="#7ee787">+0.83</tspan> · skeptic-2 <tspan fill="#7ee787">RETAIN</tspan> · 1.9s</text>
+      <text x="0" y="198"><tspan fill="#ff7b72">[ui]</tspan> ready for handoff — 7/7 gates green · total wall 16.3s</text>
+    </g>
+
+    <!-- 4-pane HUD bottom (in main window) -->
+    <g transform="translate(16, 320)">
       <!-- pane 1: trace -->
       <g>
-        <rect width="280" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
-        <text x="14" y="22" font-size="11" fill="#7d8590">▣ TRACE</text>
-        <text x="14" y="46" font-size="22" font-weight="700" fill="#e6edf3">19<tspan font-size="13" fill="#7d8590">/19</tspan></text>
-        <text x="14" y="68" font-size="12" fill="#7ee787">✓ all sub-agents returned</text>
-        <text x="14" y="86" font-size="11" fill="#7d8590">wave 3/3 · barrier ok</text>
-        <rect x="220" y="14" width="46" height="10" rx="5" fill="#7ee787" opacity="0.85"/>
+        <rect width="160" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
+        <text x="12" y="20" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">▣ TRACE</text>
+        <text x="12" y="44" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#e6edf3">19<tspan font-size="11" fill="#7d8590">/19</tspan></text>
+        <text x="12" y="62" font-family="ui-monospace, monospace" font-size="10" fill="#7ee787">✓ all returned</text>
+        <text x="12" y="78" font-family="ui-monospace, monospace" font-size="9" fill="#7d8590">wave 3/3 · barrier ok</text>
+        <rect x="120" y="12" width="32" height="8" rx="4" fill="#7ee787" opacity="0.85"/>
       </g>
       <!-- pane 2: gate -->
-      <g transform="translate(295, 0)">
-        <rect width="280" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
-        <text x="14" y="22" font-size="11" fill="#7d8590">▣ GATE</text>
-        <text x="14" y="46" font-size="22" font-weight="700" fill="#e6edf3">6<tspan font-size="13" fill="#7d8590">/6</tspan></text>
-        <text x="14" y="68" font-size="12" fill="#7ee787">✓ all green</text>
-        <!-- mini progress bar 6/6 -->
-        <g transform="translate(14, 76)">
-          <rect width="252" height="6" rx="3" fill="#1f2937"/>
-          <rect width="252" height="6" rx="3" fill="url(#cyan)" filter="url(#glow)"/>
-        </g>
-        <text x="14" y="98" font-size="10" fill="#7d8590">tests · audit · scan · qa · review · eval</text>
+      <g transform="translate(170, 0)">
+        <rect width="160" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
+        <text x="12" y="20" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">▣ GATE</text>
+        <text x="12" y="44" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#e6edf3">6<tspan font-size="11" fill="#7d8590">/6</tspan></text>
+        <text x="12" y="62" font-family="ui-monospace, monospace" font-size="10" fill="#7ee787">✓ all green</text>
+        <rect x="12" y="72" width="136" height="5" rx="2.5" fill="#1f2937"/>
+        <rect x="12" y="72" width="136" height="5" rx="2.5" fill="url(#cyan)" filter="url(#glow)"/>
+        <text x="12" y="90" font-family="ui-monospace, monospace" font-size="9" fill="#7d8590">u · i · a · s · q · r</text>
       </g>
       <!-- pane 3: git -->
-      <g transform="translate(590, 0)">
-        <rect width="280" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
-        <text x="14" y="22" font-size="11" fill="#7d8590">▣ GIT</text>
-        <text x="14" y="46" font-size="14" font-weight="700" fill="#e6edf3">main · <tspan fill="#7ee787">+3</tspan> <tspan fill="#ff7b72">-1</tspan></text>
-        <text x="14" y="68" font-size="11" fill="#7d8590">2h ago · SquabbyZ</text>
-        <!-- 5-cell commit heat strip -->
-        <g transform="translate(14, 76)">
-          <rect x="0"   y="0" width="38" height="14" rx="2" fill="#00d4ff" opacity="0.85"/>
-          <rect x="44"  y="0" width="38" height="14" rx="2" fill="#00d4ff" opacity="0.55"/>
-          <rect x="88"  y="0" width="38" height="14" rx="2" fill="#00d4ff" opacity="0.95"/>
-          <rect x="132" y="0" width="38" height="14" rx="2" fill="#a371f7" opacity="0.75"/>
-          <rect x="176" y="0" width="38" height="14" rx="2" fill="#7ee787" opacity="0.85"/>
-          <rect x="220" y="0" width="38" height="14" rx="2" fill="#7ee787" opacity="0.95"/>
+      <g transform="translate(340, 0)">
+        <rect width="160" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
+        <text x="12" y="20" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">▣ GIT</text>
+        <text x="12" y="44" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#e6edf3">main · <tspan fill="#7ee787">+3</tspan> <tspan fill="#ff7b72">-1</tspan></text>
+        <text x="12" y="62" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">2h ago · SquabbyZ</text>
+        <g transform="translate(12, 72)">
+          <rect x="0"  y="0" width="22" height="12" rx="2" fill="#00d4ff" opacity="0.85"/>
+          <rect x="26" y="0" width="22" height="12" rx="2" fill="#00d4ff" opacity="0.55"/>
+          <rect x="52" y="0" width="22" height="12" rx="2" fill="#00d4ff" opacity="0.95"/>
+          <rect x="78" y="0" width="22" height="12" rx="2" fill="#a371f7" opacity="0.75"/>
+          <rect x="104" y="0" width="22" height="12" rx="2" fill="#7ee787" opacity="0.85"/>
         </g>
       </g>
       <!-- pane 4: clock + sparkline -->
-      <g transform="translate(885, 0)">
-        <rect width="255" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
-        <text x="14" y="22" font-size="11" fill="#7d8590">▣ CLOCK</text>
-        <text x="14" y="46" font-size="22" font-weight="700" fill="#e6edf3">16.3<tspan font-size="13" fill="#7d8590">s</tspan></text>
-        <text x="14" y="68" font-size="11" fill="#7d8590">wall · v4.0.1 GA</text>
-        <!-- sparkline -->
-        <polyline points="14,90 28,86 42,82 56,78 70,84 84,72 98,76 112,68 126,74 140,62 154,70 168,58 182,66 196,52 210,60 224,48 241,42"
+      <g transform="translate(510, 0)">
+        <rect width="158" height="100" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="6"/>
+        <text x="12" y="20" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">▣ CLOCK</text>
+        <text x="12" y="44" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#e6edf3">16.3<tspan font-size="11" fill="#7d8590">s</tspan></text>
+        <text x="12" y="62" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">wall · v4.0.1</text>
+        <polyline points="12,86 24,82 36,78 48,74 60,80 72,68 84,72 96,62 108,68 120,56 132,62 144,52"
                   fill="none" stroke="url(#purple)" stroke-width="1.5" stroke-linecap="round" filter="url(#glow)"/>
-        <circle cx="241" cy="42" r="2.5" fill="#ff7b72" filter="url(#glow)"/>
+        <circle cx="144" cy="52" r="2.5" fill="#ff7b72" filter="url(#glow)">
+          <animate attributeName="r" values="2.5;4;2.5" dur="1.4s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </g>
+
+    <!-- marquee -->
+    <g transform="translate(16, 444)" font-family="ui-monospace, monospace" font-size="11">
+      <rect width="668" height="22" fill="#161b22" rx="0"/>
+      <text x="14" y="14" fill="#7d8590">$ peaks <tspan fill="#7ee787">●</tspan> ready · next: peaks slice check --auto · 4 packages · 285+ cases · MIT · Node ≥ 20</text>
+    </g>
+
+    <!-- 3 status lights (running/waiting/ok) -->
+    <g transform="translate(16, 478)" font-family="ui-monospace, monospace" font-size="10">
+      <g><circle cx="6" cy="6" r="4" fill="#00d4ff" filter="url(#glow)">
+        <animate attributeName="opacity" values="0.4;1;0.4" dur="1.2s" repeatCount="indefinite"/>
+      </circle>
+      <text x="18" y="10" fill="#7d8590">PRD:writing</text></g>
+      <g transform="translate(120, 0)"><circle cx="6" cy="6" r="4" fill="#a371f7" filter="url(#glow)">
+        <animate attributeName="opacity" values="0.4;1;0.4" dur="1.6s" repeatCount="indefinite"/>
+      </circle>
+      <text x="18" y="10" fill="#7d8590">QA:verdict</text></g>
+      <g transform="translate(240, 0)"><circle cx="6" cy="6" r="4" fill="#7ee787" filter="url(#glow)"/></g>
+      <g transform="translate(240, 0)"><circle cx="6" cy="6" r="4" fill="#7ee787" filter="url(#glow)"/>
+        <text x="18" y="10" fill="#7d8590">UI:handoff ✓</text></g>
+      <g transform="translate(380, 0)"><circle cx="6" cy="6" r="4" fill="#7ee787"/></g>
+      <g transform="translate(380, 0)"><text x="18" y="10" fill="#7d8590">SC:committed</text></g>
+    </g>
+
+    <!-- particles (5 random small blocks) -->
+    <g fill="#00d4ff" opacity="0.6">
+      <rect x="540" y="280" width="3" height="3">
+        <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="0.0s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="612" y="294" width="3" height="3">
+        <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="0.4s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="640" y="306" width="3" height="3" fill="#a371f7">
+        <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="0.9s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="556" y="312" width="3" height="3" fill="#7ee787">
+        <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="1.4s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="600" y="262" width="3" height="3" fill="#ff7b72">
+        <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="1.9s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+  </g>
+
+  <!-- ============ RIGHT SIDE: 3 stacked mini windows ============ -->
+  <g transform="translate(736, 24)">
+    <!-- window 1: process tree -->
+    <g>
+      <rect width="440" height="172" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="10"/>
+      <rect width="440" height="28" fill="#161b22" rx="10"/>
+      <rect y="18" width="440" height="10" fill="#161b22"/>
+      <circle cx="18" cy="14" r="4" fill="#ff5f57"/>
+      <circle cx="32" cy="14" r="4" fill="#febc2e"/>
+      <circle cx="46" cy="14" r="4" fill="#28c840"/>
+      <text x="68" y="18" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">process tree · peaks-code</text>
+      <g transform="translate(14, 44)" font-family="ui-monospace, monospace" font-size="11">
+        <text x="0" y="0" fill="#00d4ff">peaks-code</text>
+        <text x="120" y="0" fill="#7d8590">100%</text>
+        <text x="0" y="16" fill="#7d8590">├─ prd-worker</text>
+        <text x="120" y="16" fill="#7ee787">✓ 1.2s</text>
+        <text x="0" y="32" fill="#7d8590">├─ rd-worker</text>
+        <text x="120" y="32" fill="#7ee787">✓ 4.4s</text>
+        <text x="0" y="48" fill="#7d8590">├─ qa-worker</text>
+        <text x="120" y="48" fill="#7ee787">✓ 6.2s</text>
+        <text x="0" y="64" fill="#7d8590">├─ ui-worker</text>
+        <text x="120" y="64" fill="#a371f7">● 0.8s</text>
+        <text x="0" y="80" fill="#7d8590">├─ sc-worker</text>
+        <text x="120" y="80" fill="#7ee787">✓ 0.6s</text>
+        <text x="0" y="96" fill="#7d8590">└─ eval-skeptic</text>
+        <text x="120" y="96" fill="#7ee787">✓ 1.9s</text>
+      </g>
+      <text x="14" y="158" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">5 sub-agents · barrier synchronized · total 16.3s</text>
+    </g>
+
+    <!-- window 2: gate radial -->
+    <g transform="translate(0, 184)">
+      <rect width="440" height="180" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="10"/>
+      <rect width="440" height="28" fill="#161b22" rx="10"/>
+      <rect y="18" width="440" height="10" fill="#161b22"/>
+      <circle cx="18" cy="14" r="4" fill="#ff5f57"/>
+      <circle cx="32" cy="14" r="4" fill="#febc2e"/>
+      <circle cx="46" cy="14" r="4" fill="#28c840"/>
+      <text x="68" y="18" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">gate radial · 6/6</text>
+
+      <!-- 6 radial progress rings -->
+      <g transform="translate(60, 86)">
+        <!-- ring 1: unit -->
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#7ee787" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="138.2 138.2" transform="rotate(-90)" filter="url(#glow)"/>
+        <text x="0" y="3" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#e6edf3">unit</text>
+        <text x="0" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#7d8590">161/161</text>
+      </g>
+      <g transform="translate(140, 86)">
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#7ee787" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="138.2 138.2" transform="rotate(-90)" filter="url(#glow)"/>
+        <text x="0" y="3" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#e6edf3">integ</text>
+        <text x="0" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#7d8590">12/12</text>
+      </g>
+      <g transform="translate(220, 86)">
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#7ee787" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="138.2 138.2" transform="rotate(-90)" filter="url(#glow)"/>
+        <text x="0" y="3" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#e6edf3">audit</text>
+        <text x="0" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#7d8590">0/0</text>
+      </g>
+      <g transform="translate(300, 86)">
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#7ee787" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="138.2 138.2" transform="rotate(-90)" filter="url(#glow)"/>
+        <text x="0" y="3" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#e6edf3">sec</text>
+        <text x="0" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#7d8590">0/0</text>
+      </g>
+      <g transform="translate(380, 86)">
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#1f2937" stroke-width="3"/>
+        <circle cx="0" cy="0" r="22" fill="none" stroke="#7ee787" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="138.2 138.2" transform="rotate(-90)" filter="url(#glow)">
+          <animateTransform attributeName="transform" type="rotate" from="-90" to="270" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <text x="0" y="3" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#e6edf3">qa</text>
+        <text x="0" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#7d8590">PASS</text>
+      </g>
+      <!-- legend -->
+      <text x="14" y="156" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">6/6 gates green · qa ring spinning = in-progress</text>
+    </g>
+
+    <!-- window 3: live epoch + status -->
+    <g transform="translate(0, 376)">
+      <rect width="440" height="200" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="10"/>
+      <rect width="440" height="28" fill="#161b22" rx="10"/>
+      <rect y="18" width="440" height="10" fill="#161b22"/>
+      <circle cx="18" cy="14" r="4" fill="#ff5f57"/>
+      <circle cx="32" cy="14" r="4" fill="#febc2e"/>
+      <circle cx="46" cy="14" r="4" fill="#28c840"/>
+      <text x="68" y="18" font-family="ui-monospace, monospace" font-size="11" fill="#7d8590">live status</text>
+
+      <!-- epoch block -->
+      <g transform="translate(14, 44)" font-family="ui-monospace, monospace">
+        <text x="0" y="14" font-size="10" fill="#7d8590">EPOCH</text>
+        <text x="0" y="38" font-size="20" font-weight="700" fill="#00d4ff" filter="url(#glow)">1753918448</text>
+        <text x="0" y="56" font-size="9" fill="#7d8590">2026-07-30T23:54:08Z</text>
+      </g>
+
+      <!-- pid block -->
+      <g transform="translate(180, 44)" font-family="ui-monospace, monospace">
+        <text x="0" y="14" font-size="10" fill="#7d8590">PID</text>
+        <text x="0" y="38" font-size="20" font-weight="700" fill="#a371f7">602e5c</text>
+        <text x="0" y="56" font-size="9" fill="#7d8590">session · main</text>
+      </g>
+
+      <!-- live status lights row -->
+      <g transform="translate(14, 116)" font-family="ui-monospace, monospace" font-size="10">
+        <text x="0" y="0" fill="#7d8590">PIPELINE</text>
+        <g transform="translate(0, 14)">
+          <circle cx="6" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/></circle>
+          <text x="18" y="10" fill="#7d8590">unit</text>
+          <circle cx="80" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.2s" repeatCount="indefinite"/></circle>
+          <text x="92" y="10" fill="#7d8590">integ</text>
+          <circle cx="156" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.4s" repeatCount="indefinite"/></circle>
+          <text x="168" y="10" fill="#7d8590">audit</text>
+          <circle cx="226" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.6s" repeatCount="indefinite"/></circle>
+          <text x="238" y="10" fill="#7d8590">sec</text>
+          <circle cx="276" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="0.8s" repeatCount="indefinite"/></circle>
+          <text x="288" y="10" fill="#7d8590">qa</text>
+          <circle cx="318" cy="6" r="5" fill="#7ee787"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" begin="1.0s" repeatCount="indefinite"/></circle>
+          <text x="330" y="10" fill="#7d8590">review</text>
+        </g>
+        <text x="0" y="42" fill="#7d8590">TOKEN</text>
+        <g transform="translate(0, 56)">
+          <rect width="412" height="6" rx="3" fill="#1f2937"/>
+          <rect width="142" height="6" rx="3" fill="url(#purple)" filter="url(#glow)"/>
+        </g>
+        <text x="0" y="78" font-size="9" fill="#7d8590">142k / 400k · 35% · headroom 0.85</text>
       </g>
     </g>
   </g>
 
-  <!-- bottom marquee -->
-  <g transform="translate(0, 502)" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12">
-    <rect x="14" y="-2" width="1172" height="22" fill="#161b22" rx="0"/>
-    <text x="32" y="14" fill="#7d8590">$ peaks <tspan fill="#7ee787">●</tspan> ready · next: peaks slice check --auto · 4 packages · 285+ cases · MIT · Node ≥ 20</text>
+  <!-- bottom data-flow line (left -> right) -->
+  <g>
+    <line x1="24" y1="582" x2="1176" y2="582" stroke="#1f2937" stroke-width="1"/>
+    <g fill="#7ee787" filter="url(#glow)">
+      <circle cx="120" cy="582" r="3">
+        <animate attributeName="cx" values="24;1176" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;1;0" dur="4s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <g fill="#00d4ff" filter="url(#glow)">
+      <circle cx="400" cy="582" r="3">
+        <animate attributeName="cx" values="24;1176" dur="4s" begin="1.3s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;1;0" dur="4s" begin="1.3s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <g fill="#a371f7" filter="url(#glow)">
+      <circle cx="800" cy="582" r="3">
+        <animate attributeName="cx" values="24;1176" dur="4s" begin="2.6s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;1;0" dur="4s" begin="2.6s" repeatCount="indefinite"/>
+      </circle>
+    </g>
   </g>
 </svg>

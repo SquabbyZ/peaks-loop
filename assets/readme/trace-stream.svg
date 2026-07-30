@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" role="img" aria-label="peaks-loop live trace stream — code diff + scrolling terminal log + 6-gate ring">
+  <title>peaks-loop live trace stream — code diff + scrolling terminal log + 6-gate ring</title>
+  <defs>
+    <linearGradient id="tb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07090d"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="tcyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00d4ff"/>
+      <stop offset="1" stop-color="#7ee787"/>
+    </linearGradient>
+    <linearGradient id="tpp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a371f7"/>
+      <stop offset="1" stop-color="#ff7b72"/>
+    </linearGradient>
+    <clipPath id="scrollClip">
+      <rect x="20" y="160" width="540" height="180"/>
+    </clipPath>
+    <filter id="tglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="360" fill="url(#tb)" rx="14"/>
+  <rect x="10" y="10" width="1180" height="340" fill="none" stroke="#1f2937" stroke-width="1" rx="10"/>
+
+  <text x="36" y="40" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">$ peaks diff --live --session 2026-07-30-602e5c</text>
+  <text x="36" y="68" font-family="system-ui, sans-serif" font-size="24" font-weight="700" fill="#e6edf3">diff &amp; log stream</text>
+  <text x="270" y="68" font-family="ui-monospace, monospace" font-size="12" fill="#7d8590">— 3 files · +124 / -28</text>
+
+  <!-- LEFT: code diff -->
+  <g transform="translate(36, 92)" font-family="ui-monospace, monospace" font-size="11">
+    <rect width="560" height="240" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="8"/>
+    <rect width="560" height="24" fill="#161b22" rx="8"/>
+    <rect y="16" width="560" height="8" fill="#161b22"/>
+    <text x="14" y="16" font-size="10" fill="#7d8590">src/services/workflow/plan-service.ts</text>
+    <text x="546" y="16" font-size="10" fill="#7d8590" text-anchor="end">+8 / -3</text>
+
+    <g transform="translate(0, 32)">
+      <text x="14" y="14" fill="#7d8590">142</text>
+      <text x="44" y="14" fill="#7d8590">  </text>
+      <text x="60" y="14" fill="#7d8590">export async function</text>
+      <text x="200" y="14" fill="#00d4ff">buildSlice</text>
+      <text x="260" y="14" fill="#7d8590">(rd: RDEnvelope, opts: Opts) {</text>
+    </g>
+    <g transform="translate(0, 50)">
+      <text x="14" y="14" fill="#7d8590">143</text>
+      <text x="44" y="14" fill="#7d8590">  </text>
+      <text x="60" y="14" fill="#7d8590">  const gate = </text>
+      <text x="158" y="14" fill="#a371f7">await</text>
+      <text x="200" y="14" fill="#7d8590"> runGate(rd, 'unit')</text>
+    </g>
+    <g transform="translate(0, 68)">
+      <text x="14" y="14" fill="#7d8590">144</text>
+      <text x="44" y="14" fill="#ff7b72">-</text>
+      <rect x="50" y="2" width="510" height="16" fill="#ff7b72" opacity="0.12"/>
+      <text x="60" y="14" fill="#ff7b72">  if (gate.fail) return { ok: false }</text>
+    </g>
+    <g transform="translate(0, 86)">
+      <text x="14" y="14" fill="#7d8590">145</text>
+      <text x="44" y="14" fill="#7ee787">+</text>
+      <rect x="50" y="2" width="510" height="16" fill="#7ee787" opacity="0.12"/>
+      <text x="60" y="14" fill="#7ee787">  if (gate.fail) return envelope(gate)</text>
+    </g>
+    <g transform="translate(0, 104)">
+      <text x="14" y="14" fill="#7d8590">146</text>
+      <text x="44" y="14" fill="#7ee787">+</text>
+      <rect x="50" y="2" width="510" height="16" fill="#7ee787" opacity="0.12"/>
+      <text x="60" y="14" fill="#7ee787">  const integ = await runGate(rd, 'integration')</text>
+    </g>
+    <g transform="translate(0, 122)">
+      <text x="14" y="14" fill="#7d8590">147</text>
+      <text x="44" y="14" fill="#7ee787">+</text>
+      <rect x="50" y="2" width="510" height="16" fill="#7ee787" opacity="0.12"/>
+      <text x="60" y="14" fill="#7ee787">  return composeSlice(gate, integ)</text>
+    </g>
+    <g transform="translate(0, 140)">
+      <text x="14" y="14" fill="#7d8590">148</text>
+      <text x="60" y="14" fill="#7d8590">}</text>
+    </g>
+    <g transform="translate(0, 158)">
+      <text x="14" y="14" fill="#7d8590">149</text>
+    </g>
+    <g transform="translate(0, 176)">
+      <text x="14" y="14" fill="#7d8590">150</text>
+      <text x="44" y="14" fill="#7ee787">+</text>
+      <rect x="50" y="2" width="510" height="16" fill="#7ee787" opacity="0.12"/>
+      <text x="60" y="14" fill="#7ee787">// peaks-loop: keep step order, drop 1 branch, add 2 (envelope + integ)</text>
+    </g>
+    <g transform="translate(0, 194)">
+      <text x="14" y="14" fill="#7d8590">151</text>
+      <text x="60" y="14" fill="#7d8590">export const</text>
+      <text x="142" y="14" fill="#00d4ff">planService</text>
+      <text x="220" y="14" fill="#7d8590">= { buildSlice, ... }</text>
+    </g>
+    <g transform="translate(0, 212)">
+      <text x="14" y="14" fill="#7d8590">152</text>
+    </g>
+  </g>
+
+  <!-- RIGHT: scrolling log + 6-gate radial -->
+  <g transform="translate(620, 92)">
+    <!-- top: log window -->
+    <g>
+      <rect width="544" height="180" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="8"/>
+      <rect width="544" height="24" fill="#161b22" rx="8"/>
+      <rect y="16" width="544" height="8" fill="#161b22"/>
+      <text x="14" y="16" font-family="ui-monospace, monospace" font-size="10" fill="#7d8590">scrolling log · 200 entries</text>
+      <circle cx="528" cy="12" r="4" fill="#7ee787" filter="url(#tglow)">
+        <animate attributeName="opacity" values="1;0.3;1" dur="1.0s" repeatCount="indefinite"/>
+      </circle>
+
+      <g clip-path="url(#scrollClip)" font-family="ui-monospace, monospace" font-size="10">
+        <g>
+          <animateTransform attributeName="transform" type="translate" values="0 0; 0 -20" dur="2.4s" repeatCount="indefinite"/>
+          <text x="32" y="174" fill="#7d8590">23:54:07.041 [trace] routing → peaks-code</text>
+          <text x="32" y="190" fill="#7d8590">23:54:07.118 [rd]    sub-agent dispatched: prd</text>
+          <text x="32" y="206" fill="#7d8590">23:54:07.412 [rd]    sub-agent dispatched: rd</text>
+          <text x="32" y="222" fill="#7d8590">23:54:07.580 [rd]    sub-agent dispatched: qa</text>
+          <text x="32" y="238" fill="#7d8590">23:54:08.142 [gate]  unit: 161/161 OK 4.1s</text>
+          <text x="32" y="254" fill="#7d8590">23:54:08.388 [gate]  integ: 12/12 OK 1.3s</text>
+          <text x="32" y="270" fill="#7d8590">23:54:08.612 [audit] 0 violation 0.8s</text>
+          <text x="32" y="286" fill="#7d8590">23:54:08.901 [eval]  darwin +0.83 RETAIN 1.9s</text>
+          <text x="32" y="302" fill="#7d8590">23:54:09.144 [ui]    handoff 7/7 ✓ 16.3s</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- bottom: 6-gate ring + connection lines -->
+    <g transform="translate(0, 196)">
+      <rect width="544" height="60" fill="#0a0e14" stroke="#1f2937" stroke-width="1" rx="8"/>
+      <g transform="translate(30, 30)" font-family="ui-monospace, monospace" font-size="9" fill="#7d8590">
+        <text x="0" y="3">unit</text>
+        <circle cx="40" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="46" y1="0" x2="84" y2="0" stroke="#30363d"/>
+        <text x="84" y="3">integ</text>
+        <circle cx="124" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="130" y1="0" x2="168" y2="0" stroke="#30363d"/>
+        <text x="168" y="3">audit</text>
+        <circle cx="208" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="214" y1="0" x2="252" y2="0" stroke="#30363d"/>
+        <text x="252" y="3">sec</text>
+        <circle cx="280" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="286" y1="0" x2="324" y2="0" stroke="#30363d"/>
+        <text x="324" y="3">qa</text>
+        <circle cx="346" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="352" y1="0" x2="390" y2="0" stroke="#30363d"/>
+        <text x="390" y="3">review</text>
+        <circle cx="430" cy="0" r="6" fill="#7ee787" filter="url(#tglow)"/>
+        <line x1="436" y1="0" x2="474" y2="0" stroke="#30363d"/>
+        <text x="474" y="3">eval</text>
+        <circle cx="500" cy="0" r="6" fill="#7ee787" filter="url(#tglow)">
+          <animate attributeName="r" values="6;8;6" dur="1.4s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </g>
+  </g>
+</svg>

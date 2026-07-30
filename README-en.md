@@ -134,6 +134,10 @@ Every lane opens with **one slash command**.
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
 </p>
 
+<p align="center">
+  <img src="./assets/readme/trace-stream.svg" alt="peaks-loop live diff & log stream — code diff + scrolling log + 7-gate chain" width="92%"/>
+</p>
+
 | | |
 | --- | --- |
 | **Latest** | [`4.0.1`](https://github.com/SquabbyZ/peaks-loop/releases) — GA (2026-07-30) |
