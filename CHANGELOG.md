@@ -1,6 +1,22 @@
 # Changelog
 
-## 4.0.1 — 2026-07-30 (GA release)
+## 4.0.3 — 2026-07-30 (GA release, 4.0.2 tombstone skip)
+
+This is the cutover to the in-flight 4.0.3 GA, replacing the prior `## 4.0.1` GA header. 4.0.3 lands because 4.0.2 is a permanent npm tombstone (published-then-unpublished on 2026-07-22; see `.peaks/memory/2026-07-30-4-0-1-published-tombstone-resolution.md` table row 4.0.2: ABSENT in versions[] but time entry `2026-07-22T01:53:48.127Z` still present = tombstoned). The byte-for-byte manifest is identical to 4.0.1; the only diff is the package.json version + the visual README rework (see "Visual / text" below). The 4.0.1 GA section below is preserved as the historical record of the actual `peaks-loop@4.0.1` published at `dist-tags.latest` on 2026-07-30T14:55:22Z; it is NOT the 4.0.3 release body.
+
+### Visual / text (4.0.3-only)
+
+- **README + README-en beautify** (8 SVG visual assets, 0 external deps): 5 NEW deterministic SVGs under `assets/readme/` (`hero` 1200×600 multi-pane terminal with live epoch + status lights + radial gate, `command-palette` 13 slash commands in a ⌘K palette, `pulse` 4-tile live metrics with radial rings + data-flow, `trace-stream` code diff + scrolling log + 7-gate chain, `skill-index` 13 skill cards with category badges, `ship-summary` 19-rid timeline with category chips, plus retained `architecture` + `domains` + `status` + `footer`). 1 new tail-end section in CHANGELOG (this one). All asset-only mode; no external fonts, scripts, or remote URLs.
+- **CHANGELOG noise reduction**: 8 empty `## 4.0.0` shells stripped (4 with stale `Updated dependencies` lists + 4 with only `### Patch/Minor Changes` headers and no list items), 1 empty `## [Unreleased]` placeholder stripped, 1 duplicate `## [3.0.2]` section merged. File size 4147 → 3943 lines (-204). 0 semantic content removed; this is a release-blocker for 4.0.3 because the prior duplicate `## 4.0.0` headings confused publish.yml's release-notes awk extractor on the 4.0.3 attempt (PR #rid-034 already showed the awk regex is sensitive to neighbor duplicates).
+- **Dynamic npm version badge in README**: the "Latest" row of the status table now renders via `[![npm](https://img.shields.io/npm/v/peaks-loop...)]` so the version auto-updates at every publish without a README edit. Previously this row was hardcoded `4.0.1`.
+- **package.json keywords for npm search** (root 42 + shared 8 + mut 9 + channel 9): `peaks-loop / loop-engineering / ai-orchestration / ai-coding-agent / ai-programmer / multi-agent / claude-code / codex / z-code / cursor / trae / tongyi-lingma / agent-harness / agentic-engineering / autonomous-workflow / workflow-orchestration / llm-workflow / long-running-task / sub-agent-dispatch / dag-orchestration / slice-decomposition / sop / openspec / karpathy / darwin / anti-drift / evolution-evaluation / ci-cd / github-actions / trusted-publishing / oidc / monorepo / pnpm / vitest / code-review / tdd / security-scan / lint / typecheck / devtool / cli / developer-tools`.
+
+### Sub-package lockstep (4.0.3)
+
+- peaks-loop@4.0.3 / peaks-loop-shared@0.0.31 / peaks-loop-mut@0.1.5 / peaks-loop-shared-channel@0.0.10
+- `peaks-loop-shared/dist/version.js` CLI_VERSION bumped to "4.0.3" (publish gate-cli-version reads on-disk, not the packed tarball — both checked).
+
+## 4.0.1 — 2026-07-30 (GA release, the actual published GA at dist-tags.latest)
 
 ### Features
 
