@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.1.0 (Unreleased)
+
+### Added
+
+- **Sub-agent memory preflight**: peaks-code orchestrator now
+  automatically injects a token-bounded `feedback / layer A` memory
+  block from `.peaks/memory/index.json` into every sub-agent's
+  system prompt. Defaults to 1.2k token cap (configurable via
+  `.peaks/preferences.json::memoryPreflight.maxTokens`); silent
+  degradation when the index is missing. No new CLI surface.
+  See `docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md`.
+
+- **Slice topology multi-pass decomposition (v1 shipped + gap-closure)**: `peaks slice decompose` now supports a `--granularity` flag (`service` | `file` | `both` | `auto`) that drives the multi-pass orchestrator (`MultiPassOrchestrator` + `SchemaRouter` + `CrossPassEdgeMerger` + `LLMArbitrator` + `GranularityDecider`). v1 produced a `DecompositionResultV2` envelope (`passes[]` + `crossPassEdges[]` + `llmArbitrations[]`); the gap-closure slice adds `tests/unit/slice/integration.test.ts` (12 cases: end-to-end `decompose()` against injected runners, two-service fixture, Pass 1 partition invariant, Pass 2 scope-filter invariant, cross-service topological order, internal-edge round-trip, single-pass fallback). The 4-dim `prepareFinalReview()` mapping (functional-completeness / problem-resolution / no-new-bugs / existing-functionality-intact) is covered by `packages/peaks-loop-final-review/tests/final-review-service.test.ts`. No source code touched in this gap-closure slice; only the integration test was added. See `.peaks/_runtime/2026-07-24-session-f13da7/rd/requests/2026-07-24-rid-015-add-slice-topology-multipass.md` for the RD plan.
+
+---
+
 ## 4.0.1 — 2026-07-30 (GA release)
 
 ### Features
@@ -70,20 +86,6 @@
   CLI_VERSION from the cached tarball. Tests: pretest/predev
   invocations of sync-version are now no-ops w.r.t. the shared
   version (no ratcheting during local dev loops).
-
-## 4.1.0 (Unreleased)
-
-### Added
-
-- **Sub-agent memory preflight**: peaks-code orchestrator now
-  automatically injects a token-bounded `feedback / layer A` memory
-  block from `.peaks/memory/index.json` into every sub-agent's
-  system prompt. Defaults to 1.2k token cap (configurable via
-  `.peaks/preferences.json::memoryPreflight.maxTokens`); silent
-  degradation when the index is missing. No new CLI surface.
-  See `docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md`.
-
-- **Slice topology multi-pass decomposition (v1 shipped + gap-closure)**: `peaks slice decompose` now supports a `--granularity` flag (`service` | `file` | `both` | `auto`) that drives the multi-pass orchestrator (`MultiPassOrchestrator` + `SchemaRouter` + `CrossPassEdgeMerger` + `LLMArbitrator` + `GranularityDecider`). v1 produced a `DecompositionResultV2` envelope (`passes[]` + `crossPassEdges[]` + `llmArbitrations[]`); the gap-closure slice adds `tests/unit/slice/integration.test.ts` (12 cases: end-to-end `decompose()` against injected runners, two-service fixture, Pass 1 partition invariant, Pass 2 scope-filter invariant, cross-service topological order, internal-edge round-trip, single-pass fallback). The 4-dim `prepareFinalReview()` mapping (functional-completeness / problem-resolution / no-new-bugs / existing-functionality-intact) is covered by `packages/peaks-loop-final-review/tests/final-review-service.test.ts`. No source code touched in this gap-closure slice; only the integration test was added. See `.peaks/_runtime/2026-07-24-session-f13da7/rd/requests/2026-07-24-rid-015-add-slice-topology-multipass.md` for the RD plan.
 
 ## 4.0.0-beta.21 — 2026-07-22 (ice-cola surface-check fixes, republish)
 
