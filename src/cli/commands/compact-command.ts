@@ -25,6 +25,10 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { writeCheckpoint } from '../../services/session/session-checkpoint-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import {
+  readCompactHistory,
+  summarizeCompactHistory,
+} from '../../services/compact-history/compact-history-service.js';
+import {
   buildRecommendEnvelopePure,
   dryRunCompact,
   suggestCompact
@@ -342,4 +346,79 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
     }
   });
+
+  // 6. peaks compact history [--json] (slice 2026-07-30-compact-visibility)
+  addJsonOption(
+    compact
+      .command('history')
+      .description(
+        'Read the per-session compact-history.jsonl and emit a structured ' +
+          'summary of every auto-compact dispatch in the current session.'
+      )
+      .option('--project <path>', 'project root (defaults to git root or cwd)')
+      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+      .action((options: { project?: string; sessionId?: string; json?: boolean }) => {
+        try {
+          const project = options.project !== undefined
+            ? resolveCanonicalProjectRoot(options.project)
+            : (findProjectRoot(process.cwd()) ?? process.cwd());
+          const session = resolveSessionId(project, options.sessionId);
+          if (session.error !== null) {
+            printResult(
+              io,
+              fail('compact.history', session.error.code, session.error.message, { projectRoot: project }, session.error.nextActions),
+              options.json,
+            );
+            process.exitCode = 1;
+            return;
+          }
+          const result = readCompactHistory({ projectRoot: project, sessionId: session.sid as string });
+          if (result.kind === 'file-missing') {
+            printResult(
+              io,
+              ok('compact.history', {
+                sessionId: session.sid,
+                totalCompacts: 0,
+                message: 'No compact-history.jsonl yet; auto-compact has not fired in this session.',
+                historyPath: result.path,
+              }),
+              options.json,
+            );
+            return;
+          }
+          if (result.kind === 'empty') {
+            printResult(
+              io,
+              ok('compact.history', {
+                sessionId: session.sid,
+                totalCompacts: 0,
+                message: 'compact-history.jsonl exists but is empty.',
+                historyPath: result.path,
+              }),
+              options.json,
+            );
+            return;
+          }
+          const summary = summarizeCompactHistory(result.events);
+          printResult(
+            io,
+            ok('compact.history', {
+              sessionId: session.sid,
+              ...summary,
+              events: result.events,
+              parseErrors: result.parseErrors,
+              historyPath: result.path,
+            }),
+            options.json,
+          );
+        } catch (error) {
+          printResult(
+            io,
+            fail('compact.history', 'COMPACT_HISTORY_READ_FAILED', getErrorMessage(error), {}, ['Verify the project path is readable and a session is bound']),
+            options.json,
+          );
+          process.exitCode = 1;
+        }
+      }),
+  );
 }
