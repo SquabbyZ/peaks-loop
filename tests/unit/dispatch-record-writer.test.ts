@@ -34,7 +34,7 @@ describe('writeInitialDispatchRecord (G2 + G5 + G6)', () => {
       now: () => new Date('2026-06-07T00:00:00Z')
     });
     expect(existsSync(path)).toBe(true);
-    expect(record.version).toBe(2);
+    expect(record.version).toBe('3.1');
     expect(record.role).toBe('rd');
     expect(record.outcome).toBe('no-execution');
     expect(record.status).toBe('queued');

@@ -187,6 +187,14 @@ const config: TestUserConfig = {
             'tests/unit/rd-service-target-area-security.test.ts',
             'tests/unit/workflow-autonomous-resume-validation.test.ts',
             'tests/unit/workflow-autonomous-service.test.ts',
+            // Slice 2026-07-30-nightshift: tech-service.test.ts uses
+            // the same `vi.doMock('node:fs') + vi.resetModules() +
+            // dynamic-await import` pattern as the 5 files above.
+            // Under fast-project maxWorkers=8 the 7 mock sites
+            // balloon the per-test wall to 21s, hitting the 120s
+            // cliff under contention. Move to the slow project so
+            // single-worker mode eliminates the transform contention.
+            'tests/unit/tech-service.test.ts',
             // Slice 018 — io-heavy third-project split. These 60 files do
             // real spawn / mkdtemp / tmpdir / child_process IO that contends
             // with the fast lane's 4-worker concurrency, pushing the full
@@ -280,6 +288,11 @@ const config: TestUserConfig = {
             'tests/unit/rd-service-target-area-security.test.ts',
             'tests/unit/workflow-autonomous-resume-validation.test.ts',
             'tests/unit/workflow-autonomous-service.test.ts',
+            // Slice 2026-07-30-nightshift: see the fast-project
+            // exclude comment for the rationale. Together with the
+            // exclude above this moves tech-service's 7 module-cache
+            // invalidation tests into the single-worker pool.
+            'tests/unit/tech-service.test.ts',
           ],
           fileParallelism: false,
           maxWorkers: 1,

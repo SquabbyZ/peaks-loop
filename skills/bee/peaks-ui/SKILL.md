@@ -130,12 +130,10 @@ peaks request show <request-id> --role prd --project <repo> --json   # read link
 
 # 2. ensure Playwright MCP is available for the visible browser check
 # Slice #016: peaks-loop no longer manages MCP install. The LLM checks
-# its own tool list for any Playwright MCP entry in the LLM tool list. If absent, the
-# LLM tells the user the install command (`claude mcp add playwright
+# its own tool list for any Playwright MCP entry. If absent, the LLM
+# tells the user the install command (`claude mcp add playwright
 # -- npx @playwright/mcp@latest` in Claude Code) and reports the gate
-# as blocked. Do NOT silently downgrade to screenshots-only, manual
-# steps, or other tools. Do NOT route through chrome-devtools-mcp as a
-# browser-launch substitute (it cannot launch a browser of its own).
+# as blocked. Do NOT silently downgrade or route through chrome-devtools-mcp.
 
 # 3. read project-scan for component library and CSS framework context
 #    check .peaks/project-scan/project-scan.md (blocking if missing for existing projects)
@@ -148,32 +146,24 @@ peaks request show <request-id> --role prd --project <repo> --json   # read link
 #    See "Prototype fidelity gate" section for the full decision tree.
 
 # 5. drive the running page or prototype through Claude Code MCP tools
-#    (the LLM invokes these directly from its tool list — no peaks-loop envelope)
-#    browser_navigate --args '{"url":"<url>"}'
-#    → URL (after allow-list check), launches headed browser
-#
+#    (the LLM invokes these directly — no peaks-loop envelope)
+#    browser_navigate --args '{"url":"<url>"}' → URL (after allow-list), launches headed browser
 #    LOGIN GATE: after browser_navigate, check for login/CAPTCHA/SSO/MFA redirect.
-#    If detected → visible browser is open; WAIT for user to complete login and
-#    explicitly confirm ("登录好了" or equivalent). Do NOT
-#    infer login from DOM. If user does not confirm → pause and ask.
-#
-#    After confirmation: browser_take_screenshot (filename), browser_snapshot (a11y tree),
+#    If detected → WAIT for user to complete login and explicitly confirm ("登录好了"
+#    or equivalent). Do NOT infer login from DOM. If user does not confirm → pause and ask.
+#    After confirmation: browser_take_screenshot, browser_snapshot (a11y tree),
 #    browser_console_messages (errors), browser_network_requests (failures), browser_close.
 # The skill body NEVER bakes in the Playwright MCP prefix; the LLM's runtime resolves the name.
 
 # 5. write design-draft artifact to .peaks/_runtime/<session-id>/ui/design-draft.md
 
 # 5.5 DESIGN-DRAFT CONFIRMATION GATE (MANDATORY):
-#      After writing the design-draft, present a summary to the user:
-#        - style direction and rationale
-#        - key design dials (variance, motion, density, palette)
-#        - component tree
-#        - anti-template items rejected
-#      Ask user to confirm before handing off to RD.
-#      In full-auto mode: if the design-draft passes the anti-template checklist
-#      and browser validation shows no regressions, auto-confirm.
-#      If browser validation was blocked (no Playwright MCP), always ask user
-#      to explicitly confirm the design-draft before proceeding.
+#      After writing the design-draft, present a summary (style direction, key design
+#      dials, component tree, anti-template items rejected) and ask user to confirm
+#      before handing off to RD. In full-auto mode: if the design-draft passes the
+#      anti-template checklist and browser validation shows no regressions, auto-confirm.
+#      If browser validation was blocked (no Playwright MCP), always ask user to
+#      explicitly confirm the design-draft before proceeding.
 
 # 6. record visual direction, rejected generic patterns, regression seeds in the request artifact
 
@@ -192,16 +182,13 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` comma
 **Peaks-Loop Gate A — After design-draft write:**
 ```bash
 ls .peaks/_runtime/<sessionId>/ui/design-draft.md
-# Expected output: .peaks/_runtime/<sessionId>/ui/design-draft.md
-# "No such file" → STOP, write the design-draft first. Do not proceed to handoff.
+# Expected: .peaks/_runtime/<sessionId>/ui/design-draft.md
+# No such file → STOP, write the design-draft first. Do not proceed to handoff.
 
-# Peaks-Loop Gate A also requires an ASCII wireframe section with at least one fenced block.
+# Gate A also requires an ASCII wireframe section with at least one fenced block.
 grep -c "^## Layout (ASCII wireframe)" .peaks/_runtime/<sessionId>/ui/design-draft.md
-# Expected: >= 1. Zero → BLOCKED. The mandatory ASCII wireframe section is missing.
 grep -c '^```' .peaks/_runtime/<sessionId>/ui/design-draft.md
-# Expected: >= 2 (one or more fenced code blocks for ASCII wireframes).
-# Zero → BLOCKED. Prose-only layout description is not acceptable; add ASCII wireframes
-# for the main page and every meaningful modal/drawer/state.
+# Both >= 1. Zero in either → BLOCKED. Prose-only layout is not acceptable.
 ```
 
 **Peaks-Loop Gate B — Before handoff to RD:**
@@ -281,27 +268,21 @@ Before writing design-draft.md, verify:
 
 In full-auto frontend design with NO prototype (verified above), default to the curated taste path instead of generic component generation. External skills are optional enhancements, not prerequisites.
 
-**If a prototype exists, skip this section.** The prototype IS the design direction. Use the prototype fidelity gate checklist above instead.
+**If a prototype exists, skip this section.** The prototype IS the design direction.
 
 **Self-contained design process (always available):**
 
 1. choose a specific style direction: editorial, bento, Swiss, luxury, retro-futurist, glass, or product-specific system UI. Pick one that fits the product's tone — do not default to "clean minimal."
-2. define design dials with concrete values:
-   - variance: conservative (subtle radius/shadows) | moderate (mixed depths) | bold (asymmetric, overlapping)
-   - motion: minimal (opacity-only) | medium (transform+opacity) | rich (staggered, spring, scroll-triggered)
-   - density: sparse (generous whitespace) | comfortable (standard) | dense (data-heavy)
-   - typography: one display/heading + one body font from system or project stack
-   - palette: 5 tokens (primary, surface, text-primary, text-secondary, accent) in oklch()/hsl() with concrete values
-3. reject anti-patterns: centered stock heroes, default card grids, unmodified library defaults, AI purple-blue gradients, generic three-card feature rows, safe gray-on-white
-4. require 6 states per surface: loading (skeleton), empty (illustration+CTA), error (message+retry), hover, focus, active
-5. browser-check with Playwright MCP, wait for user confirmation after any login challenge, iterate until UI looks intentional
+2. define design dials: variance (conservative | moderate | bold) / motion (minimal | medium | rich) / density (sparse | comfortable | dense) / typography (one display + one body) / palette (5 tokens in oklch/hsl).
+3. reject anti-patterns: centered stock heroes, default card grids, unmodified library defaults, AI purple-blue gradients, generic three-card feature rows, safe gray-on-white.
+4. require 6 states per surface: loading, empty, error, hover, focus, active.
+5. browser-check with Playwright MCP, wait for user confirmation after any login challenge, iterate.
 
 **When external design skills ARE available** (confirm via `peaks capabilities --source access-repo --json` first, reference only):
-
 - `awesome-design-md`: layout composition, rhythm, atmosphere
 - `taste-skill` / `design-taste-frontend`: anti-template, typography, color, density, motion critique
 
-Full-auto Peaks-Loop UI output must include a short taste report: visual direction, references used, rejected generic patterns, browser observations, remaining design risks, and the next visual iteration if the page is not yet good enough.
+Full-auto output must include a short taste report: visual direction, references used, rejected generic patterns, browser observations, remaining design risks, and the next visual iteration if the page is not yet good enough.
 
 ## Mandatory design-draft output
 

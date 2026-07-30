@@ -177,7 +177,14 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
         }
       }
       if (options.json === true) {
-        emitHint(io, JSON.stringify(ok('gate.enforce', decision)));
+        // --json mode: emit the canonical envelope on stdout (the
+        // documented contract for downstream tooling). The hook
+        // decision (allow/deny) is still signalled via process.exitCode
+        // + the minimal `{}` on stdout in non-`--json` mode.
+        // Slice 2026-07-30-nightshift: emitHint here was wrong —
+        // emitHint writes to stderr, but the AC5 contract expects
+        // the JSON envelope on stdout. Switch to printResult(asJson=true).
+        printResult(io, ok('gate.enforce', decision), true);
       } else {
         // allow: emit minimal JSON on stdout so Claude Code's PreToolUse hook
         // validator accepts the response (see comment above).
@@ -196,7 +203,20 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
     // Node.js processes to accumulate in the user's task
     // manager. An explicit process.exit here forces the gate
     // process to release all handles and exit immediately.
-    process.exit(process.exitCode || 0);
+    //
+    // Slice 2026-07-30-nightshift: gate the `process.exit` on
+    // being invoked as a real CLI hook (no PEAKS_HOOK_STDIN test
+    // seam, no PEAKS_TEST_SEAM env var). The test harness calls
+    // `runCommand` which invokes the same action handler in
+    // process — calling `process.exit` inside the test would
+    // kill the vitest runner before assertions complete. The
+    // `process.exitCode` set above is sufficient for the test
+    // path: Commander's `parseAsync` resolves the action, then
+    // the harness reads the captured stdout/stderr before the
+    // runner exits normally with the recorded exit code.
+    if (process.env.PEAKS_HOOK_STDIN === undefined && process.env.PEAKS_TEST_SEAM === undefined) {
+      process.exit(process.exitCode || 0);
+    }
   });
 
   addJsonOption(

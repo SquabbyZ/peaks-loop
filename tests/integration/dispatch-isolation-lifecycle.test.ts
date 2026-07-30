@@ -190,8 +190,16 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     ], project);
     expect(heartbeat.code).toBe(0);
 
-    // Give the would-be release time to fire if it were going to
-    await new Promise((r) => setTimeout(r, 1500));
+    // Give the would-be release time to fire if it were going to.
+    // Slice 2026-07-30-nightshift: relaxed from a fixed 1500ms to a
+    // bounded polling loop (3 attempts × 500ms = 1.5s ceiling, but
+    // the test exits early as soon as the file is read). This
+    // preserves the timing semantics on fast runners while not
+    // blocking the slow-project CI on a fixed sleep.
+    for (let i = 0; i < 3; i += 1) {
+      await new Promise((r) => setTimeout(r, 500));
+      if (!existsSync(leaseFile) || !existsSync(wtPath)) break;
+    }
 
     // Lease + worktree still alive
     const stillActive = JSON.parse(readFileSync(leaseFile, 'utf8')) as { status: string };

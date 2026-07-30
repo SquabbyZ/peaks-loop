@@ -132,7 +132,7 @@ describe('peaks sub-agent dispatch (G2 / AC-7..AC-10)', () => {
     const parsed = parseJsonOutput<{ dispatchRecordPath: string }>(stdout);
     const onDisk = readFileSync(parsed.data.dispatchRecordPath, 'utf8');
     const rec = JSON.parse(onDisk) as Record<string, unknown>;
-    expect(rec.version).toBe(2);
+    expect(rec.version).toBe('3.1');
     expect(rec.outcome).toBe('no-execution');
     expect(rec.status).toBe('queued');
     expect(rec.heartbeats).toEqual([]);

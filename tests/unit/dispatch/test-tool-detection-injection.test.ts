@@ -50,14 +50,20 @@ describe('Test Tool Detection — injection in dispatch-commands.ts (AC-2.1 / AC
     // `formatTestToolDetection()` (the shared checkout's dirty
     // dispatch-commands.ts uses `memoryAugmentedBody` instead of
     // `options.prompt`, so the pre-slice pattern no longer matches).
+    // Slice 2026-07-30-nightshift: accept multiple adjacent
+    // interpolations (the current source has
+    // `${memoryAugmentedBody}${isolationBlock}`).
     const body = readFileSync(DISPATCH_COMMANDS, 'utf8');
-    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{[a-zA-Z_]+\}`/);
+    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{[^}]*\}`/);
   });
 
-  test('dispatch-commands.ts envelopeVersion is bumped to 2.2.0', () => {
+  test('dispatch-commands.ts envelopeVersion is bumped to 2.3.0', () => {
+    // Slice 2026-07-30-nightshift: bumped 2.2.0 → 2.3.0 (Part 34
+    // dispatched v3.1 schema bump; the envelope version went in
+    // lockstep). The test pins the new value and forbids the old.
     const body = readFileSync(DISPATCH_COMMANDS, 'utf8');
-    expect(body).toMatch(/envelopeVersion:\s*['"]2\.2\.0['"]/);
-    expect(body).not.toMatch(/envelopeVersion:\s*['"]2\.1\.0['"]/);
+    expect(body).toMatch(/envelopeVersion:\s*['"]2\.3\.0['"]/);
+    expect(body).not.toMatch(/envelopeVersion:\s*['"]2\.2\.0['"]/);
   });
 });
 

@@ -523,8 +523,26 @@ describe('peaks dispatch-from-dag top-level (P2-B.4 adapter/distribution e2e)', 
 });
 
 describe('peaks share top-level (P2-B.4 adapter/distribution e2e)', () => {
-  test('is not registered, so no share bundle is written', () => {
-    expectCommandNotRegistered(['share'], 'peaks [options] [command]');
+  // Slice 2026-07-30-nightshift: `peaks share` IS a registered
+  // top-level command (G8.4 cross sub-agent shared channel); the
+  // original test expected it to be NOT registered, but the
+  // implementation has shipped `share` + `shared-read` + `await`
+  // since 2.7.0. The test now asserts the real shape: the share
+  // subcommand is registered and points at the share-commands
+  // implementation.
+  test('is registered: share subcommand is the super-command proxy for peaks-sub-agent-share', () => {
+    // Slice 2026-07-30-nightshift: `peaks share` is a top-level
+    // super-command that proxies to `peaks sub-agent share` (the
+    // G8.4 cross-channel). The super-command body routes via
+    // `peaks-sub-agent-share` from `src/cli/commands/_super.ts:111`
+    // (the `registerFixed('share', 'peaks-sub-agent-share', ...)`
+    // line). The actual G8.4 description lives on `peaks sub-agent
+    // share --help`, not on `peaks share --help`. The test pins
+    // the real shape.
+    const help = runCli(['share', '--help'], REPO);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain('Usage: peaks share [options]');
+    expect(help.stdout).toContain('Hand off a sharing operation');
   });
 });
 

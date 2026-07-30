@@ -133,7 +133,7 @@ function initRepo(): string {
 describe('peaks worktree lease lifecycle (Part 2.D)', () => {
   test('full lifecycle: spawn → list → status → renew → release → gc → list-empty', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-lifecycle';
+    const sessionId = '2026-07-29-p2d-lifecycle-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p2d-lifecycle';
     const role = 'rd';
     const purpose = 'part 2.D lifecycle e2e';
@@ -274,7 +274,7 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
 
   test('renew on a released lease → LEASE_NOT_RENEWABLE (fail-closed)', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-renew-released';
+    const sessionId = '2026-07-29-p2d-renew-released-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const spawn = JSON.parse(runCli([
       'spawn', '--rid', 'rid-r', '--role', 'rd', '--purpose', 'p',
       '--session', sessionId, '--project', project, '--json'
@@ -291,7 +291,7 @@ describe('peaks worktree lease lifecycle (Part 2.D)', () => {
 
   test('status on a never-spawned lease id → LEASE_NOT_FOUND (fail-closed)', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p2d-status-missing';
+    const sessionId = '2026-07-29-p2d-status-missing-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const r = runCli(['lease-status', '--lease-id', 'ffffffffffffffff', '--session', sessionId, '--project', project, '--json'], project);
     expect(r.code).toBe(1);
     const env = JSON.parse(r.stdout) as { ok: false; code: string };

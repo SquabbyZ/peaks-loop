@@ -90,7 +90,7 @@ function initRepo(): string {
 describe('peaks lease-metrics (Part 4.B)', () => {
   test('full manual lifecycle (spawn → renew → release → gc) populates per-kind counts + tail', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p4b-metrics';
+    const sessionId = '2026-07-29-p4b-metrics-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p4b';
 
     // 1. spawn
@@ -166,7 +166,7 @@ describe('peaks lease-metrics (Part 4.B)', () => {
     // starts at 0 in a clean session. The actual failure path
     // is unit-tested by the 16-hex regex in the writer module.
     const project = initRepo();
-    const sessionId = '2026-07-29-p4b-clean';
+    const sessionId = '2026-07-29-p4b-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const metrics = runCli([
       'lease-metrics',
       '--session', sessionId,
@@ -203,7 +203,7 @@ interface RateEnvelope {
 describe('peaks lease-metrics --rate (Part 5.B)', () => {
   test('full lifecycle (spawn+renew+release+gc) → estimatedActive=0, estimatedLeaked=0, lifetime paired', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p5b-rate-clean';
+    const sessionId = '2026-07-29-p5b-rate-clean-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const rid = 'rid-2026-07-29-p5b-clean';
 
     // spawn → renew → release → gc
@@ -234,7 +234,7 @@ describe('peaks lease-metrics --rate (Part 5.B)', () => {
 
   test('only spawn (no release) → estimatedLeaked >= 1', () => {
     const project = initRepo();
-    const sessionId = '2026-07-29-p5b-rate-leaked';
+    const sessionId = '2026-07-29-p5b-rate-leaked-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const spawn = runCli(['worktree', 'spawn', '--rid', 'rid-leak', '--role', 'rd', '--purpose', 'p5b-leak', '--session', sessionId, '--project', project, '--json'], project);
     expect(spawn.code).toBe(0);
     // (intentionally do NOT release or gc)

@@ -69,9 +69,22 @@ export interface AwaitBatchOptions {
   readonly schedule?: (cb: () => void, ms: number) => void;
   /**
    * Test seam: how to read a record's status. Production callers
-   * leave this undefined (the default reads the file).
+   * leave this undefined (the default reads `status` from the file).
+   * Returning a plain string is treated as the record's status; the
+   * default reader also exposes the `outcome` field via the optional
+   * second tuple element (see `defaultReadOutcome`).
+   *
+   * Test-only escape hatch: callers that need to return both status
+   * and outcome can implement `readRecord` instead.
    */
   readonly readOutcome?: (recordPath: string) => string | null;
+  /**
+   * Test seam: read a record's status AND outcome together. When
+   * defined, this overrides `readOutcome`. Implementations should
+   * return `{ status: null, outcome: null }` when the file is missing
+   * or unreadable, and `{ status }` / `{ status, outcome }` otherwise.
+   */
+  readonly readRecord?: (recordPath: string) => { status: string | null; outcome: string | null };
 }
 
 export interface AwaitBatchResult {
@@ -144,7 +157,8 @@ export async function awaitBatch(
     t.unref?.();
     return t;
   });
-  const readOutcome = options.readOutcome ?? defaultReadOutcome;
+  const readOutcome = options.readOutcome ?? ((p: string) => defaultReadOutcome(p).status);
+  const readRecord = options.readRecord ?? defaultReadOutcome;
 
   const startedAt = now();
   const slots = new Map<number, {
@@ -188,6 +202,17 @@ export async function awaitBatch(
       }
       // The default readOutcome returns the on-disk `status`. We map
       // a small set of values to the per-dispatch status union.
+      // Slice 2026-07-30-nightshift: also capture the optional
+      // `outcome` field so the per-IDE note can surface the human
+      // reason (e.g. "mock failure at leaf-2"). The `outcome` is read
+      // alongside the `status` via `readRecord` and surfaced into
+      // `slot.note` for failed dispatches; for done/cancelled the
+      // note is left null (matches the pre-nightshift contract).
+      // `stale` is mapped to `timeout` so the per-IDE note preserves
+      // the human-readable reason (cursor / claude-code both surface
+      // `stale` on the wire but the BatchResult.status union only
+      // knows `timeout`).
+      const record = readRecord(slot.recordPath);
       if (outcome === 'done' || outcome === 'success') {
         slot.status = 'done';
         slot.note = null;
@@ -195,7 +220,7 @@ export async function awaitBatch(
         lastProgressAt.set(idx, now());
       } else if (outcome === 'failed') {
         slot.status = 'failed';
-        slot.note = null;
+        slot.note = record.outcome ?? null;
         slot.finishedAt = now();
         lastProgressAt.set(idx, now());
       } else if (outcome === 'cancelled') {
@@ -203,8 +228,13 @@ export async function awaitBatch(
         slot.note = null;
         slot.finishedAt = now();
         lastProgressAt.set(idx, now());
+      } else if (outcome === 'stale') {
+        slot.status = 'timeout';
+        slot.note = 'stale';
+        slot.finishedAt = now();
+        lastProgressAt.set(idx, now());
       } else {
-        // Any other status (queued / running / finalizing / stale /
+        // Any other status (queued / running / finalizing /
         // never-started / unreadable) means the dispatch has not
         // reached a terminal state yet.
         allDone = false;
@@ -250,13 +280,42 @@ export async function awaitBatch(
   }
 
   // Build the per-dispatch results in dispatchIndex order.
+  // Slice 2026-07-30-nightshift: the per-IDE note construction is
+  // rewritten to match the 1.4 dogfood contract:
+  //   - claude-code (no notePrefix): note = slot.note (the raw
+  //     outcome, or null when done/cancelled)
+  //   - other IDEs (notePrefix set):
+  //       - on timeout:                  `${notePrefix} (timeout)`
+  //       - on failed (with outcome):    `${notePrefix} — ${outcome}`
+  //       - on failed (no outcome):      `${notePrefix}`
+  //       - on done / cancelled:         `${notePrefix}`
   const results: AwaitBatchResult['results'] = Array.from(slots.entries())
     .sort(([a], [b]) => a - b)
     .map(([idx, slot]) => {
       const finishedAt = slot.finishedAt ?? startedAt + effective;
       const baseNote = options.notePrefix ?? null;
-      const noteSuffix = slot.finishedAt === null ? ' (timeout)' : '';
-      const note = baseNote !== null ? `${baseNote}${noteSuffix}` : slot.note;
+      let note: string | null;
+      if (baseNote === null) {
+        // Claude-Code path: surface the raw outcome (no per-IDE prefix).
+        note = slot.note;
+      } else if (slot.finishedAt === null) {
+        // Timed-out slot: keep the legacy ` (timeout)` suffix.
+        note = `${baseNote} (timeout)`;
+      } else if (slot.status === 'failed' && slot.note !== null && slot.note.length > 0) {
+        // Failed with a human reason: `${notePrefix} — ${outcome}`.
+        note = `${baseNote} — ${slot.note}`;
+      } else if (slot.note !== null && slot.note.length > 0) {
+        // Non-failed terminal slot with a non-null note (e.g. cursor /
+        // claude-code `stale` → status=timeout, note='stale'):
+        // `${notePrefix} — ${note}` so the human reason is surfaced.
+        // Slice 2026-07-30-nightshift: previously this branch dropped
+        // the slot's note entirely (the bare-prefix else swallowed
+        // it). The 1.4 dogfood for `stale` flips the contract.
+        note = `${baseNote} — ${slot.note}`;
+      } else {
+        // Done / cancelled / failed-without-reason: bare prefix.
+        note = baseNote;
+      }
       return {
         dispatchIndex: idx,
         recordPath: slot.recordPath,
@@ -283,14 +342,16 @@ export async function awaitBatch(
   };
 }
 
-function defaultReadOutcome(recordPath: string): string | null {
-  if (!recordPath) return null;
+function defaultReadOutcome(recordPath: string): { status: string | null; outcome: string | null } {
+  if (!recordPath) return { status: null, outcome: null };
   try {
-    if (!existsSync(recordPath)) return null;
+    if (!existsSync(recordPath)) return { status: null, outcome: null };
     const raw = readFileSync(recordPath, 'utf8');
-    const obj = JSON.parse(raw) as { status?: string };
-    return typeof obj.status === 'string' ? obj.status : null;
+    const obj = JSON.parse(raw) as { status?: unknown; outcome?: unknown };
+    const status = typeof obj.status === 'string' ? obj.status : null;
+    const outcome = typeof obj.outcome === 'string' ? obj.outcome : null;
+    return { status, outcome };
   } catch {
-    return null;
+    return { status: null, outcome: null };
   }
 }

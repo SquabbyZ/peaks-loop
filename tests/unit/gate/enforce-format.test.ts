@@ -76,12 +76,19 @@ function stdin(command: string, tool = 'Bash'): Record<string, string> {
 }
 
 describe('PRD#2 contract: peaks gate enforce stdout/stderr discipline', () => {
-  test('allow: stdout is empty AND stderr is empty (Claude Code = normal permission flow)', async () => {
+  // Slice 2026-07-30-nightshift — updated contract.
+  // The original PRD#2 G1 said "allow path: stdout empty", but commit
+  // 53095bef (2026-07-27) added `emitDecision(io, {})` on the allow path
+  // because Claude Code 2.x rejects empty stdout with
+  // "Hook JSON output validation failed — Invalid input". The correct
+  // production contract is therefore: allow path emits `{}` (the
+  // canonical no-op marker) on stdout, stderr stays empty, exit 0.
+  test('allow: stdout is "{}" and stderr is empty (Claude Code 2.x hook validator contract)', async () => {
     await seedWechat();
     await mkdir(join(project, 'posts'), { recursive: true });
     await writeFile(join(project, 'posts', 'current.md'), 'all clean\n', 'utf8');
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('git push'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('')).toBe('{}\n');
     expect(result.stderr.join('').trim()).toBe('');
     expect(result.exitCode === undefined || result.exitCode === 0).toBe(true);
   });
@@ -113,31 +120,35 @@ describe('PRD#2 contract: peaks gate enforce stdout/stderr discipline', () => {
     expect(result.stderr.join('')).toContain('no-todo');
   });
 
-  test('allow on non-Bash tool: stdout empty, stderr empty, exit 0', async () => {
+  test('allow on non-Bash tool: stdout is "{}", stderr empty, exit 0', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('whatever', 'Edit'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('')).toBe('{}\n');
     expect(result.stderr.join('').trim()).toBe('');
     expect(result.exitCode === undefined || result.exitCode === 0).toBe(true);
   });
 
-  test('allow on unguarded command: stdout empty, stderr empty, exit 0', async () => {
+  test('allow on unguarded command: stdout is "{}", stderr empty, exit 0', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('ls -la'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('')).toBe('{}\n');
     expect(result.stderr.join('').trim()).toBe('');
     expect(result.exitCode === undefined || result.exitCode === 0).toBe(true);
   });
 });
 
 describe('PRD#2 contract: --json envelope (AC5)', () => {
-  test('--json on allow: stdout empty (Claude Code contract first), JSON envelope on stderr', async () => {
+  // Slice 2026-07-30-nightshift -- the --json flag still emits the
+  // structured envelope (not the minimal `{}` marker) because the
+  // canonical envelope is the contract for downstream tooling.
+  test('--json on allow: stdout is the canonical envelope (not the minimal `{}` marker)', async () => {
     await seedWechat();
     await mkdir(join(project, 'posts'), { recursive: true });
     await writeFile(join(project, 'posts', 'current.md'), 'all clean\n', 'utf8');
     const result = await runCommand(['gate', 'enforce', '--project', project, '--json'], stdin('git push'));
-    expect(result.stdout.join('').trim()).toBe('');
-    expect(result.stderr.join('')).toContain('gate.enforce');
+    const out = parseJsonOutput(result.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.command).toBe('gate.enforce');
   });
 
   test('--json on deny: stdout is the Claude Code decision JSON AND stderr carries the debug envelope', async () => {
@@ -166,7 +177,7 @@ describe('PRD#2 contract: cross-platform (AC6)', () => {
       await writeFile(join(project, 'posts', 'current.md'), 'all clean\n', 'utf8');
       Object.defineProperty(process, 'platform', { value: platform, configurable: true });
       const result = await runCommand(['gate', 'enforce', '--project', project], stdin('git push'));
-      expect(result.stdout.join('')).toBe('');
+      expect(result.stdout.join('')).toBe('{}\n');
       expect(result.stderr.join('')).toBe('');
     });
 
@@ -184,10 +195,10 @@ describe('PRD#2 contract: cross-platform (AC6)', () => {
 });
 
 describe('PRD#2 contract: fail-open preserved (P1)', () => {
-  test('malformed hook payload: stdout empty, exit 0', async () => {
+  test('malformed hook payload: stdout is "{}", exit 0', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], { PEAKS_HOOK_STDIN: '{ not json' });
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('')).toBe('{}\n');
     expect(result.exitCode === undefined || result.exitCode === 0).toBe(true);
   });
 });

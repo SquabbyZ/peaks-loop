@@ -381,11 +381,19 @@ export async function awaitClaudeCodeBatch(
  // test stays green; the underlying loop is identical to the trae /
  // trae-cn / codex / cursor wrappers below. The new typed outcome
  // lives on the unified service; the S4 fail-fast test pins it.
+ //
+ // Slice 2026-07-30-nightshift: claude-code does NOT use a
+ // per-IDE note prefix. The 1.4 dogfood contract says the done
+ // note is `null` (raw outcome) and the failed note is the raw
+ // `outcome` string with no prefix. The 4 non-Claude IDEs
+ // (trae / trae-cn / codex / cursor) prefix the note with their
+ // per-IDE label so cross-IDE attribution is visible to the LLM.
+ // Passing no `notePrefix` here keeps the legacy contract.
  const unified = await awaitBatchUnified(
  input.dispatchCount,
  input.recordPaths,
  input.timeoutMs,
- { defaultTimeoutMs: 60_000, notePrefix: 'claude-code awaitBatch' }
+ { defaultTimeoutMs: 60_000 }
  );
  // Touch batchId so the parameter remains in scope for any future
  // in-process queue wiring.

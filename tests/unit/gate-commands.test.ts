@@ -57,30 +57,38 @@ describe('peaks gate enforce', () => {
     expect(out.hookSpecificOutput.permissionDecisionReason).toMatch(/no-todo/);
   });
 
-  test('emits nothing (allow) when the gate passes', async () => {
+  test('emits a minimal allow marker ({} on stdout) when the gate passes', async () => {
+    // Claude Code 2.x PreToolUse hook validator rejects empty stdout with
+    // "Hook JSON output validation failed — Invalid input". The
+    // production code emits `{}` as the canonical no-op marker (commit
+    // 53095bef). Tests must therefore accept the minimal JSON marker
+    // rather than strictly empty stdout.
     await seedWechat();
     await mkdir(join(project, 'posts'), { recursive: true });
     await writeFile(join(project, 'posts', 'current.md'), 'all clean\n', 'utf8');
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('git push'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('').trim()).toBe('{}');
+    expect(result.stderr.join('').trim()).toBe('');
   });
 
-  test('emits nothing for a non-Bash tool', async () => {
+  test('emits a minimal allow marker for a non-Bash tool', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('whatever', 'Edit'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('').trim()).toBe('{}');
+    expect(result.stderr.join('').trim()).toBe('');
   });
 
-  test('emits nothing for an unguarded command', async () => {
+  test('emits a minimal allow marker for an unguarded command', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], stdin('ls -la'));
-    expect(result.stdout.join('').trim()).toBe('');
+    expect(result.stdout.join('').trim()).toBe('{}');
+    expect(result.stderr.join('').trim()).toBe('');
   });
 
   test('fail-open: malformed hook payload does not crash or deny', async () => {
     await seedWechat();
     const result = await runCommand(['gate', 'enforce', '--project', project], { PEAKS_HOOK_STDIN: '{ not json' });
-    expect(result.stdout.join('').trim()).toBe(''); // no deny emitted → allowed
+    expect(result.stdout.join('').trim()).toBe('{}'); // no deny emitted → allowed
     expect(result.exitCode).toBeUndefined();
   });
 
@@ -112,7 +120,7 @@ describe('peaks gate bypass + enforce closure', () => {
 
     // First guarded command after bypass → allowed (no deny output).
     const first = await runCommand(['gate', 'enforce', '--project', project], stdin('git push'));
-    expect(first.stdout.join('').trim()).toBe('');
+    expect(first.stdout.join('').trim()).toBe('{}');
 
     // Token consumed → next guarded command denied again.
     const second = await runCommand(['gate', 'enforce', '--project', project], stdin('git push'));

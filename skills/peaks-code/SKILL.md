@@ -46,60 +46,30 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 ## 24h mode (orchestrator flag, NOT a new skill)
 
-> **Why this is a flag.** peaks-code is the orchestrator; 24h mode is a *flag* the orchestrator can flip, not a sibling skill. See `.peaks/memory/2026-07-28-peaks-code-loop-skill-proposal.md` for the RL-8 tension analysis. The 24h mode state machine is owned by `peaks session 24h-mode ...` (rid-020a). peaks-code is the consumer; it does not own a new top-level surface.
+24h mode is a *flag* the orchestrator flips, not a sibling skill. See `.peaks/memory/2026-07-28-peaks-code-loop-skill-proposal.md` for the RL-8 tension analysis. State machine via `peaks session 24h-mode {state,transition,attempts,reset}`; snapshot at `.peaks/_runtime/<sessionId>/24h-state.json` (read-only for peaks-code).
 
-### State machine (6 states, rid-020a shipped)
+**5 auto-engage triggers:** T1 user NL keyword (`24h / 通宵 / 不计成本 / 不停机 / ...`) / T2 ≥30 active slices + ≥6h wall-clock / T3 ≥3 monotonic-guard fires + ≥10 slices remaining / T4 session gap ≥4h / T5 ≥3 active slices for restart. T3+T4 auto-engage 24H_ACTIVE; T1/T2/T5 surface for LLM judgement.
 
-`IDLE → BRAINSTORM → USER_CONFIRM → 24H_ACTIVE → WAITING_USER → HANDOFF`. The CLI surface is `peaks session 24h-mode {state,transition,attempts,reset}`; the LLM is the decision-maker. The persisted snapshot lives at `.peaks/_runtime/<sessionId>/24h-state.json` (read-only for peaks-code; write only via the CLI).
+**3 decision buckets:** A (T3/T4, auto-engage, no brainstorming gate) / B (non-T3/T4, runbook brainstorming sub-step) / C (T1/T2/T5, surface `peaks session 24h-mode transition --state USER_CONFIRM`).
 
-### 5 auto-engage triggers (T1..T5)
+**Integration surfaces:** `peaks code run --24h` / `peaks dashboard long-run --since 24h` / `peaks session 24h-mode state|transition|attempts|reset`.
 
-1. **T1** — user NL keyword: `24h / 通宵跑 / 通宵 / 夜跑 / 夜机 / 不计成本 / 不停机`.
-2. **T2** — at least 30 active slices AND ≥ 6h wall-clock since the last handoff.
-3. **T3** — ≥ 3 monotonic-guard fires AND ≥ 10 slices remaining.
-4. **T4** — session gap ≥ 4h (resume from a previous long-run).
-5. **T5** — ≥ 3 active slices for 24h-mode restart.
-
-T3 and T4 auto-engage 24H_ACTIVE. T1/T2/T5 surface for LLM judgement via `peaks session 24h-mode transition --state 24H_ACTIVE --reason <text>`.
-
-### 3 decision buckets
-
-- **Bucket A — auto-engage 24H_ACTIVE** (T3 / T4 only). No brainstorming gate; skip the reference-only bridge.
-- **Bucket B — reference-only brainstorming bridge** (non-T3/T4). Run the existing 11-step runbook through the brainstorming sub-step, then continue.
-- **Bucket C — user-confirm gate** (T1/T2/T5). Surface `peaks session 24h-mode transition --state USER_CONFIRM`; the LLM surfaces AskUserQuestion.
-
-### Integration surfaces (rid-020b)
-
-- `peaks code run --24h` — T3/T4 path auto-engages; non-T3/T4 routes through Bucket B.
-- `peaks dashboard long-run --since 24h` — read-only indicator view (dispatch / autoCompact / monotonicTrigger / subAgentFailure / checkpointFrequency).
-- `peaks session 24h-mode state|transition|attempts|reset` — state-machine backbone (rid-020a).
-
-### Red lines (peaks-code side)
-
-- No auto-compact prose ban. Never write "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks compact auto` manually" / "the user is responsible for context management" / legacy 50/75/90 percent tiers. The 0.85 / 0.95 contract is mandatory.
-- SquabbyZ sole-author rule: no `Co-Authored-By: Claude/Anthropic` trailer in any commit.
-- 24h mode is a flag on `peaks-code`; it MUST NOT introduce a sibling `peaks-24h` skill or a competing CLI top-level verb.
+**Red lines (peaks-code side):**
+- No auto-compact prose ban: never write "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks compact auto` manually" / "the user is responsible for context management" / legacy 50/75/90 percent tiers. **0.85 / 0.95 contract is mandatory.**
+- SquabbyZ sole-author rule: no `Co-Authored-By: Claude/Anthropic` trailer.
+- 24h mode is a flag on `peaks-code`; MUST NOT introduce a sibling `peaks-24h` skill or competing top-level verb.
 
 ## 24h mode spill/hydrate (opt-in experimental, rid-032)
 
-When 24h mode is active and an in-flight sub-agent batch is detected, the LLM MAY persist its current turn context to disk through the `session spill-demo` helper, supplying the active session identifier and optionally the batch identifier.
-
-This creates a `SpillRecord` in `.peaks/_runtime/<sessionId>/spill/` with a sample payload. The LLM can coordinate richer payload support in a future slice. When the batch lands, the LLM MAY inspect the 24h-mode state through the existing session state surface and continue from the hydrated record.
-
-The hydrate round-trip is idempotent, and the existing in-flight deferral still works without spill/hydrate.
-
-**This is opt-in experimental.** The LLM is not required to call spill/hydrate. Real production behavior remains governed by the existing in-flight deferral branch in the orchestrator, which rid-032 does not modify.
+When 24h mode is active and an in-flight sub-agent batch is detected, the LLM MAY persist its current turn context to disk through the `session spill-demo` helper. Creates a `SpillRecord` in `.peaks/_runtime/<sessionId>/spill/`. Round-trip is idempotent; existing in-flight deferral still works without spill/hydrate. **Opt-in experimental** — not required.
 
 ## Peaks-Loop Superpowers 协作边界 (BRIDGE — MANDATORY, effective 2026-07-24)
 
-This chapter pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Boundary is closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
+Pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
 
 - superpowers skills are **reference material**, not workflows peaks-code runs. They may NOT auto-replace peaks-rd, peaks-qa, peaks-ui, peaks-sc, or peaks-txt.
-- When a user (or the IDE) suggests invoking `superpowers:brainstorming` or `superpowers:writing-plans`, peaks-code MUST:
-  1. Run the superpowers skill as a **reference** to seed its own PRD/RD artefacts.
-  2. Re-author the resulting plan as a peaks-rd PRD artefact under `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`.
-  3. Continue peaks-code's 11-step sequence from Step 3 (sub-agent fan-out) — never the superpowers plan execution.
-- `superpowers:writing-plans` and `superpowers:executing-plans` are **NOT** dispatched directly. peaks-rd is the only authoritative planner / executor pair. (`writing-plans` upstream SKILL.md is superpowers-owned and is intentionally NOT edited — peaks-code/SKILL.md + runbook + boundaries + external-skill-invocation carry the bridge.)
+- When `superpowers:brainstorming` or `superpowers:writing-plans` is suggested, peaks-code MUST: (1) run as a **reference** to seed its own PRD/RD artefacts, (2) re-author as a peaks-rd PRD under `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`, (3) continue peaks-code's 11-step sequence from Step 3 — never the superpowers plan execution.
+- `superpowers:writing-plans` / `superpowers:executing-plans` are **NOT** dispatched directly. peaks-rd is the only authoritative planner/executor pair.
 - Any peaks-managed hook entry emitted by `peaks hooks install` MUST originate from `src/services/hooks/*.sh` in the peaks-loop repo. LLM-improvised hook scripts are forbidden (001-bridge root cause).
 - Before any LLM edit to `~/.claude/skills/<skill>/*`, verify the path is a junction (`fsutil reparsepoint query` on Windows / `readlink` on POSIX). If it is a real directory, STOP and re-route via `peaks skill sync` after a junction rebuild — never write to a real directory (would pollute the npm sync chain).
 - Mandatory closure: every peaks-code request MUST finish `peaks request transition` through `spec-locked → implemented → qa-handoff → handed-off` plus `peaks memory extract`. Half-finished state files are treated as pollution and the LLM MUST NOT exit without a transition note.
@@ -114,7 +84,7 @@ This chapter pins the boundary between `peaks-code` and the **superpowers** skil
 - **L2 — hook + lifecycle gate** (`peaks hooks install` → `peaks gate enforce` → `evaluateWorktreeAuth`; 5 deny codes `REQUIRED / EXPIRED / REQUEST_MISMATCH / CONSUMED / FILE_INVALID`).
 - **L3 — IDE `permissions.deny`** (Claude Code refuses Skill BEFORE LLM sees it; strongest layer).
 
-Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (shipping in rid-L2-extended; until then, fall back to L2 hook gate + manual `peaks worktree auth grant`). Sub-agents MUST also write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in MAIN (`--project .`), not in a worktree. See `references/worktree-governance.md` for the full contract.
+Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>` (fall back to L2 hook gate + manual `peaks worktree auth grant` until rid-L2-extended ships). Sub-agents MUST write artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/` in MAIN (`--project .`), not in a worktree. See `references/worktree-governance.md`.
 
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 
@@ -122,45 +92,38 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 
 ## Peaks-Loop Step 0.8 — Job-shape detection (BLOCKING on LLM judgement)
 
-> **BLOCKING on LLM judgement.** Before Step 1 mode selection, Code MUST surface a Job-shape decision via `peaks code detect-job` and persist it to `.peaks/_runtime/<sessionId>/job-shape.json`. The CLI is a recorder + gate — the LLM makes the judgement; downstream steps call `read-job-shape` and refuse if missing. See `references/step-0-8-gate.md` for the full contract (LLM criteria, action sequence, hard rule red-line #10). Failure mode: skipping `peaks code detect-job` blocks the workflow at the next `read-job-shape` call (`JOB_SHAPE_NOT_DECIDED`).
+> **BLOCKING on LLM judgement.** Before Step 1 mode selection, Code MUST surface a Job-shape decision via `peaks code detect-job` and persist it to `.peaks/_runtime/<sessionId>/job-shape.json`. The CLI is a recorder + gate — the LLM makes the judgement; downstream steps call `read-job-shape` and refuse if missing. See `references/step-0-8-gate.md` for the full contract. Skipping `peaks code detect-job` blocks the workflow at the next `read-job-shape` call (`JOB_SHAPE_NOT_DECIDED`).
 
-**v3.1.2 mechanical gates** (the recorder-only design was bypassed twice under load; the gate must be un-bypassable):
-
-1. **PreToolUse hook — `peaks code gate-step-08`.** Installed by `peaks workspace init` on the `Bash` matcher; checks `job-shape.json` presence + fail-closed backup regex. If `job-shape.json` exists AND `progress.json` exists, surfaces `Next: slice #N of M (<currentSlice>)` so the LLM cannot wake up cold.
+**v3.1.2 mechanical gates** (must be un-bypassable):
+1. **PreToolUse hook — `peaks code gate-step-08`.** Installed by `peaks workspace init` on the `Bash` matcher; checks `job-shape.json` presence + fail-closed backup regex. If `job-shape.json` AND `progress.json` exist, surfaces `Next: slice #N of M (<currentSlice>)` so the LLM cannot wake up cold.
 2. **Size-fear ban — `peaks code emit-handoff`.** Refuses to emit a final handoff while `remaining > 0` under Job mode. Pass `--force-under-job` only with explicit user approval.
-3. **On-disk slice progress — `peaks job progress`.** `peaks job checkpoint --state done` writes `progress.json`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader; `peaks code gate-step-08` also surfaces it on every Bash call.
+3. **On-disk slice progress — `peaks job progress`.** `peaks job checkpoint --state done` writes `progress.json`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader.
 4. **Forced auto-compact — `--enforce-job-mode`.** `peaks code context-now --enforce-job-mode` returns `action: 'auto-compact-now'` at ≥ 0.85. **Job mode at ≥ 0.85 is MANDATORY auto-compact** — Code MUST call `peaks compact auto --execute` without confirmation.
 
 **Step 0.7 resume rule (read-FIRST):** on resume, `peaks code gate-step-08` reads `progress.json` first and surfaces `Next: slice #N of M (<currentSlice>)` so the orchestrator picks up at the right slice without re-reading the artifact tree.
 
 ### Peaks-Loop Step N+2: Auto-compact at the warning line (v2.13.0 zero-pause contract)
 
-> **Zero-pause contract.** When context usage crosses the pre-compact threshold, peaks-loop **automatically fires `peaks compact auto --execute` — the LLM does NOT prompt the user to run `/compact` manually**. This is the single biggest UX regression vector in the system: a stale prose that says "ask the user to compact" will silently send the LLM into "wait for human" mode and stall the entire workflow. The v2.13.0 contract makes auto-compact a system responsibility, not a user action.
+> **Zero-pause contract.** When context usage crosses the pre-compact threshold, peaks-loop **automatically fires `peaks compact auto --execute` — the LLM does NOT prompt the user to run `/compact` manually**. Stale prose that says "ask the user to compact" silently stalls the workflow. The v2.13.0 contract makes auto-compact a system responsibility, not a user action.
 
 **Thresholds (v2.13.0, replacing legacy 50/75/90):**
 
 | ratio zone | zone name | action |
 |---|---|---|
-| `< 0.85` | normal | skip — LLM keeps working, no action |
-| `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks compact auto --execute` fires **automatically** (deferred only if an in-flight sub-agent batch is still running; fires the moment the batch lands). The LLM does not prompt the user. |
-| `ratio ≥ 0.95` | **red-line (Karpathy §4 compact-red-line exception)** | synchronous gate — `peaks compact auto --execute` is invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 treats this as an automatic exception** — the LLM cannot opt out. |
+| `< 0.85` | normal | skip — LLM keeps working |
+| `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks compact auto --execute` fires **automatically** (deferred only when in-flight sub-agent batch is running; fires the moment the batch lands). The LLM does not prompt the user. |
+| `ratio ≥ 0.95` | **red-line (Karpathy §4)** | synchronous gate — `peaks compact auto --execute` invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 automatic exception** — LLM cannot opt out. |
 
-**Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, pre-v2.13.0 surface; will silently under-report ratio). The CLI returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks compact auto --execute` on `auto-compact-now` or `red-line` without any user confirmation.
+**Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks compact auto --execute` on `auto-compact-now` or `red-line` without user confirmation.
 
-**Enforcement layers (defense in depth — no single layer is the gate):**
-
-1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line` zones. The only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM / human approval branch.
-2. `--enforce-job-mode` (v3.1.2) — Job mode elevates ≥0.85 to MANDATORY regardless of in-flight batch (see Step 0.8 §4 above).
+**Enforcement layers (defense in depth):**
+1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line`. Only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM/human approval branch.
+2. `--enforce-job-mode` (v3.1.2) — Job mode elevates ≥0.85 to MANDATORY regardless of in-flight batch.
 3. `peaks code gate-step-08` (PreToolUse hook) — surfaces `auto-compact-now` on every Bash call when ratio is in the zone, so the LLM cannot wake up cold and forget.
-4. The Karpathy §4 exception: `peaks compact auto --execute` is fired *by the orchestrator*, not by the user running `/compact`. If you find yourself about to write prose that says "ask the user to compact" or "prompt the user to run `/compact`", STOP — that is the regression.
+4. Karpathy §4 exception: `peaks compact auto --execute` is fired *by the orchestrator*, not by the user. If you find yourself about to write "ask the user to compact" / "prompt the user to run `/compact`", STOP — that is the regression.
 
-**Anti-pattern (regression marker — DO NOT introduce):** any of these strings in skills/* or comments signals the zero-pause contract has been broken:
-
-- "ask the user to compact"
-- "prompt the user to run `/compact`"
-- "the user should run `peaks compact auto` manually"
-- "the user is responsible for context management"
-- legacy pre-v2.13.0 thresholds (mid / seventy-five / ninety percent tiers; current is 0.85 / 0.95)
+**Anti-pattern (DO NOT introduce):** any of these strings in skills/* or comments signals the zero-pause contract has been broken:
+- "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks compact auto` manually" / "the user is responsible for context management" / legacy mid/seventy-five/ninety percent tiers (current is 0.85 / 0.95).
 
 If the prose audit (`peaks audit red-lines`) flags any of the above, the slice is **blocked** until the prose is rewritten.
 
@@ -267,41 +230,4 @@ Three CLI primitives: `peaks sub-agent share / shared-read / await` (last-write-
 
 ## References
 
-Index of every `references/` file. Read on demand.
-
-| File | Coverage |
-|---|---|
-| `references/dag-orchestrator.md` | DAG-aware sub-agent dispatch. |
-| `references/a2a-artifact-mapping.md` | A2A artifact-path mapping. |
-| `references/anchoring-and-session-info.md` | Step 0 + session-conflict. |
-| `references/artifact-contracts.md` | Sub-agent handoff contracts. |
-| `references/boundaries.md` | Code's do / don't list. |
-| `references/browser-workflow.md` | Browser workflow (Playwright MCP). |
-| `references/codegraph-orchestration.md` | Codegraph role handoff. |
-| `references/command-migration.md` | Legacy command migration. |
-| `references/completion-handoff.md` | Completion handoff. |
-| `references/context-governance.md` | G7-G9 sub-agent thresholds. |
-| `references/external-references.md` | 3rd-party inventory + lifecycle. |
-| `references/external-skill-invocation.md` | External skill invocation. |
-| `references/existing-system-extraction.md` | Legacy project extraction. |
-| `references/frontend-only-mode.md` | Frontend-only mode + mocks. |
-| `references/gstack-integration.md` | GStack → Peaks mapping. |
-| `references/headroom-integration.md` | Headroom-ai compression. |
-| `references/local-artifact-workspace.md` | Workspace tree + root-prohibition. |
-| `references/micro-cycle.md` | RD micro-cycle + repair loop. |
-| `references/mode-selection.md` | Step 1 mode + `--mode`. |
-| `references/playwright-mcp-multi-terminal.md` | Multi-terminal Playwright MCP. |
-| `references/project-memory-loading.md` | Step 2.3 memories. |
-| `references/project-scan-checklist.md` | Pre-RD scan + template. |
-| `references/quality-gate-cheatsheet.md` | 5 CLI commands. |
-| `references/refactor-mode.md` | Refactor mode + red lines. |
-| `references/resume-detection.md` | Step 0.7 unfinished-work. |
-| `references/runbook.md` | End-to-end CLI sequence. |
-| `references/job-loop.md` | Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 deep-dive. |
-| `references/skill-presence-and-title.md` | Step 2 + Step 2.5. |
-| `references/standards-preflight.md` | Standards preflight. |
-| `references/sub-agent-dispatch.md` | IDE-agnostic dispatch. |
-| `references/swarm-dispatch-contract.md` | Swarm fan-out gate + shape. |
-| `references/worktree-governance.md` | 3-layer worktree design + sub-agent contract + operator runbook. |
-| `references/workflow-gates-and-types.md` | Type classification + 7 gates. |
-| `references/workflow.md` | Workflow flow + transitions. |
+Index of every `references/` file. Read on demand. The 35 reference files are listed in `references/references-index.md` (auto-generated, kept outside the SKILL.md byte cap). Top-5 by usage: `runbook.md`, `sub-agent-dispatch.md`, `micro-cycle.md`, `worktree-governance.md`, `workflow-gates-and-types.md`.

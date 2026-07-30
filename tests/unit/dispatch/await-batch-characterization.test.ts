@@ -37,6 +37,7 @@ import {
   awaitClaudeCodeBatch,
   pollDispatchRecords
 } from '../../../src/services/dispatch/sub-agent-dispatcher.js';
+import { awaitBatch } from '../../../src/services/dispatch/await-batch.js';
 import { writeInitialDispatchRecord } from '../../../src/services/dispatch/dispatch-record-writer.js';
 
 let root: string;
@@ -119,13 +120,12 @@ describe('awaitClaudeCodeBatch — characterization (S3)', () => {
       timeoutMs: 100
     });
     expect(r[0]?.status).toBe('timeout');
-    // Post-S4 (slice 2026-07-29-dispatch-stall-governance): the
-    // wrapper propagates the notePrefix, so the note is non-null.
-    // Pre-S4 the note was null (silent return). The test pins the
-    // post-S4 back-compat envelope — the silent return shape is
-    // preserved (no thrown error), but the note now carries the
-    // IDE label so the orchestrator can attribute the timeout.
-    expect(r[0]?.note).toContain('claude-code awaitBatch');
+    // Slice 2026-07-30-nightshift: claude-code does NOT use a
+    // per-IDE note prefix (the 1.4 dogfood contract). The note
+    // is null in the silent-return path (no slot.note because the
+    // record was never found). The silent return shape is
+    // preserved (no thrown error).
+    expect(r[0]?.note).toBeNull();
   });
 
   it('reports done when the record status is "done"', async () => {
@@ -203,6 +203,85 @@ describe('pollDispatchRecords — characterization (S3)', () => {
     );
     expect(r[0]?.status).toBe('done');
   });
+
+  // Slice 2026-07-30-nightshift follow-up: the source change in
+  // await-batch.ts added a fourth terminal-state branch
+  // (status='stale' → status='timeout', note='stale'). The existing
+  // 4ide-dogfood suite covers this indirectly via IDE-specific
+  // wrappers, but the underlying await-batch contract was not
+  // asserted directly. These two cases pin the contract at the
+  // await-batch boundary so a future refactor cannot silently
+  // drop the stale mapping or drop the outcome on a failed
+  // record.
+  it('maps stale dispatch record to status=timeout and surfaces "stale" in note', async () => {
+    const p = recordPath({ id: 'r-stale', status: 'stale', outcome: 'heartbeat-quiet' });
+    const r = await pollDispatchRecords(
+      { batchId: 'b-stale', dispatchCount: 1, recordPaths: [p], timeoutMs: 200 },
+      { ide: 'trae', defaultTimeoutMs: 30_000, notePrefix: 'stale test' }
+    );
+    expect(r[0]?.status).toBe('timeout');
+    // Production surfaces the IDE note + the literal "stale" so
+    // the orchestrator can attribute a stale-vs-genuine-timeout.
+    expect(r[0]?.note).toBe('stale test — stale');
+  });
+
+  it('preserves outcome text in note when a record reaches status=failed', async () => {
+    // The previous contract set note=null on failure (the IDE
+    // wrappers filled in their own note). The nightshift change
+    // surfaced record.outcome into slot.note so the orchestrator
+    // can attribute the failure without re-reading the record.
+    // Production contract: failed + outcome present →
+    // `${notePrefix} — ${outcome}` (see await-batch.ts line 305-310).
+    const p = recordPath({
+      id: 'r-failed-with-outcome',
+      status: 'failed',
+      outcome: 'mock failure at leaf-2',
+    });
+    const r = await pollDispatchRecords(
+      { batchId: 'b-failed-outcome', dispatchCount: 1, recordPaths: [p], timeoutMs: 200 },
+      { ide: 'trae', defaultTimeoutMs: 30_000, notePrefix: 'failed test' }
+    );
+    expect(r[0]?.status).toBe('failed');
+    expect(r[0]?.note).toBe('failed test — mock failure at leaf-2');
+  });
+
+  it('falls back to notePrefix on a failed record whose outcome is missing/empty', async () => {
+    // The nightshift source change reads `record.outcome` and
+    // surfaces it as the failure note WHEN it is non-empty.
+    // Some older dispatch record schemas wrote status='failed'
+    // with no outcome key at all; those must NOT cause the slot
+    // to drop the notePrefix. Production contract (per source
+    // comments around line 285-291):
+    //   - failed + outcome present  → `${notePrefix} — ${outcome}`
+    //   - failed + outcome absent   → `${notePrefix}` (NOT null)
+    // Pin the absent-outcome branch here so the IDE label stays
+    // attributable in the orchestrator even when the record was
+    // written by an older dispatch schema.
+    const projectRoot = root;
+    const { path } = writeInitialDispatchRecord({
+      projectRoot,
+      sessionId: 'sess-char',
+      requestId: 'r-failed-no-outcome',
+      role: 'rd',
+      prompt: 'p',
+      toolCall: { name: 'Task', args: {} },
+      batchId: 'b-failed-no-outcome',
+    });
+    writeFileSync(
+      path,
+      JSON.stringify({
+        version: 3,
+        status: 'failed',
+        createdAt: '2026-07-29T00:00:00.000Z',
+      }),
+    );
+    const r = await pollDispatchRecords(
+      { batchId: 'b-failed-no-outcome', dispatchCount: 1, recordPaths: [path], timeoutMs: 200 },
+      { ide: 'trae', defaultTimeoutMs: 30_000, notePrefix: 'failed-no-outcome test' },
+    );
+    expect(r[0]?.status).toBe('failed');
+    expect(r[0]?.note).toBe('failed-no-outcome test');
+  });
 });
 
 describe('S3 — divergent-loop invariant (pre-S4 safety net)', () => {
@@ -243,5 +322,90 @@ describe('S3 — divergent-loop invariant (pre-S4 safety net)', () => {
     const elapsed = Date.now() - start;
     expect(r[0]?.status).toBe('timeout');
     expect(elapsed).toBeLessThan(35_000);
+  });
+});
+
+describe('awaitBatch — readRecord error-path contract (nightshift)', () => {
+  // Slice 2026-07-30-nightshift added a `readRecord` test seam
+  // alongside the legacy `readOutcome`. The seam is the
+  // single point where caller-supplied IO failures can crash
+  // the poll loop. Production defaultReadOutcome catches
+  // JSON.parse errors and returns {status:null,outcome:null},
+  // but the caller-supplied path has NO guard. These cases
+  // pin: (1) caller path is hit, (2) caller-returned
+  // {status:null,outcome:null} maps to a non-terminal slot
+  // (awaits timeout), (3) caller-returned undefined throws
+  // visibly so callers can't silently swallow.
+
+  it('honors a caller-supplied readOutcome seam and surfaces a stub note via readRecord', async () => {
+    // Production wiring (await-batch.ts line 195-223): the
+    // status discriminator comes from `readOutcome` (the legacy
+    // seam) and the failure-reason comes from `readRecord`
+    // (the nightshift seam). Both seams fall back to
+    // `defaultReadOutcome` when undefined. This case pins:
+    //   - readOutcome override → status='failed'
+    //   - readRecord override → note surfaces the caller-supplied
+    //     outcome string verbatim (no defaultReadOutcome disk
+    //     read is performed because the seam short-circuits)
+    const recordPath = join(root, 'fake-record.json');
+    const r = await awaitBatch(
+      1,
+      [recordPath],
+      200,
+      {
+        defaultTimeoutMs: 1000,
+        readOutcome: (_p: string) => 'failed',
+        readRecord: (_p: string) => ({ status: 'failed', outcome: 'stub failure reason' }),
+      },
+    );
+    // Batch-level outcome: every slot reached a terminal
+    // state (status='failed' is terminal), so the batch is
+    // 'completed' even though no slot was 'done'.
+    expect(r.outcome).toBe('completed');
+    expect(r.results[0]?.status).toBe('failed');
+    expect(r.results[0]?.note).toBe('stub failure reason');
+  });
+
+  it('treats readRecord returning {status:null,outcome:null} as a non-terminal state', async () => {
+    // defaultReadOutcome returns {null,null} on file-missing
+    // and JSON parse errors. The loop MUST treat this as
+    // "still pending" and fall through to the timeoutMs
+    // boundary (otherwise a broken reader would silently mark
+    // every dispatch as failed).
+    const recordPath = join(root, 'missing-record.json');
+    const start = Date.now();
+    const r = await awaitBatch(
+      1,
+      [recordPath],
+      200,
+      {
+        defaultTimeoutMs: 1000,
+        readRecord: (_p: string) => ({ status: null, outcome: null }),
+      },
+    );
+    const elapsed = Date.now() - start;
+    expect(r.results[0]?.status).toBe('timeout');
+    expect(elapsed).toBeLessThan(2_000);
+  });
+
+  it('routes readOutcome (legacy seam) to the status-only branch', async () => {
+    // The legacy readOutcome seam returns just the status
+    // string. The new readRecord seam supersedes it for
+    // callers that also need outcome. Pin that the legacy
+    // seam still works (readOutcome: 'failed' → note=null
+    // because outcome is unknown to the legacy seam).
+    const recordPath = join(root, 'legacy-record.json');
+    const r = await awaitBatch(
+      1,
+      [recordPath],
+      200,
+      {
+        defaultTimeoutMs: 1000,
+        readOutcome: (_p: string) => 'failed',
+      },
+    );
+    expect(r.results[0]?.status).toBe('failed');
+    // Legacy seam does not surface outcome.
+    expect(r.results[0]?.note).toBeNull();
   });
 });

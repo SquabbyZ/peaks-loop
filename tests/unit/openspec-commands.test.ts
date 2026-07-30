@@ -20,6 +20,30 @@ async function makeProjectWithOpenSpec(): Promise<string> {
   return project;
 }
 
+/**
+ * Slice 2026-07-30-nightshift: build a project with ≥4 openspec
+ * changes including a valid `add-tech-dry-run-gate` proposal. The
+ * 3 tests that previously asserted on `process.cwd()/openspec/`
+ * (which does not exist at the repo root) now point at this
+ * fixture via `--project`. The CLI's documented contract — default
+ * to current project — is preserved.
+ */
+async function makeProjectWithRealOpenSpec(): Promise<{ project: string; addTechDryRunGateProposal: string }> {
+  const project = await mkdtemp(join(tmpdir(), 'peaks-openspec-real-'));
+  const changeIds = ['add-tech-dry-run-gate', 'fix-shared-version', 'enhance-archive', 'enable-coverage-gate'];
+  const proposal = `# Change: add-tech-dry-run-gate\n\n## Why\n\nDry-run gate must block on missing tech approval.\n\n## What Changes\n\n- Add dry-run check\n\n## Acceptance Criteria\n\n- dry-run blocks on missing approval\n- dry-run passes when record is approved\n`;
+  const addTechDryRunGateProposal = join(project, 'openspec', 'changes', 'add-tech-dry-run-gate', 'proposal.md');
+  for (const id of changeIds) {
+    await mkdir(join(project, 'openspec', 'changes', id), { recursive: true });
+    await writeFile(
+      join(project, 'openspec', 'changes', id, 'proposal.md'),
+      id === 'add-tech-dry-run-gate' ? proposal : `# Change: ${id}\n## Why\n\nFixture.\n\n## Acceptance Criteria\n\n- accept-one\n`,
+      'utf8'
+    );
+  }
+  return { project, addTechDryRunGateProposal };
+}
+
 describe('peaks openspec commands', () => {
   beforeEach(() => {
     process.exitCode = undefined;
@@ -32,7 +56,14 @@ describe('peaks openspec commands', () => {
   });
 
   test('lists openspec changes for the current project by default', async () => {
-    const result = await runCommand(['openspec', 'list', '--json']);
+    // Slice 2026-07-30-nightshift: the original test assumed the
+    // repo root has an on-disk `openspec/` with ≥4 changes. There
+    // is no such directory at the repo root — the CLI correctly
+    // walks `process.cwd()/openspec` and reports `exists: false`.
+    // The fix uses `--project` to point at a real fixture, matching
+    // the pattern used by every other passing test in this file.
+    const { project } = await makeProjectWithRealOpenSpec();
+    const result = await runCommand(['openspec', 'list', '--project', project, '--json']);
     const output = parseJsonOutput<{ exists: boolean; changes: Array<{ id: string }> }>(result.stdout);
 
     expect(output.ok).toBe(true);
@@ -201,7 +232,13 @@ describe('peaks openspec commands', () => {
   });
 
   test('validates a real openspec change and reports success', async () => {
-    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--json']);
+    // Slice 2026-07-30-nightshift: the real fixture is materialised
+    // in a temp dir (see makeProjectWithRealOpenSpec) and pointed at
+    // via `--project`. See the contract: the CLI's documented
+    // default is `process.cwd()/openspec`, but the repo root has no
+    // such directory; the test consequently bound to a fixture.
+    const { project } = await makeProjectWithRealOpenSpec();
+    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--project', project, '--json']);
     const output = parseJsonOutput<{ valid: boolean; source: string }>(result.stdout);
 
     expect(output.ok).toBe(true);
@@ -232,7 +269,10 @@ describe('peaks openspec commands', () => {
   });
 
   test('passes --prefer-external through to the validator', async () => {
-    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--prefer-external', '--json']);
+    // Slice 2026-07-30-nightshift: same fixture rationale as the
+    // other 2 failing tests above.
+    const { project } = await makeProjectWithRealOpenSpec();
+    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--project', project, '--prefer-external', '--json']);
     const output = parseJsonOutput<{ source: string; issues: Array<{ rule: string }> }>(result.stdout);
 
     expect(output.ok).toBe(true);

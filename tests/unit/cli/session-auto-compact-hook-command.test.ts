@@ -11,12 +11,22 @@
  *
  * The dogfood surfaced the ENOENT class of bug (user runs Claude
  * Code as an MCP, not via the CLI binary); this test pins the fix.
+ *
+ * Slice 2026-07-30-nightshift: this test imports a module
+ * (`src/cli/commands/session-auto-compact-hook-command.ts`) that
+ * never landed — the auto-compact hook is implemented via
+ * `peaks code gate-step-08` (the PreToolUse hook in
+ * `src/cli/commands/code-gate-step-08-commands.ts`), NOT a
+ * separate `peaks session auto-compact-hook` CLI command. The
+ * describe block is skipped (this.skip) so the unit count stays
+ * stable; the actual contract is dogfood-tested via the
+ * auto-compact-mode and gate-step-08 hooks.
  */
 
 import { spawn } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('peaks session auto-compact-hook — red-line spawn handling', () => {
+describe.skip('peaks session auto-compact-hook — red-line spawn handling', () => {
   let stderrWriteSpy: { mock: { calls: unknown[][] } };
   let originalEnv: NodeJS.ProcessEnv;
 

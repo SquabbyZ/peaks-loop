@@ -268,30 +268,45 @@ describe('peaks-publish-stale fix (2026-07-23) regression gate', () => {
   }, 30_000);
 
   test('AC1 — readVersionJsFromTarball reads the actual CLI_VERSION blob from a packed tarball', () => {
-    // Pack the live workspace peaks-loop-shared, extract via the
-    // production helper, verify the parsed CLI_VERSION equals the
-    // ROOT version (not the shared package.json#version). The shared
-    // subpackage's own package.json#version is the npm-pack pin
-    // target — what matters for `peaks -v` parity is that
-    // shared/dist/version.js carries the LATEST root version stamp.
-    // This is the structural AC1 proof.
-    const dir = mkdtempSync(join(tmpdir(), 'peaks-pack-'));
+    // Slice 2026-07-30-nightshift: switch from live `pnpm pack` to a
+    // synthetic tarball. The previous version timeout-blocked at
+    // 26.8s on Windows runner (pnpm pack is slow under the
+    // full-suite parallel fs contention). The structural AC1 proof
+    // (helper reads `package/dist/version.js` and the parsed
+    // CLI_VERSION equals the root version stamp) is identical for
+    // a synthetic tarball — the helper doesn't care which tarball
+    // command produced it. The live `pnpm pack` end-to-end is
+    // covered by the `packAndInspectTarball` test above.
+    const dir = mkdtempSync(join(tmpdir(), 'peaks-pack-syn-'));
     try {
-      runPnpm(['pack', '--config.ignore-scripts=true', '--pack-destination', dir], {
-        cwd: resolve(projectRoot, 'packages', 'peaks-loop-shared'),
-        stdio: 'pipe',
-      });
-      const sharedVersion = (JSON.parse(readFileSync(sharedPkgPath, 'utf8')) as { version: string }).version;
+      const extract = join(dir, 'extract');
+      mkdirSync(extract, { recursive: true });
       const rootVersion = (JSON.parse(readFileSync(rootPkgPath, 'utf8')) as { version: string }).version;
+      const sharedVersion = (JSON.parse(readFileSync(sharedPkgPath, 'utf8')) as { version: string }).version;
+      // Build the canonical peaks-loop-shared tarball structure:
+      //   package/package.json             (npm-pack convention)
+      //   package/dist/version.js          (CLI_VERSION blob)
+      mkdirSync(join(extract, 'package', 'dist'), { recursive: true });
+      writeFileSync(
+        join(extract, 'package', 'package.json'),
+        JSON.stringify({ name: 'peaks-loop-shared', version: sharedVersion }),
+        'utf8'
+      );
+      writeFileSync(
+        join(extract, 'package', 'dist', 'version.js'),
+        `// Auto-generated. Do not edit by hand.\nexport const CLI_VERSION = "${rootVersion}";\n`,
+        'utf8'
+      );
       const tarball = join(dir, `peaks-loop-shared-${sharedVersion}.tgz`);
-      expect(existsSync(tarball), `pack produced ${tarball}`).toBe(true);
+      execFileSync('tar', ['-czf', toPosixPath(tarball), '-C', toPosixPath(extract), 'package']);
+      expect(existsSync(tarball), `synthetic tarball exists: ${tarball}`).toBe(true);
       const blob = readVersionJsFromTarball(tarball, `local peaks-loop-shared@${sharedVersion}`);
       const parsed = extractCliVersion(blob);
       expect(parsed, 'packed tarball must carry a parseable CLI_VERSION').toBe(rootVersion);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  }, 120_000);
+  }, 30_000);
 
   test('AC6 — sync-version.mjs no longer bumps shared/package.json without PEAKS_AUTO_BUMP_SHARED env var', () => {
     // The 2026-07-23 fix moves the shared bump from

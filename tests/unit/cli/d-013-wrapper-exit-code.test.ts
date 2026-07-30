@@ -34,7 +34,6 @@ describe('D-013 wrapper exit-code fix', () => {
     expect(result.code).toBe(1);
     expect(result.stdout).toContain('"code": "COMMAND_NOT_FOUND"');
     expect(result.stdout).toContain('this-cmd-does-not-exist');
-    expect(result.stdout).not.toContain('13 skills ready'); // banner should NOT print
   });
 
   test('D-013.B: peaks <deleted-cmd> emits COMMAND_NOT_FOUND envelope + exit 1', async () => {
@@ -58,9 +57,14 @@ describe('D-013 wrapper exit-code fix', () => {
     expect(result.stdout).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  test('D-013.E: bare peaks still exits 0 with banner', async () => {
+  test('D-013.E: bare peaks still exits 0 with the super-command catalog', async () => {
+    // Slice 2026-07-30-nightshift: the legacy "13 skills ready" banner
+    // was replaced by `printSuperCommandCatalog` in Phase 3 governance
+    // (the catalog is the human-NL-choice-only surface). The exit 0
+    // contract is preserved; the banner shape changed.
     const result = await runCli([], REPO_ROOT);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain('skills ready');
+    expect(result.stdout).toContain('Peaks super-command catalog');
+    expect(result.stdout).toContain('Choose a surface or describe your goal');
   });
 });

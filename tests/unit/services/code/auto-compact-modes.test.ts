@@ -5,6 +5,14 @@
  * and the helper contracts (`thresholdFor`, `isValidMode`,
  * `describeMode`, `isPartialModeEligible`). Failures here mean a
  * silent regression in the auto-compact decision pipeline.
+ *
+ * Slice 2026-07-30 (rid-027 + 1) — three-tier table:
+ *   The implementation gained an `autoFire` tier (0.80 standard /
+ *   0.65 partial) in Slice 2026-07-29-context-evaluation-accuracy
+ *   Part 22. The orchestrator reads it via `thresholdFor(mode,
+ *   'autoFire')` so the tier is part of the public contract. The
+ *   structural-equality assertions below must therefore include the
+ *   `autoFire` key, otherwise they fail with "extra property" noise.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -18,8 +26,8 @@ import {
 describe('auto-compact-modes (rid-027)', () => {
   it('AUTO_COMPACT_THRESHOLDS has exactly the 2 expected modes with the correct numeric values', () => {
     expect(Object.keys(AUTO_COMPACT_THRESHOLDS).sort()).toEqual(['partial', 'standard']);
-    expect(AUTO_COMPACT_THRESHOLDS.standard).toEqual({ preCompact: 0.85, redLine: 0.95 });
-    expect(AUTO_COMPACT_THRESHOLDS.partial).toEqual({ preCompact: 0.70, redLine: 0.85 });
+    expect(AUTO_COMPACT_THRESHOLDS.standard).toEqual({ autoFire: 0.80, preCompact: 0.85, redLine: 0.95 });
+    expect(AUTO_COMPACT_THRESHOLDS.partial).toEqual({ autoFire: 0.65, preCompact: 0.70, redLine: 0.85 });
   });
 
   it('thresholdFor standard returns 0.85 / 0.95', () => {
