@@ -101,10 +101,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10.11.0
+      - name: Setup pnpm (corepack, Node 24 self-installer workaround)
+        # pnpm/action-setup@v4 + @v6 both fail the self-installer on the
+        # Node 24 runner with 'exits with code 1'. corepack is bundled
+        # with Node 24, so it does not need an external self-installer.
+        # We pin pnpm 10.11.0 to match package.json#packageManager.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
