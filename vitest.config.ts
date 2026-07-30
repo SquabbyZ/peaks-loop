@@ -18,8 +18,20 @@ import { defineConfig } from 'vitest/config';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
+const srcAlias = {
+  find: /^~\/src\/(.*)$/,
+  replacement: resolve(projectRoot, 'src', '$1'),
+};
+const jsToTsAlias = {
+  find: /^~\/src\/(.*)\.js$/,
+  replacement: resolve(projectRoot, 'src', '$1') + '.ts',
+};
+
 export default defineConfig({
   root: projectRoot,
+  resolve: {
+    alias: [srcAlias, jsToTsAlias],
+  },
   test: {
     include: ['tests/unit/**/*.test.ts'],
     exclude: [
@@ -27,29 +39,11 @@ export default defineConfig({
       'tests/e2e/**',
       'node_modules/**',
     ],
-    // No global setup file: the rebuild's tmp-workspace helper is
-    // opt-in per test (withTmpWorkspacePerTest), and we never touch
-    // the real .peaks/.session.json or .peaks/.active-skill.json.
-    // setupFiles: ['./tests/unit/_setup/index.ts'] is a no-op marker
-    // (the file re-exports nothing); kept so future per-test setup
-    // can hang off it without another config edit.
     setupFiles: ['./tests/unit/_setup/index.ts'],
-    // Default per-test budget. Slice 3 of the rebuild epic verified
-    // that the antfu-style pure / DI tests run in <100ms; 10s is
-    // already 100x headroom and matches the project's "fail fast"
-    // preference. Tests that legitimately need more MUST pass an
-    // explicit `it('name', fn, { timeout: ... })`.
     testTimeout: 10_000,
     hookTimeout: 5_000,
-    // antfu-style parallelism: each test file runs in its own fork,
-    // so tmp workspaces never collide and shared env mutations are
-    // confined to the file that issued them.
     pool: 'forks',
     fileParallelism: true,
-    // vitest defaults to exit 1 when no tests match the include
-    // pattern. The rebuild progresses slice-by-slice; the empty-set
-    // must read as success so pnpm test:full stays green while
-    // individual domain slices land.
     passWithNoTests: true,
   },
 });
