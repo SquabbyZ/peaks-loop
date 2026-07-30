@@ -100,7 +100,7 @@ Every lane opens with **one slash command**.
 ## Why people pick it
 
 - **Natural language is the interface.** No CLI to learn, no commands to memorize. **Use an explicit slash command (e.g. `/peaks-code xxx`)** to route to the right orchestrator; everything after the slash is plain language. The LLM runs the commands on your behalf.
-- **Gates that actually block, not decorate.** 5,439 test cases, QA gate, review sign-off — all on by default. **Audit fails = stop. QA fails = stop.**
+- **Gates that actually block, not decorate.** 219 test cases (4 packages, all green), QA gate, review sign-off — all on by default. **Audit fails = stop. QA fails = stop.**
 - **Run-once flows become local tactics (bees).** Sedimented loop engineering lands in your local `~/.peaks/` pool — twice-clean runs auto-promote to standing tactics, broken runs come back for you to redefine. **Next time, just say "run that one" and the whole playbook slots back in.** Your few tactics grow with your taste.
 - **Sits on top of what you already run.** Not a new AI CLI to learn — it rides on **Claude Code** and **Z Code**. No shell grab, no prompt grab, no IDE grab. Other tools: adapters in progress, contributions welcome.
 - **You decide, it executes.** Decisions that touch your assets are yours; everything else it runs on its own. **Zero learning cost. One minute to first task.**
@@ -128,7 +128,7 @@ Every lane opens with **one slash command**.
 | **Latest** | [`4.0.0-beta.34`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
-| **Test suite** | 5,439 passed · 19 skipped · 0 failed |
+| **Test suite** | 219 passed · 0 failed (4 packages: peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) |
 | **IDE adapters** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder (adapters in progress — contributions welcome) |
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
@@ -204,7 +204,16 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 <details>
 <summary><b>What's new in 4.x vs 3.x?</b></summary>
 
-**The biggest shift: from "code-only tool" to multi-domain orchestration system.** 4.x no longer just writes code — it ships four new domain orchestrators: `peaks-content` (content production), `peaks-doctor` (project health), `peaks-issue-fix-orchestrator` (batch issue fix), `peaks-sop` (custom SOPs). On top of that, `peaks-solo` auto-routes to the right domain from plain language. Plus 9 IDE adapters, crystallization-system renaming, post-run crystallization, 5,439 tests passing. Full list → [`CHANGELOG.md`](./CHANGELOG.md).
+**The biggest shift: from "code-only tool" to multi-domain orchestration system.** 4.x no longer just writes code — it ships four new domain orchestrators: `peaks-content` (content production), `peaks-doctor` (project health), `peaks-issue-fix-orchestrator` (batch issue fix), `peaks-sop` (custom SOPs). On top of that, `peaks-solo` auto-routes to the right domain from plain language. Plus 9 IDE adapters, crystallization-system renaming, post-run crystallization. Full list → [`CHANGELOG.md`](./CHANGELOG.md).
+
+### What 4.0.0 GA actually shipped (2026-07-30)
+
+| Epic | Solved | Verified by |
+| --- | --- | --- |
+| **Test suite rebuilt from scratch** | Old 559-file unit suite took 3+ hours; now 219 cases across 4 packages all green, `pnpm test:full` in ~67s. Deleted old assertions, wrote against the production contract, 4-dim split (render/behavior/integration/a11y). | commits `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
+| **Karpathy evaluation cost self-review** | LLM no longer "done for today, will continue tomorrow" after 1–2 slices — `karpathy-reviewer` reports `costRatio`; `peaks job karpathy-cost-check` auto-downgrades `block` → `warn` above 10. 24h-mode stays the override. | `peaks job karpathy-cost-check --review-file <path>` · 21-case unit test |
+| **Compact visibility** | `peaks compact history` for the LLM to read every compact event of the current session; `peaks statusline compact` for the IDE statusline ( `--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)` ). | `auto-compact-orchestrator` appends to `compact-history.jsonl` · 19-case unit test |
+| **Sub-package coverage + workspace-wide `pnpm test:full`** | Independent 4-dim tests for `peaks-loop-mut` / `peaks-loop-shared-channel`; `peaks-loop-shared` 0 file (passWithNoTests); redundant root mirror removed. | commits `593ffcdf` → `08e92d8f` · `pnpm test:full` runs all 4 packages in one go |
 
 </details>
 
