@@ -22,7 +22,7 @@
  *   3. `ratio: 0` with `source: 'conservative-fallback'` — the
  *      orchestrator MUST NOT auto-fire compact on this signal.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ContextPercentProbe } from './auto-compact-types.js';
@@ -93,7 +93,6 @@ function findTranscriptJsonl(
 ): { path: string; bytes: number } | null {
   if (!existsSync(projectsDir)) return null;
   try {
-    const { readdirSync } = require('node:fs') as typeof import('node:fs');
     const stack: string[] = [projectsDir];
     while (stack.length > 0) {
       const dir = stack.pop();
