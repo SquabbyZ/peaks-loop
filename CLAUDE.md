@@ -16,6 +16,9 @@ This repository uses project-local Peaks-Loop standards. Existing repository con
 **Project-level rule (effective 2026-07-04):**
 - **Enhancement, not new AI CLI.** peaks-loop runs in / on top of an existing AI runtime (Claude Code, Codex, Copilot, …); it does not claim the shell prompt, does not inject a system prompt, does not invent a competing REPL, does not replace any runtime-native skill-activation entry. Peaks-Loop is a layer, not a destination. Vendor-neutrality is binding; the adapter layer is the only place vendor-specific translation lives. See `.peaks/memory/peaks-loop-is-enhancement-not-new-cli.md`.
 
+**Project-level note (effective 2026-07-31):**
+- **Mac users: see `docs/mac-auto-compact.md` for auto-compact verify steps + the `--prompt-size` escape hatch.** Required for peaks-loop ≥ 4.0.4 on Mac Claude Code.
+
 Peaks-Loop workflow automation:
 - peaks-rd checks these standards before RD planning or implementation work.
 - peaks-qa checks code review and security guidance before verification work.
