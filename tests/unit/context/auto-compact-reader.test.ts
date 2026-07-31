@@ -171,3 +171,80 @@ describe('integration — Mac-style nested transcript glob (recursive readdir)',
     }
   });
 });
+
+// Slice 2026-07-31-rid-002-prompt-size-context-now-override — `promptSizeBytes`
+// P0 short-circuit. Mac users (and any IDE wrapper) inject context bytes
+// explicitly via `peaks code context-now --prompt-size <bytes>` to bypass
+// the silent `CLAUDE_CONTEXT_USAGE_PERCENT` failure mode. The reader must
+// honor `--prompt-size` ABOVE every other source: env / statusline /
+// transcript-estimate / conservative-fallback.
+describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () => {
+  it('promptSizeBytes=200000 short-circuits to source user-overridden with ratio ~0.762', () => {
+    // Acceptance criterion: Mac escape hatch returns ratio=200000/262144≈0.762
+    // AND source='user-overridden' even when env + statusline + transcript
+    // would all be absent. The CLI example given to the user is:
+    //   `peaks code context-now --project . --prompt-size 200000 --json`
+    const out = readContextPercent({
+      projectRoot: '/tmp/peaks-test',
+      sessionId: SID,
+      env: {}, // env explicitly empty
+      promptSizeBytes: 200_000
+    });
+    expect(out.source).toBe('user-overridden');
+    expect(out.ratio).toBeCloseTo(200_000 / (256 * 1024), 5);
+    expect(out.ratio).toBeGreaterThanOrEqual(0.75);
+    expect(out.ratio).toBeLessThan(0.8);
+    // rawBytes should reflect what the user injected so the CLI can label it.
+    expect(out.rawBytes).toBe(200_000);
+    expect(out.capacityBytes).toBe(256 * 1024);
+    expect(out.ide).toBe('claude-code');
+  });
+
+  it('promptSizeBytes=0 is a legal edge case (ratio 0, source user-overridden)', () => {
+    // 0 bytes is allowed. The user is asserting "empty prompt" — the
+    // probe correctly reports ratio 0 / source user-overridden rather
+    // than falling through to the conservative-fallback sentinel.
+    const out = readContextPercent({
+      projectRoot: '/tmp/peaks-test',
+      sessionId: SID,
+      env: {},
+      promptSizeBytes: 0
+    });
+    expect(out.source).toBe('user-overridden');
+    expect(out.ratio).toBe(0);
+    expect(out.rawBytes).toBe(0);
+  });
+
+  it('promptSizeBytes=-1 is rejected by reader guard and falls through to existing fallback chain', () => {
+    // The CLI layer validates `>= 0`, but the reader is defensive: a
+    // negative value MUST NOT be silently accepted (ratio would go
+    // negative via Math.min and break the orchestrator's ladder). It
+    // MUST fall through to the env/statusline/transcript chain instead
+    // of throwing. With env = {}, statusline absent, no transcript jsonl
+    // under real homedir → conservative-fallback.
+    const out = readContextPercent({
+      projectRoot: '/tmp/peaks-test',
+      sessionId: SID,
+      env: {},
+      promptSizeBytes: -1
+    });
+    expect(out.source).not.toBe('user-overridden');
+    // Either transcript-estimate or conservative-fallback is acceptable
+    // here — what matters is that we did NOT short-circuit on negative.
+    expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
+  });
+
+  it('promptSizeBytes=undefined preserves backward-compat (no implicit override)', () => {
+    // Backward-compat: callers that don't pass promptSizeBytes see the
+    // exact same behaviour as rid-001-r1. With env = {}, no statusline,
+    // no transcript jsonl expected under real homedir → conservative-fallback.
+    const out = readContextPercent({
+      projectRoot: '/tmp/peaks-test',
+      sessionId: SID,
+      env: {}
+      // promptSizeBytes intentionally omitted
+    });
+    expect(out.source).not.toBe('user-overridden');
+    expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
+  });
+});

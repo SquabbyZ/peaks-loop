@@ -175,10 +175,21 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
       .option('--enforce-job-mode', 'v3.1.2: treat ≥0.85 as MANDATORY auto-compact (not advisory). Auto-enabled when job-shape.json says isJob=true.')
+      .option('--prompt-size <bytes>', 'override the bytes-from-env path; takes priority over env / statusline / transcript. Useful when CLAUDE_CONTEXT_USAGE_PERCENT is absent (e.g. Mac Claude Code).')
   ).action(
-    async (opts: { project: string; sessionId?: string; enforceJobMode?: boolean; json?: boolean }) => {
+    async (opts: { project: string; sessionId?: string; enforceJobMode?: boolean; promptSize?: string; json?: boolean }) => {
       try {
         const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        // rid-002: parse --prompt-size <bytes> defensively. CLI-layer
+        // guard rejects non-finite / negative values; only finite
+        // non-negative numbers reach the reader. Undefined → no override.
+        let promptSizeBytes: number | undefined;
+        if (opts.promptSize !== undefined) {
+          const parsed = Number(opts.promptSize);
+          if (Number.isFinite(parsed) && parsed >= 0) {
+            promptSizeBytes = parsed;
+          }
+        }
         // v3.1.2: detect Job mode from job-shape.json when --enforce-job-mode
         // is not explicitly passed. The LLM is the source of truth for
         // whether the request is Job-shaped; the recorded decision is.
@@ -198,7 +209,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         const probe = readContextPercent({
           projectRoot: opts.project,
           sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? 'unknown',
-          env: process.env
+          env: process.env,
+          promptSizeBytes
         });
         const ratioPct = (probe.ratio * 100).toFixed(1);
         let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
@@ -237,6 +249,7 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             ide: probe.ide,
             capacityBytes: probe.capacityBytes,
             rawBytes: probe.rawBytes ?? null,
+            bytesPrompt: promptSizeBytes ?? null,
             capturedAt: probe.capturedAt
           }, [], [
             action === 'red-line'

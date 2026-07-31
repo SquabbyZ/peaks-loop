@@ -34,6 +34,16 @@ export interface ReadContextPercentInput {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly env?: NodeJS.ProcessEnv | undefined;
+  /**
+   * Slice 2026-07-31-rid-002: explicit byte count from `--prompt-size <bytes>`.
+   * When set to a finite non-negative number, short-circuits the entire
+   * env / statusline / transcript chain with `source: 'user-overridden'`.
+   * Mac escape hatch — Claude Code Mac does NOT inject
+   * `CLAUDE_CONTEXT_USAGE_PERCENT` into PreToolUse sub-shells, so the
+   * user (or a hook wrapper) can inject the bytes they observed themselves.
+   * Priority P0 — above everything else.
+   */
+  readonly promptSizeBytes?: number | undefined;
 }
 
 /**
@@ -156,6 +166,27 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
   // through `unknown` to IdeId's wider 8-element set.
   const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
   const adapter = getAdapter(ideId);
+
+  // P0 user-overridden takes priority over env / statusline / transcript.
+  // Mac escape hatch: when the CLI/helper passes `--prompt-size <bytes>`,
+  // honor that number directly. Do NOT read env, statusline, or transcript
+  // — user intent always wins. Negative / non-finite values are ignored
+  // here (CLI layer validates >= 0); they fall through to the chain below.
+  if (
+    input.promptSizeBytes !== undefined &&
+    Number.isFinite(input.promptSizeBytes) &&
+    input.promptSizeBytes >= 0
+  ) {
+    const ratio = Math.min(1, input.promptSizeBytes / capacityBytes);
+    return {
+      ratio,
+      source: 'user-overridden',
+      rawBytes: input.promptSizeBytes,
+      capacityBytes,
+      ide: ideId,
+      capturedAt
+    };
+  }
 
   // Primary: read the adapter-declared env-var (no hard-coded IDE names).
   if (adapter.compact) {

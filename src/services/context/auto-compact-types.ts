@@ -151,6 +151,10 @@ export interface ContextPercentProbe {
   readonly ratio: number;
   /**
    * Adapter-driven source tag. Fixed values:
+   *   - `user-overridden`         (v2.14.0 rid-002: explicit `--prompt-size
+   *                                <bytes>` from the CLI / hook wrapper —
+   *                                takes priority P0 over EVERY other source.
+   *                                Mac escape hatch.)
    *   - `${ideId}-env`            (e.g. `claude-code-env`)
    *   - `statusline-poll`         (Claude Code MVP fallback)
    *   - `transcript-estimate`     (v2.14.0 Mac-aware: recursive
