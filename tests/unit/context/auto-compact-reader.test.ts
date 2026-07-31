@@ -51,6 +51,11 @@ const __fsMocks = vi.hoisted(() => ({
   // before triggering the call. We grab the real impl lazily inside the
   // factory below.
   readdirSync: null as unknown as ((...args: unknown[]) => unknown) | null,
+  // rid-001-r3: readClaudeStatuslinePercent reads ~/.claude/statusline-state.json
+  // through readFileSync. Mock existsSync + readFileSync so a broken JSON file
+  // can be injected without touching real homedir (ESM namespace is frozen).
+  existsSync: null as unknown as ((...args: unknown[]) => unknown) | null,
+  readFileSync: null as unknown as ((...args: unknown[]) => unknown) | null,
 }));
 
 vi.mock('node:fs', async () => {
@@ -62,6 +67,18 @@ vi.mock('node:fs', async () => {
         return __fsMocks.readdirSync(...args);
       }
       return (actual.readdirSync as (...a: unknown[]) => unknown)(...args);
+    },
+    existsSync: (...args: unknown[]) => {
+      if (__fsMocks.existsSync) {
+        return __fsMocks.existsSync(...args);
+      }
+      return (actual.existsSync as (...a: unknown[]) => unknown)(...args);
+    },
+    readFileSync: (...args: unknown[]) => {
+      if (__fsMocks.readFileSync) {
+        return __fsMocks.readFileSync(...args);
+      }
+      return (actual.readFileSync as (...a: unknown[]) => unknown)(...args);
     },
   };
 });
@@ -328,5 +345,61 @@ describe('behavior — findTranscriptJsonl catch narrows to IO errors only', () 
       SID,
     );
     expect(out).toBeNull();
+  });
+});
+
+// Slice 2026-07-31-rid-001-r3-statusline-catch-guard narrows the silent catch
+// in `readClaudeStatuslinePercent`. Sibling of rid-001-r2 (which fixed the
+// same anti-pattern in `findTranscriptJsonl`). Pre-r3 the catch swallowed ALL
+// errors including SyntaxError from `JSON.parse` on a broken statusline JSON
+// file — a real-world failure mode when Claude Code crashes mid-write of
+// `~/.claude/statusline-state.json`. Post-r3 SyntaxError surfaces (so the
+// orchestrator can degrade gracefully) while IO errors (`ENOENT` from a
+// missing file, etc.) still return null.
+//
+// The tests pin both halves of the contract:
+//
+//   Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces
+//           to the caller (NOT silently returned null)
+//   Case D: IO error (readFileSync throws ENOENT) still returns null
+//           (backward-compat: missing file is a normal "no signal" signal)
+describe('behavior — readClaudeStatuslinePercent catch narrows to IO errors only', () => {
+  it('Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces to caller (NOT swallowed)', () => {
+    // Inject broken JSON via the hoisted `__fsMocks` bag. The catch in
+    // readClaudeStatuslinePercent must re-throw SyntaxError instead of
+    // returning null — the same anti-pattern that hid rid-001-r1 in
+    // findTranscriptJsonl. Production impact: a Claude Code crash that
+    // leaves ~/.claude/statusline-state.json half-written would have
+    // silently turned context-percent into a `null` source rather than
+    // surfacing the file-corruption bug.
+    __fsMocks.existsSync = () => true;
+    __fsMocks.readFileSync = () => '{ broken json'; // unparseable → SyntaxError
+    try {
+      expect(() => _internal.readClaudeStatuslinePercent()).toThrow(SyntaxError);
+    } finally {
+      __fsMocks.existsSync = null;
+      __fsMocks.readFileSync = null;
+    }
+  });
+
+  it('Case D: IO error from readFileSync (ENOENT) still returns null (IO error → silent)', () => {
+    // Backward-compat: an IO failure (ENOENT race-delete, EACCES, EBUSY) MUST
+    // still be swallowed and return null — the original "no statusline"
+    // semantic. The catch narrows to IO errors only; SyntaxError /
+    // ReferenceError now bubble (Case C / sibling of rid-001-r2 Case A),
+    // but the null return for IO failures is preserved.
+    __fsMocks.existsSync = () => true; // bypass the existence short-circuit
+    __fsMocks.readFileSync = () => {
+      const err = new Error('ENOENT: no such file or directory');
+      (err as NodeJS.ErrnoException).code = 'ENOENT';
+      throw err;
+    };
+    try {
+      const out = _internal.readClaudeStatuslinePercent();
+      expect(out).toBeNull();
+    } finally {
+      __fsMocks.existsSync = null;
+      __fsMocks.readFileSync = null;
+    }
   });
 });

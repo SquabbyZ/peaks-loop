@@ -79,8 +79,10 @@ function readClaudeStatuslinePercent(): number | null {
         return raw > 1.5 ? raw / 100 : Math.max(0, Math.min(1, raw));
       }
     }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
+  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs (e.g. broken statusline JSON)
+    return null;                                    // only swallow IO errors
   }
   return null;
 }
