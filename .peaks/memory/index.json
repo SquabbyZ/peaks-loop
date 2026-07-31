@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-28T19:42:24.479Z",
+  "updatedAt": "2026-07-31T07:23:16.264Z",
   "hot": {
     "feedback": [
       {
@@ -1104,6 +1104,78 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-17-d-019-migrations-not-copied-RESOLVED.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-29-worktree-l1-dispatch-block",
+        "kind": "project",
+        "description": "rid-L1 — Sub-agent dispatch prompt hardening (Layer 1) — SHIPPED 2026-07-29 决策 L3()只 deny  一个 Skill。但 superpowers 链( ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l1-dispatch-block.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part1",
+        "kind": "project",
+        "description": "rid-L2-extended Part 1 — Lease foundation + spawn/release CLI — SHIPPED 2026-07-29 决策回顾 L2 防线(已 ship:)只给单次操作授权。 完整工作流...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part1.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part2",
+        "kind": "project",
+        "description": "rid-L2-extended Part 2 — Lease lifecycle CLI + hook integration + dispatch bridge + e2e — SHIPPED 2026-07-29 决策回顾 Par...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part2.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part3",
+        "kind": "project",
+        "description": "rid-L2-extended Part 3.A — Auto-release on dispatch finalization — SHIPPED 2026-07-29 决策回顾 Part 1/2 ship 后,lease life...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part3.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part4",
+        "kind": "project",
+        "description": "rid-L2-extended Part 4 — Lease observability + dispatch v3 migration — SHIPPED 2026-07-29 决策回顾 Part 2 sediment 留的 3 个...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part4.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part5",
+        "kind": "project",
+        "description": "rid-L2-extended Part 5 — Lease leak rate + cross-session aggregation — SHIPPED 2026-07-29 决策回顾 Part 4 sediment 留的 fol...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part5.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-l2-extended-part6-9",
+        "kind": "project",
+        "description": "rid-L2-extended Part 6-9 — L2 follow-up stream closed — SHIPPED 2026-07-29 决策回顾 Part 2/3/4/5 sediment 列的 4 个 follow-u...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-l2-extended-part6-9.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-layer3-deny",
+        "kind": "project",
+        "description": "Worktree Governance — Layer 3 deny (Minimal Viable) — SHIPPED 2026-07-29 决策回顾 用户的 4 个原始痛点(worktree 路径、 不同步、diff、node_...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-layer3-deny.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
+      },
+      {
+        "name": "2026-07-29-worktree-skills-md-shipped",
+        "kind": "project",
+        "description": "rid-SKILL.md — Worktree governance 章节 ship — 2026-07-29 决策 用户的洞察 \"SKILL.md 是 npm package 合约,改源一次所有下游免费生效\" 是本 rid 的杠杆点...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-skills-md-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-29"
       },
       {
         "name": "24h-loop-audit-2026-07-28",
