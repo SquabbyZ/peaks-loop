@@ -110,8 +110,10 @@ function readProgressIfAny(projectRoot: string, sessionId: string, jid: string):
       };
     }
     return null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
+  } catch (err) { // narrows to IO errors only — surface ReferenceError / SyntaxError so future module-load or parse bugs fail loudly (instead of silently masking progress.json corruption)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs (corrupt progress.json)
+    return null;                                    // only swallow IO errors (ENOENT, EACCES, …)
   }
 }
 
