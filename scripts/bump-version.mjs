@@ -181,7 +181,14 @@ const { to } = parseArgs();
 // tag and publishing a redundant version (the 33 -> 35 skip root
 // cause).
 const latestOnRegistry = registryLatest();
-if (latestOnRegistry === current) {
+// AC7 idempotency: only short-circuit when the operator did NOT specify an
+// explicit `--to <x.y.z>`. An explicit operator target always wins — even
+// when it equals the current version (planned GA shape, e.g. 4.0.0 GA where
+// root is already at 4.0.0 and the publish workflow passes `--to 4.0.0`)
+// AND when it differs from the current version (republish-after-rollback
+// shape, e.g. root=4.0.3 / registry=4.0.3 / operator wants 4.0.4). Without
+// this guard, AC7 swallows operator intent silently.
+if (latestOnRegistry === current && to === undefined) {
   console.log(`[bump-version] no-op: ${current} already on registry as latest; skipping bump`);
   process.exit(0);
 }
