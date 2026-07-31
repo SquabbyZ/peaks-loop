@@ -76,30 +76,61 @@ function readClaudeStatuslinePercent(): number | null {
 }
 
 /**
- * Conservative transcript-size fallback. Walks
- * `~/.claude/projects/<hash>/<sid>.jsonl` and estimates
- * `ratio = bytesUsed / 256K`. Returns the bytes seen so the
- * orchestrator can show "estimated from 124KB of 256KB transcript"
- * in the envelope. Tagged `'conservative-fallback'` so callers
- * know NOT to treat this as a hard gate.
+ * Recursive search for `<sessionId>.jsonl` under `projectsDir`. Used by
+ * `readClaudeTranscriptFallback` and exported via `_internal` so unit
+ * tests can drive it without monkey-patching `os.homedir` (which is
+ * non-configurable in ESM module namespaces).
+ *
+ * The Mac layout encodes the cwd as a single hash directory; on Mac
+ * Claude Code nests the transcript under that hash with an extra level
+ * of subdirectory we cannot predict ahead of time. A flat readdir misses
+ * that branch and returns null — the silent-failure mode that this fix
+ * closes.
  */
-function readClaudeTranscriptFallback(sessionId: string): { ratio: number; bytes: number } | null {
-  const projectsDir = join(homedir(), '.claude', 'projects');
+function findTranscriptJsonl(
+  projectsDir: string,
+  sessionId: string,
+): { path: string; bytes: number } | null {
   if (!existsSync(projectsDir)) return null;
   try {
     const { readdirSync } = require('node:fs') as typeof import('node:fs');
-    for (const hashDir of readdirSync(projectsDir)) {
-      const candidate = join(projectsDir, hashDir, `${sessionId}.jsonl`);
-      if (existsSync(candidate)) {
-        const bytes = statSync(candidate).size;
-        const ratio = Math.min(1, bytes / (256 * 1024));
-        return { ratio, bytes };
+    const stack: string[] = [projectsDir];
+    while (stack.length > 0) {
+      const dir = stack.pop();
+      if (dir === undefined) break;
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(full);
+        } else if (entry.isFile() && entry.name === `${sessionId}.jsonl`) {
+          const bytes = statSync(full).size;
+          return { path: full, bytes };
+        }
       }
     }
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
+}
+
+/**
+ * Conservative transcript-size fallback. Recursively searches
+ * `~/.claude/projects/<hash>/<sid-or-nested>.jsonl` (Mac may nest
+ *  the jsonl under an
+ * extra directory we cannot predict ahead of time) and estimates
+ * `ratio = bytesUsed / 256K`. Returns the bytes seen so the
+ * orchestrator can show "estimated from 124KB of 256KB transcript"
+ * in the envelope. Tagged `'transcript-estimate'` (v2.14.0) so callers
+ * know it is a real signal, NOT a hard gate.
+ */
+function readClaudeTranscriptFallback(sessionId: string): { ratio: number; bytes: number } | null {
+  const projectsDir = join(homedir(), '.claude', 'projects');
+  const hit = findTranscriptJsonl(projectsDir, sessionId);
+  if (hit === null) return null;
+  const ratio = Math.min(1, hit.bytes / (256 * 1024));
+  return { ratio, bytes: hit.bytes };
 }
 
 /**
@@ -154,7 +185,7 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     if (fallback !== null) {
       return {
         ratio: fallback.ratio,
-        source: 'conservative-fallback',
+        source: 'transcript-estimate',
         rawBytes: fallback.bytes,
         capacityBytes,
         ide: ideId,
@@ -170,4 +201,4 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
 }
 
 /** Re-export the env-var probe for unit tests. */
-export const _internal = { readEnvPercent, readClaudeStatuslinePercent, readClaudeTranscriptFallback };
+export const _internal = { readEnvPercent, readClaudeStatuslinePercent, readClaudeTranscriptFallback, findTranscriptJsonl };

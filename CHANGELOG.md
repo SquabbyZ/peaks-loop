@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 4.0.4 (Mac auto-compact reader fix)
+
+### Bug fixes
+
+- **Mac auto-compact silent failure closed** (rid-001): `readClaudeTranscriptFallback` now recurses into `~/.claude/projects/**/<hash>/` (was: flat readdir of `<hash>/<sid>.jsonl`). On Mac Claude Code, where the transcript can sit under a nested layout the previous flat walk could not predict, the probe was returning `ratio: 0` and the auto-compact orchestrator stayed in `none` zone — `/compact` never fired. New source tag `transcript-estimate` distinguishes this real signal from the no-signal `conservative-fallback` so the CLI can label it correctly. No orchestrator threshold change; no new dependency; works on win32 / darwin / linux. Files: `src/services/context/auto-compact-reader.ts` (surgical: +`findTranscriptJsonl` recursive helper), `src/services/context/auto-compact-types.ts` (JSDoc only), `tests/unit/context/auto-compact-reader.test.ts` (new, 6 cases). Acceptance: `peaks code context-now --json` on Mac returns `ratio >= 0.5` when `<sid>.jsonl` is ~200KB.
+
 ## 4.0.3 — 2026-07-30 (GA release, 4.0.2 tombstone skip)
 
 This is the cutover to the in-flight 4.0.3 GA, replacing the prior `## 4.0.1` GA header. 4.0.3 lands because 4.0.2 is a permanent npm tombstone (published-then-unpublished on 2026-07-22; see `.peaks/memory/2026-07-30-4-0-1-published-tombstone-resolution.md` table row 4.0.2: ABSENT in versions[] but time entry `2026-07-22T01:53:48.127Z` still present = tombstoned). The byte-for-byte manifest is identical to 4.0.1; the only diff is the package.json version + the visual README rework (see "Visual / text" below). The 4.0.1 GA section below is preserved as the historical record of the actual `peaks-loop@4.0.1` published at `dist-tags.latest` on 2026-07-30T14:55:22Z; it is NOT the 4.0.3 release body.

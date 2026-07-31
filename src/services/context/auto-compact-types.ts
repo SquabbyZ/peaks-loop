@@ -153,8 +153,12 @@ export interface ContextPercentProbe {
    * Adapter-driven source tag. Fixed values:
    *   - `${ideId}-env`            (e.g. `claude-code-env`)
    *   - `statusline-poll`         (Claude Code MVP fallback)
-   *   - `conservative-fallback`   (transcript size estimate OR
-   *                                no signal available — caller
+   *   - `transcript-estimate`     (v2.14.0 Mac-aware: recursive
+   *                                readdir under ~/.claude/projects/
+   *                                finds <sid>.jsonl and reports
+   *                                bytes/256K; a real signal, NOT
+   *                                a hard gate)
+   *   - `conservative-fallback`   (no signal available — caller
    *                                MUST NOT treat as hard gate)
    * Future IDEs may add per-ide sources; the type accepts any
    * string to keep the schema forward-compatible.
