@@ -63,14 +63,18 @@ function readPresenceFile(absolutePath: string): { skill: string } | null {
   let raw: string;
   try {
     raw = readFileSync(absolutePath, 'utf8');
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
+  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs
+    return null;                                    // only swallow IO errors
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
+  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs
+    return null;                                    // only swallow IO errors
   }
   if (parsed === null || typeof parsed !== 'object') return null;
   const skillMatch = SKILL_NAME_RE.exec(JSON.stringify(parsed));
