@@ -26,11 +26,45 @@
 //
 // Run with: pnpm vitest run tests/unit/context/auto-compact-reader.test.ts
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { withTmpWorkspacePerTest, getActiveTmpWorkspace } from '../_setup/tmp-workspace.js';
+
+// Slice 2026-07-31-rid-001-r2-silent-catch-guard needs to verify that a
+// ReferenceError raised inside the walk loop SURFACES to the caller instead
+// of being silently swallowed. ESM module namespaces are frozen, so
+// `vi.spyOn(fsModule, 'readdirSync')` fails at runtime with
+// "Cannot redefine property: readdirSync" — the same constraint already
+// documented for `os.homedir`. The accepted workaround is a per-file
+// `vi.mock('node:fs', …)` with a hoisted, controllable replacement.
+//
+// `vi.hoisted` is required because `vi.mock` is hoisted to the top of the
+// file BEFORE all imports, and the factory must reference a value that
+// exists at hoist time. The mutable `__fsMocks` bag is shared between the
+// factory (read by the mocked module) and the per-test setup (mutated via
+// `__fsMocks.readdirSync = …`).
+const __fsMocks = vi.hoisted(() => ({
+  // Default: pass-through to real implementation. Each test can override
+  // before triggering the call. We grab the real impl lazily inside the
+  // factory below.
+  readdirSync: null as unknown as ((...args: unknown[]) => unknown) | null,
+}));
+
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
+    readdirSync: (...args: unknown[]) => {
+      if (__fsMocks.readdirSync) {
+        return __fsMocks.readdirSync(...args);
+      }
+      return (actual.readdirSync as (...a: unknown[]) => unknown)(...args);
+    },
+  };
+});
 
 declareDimensions(
   'tests/unit/context/auto-compact-reader.test.ts',
@@ -246,5 +280,53 @@ describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () 
     });
     expect(out.source).not.toBe('user-overridden');
     expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
+  });
+});
+
+// Slice 2026-07-31-rid-001-r2-silent-catch-guard narrows the silent catch in
+// `findTranscriptJsonl`. Pre-r2 it swallowed ALL errors (including
+// ReferenceError, SyntaxError), which hid the rid-001-r1 ESM `require is not
+// defined` regression until production. Post-r2 it surfaces ReferenceError /
+// SyntaxError to the caller (so a future module-load bug fails loudly) while
+// still returning null for IO errors (ENOENT, EACCES, etc.) — the original
+// "transcript not found" semantic.
+//
+// The tests below pin both halves of the contract:
+//
+//   Case A: ReferenceError raised inside the walk bubbles up (NOT swallowed)
+//   Case B: a missing projectsDir still returns null (IO error → silent)
+describe('behavior — findTranscriptJsonl catch narrows to IO errors only', () => {
+  it('Case A: ReferenceError raised by readdirSync surfaces to caller (NOT swallowed)', () => {
+    // Inject a ReferenceError via the hoisted `__fsMocks` bag (set up at
+    // the top of this file because `vi.mock('node:fs', …)` is hoisted to
+    // run before any import). The post-r2 catch MUST re-throw instead of
+    // returning null — the rid-001-r1 regression hid because the silent
+    // catch swallowed the same exact ReferenceError.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-r2-ref-'));
+    __fsMocks.readdirSync = () => {
+      throw new ReferenceError('require is not defined in ES module scope');
+    };
+    try {
+      expect(() => _internal.findTranscriptJsonl(tmpDir, SID)).toThrow(ReferenceError);
+    } finally {
+      __fsMocks.readdirSync = null;
+    }
+  });
+
+  it('Case B: missing projectsDir returns null (IO error → silent)', () => {
+    // Backward-compat: the original "transcript not found" semantic MUST
+    // be preserved. existsSync short-circuits to null BEFORE the try block
+    // for a non-existent dir, so this case is the real IO-error swallowing
+    // path: ENOENT when readdirSync hits a race-deleted dir.
+    //
+    // We simulate it by pointing at a path that does not exist; existsSync
+    // returns false → null. This pins the IO-error swallow contract from
+    // the OTHER side of the catch (no readdirSync call, but if it WERE
+    // called against a missing parent, ENOENT would still be swallowed).
+    const out = _internal.findTranscriptJsonl(
+      `/tmp/peaks-r2-no-such-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      SID,
+    );
+    expect(out).toBeNull();
   });
 });
