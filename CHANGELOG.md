@@ -1,14 +1,25 @@
 # Changelog
 
-## Unreleased — 4.0.4 (Mac auto-compact reader fix)
+## 4.0.4 — 2026-07-31 (Mac auto-compact silent failure + user-driven override)
 
 ### Bug fixes
 
-- **Mac auto-compact silent failure closed** (rid-001): `readClaudeTranscriptFallback` now recurses into `~/.claude/projects/**/<hash>/` (was: flat readdir of `<hash>/<sid>.jsonl`). On Mac Claude Code, where the transcript can sit under a nested layout the previous flat walk could not predict, the probe was returning `ratio: 0` and the auto-compact orchestrator stayed in `none` zone — `/compact` never fired. New source tag `transcript-estimate` distinguishes this real signal from the no-signal `conservative-fallback` so the CLI can label it correctly. No orchestrator threshold change; no new dependency; works on win32 / darwin / linux. Files: `src/services/context/auto-compact-reader.ts` (surgical: +`findTranscriptJsonl` recursive helper), `src/services/context/auto-compact-types.ts` (JSDoc only), `tests/unit/context/auto-compact-reader.test.ts` (new, 6 cases). Acceptance: `peaks code context-now --json` on Mac returns `ratio >= 0.5` when `<sid>.jsonl` is ~200KB.
+- **Mac auto-compact silent failure closed** (rid-001-r1, commit `22debcb`): `readClaudeTranscriptFallback` now recurses into `~/.claude/projects/**/<hash>/` (was: flat readdir of `<hash>/<sid>.jsonl`). On Mac Claude Code, where the transcript can sit under a nested layout the previous flat walk could not predict, the probe was returning `ratio: 0` and the auto-compact orchestrator stayed in `none` zone — `/compact` never fired. New source tag `transcript-estimate` distinguishes this real signal from the no-signal `conservative-fallback` so the CLI can label it correctly. No orchestrator threshold change; no new dependency; works on win32 / darwin / linux. Files: `src/services/context/auto-compact-reader.ts` (surgical: +`findTranscriptJsonl` recursive helper), `src/services/context/auto-compact-types.ts` (JSDoc only), `tests/unit/context/auto-compact-reader.test.ts` (new, 6 cases). Acceptance: `peaks code context-now --json` on Mac returns `ratio >= 0.5` when `<sid>.jsonl` is ~200KB. **Plus a 2-line ESM-compatibility fix** (commit `22debcb`): the original `findTranscriptJsonl` used `require('node:fs')` inside the function body, which threw `ReferenceError: require is not defined` under pure Node 22 ESM and was silently swallowed by the outer `try/catch` — vitest's esbuild shim masked the bug. Moved `readdirSync` to top-level import.
 
 ### Features
 
-- Add: `peaks code context-now --prompt-size <bytes>` user-driven override (Mac escape hatch when `CLAUDE_CONTEXT_USAGE_PERCENT` is absent). New `source: 'user-overridden'` value at P0 above env / statusline / transcript / fallback. Example: `--prompt-size 200000` → `ratio ≈ 0.762`, `source: 'user-overridden'`. Files: `src/cli/commands/code-runtime-commands.ts`, `src/services/context/auto-compact-reader.ts`, `src/services/context/auto-compact-types.ts` (JSDoc), `tests/unit/context/auto-compact-reader.test.ts` (+4 cases).
+- Add: `peaks code context-now --prompt-size <bytes>` user-driven override (rid-002, commit `fa98502`). Mac escape hatch when `CLAUDE_CONTEXT_USAGE_PERCENT` is absent. New `source: 'user-overridden'` value at P0 above env / statusline / transcript / fallback. Example: `--prompt-size 200000` → `ratio ≈ 0.762`, `source: 'user-overridden'`. Files: `src/cli/commands/code-runtime-commands.ts`, `src/services/context/auto-compact-reader.ts` (+P0 short-circuit), `src/services/context/auto-compact-types.ts` (JSDoc), `tests/unit/context/auto-compact-reader.test.ts` (+4 cases).
+
+### Documentation
+
+- Add: `docs/mac-auto-compact.md` (78 lines) — Mac user-facing verify + escape hatch doc (rid-003, commit `18f4d68`). 5 sections: TL;DR, Why Mac was broken, How to verify, The escape hatch, Hook integration, Caveats, Related.
+- Add: `CLAUDE.md` line 20 callout linking Mac users to the new doc.
+- Add: 2 project memory entries (`.peaks/memory/2026-07-31-mac-auto-compact-{no-env-injection,esm-fake-green-and-fix}.md`) for future maintainer reference (rid-003-r1, commit `03be94f0`).
+
+### Sub-package lockstep (4.0.4)
+
+- peaks-loop@4.0.4 / peaks-loop-shared@0.0.32 / peaks-loop-mut@0.1.6 / peaks-loop-shared-channel@0.0.11
+- `peaks-loop-shared/dist/version.js` CLI_VERSION bumped to "4.0.4" (publish gate-cli-version reads on-disk, not the packed tarball — both checked)
 
 ## 4.0.3 — 2026-07-30 (GA release, 4.0.2 tombstone skip)
 
