@@ -186,6 +186,32 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 
 ---
 
+## 开发者 · 24h 模式 / 批量工具
+
+> **给 peaks-loop 项目维护者与「24h 模式」使用者** —— end-user 跳过这一段,继续看 FAQ 就够。
+
+如果你的工作流跑到了 **24h 模式**(`peaks session 24h-mode` + `24H_ACTIVE`)、**批量 closure pass**、或任何需要从 LLM 主线程派生出一堆 `peaks request transition` 之类的子命令,**先装一份 Python 3.10+**:
+
+```bash
+# macOS / Linux
+brew install python@3.12   # 或: pyenv install 3.12
+
+# Windows
+winget install Python.Python.3.12
+```
+
+**为什么不是 Node.js?peaks-loop 本身就是 Node/pnpm 的呀。** —— peaks-loop 自身的 hard dep 是 Node.js,**没变**。但批量工具脚本的"外部 subprocess 编排"这一层,Python 的 `subprocess.run(capture_output=True, env=...)` 比 Node 的 `child_process.spawn` 在 Windows + UTF-8 + 跨平台 3 件事上少踩坑(LANG/LC_ALL/PYTHONIOENCODING 一行 env 就能修好;Node 的 child_process 需要单独设 `windowsHide` + 改 `console.log` 编码)。代码量也短得多。
+
+**规则**(`.peaks/memory/2026-08-01-24h-mode-59-rid-closure-pass.md` 沉淀):
+
+1. **探测 → 选语言**:`python3 --version`(Windows 是 `py -3`)若有,优先 Python;否则降级到 `node`;都没有就报错,不要静默 fallback。
+2. **路径**:放 **`.peaks/_tools/<name>.py`**(或 `.mjs`),**不**放 `bin/` —— `bin/` 是 peaks-loop 自己源码分发的目录,临时 helper 会污染它。下划线开头的 `.peaks/_tools/` 跟 `.peaks/_runtime/`、`.peaks/_sub_agents/`、`.peaks/_dogfood/` 一样,gitignored。
+3. **活干完就删**。临时脚本不是 deliverable,留在这里会让别人好奇"这是什么"。
+
+这条提示对**普通 end-user 没用** —— 你只要 `npm i -g peaks-loop` 然后发斜杠命令就行,Python 是给"想自己写批处理"那一层人用的。
+
+---
+
 ## FAQ
 
 <details>

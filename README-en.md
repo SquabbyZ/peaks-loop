@@ -186,6 +186,32 @@ peaks-loop's two engineering spines come straight from these projects:
 
 ---
 
+## For developers · 24h mode and batch tooling
+
+> **For peaks-loop project maintainers and "24h mode" users** — end-users, skip this section and head straight to FAQ.
+
+If your workflow reaches **24h mode** (`peaks session 24h-mode` → `24H_ACTIVE`), **batch closure passes**, or anything that needs to spawn many `peaks request transition` (or similar) calls from a parent LLM context, **install Python 3.10+ first**:
+
+```bash
+# macOS / Linux
+brew install python@3.12   # or: pyenv install 3.12
+
+# Windows
+winget install Python.Python.3.12
+```
+
+**Why not Node.js?peaks-loop itself is Node/pnpm, isn't it?** — peaks-loop's *own* hard dep stays Node.js, **unchanged**. The reason Python wins for *batch-utility scripting* is the `subprocess` layer: Python's `subprocess.run(capture_output=True, env=...)` is significantly less painful than Node's `child_process.spawn` on Windows + UTF-8 + cross-platform (one line of `LANG` / `LC_ALL` / `PYTHONIOENCODING` env in the child fixes it; Node's `child_process` needs separate `windowsHide` + `console.log` encoding tricks). And the code is shorter.
+
+**Rules** (sedimented at `.peaks/memory/2026-08-01-24h-mode-59-rid-closure-pass.md`):
+
+1. **Detect-then-pick**: probe `python3 --version` (or `py -3` on Windows) first; use Python if available; else fall back to `node`; else surface the missing-runtime error — do not silently degrade.
+2. **Path**: place the script at **`.peaks/_tools/<name>.py`** (or `.mjs`). Do **not** place under `bin/` — that directory is reserved for peaks-loop's own source-shipped scripts and pollution from temporary helpers is a maintenance hazard. The `_`-prefixed `.peaks/_tools/` mirrors `.peaks/_runtime/`, `.peaks/_sub_agents/`, `.peaks/_dogfood/` and is gitignored.
+3. **Delete when the work is done.** Temporary scripts are not deliverables; leaving them around invites the "what is this?" question.
+
+This section is **not for ordinary end-users** — `npm i -g peaks-loop` + a slash command is all you need. Python is for the layer of people who want to write their own batch utilities.
+
+---
+
 ## FAQ
 
 <details>
