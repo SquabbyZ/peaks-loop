@@ -1,5 +1,29 @@
 # Changelog
 
+## 4.0.5
+
+### Patch Changes
+
+- Release 4.0.5 — 2026-08-01 bundle.
+
+  Includes two coordinated slices and three business-risk resolutions:
+
+  - **RID 2026-08-01-statusline-auto-compact-progress** — primary Claude Code statusline polish: cyan brand RGB `#5A65D8`, peaks-code mode display scoped to the active peaks-code session, `→` connector, `empty` idle label, 2.4s breathing pulse. Statusline CLI unchanged.
+  - **RID 2026-08-01-subagent-merge-and-e2e** — sub-agent dispatch governance: parent session auto-merges the agent branch back to the caller's working branch; Playwright MCP browser sessions are isolated by per-dispatch Chromium profile (no extra LLM cost); long-lived local services are killed before merge-back via `peaks sub-agent shutdown register`; merge conflicts re-dispatch the same sub-agent with enriched context instead of pausing for human decision (bounded to one re-attempt); a single end-to-end Playwright verification runs after merge (the runner now spawns real Chromium when `PEAKS_PLAYWRIGHT_USER_DATA_DIR` / `PEAKS_PLAYWRIGHT_PROFILE_NAME` are set, with a deterministic stub fallback when either is missing).
+  - **Schema v3.2 silent-upgrade** for the dispatch record (`serviceKill: ReadonlyArray<...>` + `mergeBackAttempts: number`). v3.1 records on disk are upgraded transparently on read; no migration step.
+  - **`peaks code` 2-level terminal statusline** — when the active skill is a bee (e.g. `peaks-rd`), the terminal statusline now shows `peaks-rd ↑peaks-code [full-auto] → peaks-loop`, surfacing both layers in one line.
+  - **Slow-blink idle glyph** — the terminal statusline `○` glyph is wrapped in the ANSI slow-blink SGR (`\x1b[5m`) for the `ansi-unicode` and `unicode` capabilities, so idle reads as a pulse on terminals that support it. The `ascii` capability stays plain to keep file / log consumers clean.
+
+  No new dependency. peaks-loop@4.0.4 → peaks-loop@4.0.5 is a smooth install for downstream consumers.
+
+  Compatibility:
+
+  - Existing dispatch CLI surface is unchanged.
+  - `peaks sub-agent dispatch` automatically stamps `PEAKS_SUB_AGENT_DISPATCH_PROVENANCE` / `PEAKS_WORKTREE_LEASE_ID` / `PEAKS_PLAYWRIGHT_USER_DATA_DIR` / `PEAKS_PLAYWRIGHT_PROFILE_NAME` env vars on every `--isolation worktree` call.
+  - Existing statusline consumers (no capability flag) keep their current behavior; the new modes are opt-in via the env-driven capability resolver.
+
+  Tests: 88/88 (76 unit + 4 integration + 8 dispatched-prompt unit). `pnpm build` → `build-integrity: OK`. Production typecheck clean.
+
 ## Unreleased — 4.0.4.x
 
 ### Bug fixes
@@ -26,7 +50,7 @@
 - Add: `docs/mac-auto-compact.md` (78 lines) — Mac user-facing verify + escape hatch doc (rid-003, commit `18f4d68`). 5 sections: TL;DR, Why Mac was broken, How to verify, The escape hatch, Hook integration, Caveats, Related.
 - Add: `CLAUDE.md` line 20 callout linking Mac users to the new doc.
 - Add: 2 project memory entries (`.peaks/memory/2026-07-31-mac-auto-compact-{no-env-injection,esm-fake-green-and-fix}.md`) for future maintainer reference (rid-003-r1, commit `03be94f0`).
-- **Fix: `scripts/bump-version.mjs` AC7 idempotency no longer swallows explicit `--to` operator intent** (rid-bug-bump-version-ac7-bypass, internal — not in 4.0.4 published on 2026-07-31, will ship with the next 4.0.4.x patch). The pre-publish guard checked `latestOnRegistry === current` unconditionally and exited 0 *before* the `--to <x.y.z>` argument was consulted, so the operator could not republish-after-rollback (root=4.0.3 / registry=4.0.3 / operator wants 4.0.4) — the script silently no-op'd. AC7's original intent (stop `publish.yml` from re-running the auto-bump on a re-pushed tag, since `publish.yml` does not pass `--to`) is preserved: the guard now only short-circuits when the operator did not specify an explicit target (`&& to === undefined`). The "planned GA" shape (root already at the target, e.g. `4.0.0` GA where `--to 4.0.0` equals `current`) was already covered by a separate branch at lines 229-240 and continues to work. Files: `scripts/bump-version.mjs` (1-line condition tightening at line 184), `tests/unit/release/bump-version-ac7.test.ts` (new, 8 cases / 4-dim, with a fake-`npm.cmd`-on-PATH harness so the network is never touched in CI). Acceptance: `node scripts/bump-version.mjs --to 4.0.4` in a workspace where root=4.0.3 and registry=4.0.3 now writes `4.0.4` to `package.json#version`; `node scripts/bump-version.mjs` (no flag) still short-circuits with the original `[bump-version] no-op: 4.0.3 already on registry as latest` log line.
+- **Fix: `scripts/bump-version.mjs` AC7 idempotency no longer swallows explicit `--to` operator intent** (rid-bug-bump-version-ac7-bypass, internal — not in 4.0.4 published on 2026-07-31, will ship with the next 4.0.4.x patch). The pre-publish guard checked `latestOnRegistry === current` unconditionally and exited 0 _before_ the `--to <x.y.z>` argument was consulted, so the operator could not republish-after-rollback (root=4.0.3 / registry=4.0.3 / operator wants 4.0.4) — the script silently no-op'd. AC7's original intent (stop `publish.yml` from re-running the auto-bump on a re-pushed tag, since `publish.yml` does not pass `--to`) is preserved: the guard now only short-circuits when the operator did not specify an explicit target (`&& to === undefined`). The "planned GA" shape (root already at the target, e.g. `4.0.0` GA where `--to 4.0.0` equals `current`) was already covered by a separate branch at lines 229-240 and continues to work. Files: `scripts/bump-version.mjs` (1-line condition tightening at line 184), `tests/unit/release/bump-version-ac7.test.ts` (new, 8 cases / 4-dim, with a fake-`npm.cmd`-on-PATH harness so the network is never touched in CI). Acceptance: `node scripts/bump-version.mjs --to 4.0.4` in a workspace where root=4.0.3 and registry=4.0.3 now writes `4.0.4` to `package.json#version`; `node scripts/bump-version.mjs` (no flag) still short-circuits with the original `[bump-version] no-op: 4.0.3 already on registry as latest` log line.
 
 ### Sub-package lockstep (4.0.4)
 
