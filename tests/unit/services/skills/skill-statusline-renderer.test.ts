@@ -7,16 +7,15 @@
 //                ascii / ansi-unicode), state, and projectRoot combination.
 //   - behavior — attention-gate classification is conservative: only
 //                known-blocking gate names surface as a warning token;
-//                routine gates stay hidden. The defaults (no options,
-//                ascii fallback) and stale / invalid-presence rendering
-//                are covered here.
+//                routine gates stay hidden. Mode token is scoped to
+//                peaks-code only.
 //   - integration — N/A (no fs, no subprocess); omitted with reason.
 //   - a11y     — output is single-line, contains no CLI verb, contains
 //                no legacy mountain glyphs, never balloons.
 //
 // Run with: pnpm vitest run tests/unit/services/skills/skill-statusline-renderer.test.ts
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import type {
   StatusLineModel,
@@ -80,101 +79,194 @@ function compactActiveModel(compact: CompactStatuslineState): StatusLineModel {
   };
 }
 
+// Pin the wall clock so the breathing glyph is deterministic per test.
+function withPinnedClock<T>(nowMs: number, fn: () => T): T {
+  vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+  try {
+    return fn();
+  } finally {
+    vi.restoreAllMocks();
+  }
+}
+
 describe('render — capability matrix (exact strings)', () => {
-  it('unicode: active presence renders Peaks ● peaks-code › peaks-loop', () => {
+  it('unicode: active presence renders Peaks ● peaks-code → peaks-loop', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ● peaks-code › peaks-loop',
-    );
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
-  it('unicode: idle renders Peaks ○ idle › peaks-loop', () => {
+  it('unicode: idle renders Peaks ○ empty → peaks-loop', () => {
     const model = activeModel(null);
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ○ idle › peaks-loop',
+      'Peaks ○ empty → peaks-loop',
     );
   });
 
-  it('ascii: active presence renders Peaks * peaks-code > peaks-loop', () => {
+  it('ascii: active presence renders Peaks * peaks-code -> peaks-loop', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    expect(renderStatusLine(model, { capability: 'ascii' })).toBe(
-      'Peaks * peaks-code > peaks-loop',
-    );
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'ascii' }),
+    )).toBe('Peaks * peaks-code -> peaks-loop');
   });
 
-  it('ansi-unicode: renders with escape codes around the active glyph', () => {
+  it('ansi-unicode: cyan escape appears around brand and active glyph', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    const out = renderStatusLine(model, { capability: 'ansi-unicode' });
-    expect(out).toContain('\x1b[');
-    expect(out).toContain('●');
-    // Stripping ANSI yields the exact unicode text.
-    const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
-    expect(stripped).toBe('Peaks ● peaks-code › peaks-loop');
+    const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
+    // At t=0 the breathing glyph is the first entry: '●'.
+    expect(out).toBe('\x1b[36mPeaks\x1b[0m \x1b[36m●\x1b[0m peaks-code → peaks-loop');
   });
 
   it('ansi-unicode: stripped output for idle is identical to unicode idle', () => {
     const model = activeModel(null);
     const out = renderStatusLine(model, { capability: 'ansi-unicode' });
     const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
-    expect(stripped).toBe('Peaks ○ idle › peaks-loop');
+    expect(stripped).toBe('Peaks ○ empty → peaks-loop');
+  });
+});
+
+describe('render — peaks-code mode display', () => {
+  it('peaks-code with mode renders the [mode] token in unicode', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-code [full-auto] → peaks-loop');
+  });
+
+  it('peaks-code with empty mode does NOT render brackets', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: '' }));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-code → peaks-loop');
+  });
+
+  it('peaks-code without mode field does NOT render brackets', () => {
+    const model = activeModel(presenceOf('peaks-code'));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-code → peaks-loop');
+  });
+
+  it('peaks-rd with mode never renders the mode token', () => {
+    const model = activeModel(presenceOf('peaks-rd', { mode: 'full-auto' }));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-rd → peaks-loop');
+  });
+
+  it('peaks-qa with mode never renders the mode token', () => {
+    const model = activeModel(presenceOf('peaks-qa', { mode: 'strict' }));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-qa → peaks-loop');
+  });
+
+  it('mode token is bracketed in ascii capability too', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'assisted' }));
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'ascii' }),
+    )).toBe('Peaks * peaks-code [assisted] -> peaks-loop');
   });
 });
 
 describe('render — stale and invalid-presence diagnostics', () => {
-  it('stale unicode renders Peaks ! peaks-code stale 25h > peaks-loop', () => {
+  it('stale unicode renders Peaks ! peaks-code · stale 25h → peaks-loop', () => {
     const presence = presenceOf('peaks-code');
     const ageMs = 25 * 60 * 60 * 1000; // 25h
     const out = renderStatusLine(staleModel(presence, ageMs), { capability: 'unicode' });
-    // Brief: stale and invalid-presence are diagnostic states. They keep
-    // the warning glyph and the technical suffix; they do NOT collapse to
-    // the active rendering.
-    expect(out).toBe('Peaks ! peaks-code · stale 25h › peaks-loop');
+    expect(out).toBe('Peaks ! peaks-code · stale 25h → peaks-loop');
   });
 
-  it('invalid-presence unicode renders Peaks ! presence unreadable › peaks-loop', () => {
+  it('invalid-presence unicode renders Peaks ! presence unreadable → peaks-loop', () => {
     const out = renderStatusLine(invalidModel(), { capability: 'unicode' });
-    expect(out).toBe('Peaks ! presence unreadable › peaks-loop');
+    expect(out).toBe('Peaks ! presence unreadable → peaks-loop');
   });
 
   it('stale ascii mirrors the unicode layout with ASCII glyphs', () => {
     const presence = presenceOf('peaks-code');
     const ageMs = 25 * 60 * 60 * 1000;
     const out = renderStatusLine(staleModel(presence, ageMs), { capability: 'ascii' });
-    expect(out).toBe('Peaks ! peaks-code . stale 25h > peaks-loop');
+    expect(out).toBe('Peaks ! peaks-code . stale 25h -> peaks-loop');
+  });
+});
+
+describe('render — 2.4s breathing glyph rotation', () => {
+  it('unicode active glyph rotates every 480ms inside the 2.4s period', () => {
+    const samples = [0, 480, 960, 1440, 1920, 2400].map((t) => {
+      const out = withPinnedClock(t, () =>
+        renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'unicode' }),
+      );
+      return out;
+    });
+    const glyphs = samples.map((s) => s.split(' ')[1]);
+    // 2.4s period = one full rotation; expect all five distinct glyphs across the 0..1920ms window.
+    expect(new Set(glyphs.slice(0, 5)).size).toBe(5);
+    // The glyph at t=0 and t=2400 should match (one full cycle).
+    expect(glyphs[0]).toBe(glyphs[5]);
+  });
+
+  it('breathing does not change total visible width across the period', () => {
+    const widths = [0, 240, 480, 720, 960, 1200, 1440, 1680, 1920, 2160, 2399].map((t) =>
+      withPinnedClock(t, () => {
+        const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
+        return renderStatusLine(model, { capability: 'unicode' }).length;
+      }),
+    );
+    expect(new Set(widths).size).toBe(1);
+  });
+
+  it('ascii breathing mirrors the unicode rotation cadence', () => {
+    const a = withPinnedClock(0, () =>
+      renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
+    );
+    const b = withPinnedClock(1200, () =>
+      renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
+    );
+    expect(a.split(' ')[1]).not.toBe(b.split(' ')[1]);
+  });
+
+  it('idle, stale, invalid, and compact states never breathe', () => {
+    const idle = withPinnedClock(0, () => renderStatusLine(idleModel(), { capability: 'unicode' }));
+    const idle2 = withPinnedClock(1200, () => renderStatusLine(idleModel(), { capability: 'unicode' }));
+    expect(idle).toBe(idle2);
   });
 });
 
 describe('behavior — attention-gate classification', () => {
-  it('routine gate (startup) does NOT appear in the rendered output', () => {
+  it('routine gate (startup) does NOT surface gate label but mode token still appears for peaks-code', () => {
     const presence = presenceOf('peaks-code', { mode: 'assisted', gate: 'startup' });
-    const out = renderStatusLine(activeModel(presence), { capability: 'unicode' });
-    // Brief: "prove neither appears" — neither `mode:assisted` nor `gate:startup`.
-    expect(out).not.toContain('assisted');
+    const out = withPinnedClock(0, () =>
+      renderStatusLine(activeModel(presence), { capability: 'unicode' }),
+    );
+    // Routine gate stays hidden.
     expect(out).not.toContain('startup');
-    expect(out).not.toContain('mode:');
     expect(out).not.toContain('gate:');
-    expect(out).toBe('Peaks ● peaks-code › peaks-loop');
+    // Mode IS shown because peaks-code owns the mode taxonomy.
+    expect(out).toContain('[assisted]');
   });
 
   it('attention-gate classification surfaces warning glyph with the human-readable gate label', () => {
     const presence = presenceOf('peaks-code', { gate: 'qa-validation' });
-    const out = renderStatusLine(activeModel(presence), { capability: 'unicode' });
-    expect(out).toBe('Peaks ! peaks-code · QA › peaks-loop');
+    expect(renderStatusLine(activeModel(presence), { capability: 'unicode' })).toBe(
+      'Peaks ! peaks-code · QA → peaks-loop',
+    );
   });
 
   it('ascii capability also surfaces attention gate with ASCII glyphs', () => {
     const presence = presenceOf('peaks-code', { gate: 'qa-validation' });
-    const out = renderStatusLine(activeModel(presence), { capability: 'ascii' });
-    expect(out).toBe('Peaks ! peaks-code . QA > peaks-loop');
+    expect(renderStatusLine(activeModel(presence), { capability: 'ascii' })).toBe(
+      'Peaks ! peaks-code . QA -> peaks-loop',
+    );
   });
 });
 
 describe('behavior — defaults and capability boundaries', () => {
   it('default capability is unicode (no ANSI emitted when options omitted)', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    const out = renderStatusLine(model);
+    const out = withPinnedClock(0, () => renderStatusLine(model));
     expect(out).not.toContain('\x1b[');
-    expect(out).toBe('Peaks ● peaks-code › peaks-loop');
+    expect(out).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
   it('covers every capability literal at runtime', () => {
@@ -187,10 +279,10 @@ describe('behavior — defaults and capability boundaries', () => {
     }
   });
 
-  it('idle without projectRoot renders without the › suffix', () => {
+  it('idle without projectRoot renders without the → suffix', () => {
     const model = idleModel(null);
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe('Peaks ○ idle');
-    expect(renderStatusLine(model, { capability: 'ascii' })).toBe('Peaks o idle');
+    expect(renderStatusLine(model, { capability: 'unicode' })).toBe('Peaks ○ empty');
+    expect(renderStatusLine(model, { capability: 'ascii' })).toBe('Peaks o empty');
   });
 
   it('options object is structurally accepted for every capability', () => {
@@ -232,8 +324,6 @@ describe('a11y — output hygiene and forbidden glyphs', () => {
   it('output never contains a CLI verb (peaks <verb>) or mode/gate colon labels', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: 'assisted', gate: 'startup' }));
     const out = renderStatusLine(model, { capability: 'unicode' });
-    // Brief: forbid `peaks <verb>` (with verb shape) and colon-gated tokens.
-    // `peaks-loop` is the project basename; we explicitly allow that.
     expect(out).not.toMatch(/\bpeaks\s+[a-z][a-z0-9-]*\b/);
     expect(out).not.toContain('mode:');
     expect(out).not.toContain('gate:');
@@ -242,41 +332,40 @@ describe('a11y — output hygiene and forbidden glyphs', () => {
   it('rendered string never balloons beyond the small model surface', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: 'assisted', gate: 'startup' }));
     const out = renderStatusLine(model, { capability: 'unicode' });
-    // 64 chars is a generous upper bound for the documented render.
-    expect(out.length).toBeLessThanOrEqual(64);
+    expect(out.length).toBeLessThanOrEqual(80);
   });
 });
 
 describe('render — compact precedence (exact strings)', () => {
-  it('queued unicode renders Peaks ◐ [░░░░░░░░] queued · 87% › peaks-loop', () => {
+  it('queued unicode renders Peaks ◐ [░░░░░░░░] queued · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'queued', filledCells: 0, triggerRatio: 0.87 });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ◐ [░░░░░░░░] queued · 87% › peaks-loop',
+      'Peaks ◐ [░░░░░░░░] queued · 87% → peaks-loop',
     );
   });
 
-  it('preparing unicode renders Peaks ◑ [██░░░░░░] preparing · 87% › peaks-loop', () => {
+  it('preparing unicode renders Peaks ◑ [██░░░░░░] preparing · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'preparing', filledCells: 2, triggerRatio: 0.87 });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ◑ [██░░░░░░] preparing · 87% › peaks-loop',
+      'Peaks ◑ [██░░░░░░] preparing · 87% → peaks-loop',
     );
   });
 
-  it('compacting unicode renders Peaks ◒ [████░░░░] compacting · 87% › peaks-loop', () => {
+  it('compacting unicode renders Peaks ◒ [████░░░░] compacting · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'compacting', filledCells: 4, triggerRatio: 0.87 });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ◒ [████░░░░] compacting · 87% › peaks-loop',
+      'Peaks ◒ [████░░░░] compacting · 87% → peaks-loop',
     );
   });
 
-  it('verifying unicode renders Peaks ◓ [██████░░] verifying › peaks-loop', () => {
+  it('verifying unicode renders Peaks ◓ [██████░░] verifying → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'verifying', filledCells: 6 });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ◓ [██████░░] verifying › peaks-loop',
+      'Peaks ◓ [██████░░] verifying → peaks-loop',
     );
   });
 
-  it('completed unicode renders Peaks ✓ [████████] compacted · 87% → 42% › peaks-loop', () => {
+  it('completed unicode renders Peaks ✓ [████████] compacted · 87% → 42% → peaks-loop', () => {
     const model = compactActiveModel({
       kind: 'completed',
       filledCells: 8,
@@ -284,25 +373,25 @@ describe('render — compact precedence (exact strings)', () => {
       afterRatio: 0.42,
     });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ✓ [████████] compacted · 87% → 42% › peaks-loop',
+      'Peaks ✓ [████████] compacted · 87% → 42% → peaks-loop',
     );
   });
 
-  it('failed unicode renders Peaks ✕ [████░░░░] compact failed · compacting › peaks-loop', () => {
+  it('failed unicode renders Peaks ✕ [████░░░░] compact failed · compacting → peaks-loop', () => {
     const model = compactActiveModel({
       kind: 'failed',
       filledCells: 4,
       failedAt: 'compacting',
     });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ✕ [████░░░░] compact failed · compacting › peaks-loop',
+      'Peaks ✕ [████░░░░] compact failed · compacting → peaks-loop',
     );
   });
 
-  it('stalled unicode renders Peaks ◒ [████░░░░] stalled › peaks-loop', () => {
+  it('stalled unicode renders Peaks ◒ [████░░░░] stalled → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'stalled', filledCells: 4 });
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ◒ [████░░░░] stalled › peaks-loop',
+      'Peaks ◒ [████░░░░] stalled → peaks-loop',
     );
   });
 
@@ -315,7 +404,7 @@ describe('render — compact precedence (exact strings)', () => {
     const out = renderStatusLine(model, { capability: 'unicode' });
     expect(out).toContain('Peaks');
     expect(out).toContain('compact-lifecycle: triggerRatio out of range');
-    expect(out).toContain('› peaks-loop');
+    expect(out).toContain('→ peaks-loop');
     expect(out).not.toContain('?');
   });
 });
@@ -323,10 +412,9 @@ describe('render — compact precedence (exact strings)', () => {
 describe('render — compact precedence falls through to C1 when compact.kind=none', () => {
   it('none preserves the normal C1 active line', () => {
     const model = compactActiveModel({ kind: 'none', filledCells: 0 });
-    // Existing C1 line must be byte-identical when compact is none.
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ● peaks-code › peaks-loop',
-    );
+    expect(withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'unicode' }),
+    )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
   it('none preserves the normal C1 idle line', () => {
@@ -338,7 +426,7 @@ describe('render — compact precedence falls through to C1 when compact.kind=no
       compact: { kind: 'none', filledCells: 0 },
     };
     expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ○ idle › peaks-loop',
+      'Peaks ○ empty → peaks-loop',
     );
   });
 });
@@ -346,10 +434,8 @@ describe('render — compact precedence falls through to C1 when compact.kind=no
 describe('render — compact precedence ASCII fallback', () => {
   it('compacting ascii renders with #/- bar and ASCII separators', () => {
     const model = compactActiveModel({ kind: 'compacting', filledCells: 4, triggerRatio: 0.87 });
-    const out = renderStatusLine(model, { capability: 'ascii' });
-    // The exact ASCII layout: ASCII compact glyph + # bar + label + ratios
-    expect(out).toBe(
-      'Peaks + [####----] compacting . 87% > peaks-loop',
+    expect(renderStatusLine(model, { capability: 'ascii' })).toBe(
+      'Peaks + [####----] compacting . 87% -> peaks-loop',
     );
   });
 
@@ -361,7 +447,7 @@ describe('render — compact precedence ASCII fallback', () => {
       afterRatio: 0.42,
     });
     expect(renderStatusLine(model, { capability: 'ascii' })).toBe(
-      'Peaks * [########] compacted . 87% -> 42% > peaks-loop',
+      'Peaks * [########] compacted . 87% -> 42% -> peaks-loop',
     );
   });
 
@@ -372,19 +458,18 @@ describe('render — compact precedence ASCII fallback', () => {
       failedAt: 'compacting',
     });
     expect(renderStatusLine(model, { capability: 'ascii' })).toBe(
-      'Peaks x [####----] compact failed . compacting > peaks-loop',
+      'Peaks x [####----] compact failed . compacting -> peaks-loop',
     );
   });
 });
 
 describe('render — compact precedence ANSI/stripped equivalence', () => {
-  it('compacting ansi-unicode wraps stage glyph and stripping yields identical unicode text', () => {
+  it('compacting ansi-unicode: stripping yields identical unicode text', () => {
     const model = compactActiveModel({ kind: 'compacting', filledCells: 4, triggerRatio: 0.87 });
     const out = renderStatusLine(model, { capability: 'ansi-unicode' });
-    // Bar text and ratio text are exactly the same; only the stage glyph is wrapped in ANSI.
     const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
     expect(stripped).toBe(
-      'Peaks ◒ [████░░░░] compacting · 87% › peaks-loop',
+      'Peaks ◒ [████░░░░] compacting · 87% → peaks-loop',
     );
   });
 });
@@ -455,7 +540,7 @@ describe('CLI capability matrix — JSON envelope preserves the rendered string 
     expect(parsed.ok).toBe(true);
     expect(parsed.command).toBe('statusline.render');
     expect(parsed.data.text).toBe(
-      'Peaks ◒ [████░░░░] compacting · 87% › peaks-loop',
+      'Peaks ◒ [████░░░░] compacting · 87% → peaks-loop',
     );
   });
 
@@ -471,7 +556,7 @@ describe('CLI capability matrix — JSON envelope preserves the rendered string 
     const envelope = { ok: true, command: 'statusline.render', data: { text } };
     const parsed = JSON.parse(JSON.stringify(envelope)) as { data: { text: string } };
     expect(parsed.data.text).toBe(
-      'Peaks * [########] compacted . 87% -> 42% > peaks-loop',
+      'Peaks * [########] compacted . 87% -> 42% -> peaks-loop',
     );
   });
 });

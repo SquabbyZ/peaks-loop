@@ -87,12 +87,12 @@ interface CompactPalette {
 
 const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   'ansi-unicode': {
-    active: '\x1b[32m●\x1b[0m',      // green active
+    active: '\x1b[36m●\x1b[0m',      // cyan active
     idle: '\x1b[90m○\x1b[0m',         // dim idle
     warning: '\x1b[33m!\x1b[0m',      // amber warning
     inlineSeparator: ' · ',
-    trailSeparator: ' › ',
-    idleLabel: 'idle',
+    trailSeparator: ' → ',
+    idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
       queued: '\x1b[90m◐\x1b[0m',
@@ -111,8 +111,8 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     idle: '○',
     warning: '!',
     inlineSeparator: ' · ',
-    trailSeparator: ' › ',
-    idleLabel: 'idle',
+    trailSeparator: ' → ',
+    idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
       queued: '◐',
@@ -131,8 +131,8 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     idle: 'o',
     warning: '!',
     inlineSeparator: ' . ',
-    trailSeparator: ' > ',
-    idleLabel: 'idle',
+    trailSeparator: ' -> ',
+    idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
       queued: '[',
@@ -147,6 +147,31 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     ratioArrow: '->',
   },
 };
+
+const BREATHING_GLYPHS_UNICODE = ['●', '◐', '◑', '◒', '◓'] as const;
+const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
+const BREATHING_PERIOD_MS = 2_400;
+const MODE_DISPLAY_SKILL = 'peaks-code';
+
+function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
+  const set = capability === 'ascii' ? BREATHING_GLYPHS_ASCII : BREATHING_GLYPHS_UNICODE;
+  const index = Math.floor((nowMs % BREATHING_PERIOD_MS) / (BREATHING_PERIOD_MS / set.length)) % set.length;
+  return set[index] as string;
+}
+
+function renderActiveDot(capability: StatusLineCapability, nowMs: number): string {
+  if (capability === 'ansi-unicode') {
+    return `\x1b[36m${pickBreathingGlyph('ansi-unicode', nowMs)}\x1b[0m`;
+  }
+  if (capability === 'ascii') {
+    return pickBreathingGlyph('ascii', nowMs);
+  }
+  return pickBreathingGlyph('unicode', nowMs);
+}
+
+function brandText(capability: StatusLineCapability): string {
+  return capability === 'ansi-unicode' ? `\x1b[36m${BRAND}\x1b[0m` : BRAND;
+}
 
 /**
  * Default capability when none is supplied. Per the brief: "if backward
@@ -183,6 +208,8 @@ function rootLabel(projectRoot: string | null): string {
 function renderActive(
   presence: StatusLinePresence | null,
   palette: StatusPalette,
+  nowMs: number,
+  capability: StatusLineCapability,
 ): string {
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
@@ -192,10 +219,16 @@ function renderActive(
     // Attention gate — surface the warning glyph + human-readable label.
     return `${palette.warning} ${presence.skill}${palette.inlineSeparator}${attentionLabel}`;
   }
-  // Routine active state — active glyph + skill only. Mode is not part of
-  // the primary hierarchy (it changes every few turns and would crowd the
-  // bar); the gate is hidden when not in the allowlist.
-  return `${palette.active} ${presence.skill}`;
+  const skill = presence.skill;
+  const dot = renderActiveDot(capability, nowMs);
+  // Mode display is scoped to peaks-code only — that skill owns the
+  // mode taxonomy (full-auto / assisted / strict / swarm). All other
+  // peaks-* skills never show the mode token to keep the line uncluttered
+  // when sub-agents are running.
+  if (skill === MODE_DISPLAY_SKILL && typeof presence.mode === 'string' && presence.mode.length > 0) {
+    return `${dot} ${skill} [${presence.mode}]`;
+  }
+  return `${dot} ${skill}`;
 }
 
 function renderStale(
@@ -391,9 +424,15 @@ export function renderStatusLine(
   model: StatusLineModel,
   options?: StatusLineRenderOptions,
 ): string {
-  const palette = paletteFor(options?.capability);
+  const capability: StatusLineCapability = options?.capability ?? DEFAULT_CAPABILITY;
+  const palette = paletteFor(capability);
   const root = rootLabel(model.projectRoot);
   const rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
+  const brand = brandText(capability);
+  // Breathing pulse: key off a single wall-clock read at the start of
+  // render so the output is deterministic for a given invocation. The
+  // glyph remains a single cell so total visible width is constant.
+  const nowMs = Date.now();
 
   const compactSegment = renderCompact(model.compact, palette);
 
@@ -402,18 +441,18 @@ export function renderStatusLine(
     // `invalid-presence` still surfaces its own diagnostic when compact
     // is also `invalid` (the compact diagnostic wins, since it's the
     // more recent failure mode).
-    return `${BRAND} ${compactSegment}${rootSuffix}`;
+    return `${brand} ${compactSegment}${rootSuffix}`;
   }
 
   switch (model.state) {
     case 'active':
-      return `${BRAND} ${renderActive(model.presence, palette)}${rootSuffix}`;
+      return `${brand} ${renderActive(model.presence, palette, nowMs, capability)}${rootSuffix}`;
     case 'stale':
-      return `${BRAND} ${renderStale(model.presence, model.ageMs, palette)}${rootSuffix}`;
+      return `${brand} ${renderStale(model.presence, model.ageMs, palette)}${rootSuffix}`;
     case 'invalid-presence':
-      return `${BRAND} ${renderInvalid(palette)}${rootSuffix}`;
+      return `${brand} ${renderInvalid(palette)}${rootSuffix}`;
     case 'idle':
     default:
-      return `${BRAND} ${renderIdle(palette)}${rootSuffix}`;
+      return `${brand} ${renderIdle(palette)}${rootSuffix}`;
   }
 }
