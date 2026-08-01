@@ -1,8 +1,6 @@
 # Changelog
 
-## 4.0.5
-
-### Patch Changes
+## 4.0.5 — 2026-08-02 (statusline polish + sub-agent merge bundle)
 
 - Release 4.0.5 — 2026-08-01 bundle.
 
