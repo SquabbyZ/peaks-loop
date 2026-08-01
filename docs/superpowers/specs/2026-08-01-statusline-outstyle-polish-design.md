@@ -18,14 +18,15 @@ Use a single cyan accent for the brand and active lifecycle.
 - Plain text (no-color or ASCII capability): keep the symbol and the order; do not synthesize color via pseudo-glyphs.
 - Cyan applies to: `Peaks` brand text, the `●` activity dot, the compact progress bar filled cells. Attention-gate label and project suffix stay neutral; idle/compacting glyphs use the same cyan accent as activity so the brand reads as one continuous accent.
 
-### Mode display for any active skill
+### Mode display scoped to `peaks-code` only
 
-- Active state: `Peaks ● <skill> [<mode>] › <project>`.
+- Active `peaks-code`: `Peaks ● peaks-code [<mode>] › <project>`.
+- Active other peaks-* skills: `Peaks ● <skill> › <project>` — no mode token.
 - Idle: `Peaks ○ idle › <project>` — no mode.
 - Attention/blocked: gate label remains the override (gate wording still wins).
 - Compact lifecycle: mode slot is replaced by the compact segment; compact stage verb and ratio stay primary.
 
-The skill roles that surface mode: `peaks-code`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-prd`, `peaks-content`, `peaks-doctor`, `peaks-audit`, `peaks-ide`, `peaks-final-review`, `peaks-ide-fix-orchestrator`, `peaks-issue-fix-orchestrator`, `peaks-perf-audit`, `peaks-reviewer`, `peaks-security-audit`, `peaks-slice-decompose`, `peaks-solo`, `peaks-sop`, `peaks-status`, `peaks-test`, `peaks-resume`. This is the set of skill names that share the `peaks-` prefix. Unknown skill names fall back to the same rule: if the active presence carries a non-empty `mode`, it is shown.
+The mode token is only emitted when the active presence's `skill === 'peaks-code'` and `mode` is a non-empty string. All other active skills — including known peaks-* skills and any future skill names — never show the mode token. This keeps the statusline uncluttered when sub-agents are running and reserves the mode display for the orchestrator skill that actually defines the mode taxonomy.
 
 ### Breathing pulse
 
@@ -53,22 +54,25 @@ The skill roles that surface mode: `peaks-code`, `peaks-rd`, `peaks-qa`, `peaks-
 ## Verification
 
 - Unit tests:
-  - Active render with mode in presence includes `mode` token exactly once.
-  - Active render without mode omits the bracket slot entirely.
+  - Active `peaks-code` with `mode: 'full-auto'` renders `Peaks ● peaks-code [full-auto] › peaks-loop`.
+  - Active `peaks-code` with `mode: undefined` renders without brackets.
+  - Active `peaks-rd`, `peaks-qa`, `peaks-content`, `peaks-doctor` (with any mode) never render brackets.
   - Cyan escape applied to `Peaks`, `●`, and compact bar fill; not applied to gate or project suffix.
   - Breathing output for ANSI vs no-color vs ASCII matches the glyph rotation table.
   - Breathing output length is constant across N consecutive samples at the same capability.
 - Integration tests:
   - Real subprocess against built `peaks statusline` with canonical session + active presence including `mode: 'full-auto'` renders `Peaks ● peaks-code [full-auto] › peaks-loop`.
   - The same with `mode: undefined` renders without brackets.
+  - The same with `peaks-rd` (sub-agent role) renders `Peaks ● peaks-rd › peaks-loop` (no brackets).
   - The same with `NO_COLOR=1` removes ANSI escape codes but keeps the breathing glyph rotation.
 - Live runtime check:
   - User observes the IDE statusline reflects cyan, mode, and breathing on a fresh dispatch and confirms before any further polish.
 
 ## Acceptance
 
-- A1 The primary statusline reads as `Peaks ● peaks-code [full-auto] › peaks-loop` for an active dispatch.
-- A2 Idle, attention, and compact states never show `[]` or a stale mode.
-- A3 No-color and ASCII variants preserve meaning and breathing animation; ANSI variants carry cyan on the three accent surfaces.
-- A4 Existing C1 hierarchy, attention-gate precedence, and compact progress contracts remain intact.
-- A5 Total visible width of the breathing variants is byte-identical across samples so the terminal does not jitter.
+- A1 The primary statusline reads as `Peaks ● peaks-code [full-auto] › peaks-loop` for an active peaks-code dispatch.
+- A2 Active sub-agent skills (peaks-rd, peaks-qa, etc.) never show a mode token.
+- A3 Idle, attention, and compact states never show `[]` or a stale mode.
+- A4 No-color and ASCII variants preserve meaning and breathing animation; ANSI variants carry cyan on the three accent surfaces.
+- A5 Existing C1 hierarchy, attention-gate precedence, and compact progress contracts remain intact.
+- A6 Total visible width of the breathing variants is byte-identical across samples so the terminal does not jitter.
