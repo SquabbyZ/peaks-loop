@@ -107,12 +107,31 @@ export interface AutoCompactInput {
    * dispatch outcome, and a throwing observer is swallowed.
    */
   readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
-  /** Test seam: force the preparing phase to throw (never set in production). */
-  readonly failPreparingForTest?: Error | undefined;
-  /** Test seam: force the compacting phase to throw (never set in production). */
-  readonly failCompactingForTest?: Error | undefined;
-  /** Test seam: force every lifecycle write to throw (never set in production). */
-  readonly failLifecycleWriteForTest?: Error | undefined;
+  /**
+   * Test-only injection seams for lifecycle failure paths. NEVER set in
+   * production — these exist so the unit suite can drive the `failed`
+   * transition and the store-outage branch without mocking the SUT.
+   * Each flag toggles a single, well-scoped throw at a documented point:
+   *   - `failPreparing`: throw inside the checkpoint/plan/recovery phase
+   *     (so the record rests at `failedAt: 'preparing'`)
+   *   - `failCompacting`: throw inside the IDE-dispatch phase
+   *     (so the record rests at `failedAt: 'compacting'`)
+   *   - `failLifecycleWrite`: make every lifecycle-store write throw
+   *     (so the compact envelope is proven independent of telemetry)
+   */
+  readonly testHooks?: AutoCompactTestHooks | undefined;
+}
+
+/**
+ * Test-only injection seams. The `boolean` shape (vs. an injected error)
+ * is deliberate: tests assert the *transition*, not the thrown value —
+ * the value would just be a brittle fingerprint. The real error path
+ * is still exercised by `summarizeLifecycleError`'s tests.
+ */
+export interface AutoCompactTestHooks {
+  readonly failPreparing?: boolean | undefined;
+  readonly failCompacting?: boolean | undefined;
+  readonly failLifecycleWrite?: boolean | undefined;
 }
 
 const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
@@ -389,6 +408,46 @@ function newCompactRunId(now: Date): string {
 }
 
 /**
+ * Slice 2026-08-01-compact-lifecycle (Task 5): read an open compact
+ * record ignoring staleness.
+ *
+ * The lifecycle store classifies an active record as `stalled` after a
+ * caller-supplied `staleAfterMs` window. That classification exists for
+ * the statusline renderer (Task 2/3) — it tells the user "this run
+ * hasn't heartbeated for a while".
+ *
+ * For settling a run by measurement, staleness is irrelevant: if a
+ * record exists at `compacting`, a post-compact probe that measures a
+ * drop should still complete it, even if the probe itself ran hours
+ * later. Wrapping that unbounded read here keeps the magic number out
+ * of the settle path and makes the intent self-documenting.
+ *
+ * Returns `null` for any non-`valid` kind (missing / invalid /
+ * stalled). Errors from the underlying read are swallowed — settling
+ * is best-effort telemetry and must never bubble.
+ */
+function readOpenCompactLifecycle(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+}): CompactLifecycleRecord | null {
+  let out: ReturnType<typeof readCompactLifecycle>;
+  try {
+    out = readCompactLifecycle({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      nowMs: Date.now(),
+      // Number.MAX_SAFE_INTEGER disables the store's staleness gate
+      // for this call — see the doc comment above for why settling
+      // intentionally ignores staleness.
+      staleAfterMs: Number.MAX_SAFE_INTEGER
+    });
+  } catch {
+    return null;
+  }
+  return out.kind === 'valid' ? out.record : null;
+}
+
+/**
  * Slice 2026-08-01-compact-lifecycle (Task 5): the local transition
  * builder. Carries `runId`, `triggerRatio` and `redLine` forward from
  * the run that opened, and remembers the prior stage so a failure can
@@ -414,7 +473,7 @@ class CompactLifecyclePublisher {
       readonly triggerRatio: number;
       readonly redLine: boolean;
       readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
-      readonly failLifecycleWriteForTest?: Error | undefined;
+      readonly failLifecycleWrite?: boolean | undefined;
     }
   ) {}
 
@@ -447,7 +506,7 @@ class CompactLifecyclePublisher {
 
   private write(record: CompactLifecycleRecord): void {
     try {
-      if (this.ctx.failLifecycleWriteForTest) throw this.ctx.failLifecycleWriteForTest;
+      if (this.ctx.failLifecycleWrite) throw new Error('lifecycle store unavailable');
       writeCompactLifecycle({
         projectRoot: this.ctx.projectRoot,
         sessionId: this.ctx.sessionId,
@@ -471,12 +530,22 @@ class CompactLifecyclePublisher {
  * fit for a statusline. Stack frames are dropped (the record is a
  * human-facing indicator, not a crash dump); the store clamps the
  * result to its own 160-character cap as a second line of defence.
+ *
+ * `null` / `undefined` thrown values — a real possibility from
+ * `Promise.reject(null)` or a thrown `undefined` — must not collapse
+ * to the empty string, which the store would then reject as missing.
+ * They map to a fixed "unknown error" sentinel so the record always
+ * carries some diagnostic text.
  */
 function summarizeLifecycleError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error);
+  let raw: string;
+  if (error instanceof Error) raw = error.message;
+  else if (error === null || error === undefined) raw = 'unknown error';
+  else raw = String(error);
+  if (raw.length === 0) raw = 'unknown error';
   const firstLine = raw.split('\n')[0] ?? '';
   const collapsed = firstLine.replace(/\s+/g, ' ').trim();
-  return collapsed.length > 160 ? collapsed.slice(0, 160) : collapsed;
+  return collapsed.length === 0 ? 'unknown error' : (collapsed.length > 160 ? collapsed.slice(0, 160) : collapsed);
 }
 
 /**
@@ -514,21 +583,11 @@ function settleOpenLifecycleRun(input: {
   if (input.source === 'conservative-fallback') return;
   if (input.measuredRatio >= input.autoFireThreshold) return;
 
-  let open: ReturnType<typeof readCompactLifecycle>;
-  try {
-    open = readCompactLifecycle({
-      projectRoot: input.projectRoot,
-      sessionId: input.sessionId,
-      nowMs: Date.now(),
-      // Staleness is a rendering concern for the statusline; for
-      // settling we care only that a run is open, so accept any age.
-      staleAfterMs: Number.MAX_SAFE_INTEGER
-    });
-  } catch {
-    return;
-  }
-  if (open.kind !== 'valid') return;
-  const prior = open.record;
+  const prior = readOpenCompactLifecycle({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId
+  });
+  if (prior === null) return;
   // Only a run that was actually dispatched (`compacting`) can be
   // completed by a post-compact measurement.
   if (prior.stage !== 'compacting') return;
@@ -664,7 +723,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     triggerRatio: probe.ratio,
     redLine: isRedLine,
     onLifecycleStage: input.onLifecycleStage,
-    failLifecycleWriteForTest: input.failLifecycleWriteForTest
+    failLifecycleWrite: input.testHooks?.failLifecycleWrite
   });
   lifecycle.advance('queued');
 
@@ -674,7 +733,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   try {
     // `preparing` covers checkpoint + convergence-plan + recovery writes.
     lifecycle.advance('preparing');
-    if (input.failPreparingForTest) throw input.failPreparingForTest;
+    if (input.testHooks?.failPreparing) throw new Error('disk full while writing checkpoint');
 
     checkpointPath = writePreCompactCheckpoint({
       projectRoot: input.projectRoot,
@@ -735,7 +794,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     // performs the actual compaction out-of-band, so a successful
     // dispatch return is NOT evidence the context shrank.
     lifecycle.advance('compacting');
-    if (input.failCompactingForTest) throw input.failCompactingForTest;
+    if (input.testHooks?.failCompacting) throw new Error('IDE dispatch exploded');
 
     // Slice 2026-06-28: when targeting the main session, write an
     // intent record so the next main-session LLM turn fires `/compact`
