@@ -19,6 +19,7 @@ import { registerConfigCommands } from './config-commands.js';
 import { registerContextCommands } from './context-commands.js';
 import { registerCoreAndArtifactCommands } from './core-artifact-commands.js';
 import { registerDocCommands } from './doc-commands.js';
+import { registerE2EVerifyCommand } from './e2e-verify.js';
 import { registerEccCommands } from './ecc-commands.js';
 import { registerEvolutionCommands } from './evolution-commands.js';
 import { registerFeedbackCommands } from './feedback-commands.js';
@@ -115,7 +116,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['slice-integrate-commands', registerSliceIntegrateCommands], ['doc-commands', registerDocCommands],
   ['legacy-commands', registerLegacyCommands], ['role-commands', registerRoleCommands],
   ['complexity-commands', registerComplexityCommands], ['sub-agent-commands', registerSubAgentCommands],
-  ['sub-agent-shutdown-commands', registerSubAgentShutdownCommands],
+  ['sub-agent-shutdown-commands', registerSubAgentShutdownCommands], ['e2e-verify', registerE2EVerifyCommand],
   ['governance-classify-contract-commands', registerContractCommands],
   ['sub-agent-dispatch-guard', registerSubAgentDispatchGuard], ['gate-commands', registerGateCommands],
   ['hook-handle', registerHookHandleCommand], ['hooks-commands', registerHooksCommands],
