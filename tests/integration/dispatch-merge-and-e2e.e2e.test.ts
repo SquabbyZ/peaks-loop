@@ -39,6 +39,36 @@ describe('runE2EVerify', () => {
     const result = await runE2EVerify({ projectRoot: root, slice: 'rid-test' });
     expect(result.outcome).toBe('no-fixtures');
   });
+
+  it('falls back to deterministic stub when PEAKS_PLAYWRIGHT_* env vars are unset (CI smoke)', async () => {
+    // 2026-08-01-bundle archive (Task 3): the real Playwright runner
+    // must NEVER silently mask a CI host without Chromium. When the env
+    // vars are unset the runner MUST degrade to the deterministic stub
+    // and surface runner: 'stub' so CI smoke stays green.
+    const prevUserData = process.env.PEAKS_PLAYWRIGHT_USER_DATA_DIR;
+    const prevProfile = process.env.PEAKS_PLAYWRIGHT_PROFILE_NAME;
+    delete process.env.PEAKS_PLAYWRIGHT_USER_DATA_DIR;
+    delete process.env.PEAKS_PLAYWRIGHT_PROFILE_NAME;
+    try {
+      const root = setupRepo();
+      const dir = join(root, 'qa', 'e2e', 'rid-stub', 'login');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'happy.md'), [
+        '# Login',
+        'url: http://localhost:3000/login',
+        'matchers:',
+        '  - "Welcome"',
+      ].join('\n'));
+      const result = await runE2EVerify({ projectRoot: root, slice: 'rid-stub' });
+      expect(result.outcome).toBe('pass');
+      expect(result.passCount).toBe(1);
+      expect(result.failCount).toBe(0);
+      expect(result.runner).toBe('stub');
+    } finally {
+      if (prevUserData !== undefined) process.env.PEAKS_PLAYWRIGHT_USER_DATA_DIR = prevUserData;
+      if (prevProfile !== undefined) process.env.PEAKS_PLAYWRIGHT_PROFILE_NAME = prevProfile;
+    }
+  });
 });
 
 describe('full pipeline smoke (spawn → merge → e2e)', () => {
