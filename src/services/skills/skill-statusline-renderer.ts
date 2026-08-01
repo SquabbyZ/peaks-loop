@@ -167,6 +167,27 @@ const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
 const BREATHING_PERIOD_MS = 2_400;
 const MODE_DISPLAY_SKILL = 'peaks-code';
 
+/**
+ * Bee-tier (1-level sub-role) skills and their orchestrator parent.
+ * The terminal status line shows both layers when a bee is active:
+ * the active bee name + a compact `↑<parent-short>` marker. The
+ * parent marker uses the parent's short name (e.g. `code` for
+ * `peaks-code`) so the line stays readable on a 60-char terminal.
+ */
+const BEE_TO_PARENT: Readonly<Record<string, string>> = {
+  'peaks-prd': 'code',
+  'peaks-rd': 'code',
+  'peaks-qa': 'code',
+  'peaks-ui': 'code',
+  'peaks-sc': 'code',
+  'peaks-txt': 'code',
+  'peaks-final-review': 'code',
+  'peaks-resume': 'code',
+  'peaks-status': 'code',
+  'peaks-test': 'code',
+  'peaks-reviewer': 'code',
+};
+
 function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
   const set = capability === 'ascii' ? BREATHING_GLYPHS_ASCII : BREATHING_GLYPHS_UNICODE;
   const index = Math.floor((nowMs % BREATHING_PERIOD_MS) / (BREATHING_PERIOD_MS / set.length)) % set.length;
@@ -246,6 +267,14 @@ function renderActive(
   // when sub-agents are running.
   if (skill === MODE_DISPLAY_SKILL && typeof presence.mode === 'string' && presence.mode.length > 0) {
     return `${dot} ${skill} [${presence.mode}]`;
+  }
+  // Bee-tier skills surface both layers: the active bee name plus a
+  // compact marker (↑<parent-short>) that names the orchestrator
+  // dispatching it. Terminal width is the constraint; the short
+  // marker keeps the line readable.
+  const beeParent = BEE_TO_PARENT[skill];
+  if (beeParent !== undefined) {
+    return `${dot} ${skill} ↑${beeParent}`;
   }
   return `${dot} ${skill}`;
 }

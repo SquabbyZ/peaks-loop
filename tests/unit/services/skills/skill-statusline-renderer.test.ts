@@ -158,14 +158,35 @@ describe('render — peaks-code mode display', () => {
     const model = activeModel(presenceOf('peaks-rd', { mode: 'full-auto' }));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-rd → peaks-loop');
+    )).toBe('Peaks ● peaks-rd ↑code → peaks-loop');
   });
 
   it('peaks-qa with mode never renders the mode token', () => {
     const model = activeModel(presenceOf('peaks-qa', { mode: 'strict' }));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-qa → peaks-loop');
+    )).toBe('Peaks ● peaks-qa ↑code → peaks-loop');
+  });
+
+  it('peaks-rd surfaces both layers with the parent marker (no mode)', () => {
+    const model = activeModel(presenceOf('peaks-rd'));
+    expect(withPinnedClock(0, () =>
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
+    )).toBe('Peaks ● peaks-rd ↑code → peaks-loop');
+  });
+
+  it('orchestrator skill (peaks-code) does not show a parent marker', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
+    expect(withPinnedClock(0, () =>
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
+    )).toBe('Peaks ● peaks-code [full-auto] → peaks-loop');
+  });
+
+  it('unknown bee-style skill is rendered without a parent marker', () => {
+    const model = activeModel(presenceOf('peaks-some-bee-future'));
+    expect(withPinnedClock(0, () =>
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
+    )).toBe('Peaks ● peaks-some-bee-future → peaks-loop');
   });
 
   it('mode token is bracketed in ascii capability too', () => {
