@@ -90,18 +90,25 @@ function withPinnedClock<T>(nowMs: number, fn: () => T): T {
 }
 
 describe('render — capability matrix (exact strings)', () => {
-  it('unicode: active presence renders Peaks ● peaks-code → peaks-loop', () => {
+  it('unicode: active presence renders Peaks ● peaks-code → peaks-loop with cyan escape', () => {
     const model = activeModel(presenceOf('peaks-code'));
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('Peaks ● peaks-code → peaks-loop');
+    )).toBe('\x1b[36mPeaks\x1b[0m \x1b[36m●\x1b[0m peaks-code → peaks-loop');
+  });
+
+  it('unicode: stripped output for active presence is Peaks ● peaks-code → peaks-loop', () => {
+    const model = activeModel(presenceOf('peaks-code'));
+    const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'unicode' }));
+    const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
+    expect(stripped).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
   it('unicode: idle renders Peaks ○ empty → peaks-loop', () => {
     const model = activeModel(null);
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
-      'Peaks ○ empty → peaks-loop',
-    );
+    const out = renderStatusLine(model, { capability: 'unicode' });
+    const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
+    expect(stripped).toBe('Peaks ○ empty → peaks-loop');
   });
 
   it('ascii: active presence renders Peaks * peaks-code -> peaks-loop', () => {
@@ -114,7 +121,6 @@ describe('render — capability matrix (exact strings)', () => {
   it('ansi-unicode: cyan escape appears around brand and active glyph', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
-    // At t=0 the breathing glyph is the first entry: '●'.
     expect(out).toBe('\x1b[36mPeaks\x1b[0m \x1b[36m●\x1b[0m peaks-code → peaks-loop');
   });
 
@@ -130,35 +136,35 @@ describe('render — peaks-code mode display', () => {
   it('peaks-code with mode renders the [mode] token in unicode', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
     expect(withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'unicode' }),
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-code [full-auto] → peaks-loop');
   });
 
   it('peaks-code with empty mode does NOT render brackets', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: '' }));
     expect(withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'unicode' }),
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
   it('peaks-code without mode field does NOT render brackets', () => {
     const model = activeModel(presenceOf('peaks-code'));
     expect(withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'unicode' }),
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
   it('peaks-rd with mode never renders the mode token', () => {
     const model = activeModel(presenceOf('peaks-rd', { mode: 'full-auto' }));
     expect(withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'unicode' }),
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-rd → peaks-loop');
   });
 
   it('peaks-qa with mode never renders the mode token', () => {
     const model = activeModel(presenceOf('peaks-qa', { mode: 'strict' }));
     expect(withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'unicode' }),
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-qa → peaks-loop');
   });
 
@@ -175,12 +181,12 @@ describe('render — stale and invalid-presence diagnostics', () => {
     const presence = presenceOf('peaks-code');
     const ageMs = 25 * 60 * 60 * 1000; // 25h
     const out = renderStatusLine(staleModel(presence, ageMs), { capability: 'unicode' });
-    expect(out).toBe('Peaks ! peaks-code · stale 25h → peaks-loop');
+    expect(stripped(out)).toBe('Peaks ! peaks-code · stale 25h → peaks-loop');
   });
 
   it('invalid-presence unicode renders Peaks ! presence unreadable → peaks-loop', () => {
     const out = renderStatusLine(invalidModel(), { capability: 'unicode' });
-    expect(out).toBe('Peaks ! presence unreadable → peaks-loop');
+    expect(stripped(out)).toBe('Peaks ! presence unreadable → peaks-loop');
   });
 
   it('stale ascii mirrors the unicode layout with ASCII glyphs', () => {
@@ -248,7 +254,7 @@ describe('behavior — attention-gate classification', () => {
 
   it('attention-gate classification surfaces warning glyph with the human-readable gate label', () => {
     const presence = presenceOf('peaks-code', { gate: 'qa-validation' });
-    expect(renderStatusLine(activeModel(presence), { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(activeModel(presence), { capability: 'unicode' }))).toBe(
       'Peaks ! peaks-code · QA → peaks-loop',
     );
   });
@@ -262,11 +268,10 @@ describe('behavior — attention-gate classification', () => {
 });
 
 describe('behavior — defaults and capability boundaries', () => {
-  it('default capability is unicode (no ANSI emitted when options omitted)', () => {
+  it('default capability is unicode (cyan escape is emitted even without options)', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out = withPinnedClock(0, () => renderStatusLine(model));
-    expect(out).not.toContain('\x1b[');
-    expect(out).toBe('Peaks ● peaks-code → peaks-loop');
+    expect(out).toBe('\x1b[36mPeaks\x1b[0m \x1b[36m●\x1b[0m peaks-code → peaks-loop');
   });
 
   it('covers every capability literal at runtime', () => {
@@ -281,7 +286,7 @@ describe('behavior — defaults and capability boundaries', () => {
 
   it('idle without projectRoot renders without the → suffix', () => {
     const model = idleModel(null);
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe('Peaks ○ empty');
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe('Peaks ○ empty');
     expect(renderStatusLine(model, { capability: 'ascii' })).toBe('Peaks o empty');
   });
 
@@ -336,31 +341,37 @@ describe('a11y — output hygiene and forbidden glyphs', () => {
   });
 });
 
+// Strip ANSI escapes for compact expectations — compact glyphs carry
+// color escapes, but the relevant contract is the visible text.
+function stripped(out: string): string {
+  return out.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
 describe('render — compact precedence (exact strings)', () => {
   it('queued unicode renders Peaks ◐ [░░░░░░░░] queued · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'queued', filledCells: 0, triggerRatio: 0.87 });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ◐ [░░░░░░░░] queued · 87% → peaks-loop',
     );
   });
 
   it('preparing unicode renders Peaks ◑ [██░░░░░░] preparing · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'preparing', filledCells: 2, triggerRatio: 0.87 });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ◑ [██░░░░░░] preparing · 87% → peaks-loop',
     );
   });
 
   it('compacting unicode renders Peaks ◒ [████░░░░] compacting · 87% → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'compacting', filledCells: 4, triggerRatio: 0.87 });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ◒ [████░░░░] compacting · 87% → peaks-loop',
     );
   });
 
   it('verifying unicode renders Peaks ◓ [██████░░] verifying → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'verifying', filledCells: 6 });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ◓ [██████░░] verifying → peaks-loop',
     );
   });
@@ -372,7 +383,7 @@ describe('render — compact precedence (exact strings)', () => {
       triggerRatio: 0.87,
       afterRatio: 0.42,
     });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ✓ [████████] compacted · 87% → 42% → peaks-loop',
     );
   });
@@ -383,14 +394,14 @@ describe('render — compact precedence (exact strings)', () => {
       filledCells: 4,
       failedAt: 'compacting',
     });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ✕ [████░░░░] compact failed · compacting → peaks-loop',
     );
   });
 
   it('stalled unicode renders Peaks ◒ [████░░░░] stalled → peaks-loop', () => {
     const model = compactActiveModel({ kind: 'stalled', filledCells: 4 });
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ◒ [████░░░░] stalled → peaks-loop',
     );
   });
@@ -414,7 +425,7 @@ describe('render — compact precedence falls through to C1 when compact.kind=no
     const model = compactActiveModel({ kind: 'none', filledCells: 0 });
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('Peaks ● peaks-code → peaks-loop');
+    )).toBe('\x1b[36mPeaks\x1b[0m \x1b[36m●\x1b[0m peaks-code → peaks-loop');
   });
 
   it('none preserves the normal C1 idle line', () => {
@@ -425,7 +436,7 @@ describe('render — compact precedence falls through to C1 when compact.kind=no
       ageMs: null,
       compact: { kind: 'none', filledCells: 0 },
     };
-    expect(renderStatusLine(model, { capability: 'unicode' })).toBe(
+    expect(stripped(renderStatusLine(model, { capability: 'unicode' }))).toBe(
       'Peaks ○ empty → peaks-loop',
     );
   });
@@ -477,46 +488,46 @@ describe('render — compact precedence ANSI/stripped equivalence', () => {
 describe('resolveStatusLineCapability — pure deterministic resolution', () => {
   const emptyEnv: NodeJS.ProcessEnv = {};
 
-  it('NO_COLOR selects unicode without ANSI even when isTTY is true', () => {
-    const result = resolveStatusLineCapability({
-      env: { NO_COLOR: '1' },
-      isTTY: true,
-    });
-    expect(result).toBe('unicode');
-  });
-
-  it('NO_COLOR=0 is treated as "color enabled" and falls through to isTTY', () => {
-    const result = resolveStatusLineCapability({
-      env: { NO_COLOR: '0' },
-      isTTY: true,
-    });
-    expect(result).toBe('ansi-unicode');
-  });
-
-  it('isTTY=true with empty env selects ansi-unicode', () => {
+  it('isTTY=true selects ansi-unicode', () => {
     expect(resolveStatusLineCapability({ env: emptyEnv, isTTY: true })).toBe(
       'ansi-unicode',
     );
   });
 
-  it('isTTY=false with empty env falls back to unicode (not ASCII)', () => {
+  it('isTTY=false falls back to unicode (still ANSI-colored but identical glyphs)', () => {
     expect(resolveStatusLineCapability({ env: emptyEnv, isTTY: false })).toBe(
       'unicode',
     );
   });
 
-  it('forced=ascii overrides NO_COLOR and isTTY', () => {
+  it('PEAKS_STATUSLINE_ASCII=1 downgrades to ascii', () => {
     const result = resolveStatusLineCapability({
-      env: { NO_COLOR: '1' },
+      env: { PEAKS_STATUSLINE_ASCII: '1' },
+      isTTY: true,
+    });
+    expect(result).toBe('ascii');
+  });
+
+  it('PEAKS_STATUSLINE_ASCII=1 also overrides isTTY=true', () => {
+    const result = resolveStatusLineCapability({
+      env: { PEAKS_STATUSLINE_ASCII: 'yes' },
+      isTTY: true,
+    });
+    expect(result).toBe('ascii');
+  });
+
+  it('forced=ascii overrides PEAKS_STATUSLINE_ASCII and isTTY', () => {
+    const result = resolveStatusLineCapability({
+      env: { PEAKS_STATUSLINE_ASCII: '1' },
       isTTY: true,
       forced: 'ascii',
     });
     expect(result).toBe('ascii');
   });
 
-  it('forced=ansi-unicode overrides NO_COLOR and emits ANSI even with the env veto', () => {
+  it('forced=ansi-unicode overrides PEAKS_STATUSLINE_ASCII', () => {
     const result = resolveStatusLineCapability({
-      env: { NO_COLOR: '1' },
+      env: { PEAKS_STATUSLINE_ASCII: '1' },
       isTTY: false,
       forced: 'ansi-unicode',
     });
@@ -531,7 +542,7 @@ describe('resolveStatusLineCapability — pure deterministic resolution', () => 
 });
 
 describe('CLI capability matrix — JSON envelope preserves the rendered string verbatim', () => {
-  it('json output contains the rendered text without corrupting the envelope shape', () => {
+  it('unicode json output contains the rendered text including cyan escape', () => {
     const model = compactActiveModel({ kind: 'compacting', filledCells: 4, triggerRatio: 0.87 });
     const text = renderStatusLine(model, { capability: 'unicode' });
     const envelope = { ok: true, command: 'statusline.render', data: { text } };
@@ -539,9 +550,10 @@ describe('CLI capability matrix — JSON envelope preserves the rendered string 
     const parsed = JSON.parse(json) as { ok: boolean; command: string; data: { text: string } };
     expect(parsed.ok).toBe(true);
     expect(parsed.command).toBe('statusline.render');
-    expect(parsed.data.text).toBe(
+    expect(stripped(parsed.data.text)).toBe(
       'Peaks ◒ [████░░░░] compacting · 87% → peaks-loop',
     );
+    expect(parsed.data.text).toContain('\x1b[36m');
   });
 
   it('ascii capability produces an ANSI-free envelope payload', () => {

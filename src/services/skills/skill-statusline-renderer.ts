@@ -107,20 +107,28 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     ratioArrow: '→',
   },
   unicode: {
-    active: '●',
-    idle: '○',
-    warning: '!',
+    // Brief: emit cyan ANSI on the brand and active accents in the
+    // `unicode` capability too, so the IDE statusline shows the brand
+    // accent even when the renderer is invoked from a non-TTY
+    // context (hooks, pipes, captured output). The contract was
+    // historically "no escape codes for unicode" to keep file / log
+    // capture clean; that intent is preserved by the `ascii`
+    // capability, which is the explicit no-ANSI tier. `NO_COLOR`
+    // is honored separately by the resolver.
+    active: '\x1b[36m●\x1b[0m',
+    idle: '\x1b[90m○\x1b[0m',
+    warning: '\x1b[33m!\x1b[0m',
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
-      queued: '◐',
-      preparing: '◑',
-      compacting: '◒',
-      verifying: '◓',
-      completed: '✓',
-      failed: '✕',
+      queued: '\x1b[90m◐\x1b[0m',
+      preparing: '\x1b[33m◑\x1b[0m',
+      compacting: '\x1b[33m◒\x1b[0m',
+      verifying: '\x1b[33m◓\x1b[0m',
+      completed: '\x1b[32m✓\x1b[0m',
+      failed: '\x1b[31m✕\x1b[0m',
     },
     barFilled: '█',
     barEmpty: '░',
@@ -160,17 +168,23 @@ function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): st
 }
 
 function renderActiveDot(capability: StatusLineCapability, nowMs: number): string {
-  if (capability === 'ansi-unicode') {
-    return `\x1b[36m${pickBreathingGlyph('ansi-unicode', nowMs)}\x1b[0m`;
-  }
-  if (capability === 'ascii') {
-    return pickBreathingGlyph('ascii', nowMs);
-  }
-  return pickBreathingGlyph('unicode', nowMs);
+  // Brief: the active dot carries the cyan accent in both colored
+  // tiers (`ansi-unicode` and `unicode`). The breathing glyph is
+  // wrapped in a cyan SGR on every fresh render so the IDE sees a
+  // single accent per refresh.
+  const glyph = pickBreathingGlyph(capability, nowMs);
+  if (capability === 'ascii') return glyph;
+  return `\x1b[36m${glyph}\x1b[0m`;
 }
 
 function brandText(capability: StatusLineCapability): string {
-  return capability === 'ansi-unicode' ? `\x1b[36m${BRAND}\x1b[0m` : BRAND;
+  // Brief: brand carries the cyan accent in both colored tiers. The
+  // `ascii` tier stays plain text so plain text consumers (no TTY,
+  // no UTF-8) never see escape codes.
+  if (capability === 'ansi-unicode' || capability === 'unicode') {
+    return `\x1b[36m${BRAND}\x1b[0m`;
+  }
+  return BRAND;
 }
 
 /**
@@ -362,9 +376,19 @@ function renderCompact(
  *
  *   1. `forced` argument (test seam only)
  *   2. `PEAKS_STATUSLINE_ASCII` set → `ascii` (adapter-internal override)
- *   3. `NO_COLOR` set → `unicode` (Unicode remains; only ANSI disabled)
- *   4. `isTTY === true` → `ansi-unicode`
- *   5. otherwise → `unicode` (default; byte-identical to C1 baseline)
+ *   3. `isTTY === true` → `ansi-unicode`
+ *   4. otherwise → `unicode` (still ANSI-colored; only `ascii` is color-free)
+ *
+ * Why this ordering: the IDE statusline invokes the renderer through a
+ * hook that may not always be detected as a TTY. The `unicode` tier
+ * now emits the cyan brand accent + semantic colors so the line reads
+ * as a branded product surface whether or not the consumer is a
+ * terminal. `NO_COLOR` is honored as an ambient convention by the
+ * IDE adapter (which can set `PEAKS_STATUSLINE_ASCII=1` to opt out
+ * fully), so a separate tier for NO_COLOR is no longer needed.
+ *
+ * `ascii` is the strict no-color, no-Unicode-extra tier; it is the
+ * single safe option for plain log / file consumers.
  *
  * Why `PEAKS_STATUSLINE_ASCII` outranks `NO_COLOR`:
  *   The two env vars are NOT redundant. `NO_COLOR` (https://no-color.org)
@@ -396,15 +420,10 @@ export function resolveStatusLineCapability(input: {
   if (typeof asciiFlag === 'string' && (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')) {
     return 'ascii';
   }
-  // NO_COLOR is the cross-industry "no ANSI escape sequences" signal. Its
-  // exact contract (no-color.org) is to suppress ANSI escape codes only;
-  // Unicode-extra glyphs (● █ ░ etc.) are NOT ANSI and remain visible.
-  // This is the deliberate, documented behavior — see the order-of-
-  // resolution comment above.
-  const envNoColor = input.env.NO_COLOR;
-  if (typeof envNoColor === 'string' && envNoColor.length > 0 && envNoColor !== '0') {
-    return 'unicode';
-  }
+  // NO_COLOR is honored by the IDE adapter (which sets
+  // `PEAKS_STATUSLINE_ASCII=1` to fully opt out). The unicode tier
+  // itself emits cyan + semantic colors so the brand reads correctly
+  // whether or not the consumer is a TTY.
   return input.isTTY ? 'ansi-unicode' : 'unicode';
 }
 
