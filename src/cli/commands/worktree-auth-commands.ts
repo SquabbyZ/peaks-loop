@@ -58,6 +58,7 @@ import {
   type WorktreeLease,
 } from '../../services/worktree/worktree-lease.js';
 import { execSync } from 'node:child_process';
+import { reconcileHostWorktrees } from '../../services/worktree/host-worktree-reconciler.js';
 import { existsSync, readdirSync, readFileSync as readFileSyncNode, statSync } from 'node:fs';
 
 const DEFAULT_TTL_MS = 5 * 60 * 1_000;
@@ -123,6 +124,33 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
     );
 
   const auth_ = auth.command('auth').description('Manage worktree authorization grants (granted by the LLM after explicit user opt-in).');
+
+  addJsonOption(
+    auth
+      .command('reconcile-host')
+      .description('Read-only reconciliation of host-created .claude/worktrees/agent-* against the canonical Peaks lease store.')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+      .option('--host-root <path>', 'override host worktree root')
+  ).action((options: { session?: string; project?: string; hostRoot?: string; json?: boolean }) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const result = reconcileHostWorktrees({
+        projectRoot,
+        sessionId,
+        ...(options.hostRoot !== undefined ? { hostRoot: options.hostRoot } : {}),
+      });
+      const warnings = result.unmanaged.length > 0
+        ? [`${result.unmanaged.length} host worktree(s) are outside Peaks lease governance.`]
+        : [];
+      printResult(io, ok('worktree.reconcile-host', { ...result, sessionId, projectRoot }, warnings), options.json);
+      if (result.unmanaged.length > 0) process.exitCode = 1;
+    } catch (error) {
+      printResult(io, fail('worktree.reconcile-host', 'HOST_WORKTREE_RECONCILE_FAILED', getErrorMessage(error), { sessionId, projectRoot }, []), options.json);
+      process.exitCode = 1;
+    }
+  });
 
   addJsonOption(
     auth_

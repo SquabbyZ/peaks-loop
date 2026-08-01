@@ -65,6 +65,8 @@ export interface SyncServiceInput {
   readonly platforms?: readonly IdeId[] | undefined;
   /** When true, the installer is invoked in dry-run mode. */
   readonly dryRun?: boolean | undefined;
+  /** Reconcile managed Junctions that point at deleted host worktrees. */
+  readonly reconcileJunctions?: boolean | undefined;
 }
 
 export interface SyncServiceResult {
@@ -81,6 +83,7 @@ interface InstallBundledSkillsOptions {
   readonly ideId: IdeId;
   readonly projectRoot: string;
   readonly dryRun?: boolean;
+  readonly reconcileJunctions?: boolean;
   readonly targetRoot?: string;
 }
 
@@ -294,6 +297,7 @@ export async function runSkillSync(input: SyncServiceInput): Promise<SyncService
         ideId: platform,
         projectRoot: input.projectRoot,
         ...(dryRun ? { dryRun: true } : {}),
+        ...(input.reconcileJunctions === true ? { reconcileJunctions: true } : {}),
       });
       perPlatform.push({
         platform,

@@ -641,11 +641,20 @@ export function installBundledSkills(options = {}) {
     if (current) {
       const managedTarget = getManagedTarget(targetPath);
       const linkTarget = current.isSymbolicLink() ? readlinkSync(targetPath) : null;
-      if (linkTarget === sourcePath) {
+      const linkTargetExists = typeof linkTarget === 'string' && existsSync(linkTarget);
+      if (linkTarget === sourcePath && linkTargetExists) {
         installed.push(skillName);
         continue;
       }
-      if ((current.isSymbolicLink() || isBrokenSymlink(current, targetPath)) && managedTarget === linkTarget) {
+      // Managed Junctions may point into an ephemeral host worktree. If that
+      // worktree was removed, Windows keeps the Junction entry but its target
+      // no longer resolves. Repair only when reconciliation was explicitly
+      // requested; normal postinstall keeps its existing ownership behavior.
+      if (
+        (current.isSymbolicLink() || isBrokenSymlink(current, targetPath)) &&
+        (managedTarget === linkTarget ||
+          (options.reconcileJunctions === true && managedTarget !== null && !linkTargetExists))
+      ) {
         validateSkillsRoot();
         unlinkSync(targetPath);
         validateSkillsRoot();

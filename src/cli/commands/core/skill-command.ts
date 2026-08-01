@@ -86,8 +86,9 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .option('--platform <id>', `sync only one platform (default: --all). Valid: ${SYNC_PLATFORMS.join(', ')}`)
       .option('--all', 'sync all 8 platforms (default if --platform is omitted)')
       .option('--dry-run', 'do not write; emit the same shape with applied=false')
+      .option('--reconcile-junctions', 'repair Peaks-managed skill Junctions whose targets were deleted with a host worktree')
       .option('--project <path>', 'project root (default: cwd)')
-  ).action(async (options: { platform?: string; all?: boolean; dryRun?: boolean; project?: string; json?: boolean }) => {
+  ).action(async (options: { platform?: string; all?: boolean; dryRun?: boolean; reconcileJunctions?: boolean; project?: string; json?: boolean }) => {
     try {
       const projectRoot = options.project ?? process.cwd();
       const platforms = options.platform !== undefined ? [options.platform as never] : undefined;
@@ -95,6 +96,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
         projectRoot,
         ...(platforms !== undefined ? { platforms } : {}),
         ...(options.dryRun === true ? { dryRun: true } : {}),
+        ...(options.reconcileJunctions === true ? { reconcileJunctions: true } : {}),
       });
       const envelope = ok('skill.sync', result, [], [
         `syncedCount: ${result.syncedCount}/${result.perPlatform.length} platforms`,

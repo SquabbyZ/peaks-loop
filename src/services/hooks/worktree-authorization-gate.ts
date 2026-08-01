@@ -43,6 +43,7 @@ import {
   leaseFilePath,
   type WorktreeLease,
 } from '../worktree/worktree-lease.js';
+import { readDispatchProvenance } from '../worktree/dispatch-provenance.js';
 import {
   containerLeaseFilePath,
   deserializeContainerLease,
@@ -113,6 +114,8 @@ export type WorktreeAuthDenyCode =
   /** Slice 2026-07-29-worktree-l2-extended Part 19: container
    * lease id is set but the lease file is unreadable / malformed. */
   | 'CONTAINER_LEASE_FILE_INVALID'
+  /** Host Agent/Task worktree isolation was not issued by Peaks dispatch. */
+  | 'HOST_AGENT_ISOLATION_UNMANAGED'
   /** Container lease exists but is not active (status != 'active' OR past expiresAt). */
   | 'CONTAINER_LEASE_NOT_ACTIVE'
   /** Container lease exists but its rid does not match the current peaks request. */
@@ -150,6 +153,8 @@ export type WorktreeAuthCheckInput = {
    * is active and its rid matches.
    */
   readonly containerLeaseId: string | null;
+  /** Peaks-issued provenance token required for host Agent/Task worktree isolation. */
+  readonly dispatchProvenanceToken?: string | null;
 };
 
 /** Stable identifier of the current "user authorization" — derived from session + tool + key args. */
@@ -350,6 +355,28 @@ export function decideFromAuthorization(
  */
 export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
   const operation = classifyToolCall(input);
+  if (operation === 'agent-isolation-worktree') {
+    const token = input.dispatchProvenanceToken ?? '';
+    const provenance = token.length > 0
+      ? readDispatchProvenance({ projectRoot: input.projectRoot, sessionId: input.sessionId, token })
+      : null;
+    if (
+      provenance === null ||
+      input.leaseId === null ||
+      provenance.leaseId !== input.leaseId ||
+      (input.requestId !== null && provenance.requestId !== input.requestId)
+    ) {
+      return {
+        allow: false,
+        code: 'HOST_AGENT_ISOLATION_UNMANAGED',
+        reason: 'Host Agent/Task worktree isolation lacks a matching Peaks dispatch provenance record and canonical lease.',
+        remediation: 'Route the work through Peaks sub-agent dispatch with worktree isolation. Existing leaked host worktrees must be reconciled or adopted before cleanup.'
+      };
+    }
+    const leaseDecision = decideFromLease({ ...input, requestId: provenance.requestId });
+    if (!leaseDecision.allow) return leaseDecision;
+    return leaseDecision;
+  }
   if (operation === null) {
     // Pass-through (Read, Glob, etc., and any Bash that isn't worktree-mutating).
     return {

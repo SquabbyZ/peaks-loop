@@ -6,6 +6,7 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectIdeFromContext, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import { DISPATCH_PROVENANCE_ENV } from '../../services/worktree/dispatch-provenance.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { emitBlock, emitDecision, emitHint } from '../../services/hooks/output.js';
 
@@ -92,7 +93,10 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       // parser; the parser entry-point (`parseXxxShapeStdin`) is the only
       // change required.
       const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
-      if (toolName !== adapter.toolMatcher || typeof command !== 'string' || command.trim().length === 0) {
+      const toolKind = classifyTool(toolName);
+      const isBashSurface = toolName === adapter.toolMatcher && typeof command === 'string' && command.trim().length > 0;
+      const isWorktreeToolSurface = toolKind === 'Agent' || toolKind === 'EnterWorktree';
+      if (!isBashSurface && !isWorktreeToolSurface) {
         // Not a guarded surface — allow. Emit minimal JSON on stdout so Claude
         // Code's PreToolUse hook validator accepts the response. Empty stdout
         // is rejected with "Hook JSON output validation failed — Invalid input"
@@ -116,7 +120,6 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       // We extract the tool kind from the hook payload (Bash/Agent/EnterWorktree/Workflow).
       // For Agent/Task we also pull `isolation` from the tool input — only "worktree" isolation
       // is gated. For all other tool kinds the worktree gate is a no-op.
-      const toolKind = classifyTool(toolName);
       if (toolKind !== 'Other') {
         const sessionId = getCurrentSessionId(options.project) ?? 'unknown-sid';
         // slice 2026-07-29-worktree-l2-extended Part 2.B: the gate consults
@@ -135,11 +138,12 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
           projectRoot: options.project,
           sessionId,
           toolName: toolKind,
-          command: toolKind === 'Bash' ? command : null,
+          command: toolKind === 'Bash' && typeof command === 'string' ? command : null,
           isolation: toolKind === 'Agent' || toolKind === 'EnterWorktree' ? extractIsolation(parsedStdin) : null,
           requestId: null,
           leaseId: leaseId !== null && /^[a-f0-9]{16}$/.test(leaseId) ? leaseId : null,
-          containerLeaseId: containerLeaseId !== null && /^[a-f0-9]{16}$/.test(containerLeaseId) ? containerLeaseId : null
+          containerLeaseId: containerLeaseId !== null && /^[a-f0-9]{16}$/.test(containerLeaseId) ? containerLeaseId : null,
+          dispatchProvenanceToken: process.env[DISPATCH_PROVENANCE_ENV] ?? null
         });
         if (!wtDecision.allow) {
           // Hard block: a worktree-mutating tool call without a current-task user grant.
@@ -157,7 +161,16 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
         // care which path granted, only that the worktree gate said allow.
       }
 
-      const decision = await enforceBashCommand(options.project, command);
+      if (!isBashSurface) {
+        if (options.json === true) {
+          printResult(io, ok('gate.enforce', { decision: 'allow', layer: 'worktree-auth' }), true);
+        } else {
+          emitDecision(io, {});
+        }
+        return;
+      }
+
+      const decision = await enforceBashCommand(options.project, command as string);
       if (decision.decision === 'deny') {
         // PRD#2 (2026-06-16-fact-forcing-gate-format): a true SOP gate failure is
         // a HARD block. emitBlock writes the Claude Code permissionDecision:"deny"

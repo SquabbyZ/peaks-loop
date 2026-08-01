@@ -58,6 +58,11 @@ import {
 import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
+import {
+  createDispatchProvenanceToken,
+  DISPATCH_PROVENANCE_ENV,
+  writeDispatchProvenance,
+} from '../../services/worktree/dispatch-provenance.js';
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -418,12 +423,35 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // (gate-commands.ts: process.env.PEAKS_WORKTREE_LEASE_ID).
         if (isolationMode !== null && leaseId !== null) {
           const existingEnv = (toolCall.args['env'] as Record<string, string> | undefined) ?? {};
+          const provenanceToken = createDispatchProvenanceToken({
+            sessionId: sid,
+            requestId: rid,
+            leaseId,
+          });
+          if (isolationMode === 'worktree') {
+            writeDispatchProvenance({
+              projectRoot,
+              record: {
+                schemaVersion: 1,
+                token: provenanceToken,
+                sessionId: sid,
+                requestId: rid,
+                leaseId,
+                isolation: 'worktree',
+                issuedAt: new Date().toISOString(),
+              },
+            });
+          }
           toolCall = {
             ...toolCall,
             args: {
               ...toolCall.args,
-              isolation: 'worktree',
-              env: { ...existingEnv, PEAKS_WORKTREE_LEASE_ID: leaseId }
+              isolation: isolationMode,
+              env: {
+                ...existingEnv,
+                PEAKS_WORKTREE_LEASE_ID: leaseId,
+                ...(isolationMode === 'worktree' ? { [DISPATCH_PROVENANCE_ENV]: provenanceToken } : {}),
+              }
             }
           };
         }
