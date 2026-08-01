@@ -1,19 +1,25 @@
 # Mac auto-compact — verify + escape hatch
 
 > Status: fixed in peaks-loop 4.0.4+ (commits 22debcb, fa98502)
+> Auto-fire closed in 4.0.4.x (slice 2026-07-31-rid-mac-transcript-estimate-trigger).
 > Audience: Mac Claude Code users where auto-compact silently fails.
 
 ## TL;DR
 
-If your `peaks code context-now --json` returns `ratio: 0` and
-`source: "conservative-fallback"` on Mac, you have two paths:
+On peaks-loop 4.0.4.x+, the auto-compact orchestrator now fires
+**automatically** from the transcript-estimate source on Mac. No manual
+override needed.
 
-1. **Wait for auto-fix**: upgrade to peaks-loop 4.0.4+ — the transcript fallback
-   now walks recursively and a new `user-overridden` source takes priority over
-   the missing env var.
-2. **Manual override (any version)**:
-   `peaks code context-now --project . --prompt-size <N> --json`, where N is your
-   current context-fill in bytes.
+Verify your install:
+
+```bash
+peaks code context-now --project . --json
+# Expected: source: "transcript-estimate", ratio: 0.86 (when your
+# transcript is ~222.5KB), action: "auto-compact-now"
+```
+
+If you are on an older version that still returns `ratio: 0`,
+`source: "conservative-fallback"`, see [The escape hatch (--prompt-size)](#the-escape-hatch--prompt-size).
 
 ## Why Mac was broken
 
@@ -29,15 +35,24 @@ Verified locally: `echo $CLAUDE_CONTEXT_USAGE_PERCENT` is empty inside Bash
 tool sub-shells even when the main `/context` slash command shows 199% (that
 runs in-process, not via env injection).
 
+## How auto-fire works now
+
+On 4.0.4.x the orchestrator's `evaluateAutoCompactDecision` carries a
+1-line source-tag-aware carve-out: when `source === 'transcript-estimate'`
+(the only signal Mac exposes) and `ratio >= 0.85`, the verdict is
+`shouldCompact: true, reason: 'pre-compact'`. This is the auto-fire
+half of the B-route closure — no user intervention required when your
+transcript crosses ~222.5KB (256KB ≈ 100%).
+
 ## How to verify the fix
 
 ```bash
-# After peaks-loop 4.0.4 install:
+# After peaks-loop 4.0.4.x install:
 peaks code context-now --project . --json
 ```
 
 Expected: `source: "transcript-estimate"` (not `conservative-fallback`) when a
-transcript exists, or `source: "user-overridden"` if you used `--prompt-size`.
+transcript exists; `source: "user-overridden"` if you used `--prompt-size`.
 
 ## The escape hatch (--prompt-size)
 
@@ -57,6 +72,8 @@ When `bytes / 262144 >= 0.85`, `action: "auto-compact-now"` fires. When `<
 
 The Mac Claude Code team has not yet fixed the env-var injection, so
 `--prompt-size` is the recommended workaround until they ship a fix upstream.
+On 4.0.4.x the same threshold auto-fires without `--prompt-size` as long as
+a transcript is present.
 
 ## Hook integration
 
@@ -70,7 +87,15 @@ means the user override always wins over the (missing) env var.
 - The 0.85 boundary is exact (`>=`). 222822 bytes = 0.8499984741... →
   advisory mode `soft-warn`. In Job mode (`job-shape.json isJob=true`) it
   becomes `auto-compact-now`.
-- `peaks -v` should be ≥ 4.0.4. Older versions will keep returning `ratio: 0`.
+- The 256KB ≈ 100% approximation is a token-vs-byte approximation: 256KB of
+  raw JSONL bytes does NOT equal 256K tokens (Opus 4.1 is 200K tokens ≈ 800KB
+  jsonl). On Mac, where only the byte count is observable, the carve-out will
+  trigger earlier than the env-driven path on Windows/Linux. The
+  carve-out documents the approximation; a token-accurate Mac signal (statusline
+  state, system prompt probe) would supersede it once Claude Code ships one.
+- `peaks -v` should be ≥ 4.0.4.x. 4.0.4 (without the `.x`) keeps the manual
+  `--prompt-size` escape hatch but does NOT auto-fire on
+  `source: 'transcript-estimate'` alone.
 
 ## Related
 

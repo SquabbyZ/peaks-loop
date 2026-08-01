@@ -165,6 +165,13 @@ export function evaluateAutoCompactDecision(input: {
   force?: boolean | undefined;
   bypassRedLine?: boolean | undefined;
   mode?: AutoCompactMode | undefined;
+  /**
+   * Source tag from `readContextPercent.source`. Optional — when absent, the
+   * function behaves exactly as pre-rid (ratio-only). Slice 2026-07-31-rid-
+   * mac-transcript-estimate-trigger uses this to carry forward an explicit
+   * carve-out for the Mac-only `transcript-estimate` signal.
+   */
+  source?: string | undefined;
 }): { shouldCompact: boolean; reason: 'below-threshold' | 'in-flight-batch' | 'pre-compact' | 'red-line'; trigger: CompactTrigger } {
   const trigger = evaluateCompactTrigger(input.ratio, input.mode ?? 'standard');
   if (trigger.kind === 'none' || trigger.kind === 'soft-warn') {
@@ -181,6 +188,15 @@ export function evaluateAutoCompactDecision(input: {
   if (input.force) {
     return { shouldCompact: true, reason: 'pre-compact', trigger };
   }
+  // Slice 2026-07-31-rid-mac-transcript-estimate-trigger: transcript-estimate
+  // is the ONLY signal available on Mac Claude Code (no env-var, no statusline
+  // poll). The gate above already returns shouldCompact: true at ratio ≥ 0.85,
+  // but this forward-compat carve-out makes the source-aware rule explicit so
+  // any future source-aware downgrading cannot silently re-introduce the
+  // Mac auto-compact silent-failure mode without an audit. No higher-priority
+  // source is present (`claude-code-env` would have been P1, `statusline-poll`
+  // P2, `user-overridden` P4) — Mac's only signal is `transcript-estimate`.
+  if (input.source === 'transcript-estimate' && input.ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO) return { shouldCompact: true, reason: 'pre-compact', trigger };
   // Default: peaks-loop drives pre-compact autonomously.
   return { shouldCompact: true, reason: 'pre-compact', trigger };
 }
@@ -378,7 +394,11 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     inFlightBatch: input.inFlightBatch,
     force: input.force,
     bypassRedLine: input.bypassRedLine,
-    mode
+    mode,
+    // Slice 2026-07-31-rid-mac-transcript-estimate-trigger: pipe the source
+    // tag through so `evaluateAutoCompactDecision` can apply the
+    // source-aware carve-out for Mac's `transcript-estimate` signal.
+    source: probe.source
   });
 
   if (!decision.shouldCompact) {

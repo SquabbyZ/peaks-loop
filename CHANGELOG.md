@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 4.0.4.x
+
+### Bug fixes
+
+- **Mac auto-compact now fires automatically from the transcript-estimate source** (rid-mac-transcript-estimate-trigger, slice 2026-07-31). On Mac Claude Code the only signal available is the transcript-glob estimate (`source: 'transcript-estimate'`); the prior `evaluateAutoCompactDecision` had no explicit source-tag-aware gate for this signal, so any future source-aware downgrading could silently re-introduce the silent-failure mode. The orchestrator now carries a 1-line forward-compat carve-out in `evaluateAutoCompactDecision`: when `source === 'transcript-estimate'` and `ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO` (0.85), the verdict is `shouldCompact: true, reason: 'pre-compact'` regardless of any future source-aware downgrading. Closes the 4.0.4 B-route's auto-fire half. No higher-priority source (`claude-code-env` P1, `statusline-poll` P2, `user-overridden` P4) is present — Mac's only signal is `transcript-estimate`. No new CLI flag, no threshold ladder change (0.85/0.95 preserved), no change to `auto-compact-reader.ts`. Files: `src/services/code/auto-compact-orchestrator.ts` (added `source` to `evaluateAutoCompactDecision`'s input + 1-line gate + plumbed `probe.source` from `runAutoCompact`; +21/-1 LOC), `tests/unit/code/auto-compact-orchestrator.test.ts` (new, 5 cases driving the public surface with a real ≥222.5KB Mac-shaped transcript fixture: 1 AC + 3 regression + 1 real-bytes fixture). Documented caveat in `docs/mac-auto-compact.md`: the 256KB ≈ 100% approximation remains.
+
 ## 4.0.4 — 2026-07-31 (Mac auto-compact silent failure + user-driven override)
 
 ### Bug fixes
