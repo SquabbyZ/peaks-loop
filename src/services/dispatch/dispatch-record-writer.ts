@@ -115,7 +115,7 @@ export interface DispatchRecord {
    * truth for "this record is v3.1-form"; readers check
    * `version === '3.1'` for forward-compatible dispatching.
    */
-  readonly version: '3.1';
+  readonly version: '3.2';
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly outcome: DispatchOutcome;
@@ -168,6 +168,36 @@ export interface DispatchRecord {
    * cross-referencing the metrics stream.
    */
   readonly isolationStartedAt: string | null;
+  /**
+   * Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 schema
+   * bump. One entry per pid the parent best-effort-killed during
+   * the service-shutdown phase of the merge-back pipeline (see
+   * src/services/dispatch/service-shutdown.ts). Empty array when
+   * the sub-agent did not register any services. The shape is the
+   * union of ServiceKillOutcome (skipped=false) and
+   * ServiceKillSkipped (skipped=true) — kept as a plain object
+   * here so the on-disk schema does not lock onto the helper's
+   * narrower union. The reader (merge-back-runner.ts) interprets
+   * each entry based on the `skipped` field.
+   */
+  readonly serviceKill: ReadonlyArray<{
+    readonly pid: number;
+    readonly name: string;
+    readonly signal: string;
+    readonly exitCode: number | null;
+    readonly skipped?: boolean;
+    readonly reason?: string;
+  }>;
+  /**
+   * Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 schema
+   * bump. Counts how many merge attempts the parent session has
+   * made against this dispatch's branch. The conflict-replay
+   * orchestrator bumps this on each retry (bounded to ONE re-dispatch
+   * per merge attempt; multi-conflict cases escalate). Persisted so
+   * the dashboard can render the retry count without replaying the
+   * merge transcript.
+   */
+  readonly mergeBackAttempts: number;
 }
 
 /** Input for the initial write. */
@@ -247,7 +277,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
   const record: DispatchRecord = {
-    version: '3.1',
+    version: '3.2',
     createdAt: now().toISOString(),
     completedAt: null,
     outcome: 'no-execution',
@@ -289,7 +319,12 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     // handle is acceptable for the dashboard.
     isolationStartedAt: typeof input.isolationStartedAt === 'string' && input.isolationStartedAt.length > 0
       ? input.isolationStartedAt
-      : null
+      : null,
+    // Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.2 fields.
+    // New records start with empty serviceKill and zero attempts;
+    // the merge-back-runner (Task 9) populates them in place.
+    serviceKill: [],
+    mergeBackAttempts: 0
   };
 
   writeAtomic(safePath, record);
@@ -824,10 +859,10 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
   // with a schema we have not implemented). v1 records
   // (pre-audit-trail) must be regenerated.
   const rawVersion = obj.version;
-  if (rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
+  if (rawVersion !== '3.2' && rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
     throw new Error(
-      `Dispatch record version mismatch: expected '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
-      'The v1 → v3.1 migration is in-file; records from much older or newer builds must be regenerated.'
+      `Dispatch record version mismatch: expected '3.2', '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
+      'The v1 → v3.2 migration is in-file; records from much older or newer builds must be regenerated.'
     );
   }
   const role = stringField(obj, 'role');
@@ -871,7 +906,7 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     : 'legacy-batch';
 
   return {
-    version: '3.1',
+    version: '3.2',
     createdAt,
     completedAt,
     outcome,
@@ -906,7 +941,21 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     // to `null`. v3.1 readers can treat the field as opt-in.
     isolationStartedAt: typeof obj.isolationStartedAt === 'string' && obj.isolationStartedAt.length > 0
       ? obj.isolationStartedAt
-      : null
+      : null,
+    // Slice 2026-08-01-subagent-merge-and-e2e (Task 7): v3.1 → v3.2
+    // migration. Legacy v3.1 records have no `serviceKill` or
+    // `mergeBackAttempts` fields. Default to [] and 0 so the
+    // merge-back-runner (Task 9) can read either schema on disk.
+    serviceKill: Array.isArray(obj.serviceKill)
+      ? (obj.serviceKill.filter((e): e is { readonly pid: number; readonly name: string; readonly signal: string; readonly exitCode: number | null; readonly skipped?: boolean; readonly reason?: string } => {
+          if (typeof e !== 'object' || e === null) return false;
+          const o = e as Record<string, unknown>;
+          return typeof o.pid === 'number' && typeof o.name === 'string' && typeof o.signal === 'string' && (o.exitCode === null || typeof o.exitCode === 'number');
+        }))
+      : [],
+    mergeBackAttempts: typeof obj.mergeBackAttempts === 'number' && Number.isFinite(obj.mergeBackAttempts) && obj.mergeBackAttempts >= 0
+      ? Math.floor(obj.mergeBackAttempts)
+      : 0
   };
 }
 
