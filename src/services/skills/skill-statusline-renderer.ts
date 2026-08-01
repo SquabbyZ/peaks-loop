@@ -87,19 +87,19 @@ interface CompactPalette {
 
 const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   'ansi-unicode': {
-    active: '\x1b[36m●\x1b[0m',      // cyan active
-    idle: '\x1b[36m○\x1b[0m',         // cyan idle
+    active: '\x1b[1;35m●\x1b[0m',     // bold magenta active
+    idle: '\x1b[1;35m○\x1b[0m',        // bold magenta idle
     warning: '\x1b[33m!\x1b[0m',      // amber warning (semantic alarm)
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
-      queued: '\x1b[36m◐\x1b[0m',
-      preparing: '\x1b[36m◑\x1b[0m',
-      compacting: '\x1b[36m◒\x1b[0m',
-      verifying: '\x1b[36m◓\x1b[0m',
-      completed: '\x1b[36m✓\x1b[0m',
+      queued: '\x1b[1;35m◐\x1b[0m',
+      preparing: '\x1b[1;35m◑\x1b[0m',
+      compacting: '\x1b[1;35m◒\x1b[0m',
+      verifying: '\x1b[1;35m◓\x1b[0m',
+      completed: '\x1b[1;35m✓\x1b[0m',
       failed: '\x1b[31m✕\x1b[0m',  // failed is a semantic alarm
     },
     barFilled: '█',
@@ -107,19 +107,19 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     ratioArrow: '→',
   },
   unicode: {
-    active: '\x1b[36m●\x1b[0m',
-    idle: '\x1b[36m○\x1b[0m',
+    active: '\x1b[1;35m●\x1b[0m',
+    idle: '\x1b[1;35m○\x1b[0m',
     warning: '\x1b[33m!\x1b[0m',
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
-      queued: '\x1b[36m◐\x1b[0m',
-      preparing: '\x1b[36m◑\x1b[0m',
-      compacting: '\x1b[36m◒\x1b[0m',
-      verifying: '\x1b[36m◓\x1b[0m',
-      completed: '\x1b[36m✓\x1b[0m',
+      queued: '\x1b[1;35m◐\x1b[0m',
+      preparing: '\x1b[1;35m◑\x1b[0m',
+      compacting: '\x1b[1;35m◒\x1b[0m',
+      verifying: '\x1b[1;35m◓\x1b[0m',
+      completed: '\x1b[1;35m✓\x1b[0m',
       failed: '\x1b[31m✕\x1b[0m',
     },
     barFilled: '█',
@@ -160,21 +160,20 @@ function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): st
 }
 
 function renderActiveDot(capability: StatusLineCapability, nowMs: number): string {
-  // Brief: the active dot carries the cyan accent in both colored
-  // tiers (`ansi-unicode` and `unicode`). The breathing glyph is
-  // wrapped in a cyan SGR on every fresh render so the IDE sees a
-  // single accent per refresh.
+  // Brief: the active dot carries the bold magenta accent in both
+  // colored tiers. The breathing glyph is wrapped in a fresh SGR on
+  // every render so the IDE sees a single accent per refresh.
   const glyph = pickBreathingGlyph(capability, nowMs);
   if (capability === 'ascii') return glyph;
-  return `\x1b[36m${glyph}\x1b[0m`;
+  return `\x1b[1;35m${glyph}\x1b[0m`;
 }
 
 function brandText(capability: StatusLineCapability): string {
-  // Brief: brand carries the cyan accent in both colored tiers. The
-  // `ascii` tier stays plain text so plain text consumers (no TTY,
+  // Brief: brand carries the bold magenta accent in both colored tiers.
+  // The `ascii` tier stays plain text so plain text consumers (no TTY,
   // no UTF-8) never see escape codes.
   if (capability === 'ansi-unicode' || capability === 'unicode') {
-    return `\x1b[36m${BRAND}\x1b[0m`;
+    return `\x1b[1;35m${BRAND}\x1b[0m`;
   }
   return BRAND;
 }
