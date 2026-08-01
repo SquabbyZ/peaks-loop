@@ -43,8 +43,10 @@ silently failed at the same step for the same reason.
 1. **CHANGELOG heading format**: `## <ver> — YYYY-MM-DD (description)`. The
    awk extractor in `publish.yml` requires the trailing separator
    (` `, `(`, or `—`). A bare `## 4.0.5` will fail silently.
-2. **Pre-tag sub-package audit**: before `git push origin v*.*.*`:
+2. **Pre-tag sub-package audit + change detection**: before
+   `git push origin v*.*.*`, run both checks:
    ```bash
+   # (a) collision check — local version equals registry latest
    for p in packages/*/package.json; do
      name=$(node -e "console.log(require('./$p').name)")
      ver=$(node -e "console.log(require('./$p').version)")
@@ -53,12 +55,41 @@ silently failed at the same step for the same reason.
        echo "COLLISION: $name@$ver already on registry"
      fi
    done
+   # (b) sub-package-change check — local != main means the sub
+   # package's auto-bump (which is root-driven) does NOT cover it.
+   # Skip the sub-package in the publish tarball list if main ==
+   # local. Re-publish the sub-package separately if it diverged
+   # outside the root bump.
+   for p in packages/*/package.json; do
+     name=$(node -e "console.log(require('./$p').name)")
+     ver=$(node -e "console.log(require('./$p').version)")
+     main_ver=$(git show origin/main:$p | node -e "process.stdout.on('data', d => { try { console.log(JSON.parse(d).version) } catch { console.log('?') } })")
+     [ "$ver" != "$main_ver" ] && echo "DIVERGED: $name local=$ver main=$main_ver"
+   done
    ```
-   If any sub-package collides, bump them past the registry-pinned
-   version (`+2` is safe; `+1` may collide if the previous attempt
-   left a phantom version on the registry). The root `package.json`
-   is fine — `Idempotency guard` already skips the root.
-3. **Force-push is required for amend**: when a tag is amended
+   The (b) check matters: the 4.0.5 sub-package bump was 0.0.32→0.0.34,
+   0.1.6→0.1.8, 0.0.11→0.0.13, all driven by the same root auto-bump.
+   The 0.1.9 mutation in the local main commit was NOT a root-driven
+   bump; it required a separate publish flow.
+3. **Sub-package publish flow (separate from root)**:
+   - When a sub-package changes independently of root
+     (the `npm view $name version` ≠ local AND `git log origin/main
+     -- $p | wc -l` ≠ 0), the sub-package MUST be published to npm
+     before the root can resolve a downstream `npm install`. The
+     publish.yml runs only the root + auto-bumped sub-packages; an
+     out-of-band sub-package bump will sit in npm-cache and produce
+     `ETARGET No matching version found` when downstream tries to
+     install it.
+   - The right tool is a manual `pnpm pack` + `npm publish <tarball>
+     --tag=latest` (NO changesets) for the sub-package, then a separate
+     root publish (or none) if the root also needs to bump.
+   - For OIDC trust-publisher, the per-sub-package publish must use
+     the same `Trusted Publishing → GitHub Action` entry that the
+     root uses (each sub-package on npmjs.com has its own entry, all
+     pointing at this same `publish.yml`). Verify the entry exists
+     BEFORE the sub-package bump attempt: if the entry is missing
+     npm rejects with 403 and the sub-package silently never lands.
+4. **Force-push is required for amend**: when a tag is amended
    (e.g. CHANGELOG fix or sub-package bump), delete the local tag,
    re-tag, and `git push origin <tag> --force`:
    ```bash
@@ -69,17 +100,17 @@ silently failed at the same step for the same reason.
    Force-push of a tag is normal practice for `publish.yml` (the
    workflow always verifies `git describe --tags --exact-match HEAD`
    against the bumped root version).
-4. **Net-new release flow** (no previous failure):
+5. **Net-new release flow** (no previous failure):
    - bump version (manually or `pnpm exec changeset version`)
    - add `## <ver> — <date> (<description>)` to `CHANGELOG.md`
    - `git push origin main`
    - `git tag v<ver> && git push origin v<ver>`
    - `publish.yml` Run starts, `dist-tags.latest` updates to `<ver>`
-5. **Re-tag flow** (after a fix):
+6. **Re-tag flow** (after a fix):
    - `git add -A && git commit --amend --no-edit`
    - `git push origin main --force-with-lease`
    - `git tag -d v<ver> && git tag v<ver> && git push origin v<ver> --force`
-6. **CI run inspection** (use `peaks -v` to verify the installed CLI,
+7. **CI run inspection** (use `peaks -v` to verify the installed CLI,
    or the Playwright MCP if you need a browser-side check):
    ```bash
    mcp__playwright__browser_navigate(url: "https://github.com/SquabbyZ/peaks-loop/actions/runs/<run-id>")
