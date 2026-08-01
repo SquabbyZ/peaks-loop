@@ -165,27 +165,24 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
 const BREATHING_GLYPHS_UNICODE = ['●', '◐', '◑', '◒', '◓'] as const;
 const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
 const BREATHING_PERIOD_MS = 2_400;
-const MODE_DISPLAY_SKILL = 'peaks-code';
-
 /**
- * Bee-tier (1-level sub-role) skills and their orchestrator parent.
- * The terminal status line shows both layers when a bee is active:
- * the active bee name + a compact `↑<parent-short>` marker. The
- * parent marker uses the parent's short name (e.g. `code` for
- * `peaks-code`) so the line stays readable on a 60-char terminal.
+ * Bee-tier (1-level sub-role) skills and their full orchestrator
+ * parent name. The terminal status line shows both layers when a bee
+ * is active: the active bee name plus a `↑<parent-full>` marker
+ * pointing at the dispatching orchestrator.
  */
 const BEE_TO_PARENT: Readonly<Record<string, string>> = {
-  'peaks-prd': 'code',
-  'peaks-rd': 'code',
-  'peaks-qa': 'code',
-  'peaks-ui': 'code',
-  'peaks-sc': 'code',
-  'peaks-txt': 'code',
-  'peaks-final-review': 'code',
-  'peaks-resume': 'code',
-  'peaks-status': 'code',
-  'peaks-test': 'code',
-  'peaks-reviewer': 'code',
+  'peaks-prd': 'peaks-code',
+  'peaks-rd': 'peaks-code',
+  'peaks-qa': 'peaks-code',
+  'peaks-ui': 'peaks-code',
+  'peaks-sc': 'peaks-code',
+  'peaks-txt': 'peaks-code',
+  'peaks-final-review': 'peaks-code',
+  'peaks-resume': 'peaks-code',
+  'peaks-status': 'peaks-code',
+  'peaks-test': 'peaks-code',
+  'peaks-reviewer': 'peaks-code',
 };
 
 function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
@@ -261,22 +258,18 @@ function renderActive(
   }
   const skill = presence.skill;
   const dot = renderActiveDot(capability, nowMs);
-  // Mode display is scoped to peaks-code only — that skill owns the
-  // mode taxonomy (full-auto / assisted / strict / swarm). All other
-  // peaks-* skills never show the mode token to keep the line uncluttered
-  // when sub-agents are running.
-  if (skill === MODE_DISPLAY_SKILL && typeof presence.mode === 'string' && presence.mode.length > 0) {
-    return `${dot} ${skill} [${presence.mode}]`;
-  }
-  // Bee-tier skills surface both layers: the active bee name plus a
-  // compact marker (↑<parent-short>) that names the orchestrator
-  // dispatching it. Terminal width is the constraint; the short
-  // marker keeps the line readable.
   const beeParent = BEE_TO_PARENT[skill];
+  const modeToken = typeof presence.mode === 'string' && presence.mode.length > 0
+    ? ` [${presence.mode}]`
+    : '';
+  // Bee-tier skills surface both layers: the active bee name plus
+  // the full parent orchestrator name. Mode is shown for every
+  // active skill (not just peaks-code) so the line carries the same
+  // mode taxonomy for any bee in flight.
   if (beeParent !== undefined) {
-    return `${dot} ${skill} ↑${beeParent}`;
+    return `${dot} ${skill} ↑${beeParent}${modeToken}`;
   }
-  return `${dot} ${skill}`;
+  return `${dot} ${skill}${modeToken}`;
 }
 
 function renderStale(

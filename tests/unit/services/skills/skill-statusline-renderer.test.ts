@@ -154,25 +154,25 @@ describe('render — peaks-code mode display', () => {
     )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
-  it('peaks-rd with mode never renders the mode token', () => {
+  it('peaks-rd with mode surfaces both layers and the mode token', () => {
     const model = activeModel(presenceOf('peaks-rd', { mode: 'full-auto' }));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-rd ↑code → peaks-loop');
+    )).toBe('Peaks ● peaks-rd ↑peaks-code [full-auto] → peaks-loop');
   });
 
-  it('peaks-qa with mode never renders the mode token', () => {
+  it('peaks-qa with mode surfaces both layers and the mode token', () => {
     const model = activeModel(presenceOf('peaks-qa', { mode: 'strict' }));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-qa ↑code → peaks-loop');
+    )).toBe('Peaks ● peaks-qa ↑peaks-code [strict] → peaks-loop');
   });
 
   it('peaks-rd surfaces both layers with the parent marker (no mode)', () => {
     const model = activeModel(presenceOf('peaks-rd'));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-rd ↑code → peaks-loop');
+    )).toBe('Peaks ● peaks-rd ↑peaks-code → peaks-loop');
   });
 
   it('orchestrator skill (peaks-code) does not show a parent marker', () => {
