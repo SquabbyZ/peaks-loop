@@ -72,6 +72,17 @@ export interface CompactStatuslineState {
  */
 const DEFAULT_STALE_AFTER_MS = 120_000;
 
+/**
+ * 10-second completed-window expiry. The brief (Task 6 design requirement)
+ * calls out: once a compact lifecycle reaches `completed`, the primary
+ * statusline should surface the success indicator for at most 10 seconds,
+ * then fall back to the C1 baseline so the consumer (the IDE) does not
+ * keep a green ✓ pinned on the status bar indefinitely. The narrow window
+ * is sufficient for the human to see "we just compacted" and long enough
+ * to not flap on subsequent reads. Adjustable after real timing feedback.
+ */
+export const COMPLETED_EXPIRY_MS = 10_000;
+
 /** Legacy mtime window for the "just compacted" indicator. */
 const LEGACY_JUST_COMPACTED_WINDOW_MS = 30_000;
 
@@ -105,8 +116,10 @@ export function decideCompactStatusline(input: {
   readonly sessionId: string | null;
   readonly now: number;
   readonly staleAfterMs?: number;
+  readonly completedExpiryMs?: number;
 }): CompactStatuslineState {
   const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+  const completedExpiryMs = input.completedExpiryMs ?? COMPLETED_EXPIRY_MS;
 
   if (input.sessionId === null) {
     return { kind: 'none', filledCells: 0 };
@@ -124,6 +137,21 @@ export function decideCompactStatusline(input: {
   });
 
   if (lifecycle.kind === 'valid') {
+    // 10-second completed-expiry: once a compact lifecycle reaches
+    // `completed`, the primary statusline should surface the success
+    // indicator for at most COMPLETED_EXPIRY_MS (10s), then fall back to
+    // the C1 baseline so the IDE does not keep a green ✓ pinned on the
+    // status bar indefinitely. The narrow window is sufficient for the
+    // human to see "we just compacted" and long enough to not flap on
+    // subsequent reads. The narrow read of `updatedAt` is intentional: we
+    // surface the truth ("the run completed") and immediately expire
+    // rather than carrying forward a stale green check.
+    if (lifecycle.record.stage === 'completed') {
+      const updatedAtMs = Date.parse(lifecycle.record.updatedAt);
+      if (!Number.isNaN(updatedAtMs) && input.now - updatedAtMs > completedExpiryMs) {
+        return { kind: 'none', filledCells: 0 };
+      }
+    }
     return stateFromLifecycle(lifecycle.record);
   }
 

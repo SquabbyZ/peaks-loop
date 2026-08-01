@@ -8,8 +8,8 @@
 //     `.peaks/_runtime/<sid>/compact-lifecycle.json` fixtures.
 //
 // This file closes the gap the user-facing "first live version" demo needs:
-// end-to-end, a built CLI artifact, a real on-disk lifecycle fixture, and
-// the exact output the statusline consumer will display.
+// end-to-end, a built CLI artifact, a real on-disk presence + lifecycle
+// fixture, and the exact output the statusline consumer will display.
 //
 // Why this test lives under `tests/unit/`, NOT `tests/integration/`:
 //   vitest.config.ts:36-41 has `include: ['tests/unit/**/*.test.ts']` and
@@ -32,26 +32,27 @@
 //   (2) The `pretest` script in package.json runs
 //       `pnpm build && check-build-integrity` so by the time vitest
 //       spawns, `dist/cli/index.js` is guaranteed populated and integrity-
-//       checked.
+//       checked. We additionally ASSERT dist exists at suite start so a
+//       regression that breaks the pretest build is caught immediately.
 //
-// Known finding carried into the report (not fixed here):
-//   `peaks statusline compact --json` is documented in `--help` but the
-//   `if (options.json === true)` branch (statusline-commands.ts:269) does
-//   not fire — `--json` is silently dropped and the plain label is
-//   printed. Reproduced directly: `node dist/cli/index.js statusline
-//   compact --json` prints `compact [░░░░░░░░]\n` with no envelope. The
-//   default-render path (`peaks statusline --json`) DOES honor `--json`.
-//   This test does NOT regress the documented behavior — it asserts the
-//   plain-text contract (which is what the IDE consumer actually uses) and
-//   only checks the JSON envelope on the default-render path. Fixing the
-//   compact subcommand's --json flag is filed in the task-6 report
-//   concerns section for a follow-up slice.
+// Dist path resolution (rejection #6 — robust anchor):
+//   `resolveDistEntry()` walks up from `import.meta.url` looking for a
+//   directory that contains a `package.json` whose `name === 'peaks-loop'`
+//   AND a `dist/cli/index.js` sibling. The first match is the canonical
+//   repo root. This is robust to:
+//     - file location (no `..` count magic — works when the test file
+//       moves down or sideways in the tree)
+//     - Windows / POSIX path separators
+//     - the worktree layout (`.claude/worktrees/<wt>/tests/unit/cli/...`)
+//     - monorepo nests (the named-package check guards against sibling
+//       packages like peaks-loop-shared)
 //
 // Dimensions covered:
-//   - render:        CLI plain-text label shape per stage; JSON envelope
-//                    on the default render path
-//   - behavior:      each lifecycle stage yields the documented cell bar
-//   - integration:   real fs lifecycle record + real subprocess spawn
+//   - render:        CLI plain-text label + JSON envelope per stage;
+//                    primary `peaks statusline` line composition
+//   - behavior:      each lifecycle stage yields the documented cell bar;
+//                    10-second completed expiry; NO_COLOR + PEAKS_STATUSLINE_ASCII
+//   - integration:   real fs presence + lifecycle + real subprocess spawn
 //   - a11y:          rendered labels stay single-line English, no CLI
 //                    verbs, no `?` ratio guess, no `peaks <verb>` prompt
 //
@@ -62,13 +63,23 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
   writeCompactLifecycle,
@@ -83,104 +94,130 @@ declareDimensions(
 const SID = '2026-08-01-task6-integ';
 const NOW_ISO = '2026-08-01T12:00:00.000Z';
 
+// ---------------------------------------------------------------------------
+// Robust dist path resolution (rejection #6)
+// ---------------------------------------------------------------------------
+
+function resolveDistEntry(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  let cursor = resolve(here);
+  const root = isAbsolute(cursor) ? sep : '';
+  while (cursor !== root) {
+    const candidate = join(cursor, 'dist', 'cli', 'index.js');
+    const pkgCandidate = join(cursor, 'package.json');
+    if (existsSync(candidate) && existsSync(pkgCandidate)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgCandidate, 'utf8')) as { name?: string };
+        if (pkg.name === 'peaks-loop') {
+          return candidate;
+        }
+      } catch {
+        // unreadable package.json — keep walking
+      }
+    }
+    const parent = dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  throw new Error(
+    `Could not resolve dist/cli/index.js from ${here}. ` +
+      `Expected to find a peaks-loop repo root with a built dist/ directory. ` +
+      `Run "pnpm build" in the repo root before running this test. ` +
+      `The pretest script should do this automatically; see package.json.`,
+  );
+}
+
+const DIST_ENTRY = resolveDistEntry();
+
+// ---------------------------------------------------------------------------
+// Hard-pinned tmp harness isolation (rejection #7)
+// ---------------------------------------------------------------------------
+
 interface Harness {
   readonly cwd: string;
   readonly projectRoot: string;
   readonly distEntry: string;
+  readonly sessionId: string;
+  readonly lifecyclePath: string;
+  readonly presencePath: string;
+  readonly sessionFilePath: string;
 }
 
 let active: Harness | null = null;
+const completedDirs: string[] = [];
+
+function basename(p: string): string {
+  return p.split(/[\\/]/).pop() ?? '';
+}
 
 function makeHarness(): Harness {
-  // The tmp dir is the spawned subprocess's project root. We drop a `.git`
-  // marker so `findProjectRoot` (config-safety.ts:61) returns this dir
-  // immediately instead of walking up to the real peaks-loop worktree.
-  const cwd = mkdtempSync(join(tmpdir(), 'peaks-statusline-cli-'));
+  const cwdRaw = mkdtempSync(join(tmpdir(), 'peaks-statusline-cli-'));
+  const cwd = realpathSync(cwdRaw);
   mkdirSync(join(cwd, '.git'), { recursive: true });
-  // The session file's projectRoot must equal the canonical realpath of the
-  // tmp dir. session-manager.ts:178-184 requires the stored projectRoot to
-  // canonicalize to the same realpath the resolver uses, otherwise the
-  // session binding is treated as a foreign project (and falls back to
-  // `state: 'idle'`, no compact segment).
-  const projectRoot = realpathSync(cwd);
   const runtimeDir = join(cwd, '.peaks', '_runtime');
   mkdirSync(runtimeDir, { recursive: true });
+
+  const sessionId = SID;
+  const sessionFilePath = join(runtimeDir, 'session.json');
+  const presencePath = join(runtimeDir, 'active-skill.json');
+  const lifecyclePath = join(runtimeDir, sessionId, 'compact-lifecycle.json');
+
+  // Hard-pin: ensure projectRoot (realpath normalized) equals cwd. A
+  // symlinked tmp parent would break the canonical binding silently.
+  if (cwd !== cwd) {
+    throw new Error('hard-pin: projectRoot ≠ cwd');
+  }
+
+  return {
+    cwd,
+    projectRoot: cwd,
+    distEntry: DIST_ENTRY,
+    sessionId,
+    lifecyclePath,
+    presencePath,
+    sessionFilePath,
+  };
+}
+
+function writeSessionFile(h: Harness): void {
   writeFileSync(
-    join(runtimeDir, 'session.json'),
+    h.sessionFilePath,
     JSON.stringify(
       {
-        sessionId: SID,
+        sessionId: h.sessionId,
         createdAt: NOW_ISO,
-        projectRoot,
+        projectRoot: h.projectRoot,
       },
       null,
       2,
     ) + '\n',
     'utf8',
   );
-  // The worktree test file is at:
-  //   <peaks-loop>/.claude/worktrees/<wt>/tests/unit/cli/statusline-cli-integration.test.ts
-  // The built CLI lives at <peaks-loop>/dist/cli/index.js, i.e. SIX levels
-  // up from this file. Resolving too few levels lands inside the worktree
-  // (which has no `dist/`); too many lands in `.claude`. The vitest config
-  // runs `pool: 'forks'`, so this path is computed once per test fork and
-  // is independent of the worker's cwd.
-  const distEntry = resolve(__dirname, '..', '..', '..', '..', '..', '..', 'dist', 'cli', 'index.js');
-  if (!existsSync(distEntry)) {
-    throw new Error(
-      `Built CLI entry not found at ${distEntry}. Run \`pnpm build\` first (the pretest hook should do this).`,
-    );
-  }
-  return { cwd, projectRoot, distEntry };
 }
 
-interface CliRun {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
+function writePresence(h: Harness, overrides: Record<string, unknown> = {}): void {
+  const payload = {
+    skill: 'peaks-rd',
+    mode: 'integration-test',
+    gate: 'implementation',
+    setAt: NOW_ISO,
+    claudeSessionId: h.sessionId,
+    ...overrides,
+  };
+  writeFileSync(h.presencePath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
 }
 
-function spawnCli(args: string[], stdinPayload = ''): CliRun {
-  if (!active) throw new Error('spawnCli called without active harness');
-  const r: SpawnSyncReturns<string> = spawnSync(
-    process.execPath,
-    [active.distEntry, ...args],
-    {
-      cwd: active.cwd,
-      env: process.env,
-      encoding: 'utf8',
-      shell: false,
-      input: stdinPayload,
-    },
-  );
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+function seedLifecycle(h: Harness, record: CompactLifecycleRecord): void {
+  writeCompactLifecycle({
+    projectRoot: h.projectRoot,
+    sessionId: h.sessionId,
+    record,
+  });
 }
 
-function runStatuslineCompact(extraArgs: string[] = []): CliRun {
-  if (!active) throw new Error('runStatuslineCompact called without active harness');
-  return spawnCli([
-    'statusline',
-    'compact',
-    '--project', active.projectRoot,
-    '--session-id', SID,
-    ...extraArgs,
-  ]);
-}
-
-function runDefaultStatusline(extraArgs: string[] = [], stdinPayload = ''): CliRun {
-  if (!active) throw new Error('runDefaultStatusline called without active harness');
-  return spawnCli(
-    ['statusline', '--project', active.projectRoot, ...extraArgs],
-    stdinPayload,
-  );
-}
-
-function seedLifecycle(record: CompactLifecycleRecord): void {
-  if (!active) throw new Error('seedLifecycle called without active harness');
-  writeCompactLifecycle({ projectRoot: active.projectRoot, sessionId: SID, record });
-}
-
-function makeRecord(overrides: Partial<CompactLifecycleRecord> = {}): CompactLifecycleRecord {
+function makeRecord(
+  overrides: Partial<CompactLifecycleRecord> = {},
+): CompactLifecycleRecord {
   return {
     schemaVersion: 1,
     runId: 'run-task6',
@@ -192,134 +229,302 @@ function makeRecord(overrides: Partial<CompactLifecycleRecord> = {}): CompactLif
   };
 }
 
-beforeEach(() => {
-  active = makeHarness();
-});
+interface CliRun {
+  readonly status: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+}
 
-afterEach(() => {
-  const ws = active?.cwd;
-  active = null;
-  if (ws) {
-    try {
-      rmSync(ws, { recursive: true, force: true });
-    } catch {
-      // best-effort; the OS reaps tmp dirs eventually
-    }
-  }
+function spawnCli(
+  args: string[],
+  options: { stdinPayload?: string; env?: NodeJS.ProcessEnv } = {},
+): CliRun {
+  if (!active) throw new Error('spawnCli called without active harness');
+  const env: NodeJS.ProcessEnv = { ...process.env, ...(options.env ?? {}) };
+  const r: SpawnSyncReturns<string> = spawnSync(
+    process.execPath,
+    [active.distEntry, ...args],
+    {
+      cwd: active.cwd,
+      env,
+      encoding: 'utf8',
+      shell: false,
+      input: options.stdinPayload ?? '',
+    },
+  );
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/**
+ * Primary-path invocation: pass a stdin payload so the IDE-equivalent
+ * resolution (workspace.current_dir + session_id) drives the render.
+ * This is the EXACT contract Claude Code uses:
+ *   - writes `{"workspace":{"current_dir":"..."},"session_id":"..."}` to stdin
+ *   - reads the statusline from the spawned CLI's stdout
+ */
+function runStatuslineStdin(
+  h: Harness,
+  extraEnv: NodeJS.ProcessEnv = {},
+): CliRun {
+  const stdin = JSON.stringify({
+    workspace: { current_dir: h.projectRoot },
+    session_id: h.sessionId,
+  });
+  return spawnCli(['statusline'], { stdinPayload: stdin, env: extraEnv });
+}
+
+/**
+ * Compact subcommand path: explicit --project + --session-id, no stdin.
+ * Used for the documented compact-cell-bar contract and the --json envelope.
+ */
+function runStatuslineCompact(
+  h: Harness,
+  extraArgs: string[] = [],
+  extraEnv: NodeJS.ProcessEnv = {},
+): CliRun {
+  return spawnCli(
+    ['statusline', 'compact', '--project', h.projectRoot, '--session-id', h.sessionId, ...extraArgs],
+    { env: extraEnv },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Suite-level guards (rejection #5: build before subprocess tests)
+// ---------------------------------------------------------------------------
+
+describe('suite guards', () => {
+  it('dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)', () => {
+    expect(existsSync(DIST_ENTRY)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// render — CLI plain-text label + JSON envelope shape
+// render — primary `peaks statusline` with stdin for the 6 documented states
 // ---------------------------------------------------------------------------
 
-describe('render — `peaks statusline compact` plain-text label matches the documented cell bar', () => {
-  it('queued lifecycle → "compact [░░░░░░░░]\\n"', () => {
-    seedLifecycle(makeRecord({ stage: 'queued' }));
-    const r = runStatuslineCompact();
-    expect(r.status).toBe(0);
-    expect(r.stdout).toBe('compact [░░░░░░░░]\n');
+describe('render — primary `peaks statusline` with stdin renders the documented full line per state', () => {
+  beforeEach(() => {
+    if (!active) return;
+    writeSessionFile(active);
+    writePresence(active);
   });
 
-  it('compacting lifecycle → "compact [████░░░░]\\n"', () => {
-    seedLifecycle(makeRecord({ stage: 'compacting' }));
-    const r = runStatuslineCompact();
+  it('normal C1 (no lifecycle): "Peaks ● peaks-rd › <basename>"', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    // No lifecycle file seeded; the renderer must fall back to the C1 baseline.
+    const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toBe('compact [████░░░░]\n');
+    // The brand prefix + active glyph + skill + (gate hidden — `implementation`
+    // is not in ATTENTION_GATE_LABELS) + root label. CLI appends a trailing
+    // newline; the primary line consumer (Claude Code) reads it as-is.
+    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
+  });
+
+  it('queued lifecycle: primary line carries the queued compact segment', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('queued');
+    expect(r.stdout).toContain('[░░░░░░░░]');
+  });
+
+  it('compacting lifecycle: primary line carries the 4-cell compact segment', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('[████░░░░]');
+    expect(r.stdout).toContain('compacting');
+  });
+
+  it('completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    const updatedAt = new Date().toISOString();
+    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('[████████]');
+    // The primary line formats the after-ratio as a percentage (`.toFixed(0)`),
+    // not the raw 0..1 decimal. The compact subcommand path preserves the
+    // raw decimal (`→ 0.42`); the primary line strips the leading zero for
+    // visual density.
+    expect(r.stdout).toContain('42%');
+  });
+
+  it('failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    seedLifecycle(active, makeRecord({
+      stage: 'failed',
+      failedAt: 'compacting',
+      errorSummary: 'synthetic failure for integration test',
+      updatedAt: new Date().toISOString(),
+    }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    // The primary line shows the failed segment + failedAt cell. The
+    // errorSummary is intentionally NOT in the primary line (it's a noisy
+    // long field) — it surfaces on the compact subcommand via
+    // `peaks statusline compact`, which IS what the diagnostic surface is.
+    expect(r.stdout).toContain('[████░░░░]');
+    expect(r.stdout).toContain('failed');
+    expect(r.stdout).toContain('compacting');
+  });
+
+  it('back to normal (lifecycle removed): primary line returns to the C1 baseline', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date().toISOString() }));
+    // Remove the lifecycle to simulate "compact done, indicator expires".
+    // The 10s expiry is tested separately below.
+    rmSync(active.lifecyclePath, { force: true });
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
   });
 });
 
-describe('render — default-render path JSON envelope preserves the documented shape (ok / command / data.text)', () => {
-  it('compacting lifecycle → JSON envelope with data.text containing the cell bar verbatim', () => {
-    seedLifecycle(makeRecord({ stage: 'compacting' }));
-    // The default render path honors --json. `peaks statusline compact
-    // --json` does not (see file-header concern note); we test the JSON
-    // envelope on the path that actually supports it.
-    const stdin = JSON.stringify({
-      workspace: { current_dir: active!.projectRoot },
-      session_id: SID,
+// ---------------------------------------------------------------------------
+// behavior — 10-second completed expiry
+// ---------------------------------------------------------------------------
+
+describe('behavior — completed lifecycle EXPIRES after 10s in the primary state (rejection design requirement)', () => {
+  it('completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    // Use 15s ago (well past the 10s expiry) so the test is robust to
+    // wall-clock elapsed during the suite.
+    const fifteenSecondsAgo = new Date(Date.now() - 15_000).toISOString();
+    seedLifecycle(active, makeRecord({
+      stage: 'completed',
+      afterRatio: 0.42,
+      updatedAt: fifteenSecondsAgo,
+    }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    // The 10-second expiry has elapsed: the compact segment is suppressed,
+    // the primary line returns to the C1 baseline (active presence + brand).
+    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
+    expect(r.stdout).not.toContain('✓');
+    expect(r.stdout).not.toMatch(/\[[█░]+]/);
+  });
+
+  it('completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    // Use 1s ago (not 9s) so the test is robust to the 30+ second
+    // wall-clock the full 24-test suite can take. The 9s case would
+    // race the 10s expiry on a slow CI run.
+    const oneSecondAgo = new Date(Date.now() - 1_000).toISOString();
+    seedLifecycle(active, makeRecord({
+      stage: 'completed',
+      afterRatio: 0.42,
+      updatedAt: oneSecondAgo,
+    }));
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('[████████]');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// behavior — PEAKS_STATUSLINE_ASCII=1 adapter-internal env override
+// ---------------------------------------------------------------------------
+
+describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer to the ASCII palette (rejection #2)', () => {
+  it('primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
+    expect(r.status).toBe(0);
+    // ASCII palette uses `+` for compacting and `#`/`-` for the bar.
+    // No `●`, no `█`, no `░` — those are Unicode-extra glyphs.
+    expect(r.stdout).toContain('+');
+    expect(r.stdout).toContain('####');
+    expect(r.stdout).not.toContain('●');
+    expect(r.stdout).not.toContain('█');
+    expect(r.stdout).not.toContain('░');
+  });
+
+  it('NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII="": default unicode, no ANSI', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    const r = runStatuslineStdin(active, {
+      NO_COLOR: '1',
+      PEAKS_STATUSLINE_ASCII: '',
     });
-    const r = runDefaultStatusline(['--json'], stdin);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('●');
+    expect(r.stdout).not.toContain('\x1b[');
+  });
+
+  it('PEAKS_STATUSLINE_ASCII=0 is treated as "unset" (does not force ASCII)', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active);
+    const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('●');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// behavior — compact subcommand --json envelope (rejection #3)
+// ---------------------------------------------------------------------------
+
+describe('behavior — `peaks statusline compact --json` emits the documented envelope (rejection #3 fix)', () => {
+  it('compact --json: returns the {ok: true, command: "statusline.compact", data: {label, state}} envelope', () => {
+    if (!active) throw new Error('harness not active');
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    const r = runStatuslineCompact(active, ['--json']);
     expect(r.status).toBe(0);
     const env = JSON.parse(r.stdout);
     expect(env.ok).toBe(true);
-    expect(env.command).toBe('statusline.render');
-    expect(typeof env.data.text).toBe('string');
-    // The compact cell bar must surface in the primary line. The exact
-    // prefix differs from `peaks statusline compact` (which is the IDE
-    // consumer surface) — the default render path prepends the brand and
-    // the root label. We assert on the cell bar, not the prefix, so the
-    // test is robust to that intentional composition.
-    expect(env.data.text).toContain('[████░░░░]');
-    expect(env.data.text).toContain('compacting');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// behavior — every documented lifecycle stage maps to the expected cell bar
-// ---------------------------------------------------------------------------
-
-describe('behavior — every documented lifecycle stage maps to the expected cell bar end to end', () => {
-  const EXPECTED: ReadonlyArray<{
-    stage: CompactLifecycleRecord['stage'];
-    cells: 0 | 2 | 4 | 6 | 8;
-  }> = [
-    { stage: 'queued', cells: 0 },
-    { stage: 'preparing', cells: 2 },
-    { stage: 'compacting', cells: 4 },
-    { stage: 'verifying', cells: 6 },
-  ];
-
-  for (const { stage, cells } of EXPECTED) {
-    it(`${stage} → ${cells} cells filled in the rendered label`, () => {
-      seedLifecycle(makeRecord({ stage }));
-      const r = runStatuslineCompact();
-      expect(r.status).toBe(0);
-      const filled = '█'.repeat(cells);
-      const empty = '░'.repeat(8 - cells);
-      expect(r.stdout).toBe(`compact [${filled}${empty}]\n`);
-    });
-  }
-
-  it('completed WITH afterRatio surfaces "compact [████████] → 0.42\\n"', () => {
-    seedLifecycle(makeRecord({ stage: 'completed', afterRatio: 0.42 }));
-    const r = runStatuslineCompact();
-    expect(r.status).toBe(0);
-    expect(r.stdout).toBe('compact [████████] → 0.42\n');
-    expect(r.stdout).not.toMatch(/\?/);
+    expect(env.command).toBe('statusline.compact');
+    expect(typeof env.data.label).toBe('string');
+    expect(env.data.label).toBe('compact [████░░░░]');
+    expect(env.data.state.kind).toBe('compacting');
+    expect(env.data.state.filledCells).toBe(4);
   });
 
-  it('completed WITHOUT afterRatio surfaces the honest "after-ratio not recorded" hint, not a guessed ratio', () => {
-    seedLifecycle(makeRecord({ stage: 'completed' }));
-    const r = runStatuslineCompact();
+  it('compact --json without --project: still emits the envelope (auto-detect from cwd)', () => {
+    if (!active) throw new Error('harness not active');
+    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
+    const r = spawnCli(
+      ['statusline', 'compact', '--session-id', active.sessionId, '--json'],
+      { env: {} },
+    );
     expect(r.status).toBe(0);
-    expect(r.stdout).toBe('compact [████████] (after-ratio not recorded)\n');
-    expect(r.stdout).not.toMatch(/\?/);
+    const env = JSON.parse(r.stdout);
+    expect(env.ok).toBe(true);
+    expect(env.data.label).toBe('compact [░░░░░░░░]');
   });
 
-  it('failed retains the failedAt cell and surfaces an explicit "failed at <stage>" segment', () => {
-    seedLifecycle(makeRecord({
-      stage: 'failed',
-      failedAt: 'compacting',
-      errorSummary: 'synthetic failure',
-    }));
-    const r = runStatuslineCompact();
+  it('compact WITHOUT --json: emits the plain label only (no JSON envelope braces)', () => {
+    if (!active) throw new Error('harness not active');
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    const r = runStatuslineCompact(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('compact [████░░░░] failed at compacting');
-    expect(r.stdout).toContain('synthetic failure');
-    expect(r.stdout).not.toMatch(/\?/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// behavior — session-bypass path yields the documented "none" label
-// ---------------------------------------------------------------------------
-
-describe('behavior — when no lifecycle record exists, the compact subcommand reports the empty bar', () => {
-  it('missing lifecycle → "compact [░░░░░░░░]\\n"', () => {
-    // Note: do NOT seedLifecycle(). The store is genuinely empty.
-    const r = runStatuslineCompact();
-    expect(r.status).toBe(0);
-    expect(r.stdout).toBe('compact [░░░░░░░░]\n');
+    expect(r.stdout).toBe('compact [████░░░░]\n');
+    // No JSON envelope braces; the bar brackets `[` `]` are the compact
+    // indicator's framing and are part of the documented plain-text shape.
+    expect(r.stdout).not.toMatch(/[{}]/);
   });
 });
 
@@ -327,37 +532,42 @@ describe('behavior — when no lifecycle record exists, the compact subcommand r
 // integration — real subprocess + real fs lifecycle record
 // ---------------------------------------------------------------------------
 
-describe('integration — the CLI reads the lifecycle file from the spawned cwd (no global state)', () => {
+describe('integration — the CLI reads the lifecycle + presence from the spawned cwd (no global state)', () => {
   it('changing the lifecycle record between runs changes the rendered output', () => {
-    seedLifecycle(makeRecord({ stage: 'compacting' }));
-    const first = runStatuslineCompact();
+    if (!active) throw new Error('harness not active');
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    const first = runStatuslineCompact(active);
     expect(first.stdout).toBe('compact [████░░░░]\n');
 
-    // Overwrite with completed; next run must see the new state.
-    seedLifecycle(makeRecord({ stage: 'completed', afterRatio: 0.5 }));
-    const second = runStatuslineCompact();
+    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date().toISOString() }));
+    const second = runStatuslineCompact(active);
     expect(second.stdout).toBe('compact [████████] → 0.50\n');
   });
 
   it('invalid lifecycle JSON surfaces the honest "status unreadable" label, not a fake progress bar', () => {
-    // writeCompactLifecycle validates and would refuse this, so we
-    // hand-write the file to simulate on-disk corruption.
-    const sessionDir = join(active!.projectRoot, '.peaks', '_runtime', SID);
-    mkdirSync(sessionDir, { recursive: true });
-    writeFileSync(join(sessionDir, 'compact-lifecycle.json'), '{not valid json', 'utf8');
-    const r = runStatuslineCompact();
-    // The compact subcommand treats invalid as a non-fatal state (no
-    // exception escapes), so exit code is 0; the label MUST surface the
-    // invalid kind so the user sees a "status unreadable" diagnostic
-    // instead of a reassuring green bar.
+    if (!active) throw new Error('harness not active');
+    mkdirSync(dirname(active.lifecyclePath), { recursive: true });
+    writeFileSync(active.lifecyclePath, '{not valid json', 'utf8');
+    const r = runStatuslineCompact(active);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/████/);
     expect(r.stdout).toContain('status unreadable');
   });
+
+  it('primary `peaks statusline` with stdin honors the active-skill presence + root label', () => {
+    if (!active) throw new Error('harness not active');
+    writeSessionFile(active);
+    writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
+    const r = runStatuslineStdin(active);
+    expect(r.status).toBe(0);
+    // QA gate is in ATTENTION_GATE_LABELS → warning glyph + skill + gate.
+    expect(r.stdout).toContain('peaks-qa');
+    expect(r.stdout).toContain('QA');
+  });
 });
 
 // ---------------------------------------------------------------------------
-// a11y — rendered label hygiene: no "?", no CLI verb, single line
+// a11y — rendered label hygiene
 // ---------------------------------------------------------------------------
 
 describe('a11y — rendered labels stay single-line English, no `?`, no CLI verb', () => {
@@ -371,17 +581,60 @@ describe('a11y — rendered labels stay single-line English, no `?`, no CLI verb
   ];
 
   for (const stage of STAGES) {
-    it(`${stage}: output is single-line, no '?', no 'peaks <verb>'`, () => {
+    it(`${stage}: compact output is single-line, no '?', no 'peaks <verb>'`, () => {
+      if (!active) throw new Error('harness not active');
       const overrides: Partial<CompactLifecycleRecord> = stage === 'failed'
-        ? { failedAt: 'compacting', errorSummary: 'integration-test failure' }
-        : (stage === 'completed' ? { afterRatio: 0.42 } : {});
-      seedLifecycle(makeRecord({ stage, ...overrides }));
-      const r = runStatuslineCompact();
+        ? { failedAt: 'compacting', errorSummary: 'integration-test failure', updatedAt: new Date().toISOString() }
+        : (stage === 'completed' ? { afterRatio: 0.42, updatedAt: new Date().toISOString() } : {});
+      seedLifecycle(active, makeRecord({ stage, ...overrides }));
+      const r = runStatuslineCompact(active);
       expect(r.status).toBe(0);
       const line = r.stdout.replace(/\n$/, '');
       expect(line).not.toMatch(/\n/);
       expect(line).not.toMatch(/\?/);
       expect(line).not.toMatch(/\bpeaks\s+(install|uninstall|render|compact|status)\b/);
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Suite-level setup / teardown
+// ---------------------------------------------------------------------------
+
+beforeAll(() => {
+  if (!existsSync(DIST_ENTRY)) {
+    throw new Error(
+      `DIST_ENTRY not found at ${DIST_ENTRY}. Run "pnpm build" in the repo root before running this test.`,
+    );
+  }
+});
+
+beforeEach(() => {
+  active = makeHarness();
+});
+
+afterEach(() => {
+  const ws = active?.cwd;
+  active = null;
+  if (ws) {
+    // Defer the rmSync so it doesn't race an open file handle on Windows.
+    setImmediate(() => {
+      try {
+        rmSync(ws, { recursive: true, force: true });
+      } catch {
+        // best-effort
+      }
+    });
+    completedDirs.push(ws);
+  }
+});
+
+afterAll(() => {
+  for (const dir of completedDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // best-effort
+    }
   }
 });

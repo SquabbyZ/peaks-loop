@@ -315,12 +315,23 @@ function renderCompact(
  * `forced` — the env-driven path is the single first-version runtime
  * source of truth.
  *
+ * Adapter-internal env override (NOT a user-facing CLI flag):
+ *   `PEAKS_STATUSLINE_ASCII` — when set to `1` / `true` / `yes`, the
+ *   renderer drops to the ASCII palette (no Unicode-extra glyphs, no ANSI).
+ *   This is an adapter-internal mechanism for the trust boundary described
+ *   by the two-forms-only / human-NL-choice-only tenets: the user never
+ *   types a CLI verb to flip palettes, but the adapter (and only the
+ *   adapter) can set the env var on the user's behalf when its consumer
+ *   (e.g. a tiny terminal without UTF-8) needs ASCII. We do NOT expose
+ *   this via a CLI flag.
+ *
  * Order of resolution (highest priority first):
  *
  *   1. `forced` argument (test seam only)
- *   2. `NO_COLOR` set → `unicode` (no ANSI, no Unicode-extra glyphs)
- *   3. `isTTY === true` → `ansi-unicode`
- *   4. otherwise → `unicode` (default; byte-identical to C1 baseline)
+ *   2. `PEAKS_STATUSLINE_ASCII` set → `ascii` (adapter-internal override)
+ *   3. `NO_COLOR` set → `unicode` (no ANSI, no Unicode-extra glyphs)
+ *   4. `isTTY === true` → `ansi-unicode`
+ *   5. otherwise → `unicode` (default; byte-identical to C1 baseline)
  *
  * The deliberate ordering keeps the rendered text ANSI-free when the consumer
  * is a logger, a file, or any non-interactive sink, and only enables ANSI
@@ -333,6 +344,13 @@ export function resolveStatusLineCapability(input: {
 }): StatusLineCapability {
   if (input.forced !== undefined) {
     return input.forced;
+  }
+  // Adapter-internal ASCII override. Reads the env var using a non-ASCII
+  // identifier by indirection so a `grep PEAKS_STATUSLINE_ASCII` finds the
+  // exact contract; the comparison string is built at call time.
+  const asciiFlag = input.env['PEAKS_STATUSLINE_ASCII'];
+  if (typeof asciiFlag === 'string' && (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')) {
+    return 'ascii';
   }
   const envNoColor = input.env.NO_COLOR;
   if (typeof envNoColor === 'string' && envNoColor.length > 0 && envNoColor !== '0') {

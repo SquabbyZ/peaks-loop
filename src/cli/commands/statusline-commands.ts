@@ -251,12 +251,24 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       )
       .option('--project <path>', 'project root (auto-detected from cwd when omitted)')
       .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
-      .action((options: { project?: string; sessionId?: string; json?: boolean }) => {
+      .action((options: { project?: string; sessionId?: string; json?: boolean }, command: Command) => {
+        // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
+        // compatibility): when the parent `statusline` command has its own
+        // `--json` registered AND the user types `peaks statusline compact
+        // --json`, commander's parent-vs-child option parser can land
+        // `--json` on the parent scope only. `optsWithGlobals()` merges
+        // parent + child options so the JSON branch fires regardless of
+        // which scope commander assigned the flag to. Verified by the
+        // `compact --json emits the documented envelope` integration test.
+        const merged: { project?: string; sessionId?: string; json?: boolean } = {
+          ...options,
+          ...(command.optsWithGlobals?.() as { json?: boolean }),
+        };
         try {
-          const projectRoot = options.project !== undefined
-            ? options.project
+          const projectRoot = merged.project !== undefined
+            ? merged.project
             : (findProjectRoot(process.cwd()) ?? process.cwd());
-          const sid = options.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
+          const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
           const state = decideCompactStatusline({
             projectRoot,
             sessionId: sid,
@@ -266,14 +278,14 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
           // For non-JSON mode we print the LABEL DIRECTLY to stdout
           // (no envelope wrapping) because the consumer is the IDE
           // statusline, not a peaks-Loop caller.
-          if (options.json === true) {
-            printResult(io, ok('statusline.compact', { label, state }), options.json);
+          if (merged.json === true) {
+            printResult(io, ok('statusline.compact', { label, state }), merged.json);
           } else {
             process.stdout.write(`${label}\n`);
           }
         } catch (error: unknown) {
           const message = getErrorMessage(error);
-          printResult(io, fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]), options.json);
+          printResult(io, fail('statusline.compact', 'STATUSLINE_COMPACT_FAILED', message, {}, [message]), merged.json);
           process.exitCode = 1;
         }
       }),
