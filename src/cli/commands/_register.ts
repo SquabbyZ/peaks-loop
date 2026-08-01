@@ -72,6 +72,7 @@ import { registerSopCommands } from './sop-commands.js';
 import { registerStatusLineCommands } from './statusline-commands.js';
 import { registerSpillDemoCommand } from './spill-demo-command.js';
 import { registerSubAgentCommands } from './sub-agent-commands.js';
+import { registerSubAgentShutdownCommands } from './sub-agent-shutdown-commands.js';
 import { registerSubAgentDispatchGuard } from './sub-agent-dispatch-guard.js';
 import { registerSwarmCommands } from './swarm-commands.js';
 import { registerTechCommands } from './tech-commands.js';
@@ -114,6 +115,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['slice-integrate-commands', registerSliceIntegrateCommands], ['doc-commands', registerDocCommands],
   ['legacy-commands', registerLegacyCommands], ['role-commands', registerRoleCommands],
   ['complexity-commands', registerComplexityCommands], ['sub-agent-commands', registerSubAgentCommands],
+  ['sub-agent-shutdown-commands', registerSubAgentShutdownCommands],
   ['governance-classify-contract-commands', registerContractCommands],
   ['sub-agent-dispatch-guard', registerSubAgentDispatchGuard], ['gate-commands', registerGateCommands],
   ['hook-handle', registerHookHandleCommand], ['hooks-commands', registerHooksCommands],
