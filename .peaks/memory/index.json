@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-31T07:23:16.264Z",
+  "updatedAt": "2026-08-01T02:51:39.632Z",
   "hot": {
     "feedback": [
       {
@@ -1376,6 +1376,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-loop-local-skillhub.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-05"
+      },
+      {
+        "name": "peaks-loop-mac-auto-compact-esm-fake-green-and-fix",
+        "kind": "project",
+        "description": "Mac auto-compact fix landed (rid-001-r1, commit 22debcb) — 2026-07-31 What this slice fixed peaks-loop's  in  returne...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-31-mac-auto-compact-esm-fake-green-and-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-31"
+      },
+      {
+        "name": "peaks-loop-mac-auto-compact-no-env-injection",
+        "kind": "project",
+        "description": "Mac auto-compact silent failure — root cause sediment (2026-07-31) Symptom On Mac Claude Code, user runs  and sees  —...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-31-mac-auto-compact-no-env-injection.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-31"
       },
       {
         "name": "peaks-loop-prd-template-design",
