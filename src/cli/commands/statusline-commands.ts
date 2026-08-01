@@ -4,7 +4,11 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { buildStatusLineModel, parseStatusLineStdin } from '../../services/skills/skill-statusline-service.js';
-import { renderStatusLine } from '../../services/skills/skill-statusline-renderer.js';
+import {
+  renderStatusLine,
+  resolveStatusLineCapability,
+  type StatusLineCapability,
+} from '../../services/skills/skill-statusline-renderer.js';
 import {
   applyStatusLineInstall,
   planStatusLineInstall,
@@ -74,13 +78,19 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
 type InstallOptions = { global?: boolean; project?: string; force?: boolean; dryRun?: boolean; json?: boolean; ide?: string };
 type UninstallOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
-type RenderOptions = { project?: string; json?: boolean };
+type RenderOptions = { project?: string; json?: boolean; capability?: StatusLineCapability };
 
 /**
  * Default-statusline render body. Reused by both the top-level default
  * action (Bug-02 dispatch) and the explicit `render` subcommand. Exported
  * so a unit test can exercise the JSON / text output paths without going
  * through commander.
+ *
+ * Capability resolution is delegated to {@link resolveStatusLineCapability}
+ * with `forced` taken from the optional `--capability` flag. When no flag
+ * is supplied, the resolver falls through to NO_COLOR + isTTY heuristics.
+ * The model itself is read-only: `buildStatusLineModel` is the sole I/O
+ * boundary, and it now also resolves compact state.
  */
 export async function runDefaultStatuslineRender(
   options: RenderOptions,
@@ -92,7 +102,12 @@ export async function runDefaultStatuslineRender(
     ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
     : stdin;
   const model = buildStatusLineModel(seeded, Date.now());
-  const text = renderStatusLine(model);
+  const capability = resolveStatusLineCapability({
+    env: process.env,
+    isTTY: Boolean(process.stdout.isTTY),
+    ...(options.capability !== undefined ? { forced: options.capability } : {}),
+  });
+  const text = renderStatusLine(model, { capability });
   if (options.json === true) {
     io.stdout(JSON.stringify({ ok: true, command: 'statusline.render', data: { text } }, null, 2));
     return;

@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
+import { decideCompactStatusline } from '../compact-statusline/compact-statusline-service.js';
+import { getSessionIdCanonical } from '../session/session-manager.js';
+import type { CompactStatuslineState } from '../compact-statusline/compact-statusline-service.js';
 
 /**
  * Out-of-band Peaks skill status renderer for the Claude Code statusLine.
@@ -44,6 +47,7 @@ export type StatusLineModel = {
   projectRoot: string | null;
   presence: StatusLinePresence | null;
   ageMs: number | null;
+  compact: CompactStatuslineState;
 };
 
 function resolveCwdFromStdin(stdin: StatusLineStdin | null): string {
@@ -111,16 +115,21 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   const cwd = resolveCwdFromStdin(stdin);
   const projectRoot = findProjectRoot(cwd);
 
+  // Compact state is computed independently of presence — the read is read-only
+  // and reads `.peaks/_runtime/<sid>/compact-lifecycle.json` (or its legacy
+  // fallbacks). It replaces the active skill content when kind != 'none'.
+  const compact = readCompactState(projectRoot, nowMs);
+
   if (projectRoot === null) {
-    return { state: 'idle', projectRoot: null, presence: null, ageMs: null };
+    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact };
   }
 
   const { presence, invalid } = readPresenceReadOnly(projectRoot);
   if (invalid) {
-    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null };
+    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact };
   }
   if (presence === null) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact };
   }
 
   // Session binding: when the presence was stamped with a Claude session id and
@@ -130,12 +139,35 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // fall back to the time-based behavior below for backward compatibility.
   const liveSessionId = typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
   if (presence.claudeSessionId && liveSessionId && presence.claudeSessionId !== liveSessionId) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact };
   }
 
   const setAtMs = presence.setAt ? Date.parse(presence.setAt) : Number.NaN;
   const ageMs = Number.isNaN(setAtMs) ? null : nowMs - setAtMs;
   const state: StatusLineState = ageMs !== null && ageMs > STALE_THRESHOLD_MS ? 'stale' : 'active';
 
-  return { state, projectRoot, presence, ageMs };
+  return { state, projectRoot, presence, ageMs, compact };
+}
+
+/**
+ * Read-only compact state resolver. Resolves the canonical session id for the
+ * detected project root, then delegates to {@link decideCompactStatusline}.
+ * Returns `{ kind: 'none', filledCells: 0 }` when no project root is bound —
+ * the renderer falls back to the C1 normal line in that case.
+ */
+function readCompactState(projectRoot: string | null, nowMs: number): CompactStatuslineState {
+  if (projectRoot === null) {
+    return { kind: 'none', filledCells: 0 };
+  }
+  try {
+    const sessionId = getSessionIdCanonical(projectRoot);
+    return decideCompactStatusline({
+      projectRoot,
+      sessionId,
+      now: nowMs,
+    });
+  } catch {
+    // Read-only — never throw across the statusline boundary.
+    return { kind: 'none', filledCells: 0 };
+  }
 }

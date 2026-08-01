@@ -3,6 +3,9 @@ import type {
   StatusLineModel,
   StatusLinePresence,
 } from './skill-statusline-service.js';
+import type {
+  CompactStatuslineState,
+} from '../compact-statusline/compact-statusline-service.js';
 
 /**
  * Pure formatting layer for the Peaks statusLine. Takes the read-only status
@@ -53,6 +56,11 @@ function isAttentionGate(gate: string | undefined): string | null {
  * separators (· / › / ▸ / ASCII variants), and the diagnostic marker
  * (`presence unreadable`). Unicode glyphs use widely-supported characters;
  * ASCII keeps byte-identical shape across encodings.
+ *
+ * Compact glyphs are the unicode quadrant marks ◐◑◒◓, the check ✓, and the
+ * ballot ✕. ASCII uses bracket/plus/star/x. Bar characters are █/░ in
+ * unicode and #/- in ASCII. Ratios are joined with `·` (` . ` for ASCII)
+ * and the before→after arrow is `→` (-> for ASCII).
  */
 interface StatusPalette {
   readonly active: string;
@@ -62,6 +70,19 @@ interface StatusPalette {
   readonly trailSeparator: string;  // before project label
   readonly idleLabel: string;       // token rendered when no presence
   readonly invalidMessage: string;  // text after the warning glyph for invalid-presence
+  readonly compact: CompactPalette;
+  readonly barFilled: string;
+  readonly barEmpty: string;
+  readonly ratioArrow: string;
+}
+
+interface CompactPalette {
+  readonly queued: string;
+  readonly preparing: string;
+  readonly compacting: string;
+  readonly verifying: string;
+  readonly completed: string;
+  readonly failed: string;
 }
 
 const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
@@ -73,6 +94,17 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     trailSeparator: ' › ',
     idleLabel: 'idle',
     invalidMessage: 'presence unreadable',
+    compact: {
+      queued: '\x1b[90m◐\x1b[0m',
+      preparing: '\x1b[33m◑\x1b[0m',
+      compacting: '\x1b[33m◒\x1b[0m',
+      verifying: '\x1b[33m◓\x1b[0m',
+      completed: '\x1b[32m✓\x1b[0m',
+      failed: '\x1b[31m✕\x1b[0m',
+    },
+    barFilled: '█',
+    barEmpty: '░',
+    ratioArrow: '→',
   },
   unicode: {
     active: '●',
@@ -82,6 +114,17 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     trailSeparator: ' › ',
     idleLabel: 'idle',
     invalidMessage: 'presence unreadable',
+    compact: {
+      queued: '◐',
+      preparing: '◑',
+      compacting: '◒',
+      verifying: '◓',
+      completed: '✓',
+      failed: '✕',
+    },
+    barFilled: '█',
+    barEmpty: '░',
+    ratioArrow: '→',
   },
   ascii: {
     active: '*',
@@ -91,6 +134,17 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     trailSeparator: ' > ',
     idleLabel: 'idle',
     invalidMessage: 'presence unreadable',
+    compact: {
+      queued: '[',
+      preparing: '+',
+      compacting: '+',
+      verifying: '+',
+      completed: '*',
+      failed: 'x',
+    },
+    barFilled: '#',
+    barEmpty: '-',
+    ratioArrow: '->',
   },
 };
 
@@ -163,6 +217,124 @@ function renderIdle(palette: StatusPalette): string {
   return `${palette.idle} ${palette.idleLabel}`;
 }
 
+const COMPACT_BAR_WIDTH = 8;
+
+function renderCompactBar(
+  filledCells: 0 | 2 | 4 | 6 | 8,
+  palette: StatusPalette,
+): string {
+  const filled = palette.barFilled.repeat(filledCells);
+  const empty = palette.barEmpty.repeat(COMPACT_BAR_WIDTH - filledCells);
+  return `[${filled}${empty}]`;
+}
+
+function formatRatio(value: number): string {
+  // Brief ratio labels use 2-decimal precision: 0.87 → "87%".
+  return `${Math.round(value * 100)}%`;
+}
+
+/**
+ * Render the compact-progress segment. Compact state REPLACES the skill
+ * content while active (`kind !== 'none'`). The renderer always lays out
+ *
+ *   <stage-glyph> <bar> <label>[ · <before>%][ → <after>%]
+ *
+ * Failed states additionally suffix the stage at which the compact failed.
+ * Stalled states keep the active-stage cell count and render a plain
+ * "stalled" label. Invalid states surface the read-reason verbatim as a
+ * single-line diagnostic so the user can see why the bar is empty.
+ */
+function renderCompact(
+  state: CompactStatuslineState,
+  palette: StatusPalette,
+): string {
+  switch (state.kind) {
+    case 'none':
+      return '';
+    case 'queued':
+      return `${palette.compact.queued} ${renderCompactBar(0, palette)} queued${
+        typeof state.triggerRatio === 'number'
+          ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
+          : ''
+      }`;
+    case 'preparing':
+      return `${palette.compact.preparing} ${renderCompactBar(2, palette)} preparing${
+        typeof state.triggerRatio === 'number'
+          ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
+          : ''
+      }`;
+    case 'compacting':
+      return `${palette.compact.compacting} ${renderCompactBar(4, palette)} compacting${
+        typeof state.triggerRatio === 'number'
+          ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
+          : ''
+      }`;
+    case 'verifying':
+      return `${palette.compact.verifying} ${renderCompactBar(6, palette)} verifying`;
+    case 'completed':
+      return `${palette.compact.completed} ${renderCompactBar(8, palette)} compacted${
+        typeof state.triggerRatio === 'number'
+          ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}${
+              typeof state.afterRatio === 'number'
+                ? ` ${palette.ratioArrow} ${formatRatio(state.afterRatio)}`
+                : ''
+            }`
+          : typeof state.afterRatio === 'number'
+            ? `${palette.inlineSeparator}${formatRatio(state.afterRatio)}`
+            : ''
+      }`;
+    case 'failed': {
+      const failedAt = state.failedAt ?? 'compacting';
+      const filledAt = failedAt === 'queued'
+        ? 0
+        : failedAt === 'preparing'
+          ? 2
+          : failedAt === 'compacting'
+            ? 4
+            : 6;
+      return `${palette.compact.failed} ${renderCompactBar(filledAt, palette)} compact failed${palette.inlineSeparator}${failedAt}`;
+    }
+    case 'stalled':
+      return `${palette.compact.compacting} ${renderCompactBar(state.filledCells, palette)} stalled`;
+    case 'invalid': {
+      const detail = state.detail ?? 'lifecycle record malformed';
+      return `${palette.warning} ${detail}`;
+    }
+  }
+}
+
+/**
+ * Resolve the capability tier from explicit overrides and environment. Pure
+ * and deterministic — no I/O beyond reading `process.env` and the `isTTY`
+ * flag passed by the caller. The CLI delegates to this so the read-only
+ * status line does not need to know about ANSI/NO_COLOR semantics.
+ *
+ * Order of resolution (highest priority first):
+ *
+ *   1. `forced` argument — caller-supplied override (`--plain-ascii` style)
+ *   2. `NO_COLOR` set → `unicode` (no ANSI, no Unicode-extra glyphs)
+ *   3. `isTTY === true` → `ansi-unicode`
+ *   4. otherwise → `unicode` (default; byte-identical to C1 baseline)
+ *
+ * The deliberate ordering keeps the rendered text ANSI-free when the consumer
+ * is a logger, a file, or any non-interactive sink, and only enables ANSI
+ * under an explicit supported condition (TTY + no env veto).
+ */
+export function resolveStatusLineCapability(input: {
+  readonly env: NodeJS.ProcessEnv;
+  readonly isTTY: boolean;
+  readonly forced?: StatusLineCapability;
+}): StatusLineCapability {
+  if (input.forced !== undefined) {
+    return input.forced;
+  }
+  const envNoColor = input.env.NO_COLOR;
+  if (typeof envNoColor === 'string' && envNoColor.length > 0 && envNoColor !== '0') {
+    return 'unicode';
+  }
+  return input.isTTY ? 'ansi-unicode' : 'unicode';
+}
+
 /**
  * Render the status line. Pure — no I/O, no side effects. The output is
  * a single short line suitable for the bottom-of-terminal status bar.
@@ -170,6 +342,10 @@ function renderIdle(palette: StatusPalette): string {
  * The `options.capability` field selects the glyph palette. When omitted,
  * the function falls back to `unicode` (no ANSI escape codes), preserving
  * the legacy behaviour for the CLI's `peaks statusline` invocation.
+ *
+ * Compact-state precedence: when `model.compact.kind !== 'none'` the
+ * compact bar replaces the active/idle/stale content. The C1 baseline
+ * line is preserved when the compact state is `none`.
  */
 export function renderStatusLine(
   model: StatusLineModel,
@@ -178,6 +354,16 @@ export function renderStatusLine(
   const palette = paletteFor(options?.capability);
   const root = rootLabel(model.projectRoot);
   const rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
+
+  const compactSegment = renderCompact(model.compact, palette);
+
+  if (compactSegment.length > 0) {
+    // Compact state replaces the active / stale / idle skill content.
+    // `invalid-presence` still surfaces its own diagnostic when compact
+    // is also `invalid` (the compact diagnostic wins, since it's the
+    // more recent failure mode).
+    return `${BRAND} ${compactSegment}${rootSuffix}`;
+  }
 
   switch (model.state) {
     case 'active':
