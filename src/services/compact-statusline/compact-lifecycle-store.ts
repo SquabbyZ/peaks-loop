@@ -177,7 +177,7 @@ export function writeCompactLifecycle(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly record: CompactLifecycleRecord;
-}): { readonly path: string } {
+}): void {
   const path = lifecyclePath(input.projectRoot, input.sessionId);
   mkdirSync(dirname(path), { recursive: true });
 
@@ -201,7 +201,6 @@ export function writeCompactLifecycle(input: {
     }
     throw error;
   }
-  return { path };
 }
 
 /**
@@ -263,10 +262,3 @@ export function readCompactLifecycle(input: {
   }
   return { kind: 'valid', record };
 }
-
-export const COMPACT_LIFECYCLE_CONSTANTS = {
-  LIFECYCLE_FILENAME,
-  ERROR_SUMMARY_MAX,
-  ACTIVE_STAGES,
-  ALL_STAGES,
-} as const;
