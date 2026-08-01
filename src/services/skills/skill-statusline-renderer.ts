@@ -89,18 +89,18 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   'ansi-unicode': {
     active: '\x1b[36m●\x1b[0m',      // cyan active
     idle: '\x1b[36m○\x1b[0m',         // cyan idle
-    warning: '\x1b[33m!\x1b[0m',      // amber warning
+    warning: '\x1b[33m!\x1b[0m',      // amber warning (semantic alarm)
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
-      queued: '\x1b[90m◐\x1b[0m',
-      preparing: '\x1b[33m◑\x1b[0m',
-      compacting: '\x1b[33m◒\x1b[0m',
-      verifying: '\x1b[33m◓\x1b[0m',
-      completed: '\x1b[32m✓\x1b[0m',
-      failed: '\x1b[31m✕\x1b[0m',
+      queued: '\x1b[36m◐\x1b[0m',
+      preparing: '\x1b[36m◑\x1b[0m',
+      compacting: '\x1b[36m◒\x1b[0m',
+      verifying: '\x1b[36m◓\x1b[0m',
+      completed: '\x1b[36m✓\x1b[0m',
+      failed: '\x1b[31m✕\x1b[0m',  // failed is a semantic alarm
     },
     barFilled: '█',
     barEmpty: '░',
@@ -115,11 +115,11 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
     compact: {
-      queued: '\x1b[90m◐\x1b[0m',
-      preparing: '\x1b[33m◑\x1b[0m',
-      compacting: '\x1b[33m◒\x1b[0m',
-      verifying: '\x1b[33m◓\x1b[0m',
-      completed: '\x1b[32m✓\x1b[0m',
+      queued: '\x1b[36m◐\x1b[0m',
+      preparing: '\x1b[36m◑\x1b[0m',
+      compacting: '\x1b[36m◒\x1b[0m',
+      verifying: '\x1b[36m◓\x1b[0m',
+      completed: '\x1b[36m✓\x1b[0m',
       failed: '\x1b[31m✕\x1b[0m',
     },
     barFilled: '█',
