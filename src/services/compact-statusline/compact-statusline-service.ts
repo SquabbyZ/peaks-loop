@@ -1,98 +1,300 @@
 // src/services/compact-statusline/compact-statusline-service.ts
 //
-// Slice 2026-07-30-compact-visibility (slice 3/4). Pure helper
-// for the 'peaks statusline compact' indicator. Reads
-// .peaks/_runtime/<sessionId>/auto-compact-pending.json +
-// compact-history.jsonl and decides the single-line text
-// the LLM should embed in Claude Code's statusline.
+// Slice 2026-08-01-compact-lifecycle (Task 3/5). Pure semantic
+// decision + render helper for the 'peaks statusline compact'
+// indicator. Reads .peaks/_runtime/<sessionId>/compact-lifecycle.json
+// first (the canonical source of truth) and falls back to the legacy
+// auto-compact-pending.json + compact-history.jsonl only when the
+// lifecycle record is missing.
 //
-// State machine:
-//   - pending: a 'block' intent is sitting in
-//     auto-compact-pending.json → 'compact pending (<ratio>)'
-//   - redLine: pending.redLine === true → 'REDLINE 0.95'
-//   - just-compacted: history has an event within the last
-//     30 seconds → 'just compacted (<from>→<to>)'
-//   - idle: nothing recent → '--'
-//   - missing: no session binding or no orchestrator run yet
-//     → '' (empty)
+// Decision priority (explicit, no implicit fall-through):
+//   1. lifecycle missing  → fall back to legacy (pending → queued,
+//      recent history → completed WITHOUT an invented after-ratio,
+//      else none)
+//   2. lifecycle invalid  → 'invalid' (NEVER fall back to legacy
+//      — a corrupted lifecycle is not a green progress bar)
+//   3. lifecycle valid    → map stage to filledCells via the
+//      documented cell table
+//   4. lifecycle stalled  → 'stalled' kind, retains the cell that
+//      the active stage was holding
+//
+// Cell mapping (frozen first-version contract):
+//   queued     → 0 cells
+//   preparing  → 2 cells
+//   compacting → 4 cells
+//   verifying  → 6 cells
+//   completed  → 8 cells
+//   failed     → keep the failedAt cell (default to compacting = 4)
+//   none       → 0 cells
+//   invalid    → 0 cells (no false reassurance)
+//   stalled    → keep the active stage's cell
+//
+// Render contract: the rendered label is a fixed-width 8-cell bar
+// (`[████░░░░]` filled from the left). NO `?` characters. NO guessed
+// ratios. After-ratio is only rendered when the lifecycle record
+// carries a real one; otherwise the bar shows a stable "no
+// measurement" hint.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { getSessionDir } from '../session/getSessionDir.js';
+import {
+  readCompactLifecycle,
+  type CompactLifecycleRecord,
+  type CompactLifecycleStage,
+} from './compact-lifecycle-store.js';
+
+export type CompactDisplayKind =
+  | 'none'
+  | 'queued'
+  | 'preparing'
+  | 'compacting'
+  | 'verifying'
+  | 'completed'
+  | 'failed'
+  | 'stalled'
+  | 'invalid';
 
 export interface CompactStatuslineState {
-  readonly kind: 'missing' | 'idle' | 'pending' | 'red-line' | 'just-compacted';
-  readonly label: string;
+  readonly kind: CompactDisplayKind;
+  readonly filledCells: 0 | 2 | 4 | 6 | 8;
+  readonly triggerRatio?: number;
+  readonly afterRatio?: number;
+  readonly redLine?: boolean;
+  readonly failedAt?: CompactLifecycleStage;
   readonly detail?: string;
 }
 
-const JUST_COMPACTED_WINDOW_MS = 30_000;
+/**
+ * Concrete first-version stale timeout. Adjustable after real timing
+ * evidence from the auto-compact orchestrator (it currently writes a
+ * heartbeat on every state transition; 120 s is the longest realistic
+ * gap between a heartbeat and an actual stall).
+ */
+const DEFAULT_STALE_AFTER_MS = 120_000;
+
+/** Legacy mtime window for the "just compacted" indicator. */
+const LEGACY_JUST_COMPACTED_WINDOW_MS = 30_000;
+
+const CELL_BY_STAGE: ReadonlyMap<CompactLifecycleStage, 0 | 2 | 4 | 6 | 8> = new Map<
+  CompactLifecycleStage,
+  0 | 2 | 4 | 6 | 8
+>([
+  ['queued', 0],
+  ['preparing', 2],
+  ['compacting', 4],
+  ['verifying', 6],
+  ['completed', 8],
+  ['failed', 4],
+]);
+
+const FILLED = '█';
+const EMPTY = '░';
+const BAR_WIDTH = 8;
+const NO_AFTER_RATIO_HINT = 'after-ratio not recorded';
+
+function renderBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
+  return `[${FILLED.repeat(filledCells)}${EMPTY.repeat(BAR_WIDTH - filledCells)}]`;
+}
+
+function renderLegacyBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
+  return renderBar(filledCells);
+}
 
 export function decideCompactStatusline(input: {
   readonly projectRoot: string;
   readonly sessionId: string | null;
   readonly now: number;
+  readonly staleAfterMs?: number;
 }): CompactStatuslineState {
-  if (input.sessionId === null) {
-    return { kind: 'missing', label: '' };
-  }
-  const runtimeDir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId);
-  const pendingPath = join(runtimeDir, 'txt', 'auto-compact-pending.json');
-  const historyPath = join(runtimeDir, 'compact-history.jsonl');
+  const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
 
-  // Priority 1: a pending compact intent.
+  if (input.sessionId === null) {
+    return { kind: 'none', filledCells: 0 };
+  }
+
+  const sessionDir = getSessionDir(input.projectRoot, input.sessionId);
+
+  // Priority 1: lifecycle reads. Lifecycle is the canonical source of
+  // truth; invalid is non-recoverable in this decision layer.
+  const lifecycle = readCompactLifecycle({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    nowMs: input.now,
+    staleAfterMs,
+  });
+
+  if (lifecycle.kind === 'valid') {
+    return stateFromLifecycle(lifecycle.record);
+  }
+
+  if (lifecycle.kind === 'stalled') {
+    return stateFromStalled(lifecycle.record);
+  }
+
+  if (lifecycle.kind === 'invalid') {
+    return {
+      kind: 'invalid',
+      filledCells: 0,
+      detail: lifecycle.reason,
+    };
+  }
+
+  // lifecycle.kind === 'missing' → fall back to legacy files.
+  return decideLegacyFallback({
+    projectRoot: input.projectRoot,
+    sessionDir,
+    now: input.now,
+  });
+}
+
+function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineState {
+  if (record.stage === 'failed') {
+    const failedAt = record.failedAt ?? 'compacting';
+    const state: CompactStatuslineState = {
+      kind: 'failed',
+      filledCells: CELL_BY_STAGE.get(failedAt) ?? 4,
+      triggerRatio: record.triggerRatio,
+      redLine: record.redLine,
+      failedAt,
+    };
+    if (record.errorSummary !== undefined) {
+      return { ...state, detail: record.errorSummary };
+    }
+    return state;
+  }
+  const filledCells = CELL_BY_STAGE.get(record.stage) ?? 0;
+  const base: CompactStatuslineState = {
+    kind: record.stage,
+    filledCells,
+    triggerRatio: record.triggerRatio,
+    redLine: record.redLine,
+  };
+  if (record.stage === 'completed' && typeof record.afterRatio === 'number') {
+    return { ...base, afterRatio: record.afterRatio };
+  }
+  return base;
+}
+
+function stateFromStalled(record: CompactLifecycleRecord): CompactStatuslineState {
+  const filledCells = CELL_BY_STAGE.get(record.stage) ?? 4;
+  const detailText = record.stage === 'failed'
+    ? record.errorSummary
+    : `no heartbeat for ${record.stage} stage`;
+  const state: CompactStatuslineState = {
+    kind: 'stalled',
+    filledCells,
+    triggerRatio: record.triggerRatio,
+    redLine: record.redLine,
+  };
+  if (detailText !== undefined) {
+    return { ...state, detail: detailText };
+  }
+  return state;
+}
+
+function decideLegacyFallback(input: {
+  readonly projectRoot: string;
+  readonly sessionDir: string;
+  readonly now: number;
+}): CompactStatuslineState {
+  const { sessionDir, now } = input;
+  const pendingPath = `${sessionDir}/txt/auto-compact-pending.json`;
+  const historyPath = `${sessionDir}/compact-history.jsonl`;
+
+  // Priority 1 within legacy: a pending intent.
   if (existsSync(pendingPath)) {
     try {
       const raw = readFileSync(pendingPath, 'utf8');
       const parsed = JSON.parse(raw) as { pending?: boolean; ratio?: number; redLine?: boolean };
       if (parsed.pending === true) {
-        if (parsed.redLine === true) {
-          return {
-            kind: 'red-line',
-            label: `REDLINE ${(parsed.ratio ?? 0).toFixed(2)}`,
-            detail: pendingPath,
-          };
-        }
         return {
-          kind: 'pending',
-          label: `compact pending (${(parsed.ratio ?? 0).toFixed(2)})`,
+          kind: 'queued',
+          filledCells: 0,
+          ...(typeof parsed.ratio === 'number' ? { triggerRatio: parsed.ratio } : {}),
+          ...(parsed.redLine === true ? { redLine: true } : {}),
           detail: pendingPath,
         };
       }
-    } catch { /* fall through to history check */ }
+    } catch {
+      // fall through to history check
+    }
   }
 
-  // Priority 2: the most recent history event is within 30s.
+  // Priority 2 within legacy: a recent history event within 30s.
   if (existsSync(historyPath)) {
     try {
       const mtimeMs = statSync(historyPath).mtimeMs;
-      if (input.now - mtimeMs <= JUST_COMPACTED_WINDOW_MS) {
-        const raw = readFileSync(historyPath, 'utf8');
-        const lines = raw.split(/\r?\n/).filter((l) => l.length > 0);
-        const last = lines[lines.length - 1];
-        if (last !== undefined) {
-          const parsed = JSON.parse(last) as { beforeRatio?: number; redLine?: boolean; ok?: boolean };
-          const from = (parsed.beforeRatio ?? 0).toFixed(2);
-          const to = (parsed.ok === false) ? 'failed' : '0.0?';
-          return {
-            kind: 'just-compacted',
-            label: parsed.redLine === true
-              ? `just compacted (REDLINE ${from}→?)`
-              : `just compacted (${from}→${to})`,
-            detail: historyPath,
-          };
-        }
+      if (now - mtimeMs <= LEGACY_JUST_COMPACTED_WINDOW_MS) {
+        // CRITICAL: no invented after-ratio. The history event may
+        // carry a beforeRatio, but never a measured after-ratio;
+        // this is the legacy path and we honour the "no measurement"
+        // default.
+        return {
+          kind: 'completed',
+          filledCells: 8,
+          detail: historyPath,
+        };
       }
-    } catch { /* fall through to idle */ }
+    } catch {
+      // fall through to idle
+    }
   }
 
-  return { kind: 'idle', label: '--' };
+  return { kind: 'none', filledCells: 0 };
 }
 
 /**
- * Plain-text render: just the label. The LLM embeds this in
- * the Claude Code statusline. Pure: no side effects, no I/O
- * beyond the two file reads.
+ * Plain-text render: the cell bar + a small annotation. The bar is
+ * always the fixed-width 8-cell shape `[████░░░░]`. After-ratio is
+ * only rendered when the lifecycle record carries a real one.
+ *
+ * The output never contains `?` characters — we never guess a ratio.
  */
 export function renderCompactStatusline(state: CompactStatuslineState): string {
-  return state.label;
+  switch (state.kind) {
+    case 'none':
+      return `compact ${renderLegacyBar(0)}`;
+    case 'queued':
+      return `compact ${renderLegacyBar(0)}${state.redLine === true ? ' (redLine)' : ''}`;
+    case 'preparing':
+      return `compact ${renderBar(2)}`;
+    case 'compacting':
+      return `compact ${renderBar(4)}`;
+    case 'verifying':
+      return `compact ${renderBar(6)}`;
+    case 'completed':
+      return formatCompleted(state);
+    case 'failed':
+      return formatFailed(state);
+    case 'stalled':
+      return formatStalled(state);
+    case 'invalid':
+      return formatInvalid(state);
+  }
+}
+
+function formatCompleted(state: CompactStatuslineState): string {
+  const bar = renderBar(8);
+  if (typeof state.afterRatio === 'number') {
+    return `compact ${bar} → ${state.afterRatio.toFixed(2)}`;
+  }
+  return `compact ${bar} (${NO_AFTER_RATIO_HINT})`;
+}
+
+function formatFailed(state: CompactStatuslineState): string {
+  const filledAt = state.failedAt ?? 'compacting';
+  const cells = CELL_BY_STAGE.get(filledAt) ?? 4;
+  const bar = renderBar(cells);
+  const detail = state.detail ? ` — ${state.detail}` : '';
+  return `compact ${bar} failed at ${filledAt}${detail}`;
+}
+
+function formatStalled(state: CompactStatuslineState): string {
+  const bar = renderBar(state.filledCells);
+  const detail = state.detail ? ` — ${state.detail}` : '';
+  return `compact ${bar} stalled${detail}`;
+}
+
+function formatInvalid(state: CompactStatuslineState): string {
+  return `compact status unreadable: ${state.detail ?? 'lifecycle record malformed'}`;
 }
