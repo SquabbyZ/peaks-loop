@@ -27,6 +27,7 @@ export type ComponentLibrary = {
     | 'semi'
     | 'nextui'
     | 'chakra'
+    | 'shadcn'
     | 'vant'
     | 'none';
   readonly majorVersion?: string;
@@ -108,7 +109,7 @@ function majorOf(version: string | undefined): string | undefined {
   return major !== undefined && /^\d+$/.test(major) ? major : undefined;
 }
 
-function detectComponentLibrary(deps: Record<string, string>): ComponentLibrary {
+export function detectComponentLibrary(projectRoot: string, deps: Record<string, string>): ComponentLibrary {
   if ('antd' in deps) {
     const major = majorOf(deps['antd']);
     const hasProSuite = '@ant-design/pro-components' in deps || Object.keys(deps).some((d) => d.startsWith('@ant-design/pro-'));
@@ -125,6 +126,21 @@ function detectComponentLibrary(deps: Record<string, string>): ComponentLibrary 
   if ('@nextui-org/react' in deps) return { name: 'nextui' };
   if ('@chakra-ui/react' in deps) return { name: 'chakra' };
   if ('vant' in deps) return { name: 'vant' };
+  // shadcn / ui is a Tailwind-based component primitive set shipped as
+  // copyable source files under `components/ui/`. It has no top-level
+  // package of its own, so the signal we use is: Tailwind is present
+  // AND at least one of its peer utilities is also present.
+  if (
+    ('class-variance-authority' in deps
+      || 'clsx' in deps
+      || 'tailwind-merge' in deps
+      || 'lucide-react' in deps)
+    && ('tailwindcss' in deps
+      || existsSync(join(projectRoot, 'components', 'ui'))
+      || existsSync(join(projectRoot, 'src', 'components', 'ui')))
+  ) {
+    return { name: 'shadcn' };
+  }
   return { name: 'none' };
 }
 
@@ -260,7 +276,7 @@ function notableDepsList(deps: Record<string, string>): string[] {
 export function detectProjectContext(projectRoot: string): ProjectContext {
   const { exists, deps } = readPackageJson(projectRoot);
   const { tool, path } = detectBuildTool(projectRoot);
-  const componentLibrary = detectComponentLibrary(deps);
+  const componentLibrary = detectComponentLibrary(projectRoot, deps);
   const cssFrameworks = detectCssFrameworks(projectRoot, deps);
   return {
     hasPackageJson: exists,
@@ -318,6 +334,8 @@ export function componentLibraryLabel(lib: ComponentLibrary): string {
         return 'NextUI';
       case 'chakra':
         return 'Chakra UI';
+      case 'shadcn':
+        return 'shadcn / ui';
       case 'vant':
         return 'Vant (mobile)';
       case 'none':
