@@ -329,9 +329,20 @@ function renderCompact(
  *
  *   1. `forced` argument (test seam only)
  *   2. `PEAKS_STATUSLINE_ASCII` set → `ascii` (adapter-internal override)
- *   3. `NO_COLOR` set → `unicode` (no ANSI, no Unicode-extra glyphs)
+ *   3. `NO_COLOR` set → `unicode` (Unicode remains; only ANSI disabled)
  *   4. `isTTY === true` → `ansi-unicode`
  *   5. otherwise → `unicode` (default; byte-identical to C1 baseline)
+ *
+ * Why `PEAKS_STATUSLINE_ASCII` outranks `NO_COLOR`:
+ *   The two env vars are NOT redundant. `NO_COLOR` (https://no-color.org)
+ *   is the cross-industry signal that NO escape sequences should be emitted
+ *   — its only effect is "ANSI off". The Unicode-extra glyphs (●, █, ░, etc.)
+ *   are NOT ANSI escape sequences; they are UTF-8 characters and `NO_COLOR`
+ *   does not address them. `PEAKS_STATUSLINE_ASCII` is the adapter-internal
+ *   "signal source is a tiny terminal without UTF-8" override and drops the
+ *   glyphs to ASCII shape as well. Both are correct signals about
+ *   different concerns; the ASCII override wins because it is strictly
+ *   narrower (a tiny terminal needs both no-ANSI AND no-Unicode-extra).
  *
  * The deliberate ordering keeps the rendered text ANSI-free when the consumer
  * is a logger, a file, or any non-interactive sink, and only enables ANSI
@@ -352,6 +363,11 @@ export function resolveStatusLineCapability(input: {
   if (typeof asciiFlag === 'string' && (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')) {
     return 'ascii';
   }
+  // NO_COLOR is the cross-industry "no ANSI escape sequences" signal. Its
+  // exact contract (no-color.org) is to suppress ANSI escape codes only;
+  // Unicode-extra glyphs (● █ ░ etc.) are NOT ANSI and remain visible.
+  // This is the deliberate, documented behavior — see the order-of-
+  // resolution comment above.
   const envNoColor = input.env.NO_COLOR;
   if (typeof envNoColor === 'string' && envNoColor.length > 0 && envNoColor !== '0') {
     return 'unicode';

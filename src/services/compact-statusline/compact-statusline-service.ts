@@ -146,6 +146,14 @@ export function decideCompactStatusline(input: {
     // subsequent reads. The narrow read of `updatedAt` is intentional: we
     // surface the truth ("the run completed") and immediately expire
     // rather than carrying forward a stale green check.
+    //
+    // Note: the expiry applies ONLY to `kind: 'completed'`. The `failed`
+    // stage is deliberately PERSISTENT — the orchestrator writes a single
+    // terminal `failed` record and the user (or the next slice's QA gate)
+    // needs to see it on the statusline until the next lifecycle write
+    // clears it. Expiring a failed record would silently hide a real
+    // failure from the human and is a NO-GO. The `stalled` failure mode
+    // is distinct and is computed by the lifecycle store (not here).
     if (lifecycle.record.stage === 'completed') {
       const updatedAtMs = Date.parse(lifecycle.record.updatedAt);
       if (!Number.isNaN(updatedAtMs) && input.now - updatedAtMs > completedExpiryMs) {

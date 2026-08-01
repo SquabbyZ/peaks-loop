@@ -241,16 +241,31 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
   });
 
   // peaks statusline compact (slice 2026-07-30-compact-visibility)
+  //
+  // --session-id contract: this flag is registered on the compact
+  // subcommand but NOT on the default `peaks statusline` render path.
+  // The flag is the internal-supported surface for the QA / LLM layer
+  // (the integration test, the QA criteria, and any future
+  // peaks-loop-internal tool that wants to read a non-canonical session's
+  // compact state). The IDE consumer (Claude Code) does NOT need this
+  // flag — its primary-line path binds to the canonical session via
+  // `getSessionIdCanonical(projectRoot)`. Documenting both paths here
+  // keeps the surface small and consistent: the compact subcommand is
+  // the "I have a specific session id in mind" surface; the default
+  // render is the "use the canonical binding" surface.
   addJsonOption(
     statusline
       .command('compact')
       .description(
         'Render the single-line auto-compact indicator the LLM embeds ' +
           "in Claude Code's statusline. Default output is plain text; " +
-          'pass --json for the structured envelope.'
+          'pass --json for the structured envelope. ' +
+          'Reads the lifecycle record for the canonical session ' +
+          '(`.peaks/_runtime/<sid>/compact-lifecycle.json`); pass ' +
+          '--session-id to target a non-canonical session explicitly.'
       )
       .option('--project <path>', 'project root (auto-detected from cwd when omitted)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding; supported for QA / internal tooling)')
       .action((options: { project?: string; sessionId?: string; json?: boolean }, command: Command) => {
         // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
         // compatibility): when the parent `statusline` command has its own

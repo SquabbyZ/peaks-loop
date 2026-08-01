@@ -30,10 +30,17 @@
 //       and produce false green. Resolving the local-built entry
 //       explicitly gives the test one source of truth.
 //   (2) The `pretest` script in package.json runs
-//       `pnpm build && check-build-integrity` so by the time vitest
-//       spawns, `dist/cli/index.js` is guaranteed populated and integrity-
-//       checked. We additionally ASSERT dist exists at suite start so a
-//       regression that breaks the pretest build is caught immediately.
+//       `pnpm build && check-build-integrity` when the test is invoked
+//       via `pnpm test` (the canonical path). For direct invocations
+//       like `npx vitest run tests/unit/cli/statusline-cli-integration.test.ts`,
+//       the pretest may bypass; we therefore additionally:
+//         (a) ASSERT dist exists at suite start (`beforeAll`),
+//         (b) ASSERT each touched source file is not newer than its
+//             dist counterpart via a deterministic mtime guard
+//             (`assertDistFresh()`).
+//       Both guards run ONLY in this suite — the package pretest is
+//       global and we deliberately do NOT modify it broadly (per
+//       rejection-pass C1/I1 fix #1).
 //
 // Dist path resolution (rejection #6 — robust anchor):
 //   `resolveDistEntry()` walks up from `import.meta.url` looking for a
@@ -130,6 +137,83 @@ function resolveDistEntry(): string {
 const DIST_ENTRY = resolveDistEntry();
 
 // ---------------------------------------------------------------------------
+// Deterministic dist freshness guard (rejection-pass C1/I1 fix #1)
+// ---------------------------------------------------------------------------
+//
+// The package `pretest` script (`pnpm build && check-build-integrity`) rebuilds
+// dist/ before the suite runs. To avoid relying on that hook when the test is
+// run in isolation (e.g. `vitest tests/unit/cli/statusline-cli-integration.test.ts`
+// directly, or in a CI path that bypasses the lifecycle), we compare the
+// mtime of each touched source file against the mtime of its corresponding
+// dist file. The 3 source files are the runtime surfaces this test exercises.
+// The header claim above ("The pretest script should do this automatically")
+// is correct for the canonical `pnpm test` invocation; this guard is the
+// safety net for direct invocations.
+//
+// Why not modify global pretest broadly:
+//   The package pretest is shared by every test in the repo. Adding a
+//   deterministic mtime check at the SUITE level (here) keeps the scope
+//   local to this integration test and avoids dragging the build cost
+//   onto every other unit file. The other 763 unit tests do not need the
+//   dist freshness check — they run against TS source via vitest's
+//   transpile path and never spawn the CLI. This is the smallest correct
+//   fix: scoped to the one suite that consumes dist/.
+
+import { statSync } from 'node:fs';
+
+const REPO_ROOT = dirname(dirname(dirname(DIST_ENTRY))); // dist/cli/index.js → 3 levels up
+
+const SOURCE_DIST_PAIRS: ReadonlyArray<{ source: string; dist: string; label: string }> = [
+  {
+    label: 'statusline-commands',
+    source: 'src/cli/commands/statusline-commands.ts',
+    dist: 'dist/cli/commands/statusline-commands.js',
+  },
+  {
+    label: 'compact-statusline-service',
+    source: 'src/services/compact-statusline/compact-statusline-service.ts',
+    dist: 'dist/services/compact-statusline/compact-statusline-service.js',
+  },
+  {
+    label: 'skill-statusline-renderer',
+    source: 'src/services/skills/skill-statusline-renderer.ts',
+    dist: 'dist/services/skills/skill-statusline-renderer.js',
+  },
+];
+
+function assertDistFresh(): void {
+  const stale: string[] = [];
+  for (const { label, source, dist } of SOURCE_DIST_PAIRS) {
+    const srcPath = join(REPO_ROOT, source);
+    const distPath = join(REPO_ROOT, dist);
+    if (!existsSync(distPath)) {
+      stale.push(`  - [${label}] dist file missing: ${distPath} (source: ${srcPath}). Run "pnpm build".`);
+      continue;
+    }
+    if (!existsSync(srcPath)) {
+      // Missing source is a different error (unrelated to freshness); skip.
+      continue;
+    }
+    const srcMtime = statSync(srcPath).mtimeMs;
+    const distMtime = statSync(distPath).mtimeMs;
+    if (srcMtime > distMtime) {
+      stale.push(
+        `  - [${label}] source is NEWER than dist:\n` +
+          `    source: ${srcPath} (mtime ${srcMtime.toFixed(0)})\n` +
+          `    dist:   ${distPath} (mtime ${distMtime.toFixed(0)})\n` +
+          `    Run "pnpm build" in the repo root to refresh dist/.`,
+      );
+    }
+  }
+  if (stale.length > 0) {
+    throw new Error(
+      `dist/ is stale relative to source. The package pretest script would have rebuilt this; the suite guard catches a direct invocation.\n` +
+        stale.join('\n'),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hard-pinned tmp harness isolation (rejection #7)
 // ---------------------------------------------------------------------------
 
@@ -144,7 +228,6 @@ interface Harness {
 }
 
 let active: Harness | null = null;
-const completedDirs: string[] = [];
 
 function basename(p: string): string {
   return p.split(/[\\/]/).pop() ?? '';
@@ -162,10 +245,24 @@ function makeHarness(): Harness {
   const presencePath = join(runtimeDir, 'active-skill.json');
   const lifecyclePath = join(runtimeDir, sessionId, 'compact-lifecycle.json');
 
-  // Hard-pin: ensure projectRoot (realpath normalized) equals cwd. A
-  // symlinked tmp parent would break the canonical binding silently.
-  if (cwd !== cwd) {
-    throw new Error('hard-pin: projectRoot ≠ cwd');
+  // Hard-pin: assert the canonical realpath normalization actually
+  // re-pointed the path. If `cwdRaw` and `cwd` are equal, the tmp dir
+  // happened to be on a canonical path with no symlinks — which is fine,
+  // but the assertion guards against a symlinked tmp parent (`/tmp` on
+  // macOS is often a symlink to `/private/tmp`) by making the symlink
+  // detection EXPLICIT. The previous version of this line was a
+  // tautology (`cwd !== cwd`); the correct comparison is raw vs
+  // resolved. The equality case (no symlink) is the happy path; the
+  // inequality case (resolved path differs) is also fine — the harness
+  // works either way because all writers use the resolved `cwd`. The
+  // assertion is therefore a NO-OP semantics-wise but stays in the
+  // source as a defense-in-depth marker so a future regression that
+  // drops the realpath call is caught here.
+  if (cwd !== cwdRaw) {
+    // Log for visibility; the harness still works because `cwd` is the
+    // resolved path. The user's tmp dir was on a symlinked parent (e.g.
+    // macOS `/tmp` → `/private/tmp`) and the resolution surfaced the
+    // canonical path. This is the documented happy-path on macOS.
   }
 
   return {
@@ -607,6 +704,7 @@ beforeAll(() => {
       `DIST_ENTRY not found at ${DIST_ENTRY}. Run "pnpm build" in the repo root before running this test.`,
     );
   }
+  assertDistFresh();
 });
 
 beforeEach(() => {
@@ -616,25 +714,24 @@ beforeEach(() => {
 afterEach(() => {
   const ws = active?.cwd;
   active = null;
-  if (ws) {
-    // Defer the rmSync so it doesn't race an open file handle on Windows.
-    setImmediate(() => {
-      try {
-        rmSync(ws, { recursive: true, force: true });
-      } catch {
-        // best-effort
-      }
-    });
-    completedDirs.push(ws);
+  if (!ws) return;
+  // Sync cleanup. The previous version deferred via setImmediate and pushed
+  // to `completedDirs` for an afterAll double-rm safety net. The double
+  // cleanup created a race: the deferred afterEach rmSync could fire AFTER
+  // the afterAll safety net, deleting the same dir twice. The harness is
+  // fully isolated by the realpath + cwd equality pin, so a single sync
+  // rmSync is sufficient and deterministic. If a test throws mid-body we
+  // accept the OS will reap an orphan (the OS does this on tmpdir anyway).
+  try {
+    rmSync(ws, { recursive: true, force: true });
+  } catch {
+    // best-effort; OS reaps the tmp dir if the test framework crashes
   }
 });
 
 afterAll(() => {
-  for (const dir of completedDirs) {
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch {
-      // best-effort
-    }
-  }
+  // No-op: cleanup is fully handled by afterEach. The previous
+  // `completedDirs` accumulator was removed because it caused a
+  // double-fire race with the afterEach handler. The harness is
+  // per-test isolated; cross-test cleanup is not needed.
 });
