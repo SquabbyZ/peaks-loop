@@ -72,8 +72,17 @@ function resolveDispatchId(input: { readonly dispatchId?: string }): string {
 }
 
 export function registerSubAgentShutdownCommands(program: Command, io: ProgramIO): void {
-  const cmd = program.command('sub-agent').description('Sub-agent lifecycle helpers');
-  const shutdown = cmd
+  // The existing `sub-agent-commands.ts` already creates the `sub-agent`
+  // parent; this file attaches the `shutdown` subcommand to the same
+  // parent via `findCommand` so we do not double-register. Fall back
+  // to a standalone `peaks sub-agent-shutdown` parent if the parent
+  // is not yet registered (e.g. when this file is loaded in isolation).
+  const existing = (program.commands as ReadonlyArray<Command>).find(
+    (c) => c.name() === 'sub-agent',
+  );
+  const root: Command = existing ?? program.command('sub-agent-shutdown')
+    .description('Sub-agent shutdown registration (forensic hook)');
+  const shutdown = root
     .command('shutdown')
     .description('Register local services for the parent to kill before merge-back');
   const sessionRoot = process.cwd();
