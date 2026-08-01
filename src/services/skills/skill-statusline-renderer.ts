@@ -99,10 +99,21 @@ function accentGlyph(glyph: string): string {
   return `${BRAND_SGR_OPEN}${glyph}${BRAND_SGR_CLOSE}`;
 }
 
+/**
+ * Slow-blink variant of the accent glyph. Used for the idle indicator
+ * so the user perceives a pulse on the statusline. The ANSI slow-blink
+ * SGR (`\x1b[5m`) is honored by most modern terminals (iTerm2, Windows
+ * Terminal, GNOME Terminal with the right profile). Hosts that ignore
+ * the SGR render the glyph statically — graceful degradation.
+ */
+function blinkingAccentGlyph(glyph: string): string {
+  return `\x1b[5;1;${BRAND_RGB}m${glyph}\x1b[0m`;
+}
+
 const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   'ansi-unicode': {
     active: accentGlyph('●'),
-    idle: accentGlyph('○'),
+    idle: blinkingAccentGlyph('○'),
     warning: '\x1b[33m!\x1b[0m',      // amber warning (semantic alarm)
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
@@ -122,7 +133,7 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   },
   unicode: {
     active: accentGlyph('●'),
-    idle: accentGlyph('○'),
+    idle: blinkingAccentGlyph('○'),
     warning: '\x1b[33m!\x1b[0m',
     inlineSeparator: ' · ',
     trailSeparator: ' → ',

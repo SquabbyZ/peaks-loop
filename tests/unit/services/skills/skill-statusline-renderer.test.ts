@@ -111,6 +111,25 @@ describe('render — capability matrix (exact strings)', () => {
     expect(stripped).toBe('Peaks ○ empty → peaks-loop');
   });
 
+  it('idle glyph carries the slow-blink SGR (ansi-unicode)', () => {
+    const model = activeModel(null);
+    const out = renderStatusLine(model, { capability: 'ansi-unicode' });
+    expect(out).toContain('\x1b[5;1;38;2;90;101;216m○\x1b[0m');
+  });
+
+  it('idle glyph carries the slow-blink SGR (unicode capability)', () => {
+    const model = activeModel(null);
+    const out = renderStatusLine(model, { capability: 'unicode' });
+    expect(out).toContain('\x1b[5;1;38;2;90;101;216m○\x1b[0m');
+  });
+
+  it('ascii idle glyph stays plain (no SGR) for file / log consumers', () => {
+    const model = activeModel(null);
+    const out = renderStatusLine(model, { capability: 'ascii' });
+    expect(out).not.toContain('\x1b[');
+    expect(out).toBe('Peaks o empty -> peaks-loop');
+  });
+
   it('ascii: active presence renders Peaks * peaks-code -> peaks-loop', () => {
     const model = activeModel(presenceOf('peaks-code'));
     expect(withPinnedClock(0, () =>
