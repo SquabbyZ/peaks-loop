@@ -77,6 +77,38 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
 `;
 
 /**
+ * Slice 2026-08-01-subagent-merge-and-e2e (Task 8): the dispatch
+ * system prompt gains three lifecycle rules. The sub-agent must:
+ *
+ *   1. Register any long-lived local process it starts (vite dev,
+ *      mock API, docker proxy, etc.) with
+ *      `peaks sub-agent shutdown register --pid <pid> --name <label>`
+ *      before it exits, so the parent session can best-effort-kill
+ *      the process before merge-back (Task 3 + Task 6).
+ *
+ *   2. NOT run E2E. The parent session runs Playwright verification
+ *      once after merge-back (Task 10). Sub-agent E2E runs are
+ *      duplicates that the parent's single E2E pass will catch.
+ *
+ *   3. NOT call `git merge / pull / rebase` or
+ *      `peaks worktree release`. The parent session owns the
+ *      merge-back step (Task 9). Sub-agent merges double-write the
+ *      index, race the worktree release, and can corrupt the
+ *      caller's working branch.
+ *
+ * These rules are appended to the system prompt on top of the L1
+ * worktree governance block so the sub-agent sees them last (i.e.
+ * most-recently-read), which is the strongest prompt position in
+ * transformer attention.
+ */
+export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
+
+- If you start a long-lived local service (vite dev, mock API, docker container, etc.), register it with \`peaks sub-agent shutdown register --pid <pid> --name <label>\` before you exit. The parent session will best-effort-kill it before merge-back.
+- Do NOT run E2E. The parent session runs Playwright verification once after merge-back (Task 10). Your E2E work is duplicate effort.
+- Do NOT call \`git merge\`, \`git pull\`, \`git rebase\`, or \`peaks worktree release\`. The parent session owns the merge-back step.
+`;
+
+/**
  * Compose the system-prompt body that the dispatch site prepends to
  * `formatTestToolDetection()\n\n`.
  *
@@ -100,9 +132,9 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
   const { taskBody, memoryBlock, contextProbe } = input;
   const contextBlock = renderContextBlock(contextProbe ?? null);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}\n`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}\n${LIFECYCLE_RULES}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${taskBody}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${taskBody}\n${LIFECYCLE_RULES}`;
 }
 
 /**

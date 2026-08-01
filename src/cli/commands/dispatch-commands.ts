@@ -40,6 +40,7 @@ import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../
 import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
 import { compressPrompt, type HeadroomResult } from '../../services/context/headroom-client.js';
 import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
+import { playwrightProfilePaths } from '../../services/worktree/playwright-profile.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 import { DEFAULT_PREFERENCES } from '../../services/preferences/preferences-types.js';
 import { writeLogEntry } from '../../services/log/logger.js';
@@ -442,6 +443,18 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
               },
             });
           }
+          // Slice 2026-08-01-subagent-merge-and-e2e (Task 8): stamp the
+          // two Playwright profile-isolation env vars so the sub-agent's
+          // browser MCP session lands in a deterministic
+          // `.peaks/_runtime/<sid>/pw-profiles/<dispatchId>/` directory
+          // (see src/services/worktree/playwright-profile.ts). Without
+          // these, concurrent dispatches share the user's default
+          // Chromium profile and corrupt cookies / localStorage.
+          const profile = playwrightProfilePaths({
+            projectRoot,
+            sessionId: sid,
+            dispatchId: rid,
+          });
           toolCall = {
             ...toolCall,
             args: {
@@ -450,6 +463,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
               env: {
                 ...existingEnv,
                 PEAKS_WORKTREE_LEASE_ID: leaseId,
+                PEAKS_PLAYWRIGHT_USER_DATA_DIR: profile.userDataDir,
+                PEAKS_PLAYWRIGHT_PROFILE_NAME: profile.profileName,
                 ...(isolationMode === 'worktree' ? { [DISPATCH_PROVENANCE_ENV]: provenanceToken } : {}),
               }
             }
