@@ -7,7 +7,6 @@ import { buildStatusLineModel, parseStatusLineStdin } from '../../services/skill
 import {
   renderStatusLine,
   resolveStatusLineCapability,
-  type StatusLineCapability,
 } from '../../services/skills/skill-statusline-renderer.js';
 import {
   applyStatusLineInstall,
@@ -78,7 +77,7 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
 type InstallOptions = { global?: boolean; project?: string; force?: boolean; dryRun?: boolean; json?: boolean; ide?: string };
 type UninstallOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
-type RenderOptions = { project?: string; json?: boolean; capability?: StatusLineCapability };
+type RenderOptions = { project?: string; json?: boolean };
 
 /**
  * Default-statusline render body. Reused by both the top-level default
@@ -87,10 +86,10 @@ type RenderOptions = { project?: string; json?: boolean; capability?: StatusLine
  * through commander.
  *
  * Capability resolution is delegated to {@link resolveStatusLineCapability}
- * with `forced` taken from the optional `--capability` flag. When no flag
- * is supplied, the resolver falls through to NO_COLOR + isTTY heuristics.
- * The model itself is read-only: `buildStatusLineModel` is the sole I/O
- * boundary, and it now also resolves compact state.
+ * with only `env` and `isTTY` — the env-driven path is the single first-
+ * version source of truth. No CLI flag widens the surface. The model
+ * itself is read-only: `buildStatusLineModel` is the sole I/O boundary,
+ * and it now also resolves compact state.
  */
 export async function runDefaultStatuslineRender(
   options: RenderOptions,
@@ -105,7 +104,6 @@ export async function runDefaultStatuslineRender(
   const capability = resolveStatusLineCapability({
     env: process.env,
     isTTY: Boolean(process.stdout.isTTY),
-    ...(options.capability !== undefined ? { forced: options.capability } : {}),
   });
   const text = renderStatusLine(model, { capability });
   if (options.json === true) {

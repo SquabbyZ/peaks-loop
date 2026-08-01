@@ -304,14 +304,20 @@ function renderCompact(
 }
 
 /**
- * Resolve the capability tier from explicit overrides and environment. Pure
- * and deterministic — no I/O beyond reading `process.env` and the `isTTY`
- * flag passed by the caller. The CLI delegates to this so the read-only
- * status line does not need to know about ANSI/NO_COLOR semantics.
+ * Resolve the capability tier from environment and TTY state. Pure and
+ * deterministic — no I/O beyond reading the caller-supplied `env` and
+ * `isTTY` flag. The CLI delegates to this so the read-only status line
+ * does not need to know about ANSI/NO_COLOR semantics.
+ *
+ * The optional `forced` argument is a TEST SEAM (consumed by direct unit
+ * tests, not by the CLI). It lets tests pin a tier without constructing a
+ * TTY/NO_COLOR fixture. The CLI does NOT expose any flag that maps to
+ * `forced` — the env-driven path is the single first-version runtime
+ * source of truth.
  *
  * Order of resolution (highest priority first):
  *
- *   1. `forced` argument — caller-supplied override (`--plain-ascii` style)
+ *   1. `forced` argument (test seam only)
  *   2. `NO_COLOR` set → `unicode` (no ANSI, no Unicode-extra glyphs)
  *   3. `isTTY === true` → `ansi-unicode`
  *   4. otherwise → `unicode` (default; byte-identical to C1 baseline)
