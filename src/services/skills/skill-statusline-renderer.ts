@@ -88,7 +88,7 @@ interface CompactPalette {
 const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
   'ansi-unicode': {
     active: '\x1b[36m●\x1b[0m',      // cyan active
-    idle: '\x1b[90m○\x1b[0m',         // dim idle
+    idle: '\x1b[36m○\x1b[0m',         // cyan idle
     warning: '\x1b[33m!\x1b[0m',      // amber warning
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
@@ -107,16 +107,8 @@ const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
     ratioArrow: '→',
   },
   unicode: {
-    // Brief: emit cyan ANSI on the brand and active accents in the
-    // `unicode` capability too, so the IDE statusline shows the brand
-    // accent even when the renderer is invoked from a non-TTY
-    // context (hooks, pipes, captured output). The contract was
-    // historically "no escape codes for unicode" to keep file / log
-    // capture clean; that intent is preserved by the `ascii`
-    // capability, which is the explicit no-ANSI tier. `NO_COLOR`
-    // is honored separately by the resolver.
     active: '\x1b[36m●\x1b[0m',
-    idle: '\x1b[90m○\x1b[0m',
+    idle: '\x1b[36m○\x1b[0m',
     warning: '\x1b[33m!\x1b[0m',
     inlineSeparator: ' · ',
     trailSeparator: ' → ',
