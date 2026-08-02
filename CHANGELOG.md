@@ -1,5 +1,35 @@
 # Changelog
 
+## 4.0.6 — 2026-08-02 (postinstall auto-register outputStyle)
+
+- **postinstall auto-registers `outputStyle: peaks-skill-swarm` into `~/.claude/settings.json`.**
+
+  Real user feedback 2026-08-02 (fresh 0-1 project on `Desktop\ticket-cross`): `npm i -g peaks-loop@latest` copied `peaks-skill-swarm.md` into `~/.claude/output-styles/` but never wrote `outputStyle` into `~/.claude/settings.json`, so Claude Code loaded the default style in new sessions.
+
+  The new `installBundledOutputStyleDefault()` helper in `scripts/install-skills.mjs`:
+
+  - reads `~/.claude/settings.json` (creates it if missing)
+  - merges `outputStyle: 'peaks-skill-swarm'` when not yet set
+  - preserves every other key (theme, env, plugins, hooks, permissions, ...)
+  - user-defined `outputStyle` wins — never overwritten
+  - malformed JSON / non-regular file / missing bundled style at the dispatched target → soft skip, never throw
+
+  Resolution precedence (settings file path):
+
+  1. `options.settingsFile` (test hook)
+  2. `PEAKS_CLAUDE_SETTINGS_FILE` env var (CI override)
+  3. `<homedir>/.claude/settings.json` (default)
+
+  Opt-out: `PEAKS_SKIP_OUTPUT_STYLE_DEFAULT=1`.
+
+  Tests: 6 new cases (4 integration + 2 direct unit) in `tests/integration/ide/install-skills-dispatch.test.ts`. `tests/integration/ide` 12/12 green; `pnpm build` → `build-integrity: OK`.
+
+  Compatibility:
+
+  - Existing user-defined `outputStyle` is preserved.
+  - Opt-out via `PEAKS_SKIP_OUTPUT_STYLE_DEFAULT=1` for CI / scripting.
+  - `~/.claude/settings.json` writes are atomic (`writeFileAtomically` + `O_NOFOLLOW`).
+
 ## 4.0.5 — 2026-08-02 (statusline polish + sub-agent merge bundle)
 
 - Release 4.0.5 — 2026-08-01 bundle.
