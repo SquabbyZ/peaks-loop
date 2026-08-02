@@ -19,6 +19,7 @@
 import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 import { registerDispatchCommand } from './dispatch-commands.js';
+import { registerSubAgentExecCommand } from './sub-agent-exec-command.js';
 import { registerHeartbeatCommand } from './heartbeat-commands.js';
 import {
   registerShareCommand,
@@ -42,6 +43,7 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
     );
 
   registerDispatchCommand(subAgent, io);
+  registerSubAgentExecCommand(subAgent, io); // 4.0.7-PR-meta-6
   registerHeartbeatCommand(subAgent, io);
   registerShareCommand(subAgent, io);
   registerSharedReadCommand(subAgent, io);
