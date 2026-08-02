@@ -1,5 +1,295 @@
 # Changelog
 
+## 4.0.7 — 2026-08-02 (dogfood surface repairs on `ice-cola`)
+
+A 24h-mode dogfood pass on the downstream `ice-cola` monorepo (4
+sub-packages: admin / server / client / hermes-agent) surfaced 25 real
+CLI / runtime / documentation defects across peaks-loop 4.0.6, plus a
+meta-level flow bug (the LLM bypassed the peaks-code / peaks-rd /
+peaks-qa flow and routed 22 files / 632 lines of `Edit` calls
+directly). This release closes all 4 P0/P1 ship-blockers, the 5
+P2 batch fixes, the find-skills integration, and 4 PR-meta
+enforcement-layer fixes.
+release closes the 5 P0/P1 ship-blockers and reshapes SKILL.md's
+Drift Index. 4 P2 changes were documented in the changeset but only
+the documentation half (Drift Index refresh) ships in 4.0.7; the
+implementation half (monorepo-aware language detection, monorepo
+sub-agent prompt, slice check monorepo typecheck) is queued for 4.0.8.
+
+### P0 — `peaks audit red-lines` no longer reports false-positive enforcerRef orphans on consumer projects
+
+- `src/services/audit/backing-detector.ts` and
+  `src/services/audit/enforcers/lint-audit-regression.ts` now resolve
+  `enforcerRef` paths against the peaks-loop source root (resolved via
+  `import.meta.url` + upward walk to `package.json#name === 'peaks-loop'`),
+  with an explicit `peaksLoopRoot` override for tests. Pre-rid every
+  downstream audit reported all 26 enforcer files as "missing on disk"
+  (88 enforcerFindings on ice-cola). Post-rid: 0.
+- New `resolvePeaksLoopRoot()` exported helper.
+- Tests: `tests/unit/audit/backing-detector-resolve-root.test.ts` (8
+  cases including the ice-cola repro).
+
+### P0 — `peaks code {detect-job,read-job-shape}`, `peaks workflow plan read`, and `peaks route` now resolve the canonical session id
+
+- New shared resolver `resolveActiveSessionId(projectRoot, override?)`
+  in `src/services/session/session-manager.ts`, exported via
+  `src/services/session/index.ts`. Composes the existing
+  `getSessionIdCanonical` + `getSessionId` fan-out so the same
+  `sessionId` flows through all 4 CLIs.
+- `src/cli/commands/code-job-shape-commands.ts` and
+  `src/cli/commands/code-runtime-commands.ts` now use the shared
+  resolver instead of the per-file `getSkillPresence` helper (which
+  read `.peaks/.active-skill.json` — a different store from
+  `.peaks/_runtime/session.json`).
+- Pre-rid the 4 CLIs reported `NO_ACTIVE_SESSION` for any session
+  created via `peaks workspace init` that never had
+  `peaks skill presence:set peaks-code` called on it (the common
+  case for downstream consumer projects and 24h-mode sessions).
+- Tests: `tests/unit/session/resolve-active-session.test.ts` (7 cases).
+
+### P1 — `peaks code should-pause` no longer false-positives in 24h-mode
+
+- `src/cli/commands/code-mode-gate-commands.ts` short-circuits the
+  stale-presence check when `.peaks/_runtime/<sid>/24h-state.json`
+  reads `state === '24H_ACTIVE'`. Without this, every 24h-mode
+  session hit a `shouldPause: true` wall at Step 1 even though
+  24h-mode is explicitly designed to be a no-AskUserQuestion mode.
+- New local helper `is24hActive(projectRoot, sessionId)` reuses the
+  existing `read24hState` from `services/24h-mode/store.ts`.
+- Tests: `tests/unit/code/should-pause-24h-bypass.test.ts` (9 cases).
+
+### P2 #6 (enhancement) — `peaks standards {init,update} --suggest-skills` integrates find-skills
+
+- New `--suggest-skills` flag on `peaks standards init` and
+  `peaks standards update` (off by default). When set, peaks-loop
+  runs `npx skills find <query>` for each query derived from the
+  detected ProjectContext (component library, build tool, CSS
+  framework, notable deps, language) and emits the top-5 results
+  in `nextActions` as copy-paste `npx skills add` commands.
+
+- Per user direction 2026-08-02: **no hardcoded verified-owner
+  whitelist**. The service runs `npx skills find` with no
+  `--owner` filter so the registry / leaderboard decides the
+  ranking (this is exactly the anti-pattern find-skills
+  SKILL.md Step 4 warns against — "do not recommend based solely
+  on a hardcoded list; verify with install count + source
+  reputation"). Recommendations are sorted by install count desc
+  so the user sees the same top results they would see running
+  `npx skills find` manually.
+
+- The service NEVER calls `npx skills add` itself. Installation
+  is gated on the user passing `--suggest-skills` (off by
+  default) and the install command is emitted as a single shell
+  snippet the user reviews before pasting. The CLI caller owns
+  the gating.
+
+- Failure mode: if `npx skills find` fails (network / registry
+  down), the service silently degrades — init/update still
+  completes, `nextActions` shows a "no matching skills found"
+  hint, no error. The user can re-run with `--suggest-skills`
+  later.
+
+- New file: `src/services/standards/find-skills-integration.ts`.
+  Tests: `tests/unit/standards/find-skills-integration.test.ts`
+  (12 cases covering queriesForContext, parseFindOutput,
+  findSkillsForContext — all using a custom `SkillFindRunner`
+  injection so the test never hits the network).
+
+### P2 batch — 5 monorepo / sub-agent prompt fixes (all in this release)
+
+- **`peaks standards` / `detectLanguage` is monorepo-aware** (`project-standards-service.ts`).
+  A monorepo root that has no `tsconfig.json` (only `tsconfig.base.json` + per-package
+  `tsconfig.json`) is now classified as `typescript` when any sub-package in
+  `packages/<name>/` has its own `tsconfig.json`. Pre-rid ice-cola (4-package
+  TypeScript monorepo) was misclassified as `javascript` because the root scan
+  saw no `tsconfig.json` and the root `package.json#devDependencies` had
+  `peaks-loop` only (a `javascript` standards pack).
+
+- **`peaks scan archetype` is monorepo-aware** (`archetype-service.ts`).
+  A 1-level walk into `packages/<name>/` merges each sub-package's
+  `dependencies` / `devDependencies` / `peerDependencies` /
+  `optionalDependencies` into the framework-detection map. Ice-cola
+  now correctly reports `hasBackendFramework: true, backendFrameworks:
+  ["@nestjs/core", "@nestjs/common"]` instead of
+  `hasBackendFramework: false`.
+
+- **`peaks sub-agent dispatch` prompt includes a monorepo branch**
+  when `<projectRoot>/pnpm-workspace.yaml` is present. The pre-rid
+  static prompt had no monorepo handling, so sub-agents ran
+  `pnpm test` at the root which fanned out to every sub-package
+  (36-minute wall clock for a single-slice change). The new block
+  tells the sub-agent to scope to one sub-package via
+  `pnpm --filter @<scope>/<name> test <pattern>`.
+
+- **`peaks slice check` typecheck stage is monorepo-aware**
+  (`slice-check-service.ts`). When `pnpm-workspace.yaml` is
+  present, the typecheck stage runs `pnpm -r typecheck` first and
+  falls back to `pnpm -r --parallel exec tsc --noEmit` if no
+  per-package `typecheck` script exists. Per-package failures
+  are captured in `data.failedPackages` so the operator can see
+  which sub-package broke (the pre-rid "tsc exited with code 1"
+  was a 2ms fake-fail with no actionable detail).
+
+- **`peaks sub-agent dispatch` context window block no longer
+  misleads on fallback probes** (`build-dispatch-system-prompt.ts`).
+  When the probe source is `conservative-fallback` (or any other
+  untrusted value), the block short-circuits to "no probe
+  available — treat the displayed ratio as unverified" instead
+  of rendering "0.0% used (100.0% free)" as if it were a real
+  measurement. Trusted sources are `token-counted`,
+  `transcript-estimate`, and `statusline`; anything else triggers
+  the fallback path.
+
+### P1 — SKILL.md Drift Index refreshed for 4.0.6+
+
+- D-001 rewritten (the pre-4.0.7 entry was the inverse of 4.0.6's
+  actual behavior — `peaks code detect-job` requires `--is-job`).
+- New D-013: `peaks code context-now --json` requires `--project`.
+- New D-014: documents the 4-CLI `NO_ACTIVE_SESSION` regression fixed
+  by P0 above.
+- New D-015: documents the 24h-mode ↔ stale-presence interaction fixed
+  by P1 above.
+- Step N+2 probe primitive example now includes `--project <path>`.
+
+### Compatibility
+
+- All command names, options, and exit codes are preserved.
+- Auto-compact 0.85 / 0.95 contract unchanged.
+- `peaks audit red-lines` on peaks-loop itself shows 0 orphan findings
+  (it had 88+ before the fix; now also on every consumer project).
+- `peaks code detect-job` / `read-job-shape` accept the same flags
+  as 4.0.6.
+
+### How to verify
+
+```bash
+# Inside peaks-loop source root (after `pnpm build`):
+peaks audit red-lines --project . --json
+# expect: enforcerFindings: 0
+
+# Inside a downstream project that has peaks-loop as a devDep:
+peaks audit red-lines --project . --json
+# expect: enforcerFindings: 0 (was 88+ before)
+
+# 24h-mode + should-pause:
+peaks session 24h-mode transition --state 24H_ACTIVE
+peaks code should-pause --step step-1-mode-select --json
+# expect: shouldPause decision is NOT "stale-presence"
+
+# detect-job CLI:
+peaks code detect-job --is-job false --rationale "x" --suggested-job-id n-a
+# expect: ok, recorded to .peaks/_runtime/<sid>/job-shape.json
+```
+
+Source: `.peaks/memory/2026-08-02-ice-cola-dogfood-surface-probe.md`.
+
+### PR-meta batch — flow-level enforcement (4 fixes addressing why the LLM bypassed peaks-code in this same session)
+
+The 4.0.7 dogfood pass surfaced a flow-level bug that the 25
+P0/P1/P2 fixes alone could not close: the LLM routed 22 files /
+632 lines of `Edit` calls directly without a single
+`peaks sub-agent dispatch rd`. Six root causes were identified
+(internal-only debug report, 2026-08-02); the four below close
+the four most actionable layers with surgical changes.
+
+- **PR-meta-1: Edit-enforcement hook** (new
+  `src/services/hooks/pre-tool-edit-enforcement.sh`).
+  Opt-in via `peaks hooks install --with-edit-enforcement` (off by
+  default to preserve the existing peaks-code behavior; the gate
+  is a HARD layer, not a soft warning). When the hook fires on
+  an `Edit` / `Write` / `MultiEdit` / `NotebookEdit` call
+  targeting `src/**`, it checks for an active RD artifact under
+  `.peaks/_runtime/<sid>/rd/requests/` and either allows the
+  call (RD exists) or denies with a structured
+  `permissionDecision: deny` envelope that points the LLM at the
+  right next step (`peaks request init` + `peaks sub-agent dispatch
+  rd`). Bypass conditions: tests / docs / RD artifacts / the
+  hook scripts themselves, a `.peaks/standards/edit-bypass` file
+  (gitignored escape hatch for hot-fixes), or the env var
+  `PEAKS_EDIT_BYPASS_24H=1` (24h-mode opt-in).
+
+- **PR-meta-2: 24h mode scope explicit** (SKILL.md §"24h mode
+  explicit scope"). 24h mode is `peaks session 24h-mode
+  transition --state 24H_ACTIVE`. The pre-PR-meta-2 prose was
+  implicit ("bypass AskUserQuestion") and the LLM over-extended
+  it to **all** user instructions, including the Code-Change
+  Red Line. The new section enumerates exactly which 11 steps
+  24h mode auto-proceeds at (mode select / step confirm / swarm
+  pick / QA verdict / etc.) and which 6 rules it does **not**
+  bypass (Code-Change Red Line, sub-agent dispatch, worktree
+  authorization, request state machine, external side effects,
+  2.x → 1.x reverse migration). The single-sentence rule is
+  reproducible at the top of the section.
+
+- **PR-meta-3: scope-counter fail-LOUD** (new
+  `src/services/hooks/pre-tool-scope-counter.sh`). The
+  harness-side `SCOPE WARNING: 27 files modified` was
+  informational noise that the LLM learned to ignore
+  (`.peaks/memory/2026-07-28-sub-agent-visibility-issue.md`
+  documents the same friction). PR-meta-3 turns the warning
+  into a checkpoint: the hook counts cumulative
+  application-source edits per session in
+  `.peaks/_runtime/<sid>/edit-counter.json` and emits a
+  fail-LOUD reflection reminder at thresholds 5, 10, 20. The
+  LLM cannot continue without writing to
+  `.peaks/_runtime/<sid>/scope-reflection.md` once a
+  threshold is hit. Off by default; opt in via
+  `peaks hooks install --with-scope-counter`.
+
+- **PR-meta-4: dispatch `--emit-bash-script`** (new flag on
+  `peaks sub-agent dispatch`). The dry-run architecture is
+  preserved (the CLI is still the canonical dispatch surface),
+  but the LLM no longer has to parse `toolCall` args from the
+  JSON envelope and re-execute them via the Agent tool. The
+  flag emits a ready-to-exec bash script alongside the
+  envelope; the LLM runs the script via the Bash tool and
+  the dispatch fires immediately. The script invokes the
+  canonical `peaks sub-agent exec` surface, not a side-step.
+- **PR-meta-5: `peaks hooks install --with-edit-enforcement /
+  --with-scope-counter`** (slice 4.0.7). The two opt-in hook
+  entries added in PR-meta-1 / PR-meta-3 are now reachable via
+  the standard install flow. Default behavior is unchanged
+  (gate-enforce only); the flags activate the meta-layer
+  hooks. The summary envelope's `entries` array now reflects
+  the actual installed shape (gate-enforce + opt-in entries)
+  so operators can dry-run + verify before applying.
+- **PR-meta-6: `peaks sub-agent exec`** (new sub-command).
+  Companion to PR-meta-4's `--emit-bash-script`. The script
+  emitted by the dispatch CLI invokes this surface; `exec`
+  reads the dispatch record from disk and re-emits the
+  canonical `toolCall` envelope (envelopeVersion 2.4.0 with
+  `viaExec: true`). Idempotent: the same exec call can be
+  replayed any number of times. Mismatch detection: when the
+  caller-passed session-id / request-id / batch-id / role do
+  not match the record, `exec` emits a warning but still uses
+  the record as the canonical source of truth. Failure modes:
+  `DISPATCH_RECORD_MISSING`, `DISPATCH_RECORD_INVALID`,
+  `DISPATCH_RECORD_NO_TOOL_CALL`. Tests: 3 cases in
+  `tests/unit/commands/sub-agent-exec.test.ts`.
+- **PR-meta-7: scope-counter fail-CLOSED**. The PR-meta-3
+  scope counter emitted `additionalContext` (soft signal);
+  the LLM continued editing without writing the reflection
+  file. PR-meta-7 hardens the checkpoint: at thresholds 5 /
+  10 / 20, the hook now emits `permissionDecision: deny`
+  until the LLM writes a non-empty reflection file at
+  `.peaks/_runtime/<sid>/scope-reflection.md`. The next
+  threshold requires a fresh reflection. Bypass: empty file
+  at `.peaks/standards/scope-counter-bypass` (gitignored
+  escape hatch).
+
+### Compatibility
+
+- `peaks hooks install` default behavior is unchanged. The
+  meta-1 / meta-3 hooks are opt-in (`--with-edit-enforcement`,
+  `--with-scope-counter`); the meta-2 SKILL.md section is
+  documentation-only; the meta-4 flag is opt-in
+  (`--emit-bash-script`).
+- All command names, options, and exit codes are preserved.
+- Auto-compact 0.85 / 0.95 contract unchanged.
+- 24h mode scope is **narrowed**, not widened: same 11
+  auto-proceed steps, but the previously-implicit bypass is
+  now explicitly bounded to "AskUserQuestion gates" only.
+
 ## 4.0.6 — 2026-08-02 (postinstall auto-register outputStyle)
 
 - **postinstall auto-registers `outputStyle: peaks-skill-swarm` into `~/.claude/settings.json`.**
