@@ -235,14 +235,19 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
 }
 
 // Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
-// Both detect-job and read-job-shape need to read the active sid from
-// presence. We re-import getSkillPresence here to avoid the cross-file
-// helper import.
+// Slice 4.0.7-dogfood-PR-2: now uses the shared canonical resolver
+// (`resolveActiveSessionId` from services/session) so detect-job and
+// read-job-shape see the same session id that `peaks session info --active`
+// returns. The pre-rid helper read `getSkillPresence` (the
+// `.peaks/.active-skill.json` file), which was a different store from
+// `.peaks/_runtime/session.json` — any session created via
+// `peaks workspace init` that never had `peaks skill presence:set peaks-code`
+// called on it (the common case for downstream consumer projects and
+// 24h-mode sessions) reported `NO_ACTIVE_SESSION` from this file.
+import { resolveActiveSessionId } from '../../services/session/index.js';
 function readActiveSidForJobShape(projectRoot: string): string | null {
   try {
-    const presence = getSkillPresence(projectRoot);
-    if (presence === null || presence === undefined) return null;
-    return presence.sessionId ?? null;
+    return resolveActiveSessionId(projectRoot);
   } catch {
     return null;
   }

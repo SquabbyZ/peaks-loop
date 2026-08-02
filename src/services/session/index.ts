@@ -1,6 +1,8 @@
 export {
   ensureSession,
   getSessionId,
+  getSessionIdCanonical,
+  resolveActiveSessionId,
   getCurrentSessionDir,
   listSessions,
   getSessionMeta,

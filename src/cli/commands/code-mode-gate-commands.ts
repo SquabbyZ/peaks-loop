@@ -142,10 +142,22 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
         // this only adds the structured `stale` reason + an
         // envelope-level `stalePresence` field so downstream tooling
         // (statusline, sub-agent dispatch) can act on it.
+        //
+        // Slice 4.0.7-dogfood-PR-3 (ice-cola surface probe 2026-08-02):
+        // 24h-mode sessions explicitly opt out of AskUserQuestion
+        // (the whole point of 24h is no-pause operation), so the
+        // stale-presence gate short-circuits to "not stale" when the
+        // session is in `24H_ACTIVE`. Without this bypass, every
+        // 24h-mode session hit a `shouldPause: true` wall at Step 1
+        // even though 24h-mode is designed to be a no-AskUserQuestion
+        // mode.
         let stalePresence: ReturnType<typeof checkStalePresence> | null = null;
         if (opts.step === 'step-1-mode-select' && opts.ignoreStalePresence !== true) {
           const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-          stalePresence = checkStalePresence({ projectRootOverride: projectRoot });
+          const sessionIdForGate = readActiveSidForModeGate(projectRoot);
+          if (!is24hActive(projectRoot, sessionIdForGate)) {
+            stalePresence = checkStalePresence({ projectRootOverride: projectRoot });
+          }
         }
         if (stalePresence !== null && stalePresence.stale) {
           // Build the envelope manually so we can attach the extra
@@ -264,13 +276,41 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
 // The mode-gate stale-presence check needs the active sid for the
 // observability event; we re-import getSkillPresence here to avoid the
 // cross-file helper import.
+// Slice 4.0.7-dogfood-PR-2: also uses the shared canonical resolver
+// (resolveActiveSessionId) so the same id flows through detect-job,
+// read-job-shape, and should-pause. The pre-rid helper read
+// `getSkillPresence` (the `.peaks/.active-skill.json` file) which
+// was a different store from `.peaks/_runtime/session.json`.
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import { resolveActiveSessionId } from '../../services/session/index.js';
+import { read24hState } from '../../services/24h-mode/store.js';
 function readActiveSidForModeGate(projectRoot: string): string | null {
+  // Prefer the canonical binding (works for any session created via
+  // peaks workspace init); fall back to skill presence for sub-skill
+  // activations that never wrote a binding (legacy edge case).
   try {
+    const canonical = resolveActiveSessionId(projectRoot);
+    if (canonical !== null) return canonical;
     const presence = getSkillPresence(projectRoot);
     if (presence === null || presence === undefined) return null;
     return presence.sessionId ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Slice 4.0.7-dogfood-PR-3: returns true when the active session is
+ * in 24H_ACTIVE state (per `.peaks/_runtime/<sid>/24h-state.json`).
+ * In that state, the mode-gate's stale-presence check is a false
+ * positive — 24h-mode explicitly opts out of AskUserQuestion.
+ */
+function is24hActive(projectRoot: string, sessionId: string | null): boolean {
+  if (sessionId === null || sessionId.length === 0) return false;
+  try {
+    const snap = read24hState(projectRoot, sessionId);
+    return snap.state === '24H_ACTIVE';
+  } catch {
+    return false;
   }
 }

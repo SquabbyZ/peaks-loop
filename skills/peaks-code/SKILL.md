@@ -63,6 +63,41 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 When 24h mode is active and an in-flight sub-agent batch is detected, the LLM MAY persist its current turn context to disk through the `session spill-demo` helper. Creates a `SpillRecord` in `.peaks/_runtime/<sessionId>/spill/`. Round-trip is idempotent; existing in-flight deferral still works without spill/hydrate. **Opt-in experimental** — not required.
 
+## 24h mode explicit scope (slice 4.0.7-PR-meta-2, locked 2026-08-02)
+
+The 4.0.7 dogfood pass on `ice-cola` surfaced a flow-level bug: 24h mode's "no AskUserQuestion" intent was over-extended by the LLM to **all** user instructions, including the Code-Change Red Line (the prose-only rule "you MUST NOT edit application source directly without going through peaks-rd"). The LLM routed 22 files / 632 lines of `Edit` calls straight through without a single `peaks sub-agent dispatch rd`. The fix below makes the scope explicit so future LLM sessions cannot make the same over-extension.
+
+### What 24h mode BYPASSES (the AskUserQuestion gates)
+
+24h mode is `peaks session 24h-mode transition --state 24H_ACTIVE`. Once active, the LLM MAY auto-proceed (recommended = chosen) at the following `peaks-code` steps without an AskUserQuestion:
+
+- `step-0.5-openspec-opt-in` — OpenSpec opt-in
+- `step-0.6-audit-goal` — audit + goal confirmation
+- `step-0.7-resume-detection` — resume vs new-work
+- `step-0.55-1x-upgrade` — 1.x → 2.0 upgrade detection (still surfaces the gate at the moment-of-impact, but does not pause to ASK)
+- `step-1-mode-select` — full-auto / assisted / strict / swarm mode pick
+- `step-2.5-session-title` — human-readable session title
+- `phase-2-prd-confirm` — PRD's `Goals / Non-goals / Acceptance criteria` confirm (24h mode picks a recommended set; user can still reject post-hoc via the verdict loop)
+- `phase-3-swarm-gate-b` — swarm selection (full-auto recommended; 24h mode skips the AskUserQuestion but still records the choice)
+- `phase-6-qa-gate-d` — QA verdict gate (24h mode auto-proceeds; the verdict log is the audit trail)
+- `phase-10-txt-memory-extract` — Step 11 memory sediment (24h mode auto-runs the extract)
+- `step-n+1-final-review` — final review (24h mode auto-fires the 4-dim review; user can still inspect the artifact post-hoc)
+
+### What 24h mode DOES NOT BYPASS (the hard rules)
+
+24h mode is **only** a "no AskUserQuestion" override. It is NOT a "skip the entire peaks-code flow" override. The following peaks-code rules are **always** enforced under 24h mode:
+
+- **Code-Change Red Line** (prose rule + slice 4.0.7-PR-meta-1 Edit-enforcement hook). Every code change goes through `peaks-code → peaks-rd → peaks-qa → verdict`. The LLM MUST NOT edit `src/**` directly. Use `peaks sub-agent dispatch rd`.
+- **Sub-agent dispatch** for non-trivial work. Even in 24h mode, the LLM is not exempt from dispatching `peaks-rd` / `peaks-qa`. The `--apply` flag in 24h mode picks the recommended option in the dispatch envelope, but the dispatch still happens (slice 4.0.7-PR-meta-4).
+- **Worktree authorization** (slice 2026-07-29-worktree-layer3-deny). 24h mode does NOT widen Layer 3's deny list. The 3-layer governance (L1 prose + L2 hook + L3 IDE permissions.deny) remains in force.
+- **Request state machine transitions** (`spec-locked → implemented → qa-handoff → handed-off`). 24h mode is not a state-machine bypass.
+- **External side effects** (`git push`, `git tag`, `npm publish`, `npm install -g peaks-loop`, `peaks global install`). The 5 commit-boundary hard-floor actions always pause, even in 24h mode.
+- **Reverse 2.x → 1.x migration**, **git reset --hard**, **force-push to protected branches**. Same hard-floor logic.
+
+### The single-sentence rule (paste into any new peaks-code session that flips 24h mode)
+
+> 24h mode lets the LLM auto-proceed at the AskUserQuestion gates (mode select, step confirm, swarm pick, etc.). It does **not** let the LLM skip the peaks-code 11-step flow, edit `src/**` directly, or bypass request-state transitions.
+
 ## Peaks-Loop Superpowers 协作边界 (BRIDGE — MANDATORY, effective 2026-07-24)
 
 Pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
@@ -114,7 +149,7 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 | `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks compact auto --execute` fires **automatically** (deferred only when in-flight sub-agent batch is running; fires the moment the batch lands). The LLM does not prompt the user. |
 | `ratio ≥ 0.95` | **red-line (Karpathy §4)** | synchronous gate — `peaks compact auto --execute` invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 automatic exception** — LLM cannot opt out. |
 
-**Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks compact auto --execute` on `auto-compact-now` or `red-line` without user confirmation.
+**Probe primitive (single source of truth):** `peaks code context-now --json --project <path>`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks compact auto --execute` on `auto-compact-now` or `red-line` without user confirmation. **Always pass `--project` explicitly** — the CLI does not auto-resolve cwd (see Drift Index D-013).
 
 **Enforcement layers (defense in depth):**
 1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line`. Only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM/human approval branch.
@@ -127,18 +162,21 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 
 If the prose audit (`peaks audit red-lines`) flags any of the above, the slice is **blocked** until the prose is rewritten.
 
-## CLI Drift Index (sediment 2026-07-09)
+## CLI Drift Index (sediment 2026-07-09, refreshed 2026-08-02)
 
-> **Reading guide:** Verified against peaks-loop 4.0.0-beta.6. Each drift below is annotated inline at the relevant step with a `> CLI reality check`. On `error: unknown option ...`, **read the inline reality check first** before guessing.
+> **Reading guide:** Verified against peaks-loop 4.0.6. Each drift below is annotated inline at the relevant step with a `> CLI reality check`. On `error: unknown option ...`, **read the inline reality check first** before guessing. The 4.0.7 dogfood pass (ice-cola surface probe) re-validated all entries; D-001 was rewritten (the pre-4.0.7 entry was the inverse of 4.0.6's actual behavior).
 
 | Drift ID | Step | Symptom | Fix | Inline location |
 |---|---|---|---|---|
-| **D-001** | 0.8 | `peaks code detect-job --is-job ...` rejected with `error: unknown option '--is-job'` | Use `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single\|rotating>` | §Step 0.8 first paragraph |
+| **D-001** | 0.8 | `peaks code detect-job --is-job ...` requires the flag (4.0.6+); pre-4.0.6 the flag was rejected. Either way, you must pass `--is-job <bool> --rationale <text> --suggested-job-id <slug>` | `peaks code detect-job --is-job <true\|false> --rationale "<1-3 sentences>" --suggested-job-id <slug>` | §Step 0.8 first paragraph |
 | **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` (this is the bare `<sid>` anti-pattern) | sid is positional: `peaks session title <sessionId> "<title>" --json` | §Step 2.5 |
 | **D-003** | 0.8 | `JOB_SHAPE_NOT_DECIDED` exception expected but never thrown | Current behavior is `peaks job status` reports `done: 0` passively — treat as recoverable miss, not hard error | §Step 0.8 third paragraph |
 | **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. Bare `peaks-memory:start` is parsed silently but produces no writes | §Step 11c + 11d |
+| **D-013** | N+2 | `peaks code context-now --json` (no `--project`) rejected with `error: required option '--project <path>' not specified` | Always pass `--project <path>` (use `.` for the cwd). The CLI does not auto-resolve cwd because monorepos + CI have surprising cwd semantics. | §Step N+2 probe primitive |
+| **D-014** | 0.8 | `peaks code detect-job` / `read-job-shape` / `peaks workflow plan read --type <type>` / `peaks route --goal <g>` all reported `NO_ACTIVE_SESSION` even when `.peaks/_runtime/session.json` was a valid binding. The 4 CLIs read `getSkillPresence` (the `.peaks/.active-skill.json` file, set only by `peaks skill presence:set <skill>`) instead of the canonical binding. Fixed in 4.0.7 PR-2 via `resolveActiveSessionId` shared resolver — no action required at the call site, but if you see a `NO_ACTIVE_SESSION` error, run `peaks workspace init --project <path>` first. | §Step 0.8 third paragraph + §Step 1 mode select |
+| **D-015** | 0.8 | `peaks code should-pause --step step-1-mode-select` reports `stale-presence: no-presence` even when 24h-mode is active. 24h-mode never sets skill presence by design (no sub-skill flips). Fixed in 4.0.7 PR-3 — gate short-circuits the stale-presence check when `24h-state.json#state === '24H_ACTIVE'`. | §Step 1 mode select + §24h mode |
 
-> **Sediment lesson (master record):** `.peaks/memory/peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md`
+> **Sediment lesson (master record):** `.peaks/memory/peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md` (pre-4.0.7); `.peaks/memory/2026-08-02-ice-cola-dogfood-surface-probe.md` (4.0.7 fixes).
 
 ## Peaks-Loop GStack integration
 

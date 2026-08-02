@@ -15,6 +15,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RED_LINE_CATALOG } from '../red-line-catalog.js';
+import { resolvePeaksLoopRoot } from '../backing-detector.js';
 import type { LintHit } from './lint-style.js';
 
 export const CATALOG_STABILITY_GROWTH_CAP = 0.20;
@@ -57,10 +58,18 @@ export function lintCatalogStability(input: CatalogStabilityInput): readonly Lin
 }
 
 export function lintNoOrphanEnforcer(projectRoot: string): readonly LintHit[] {
+  // Slice 4.0.7-dogfood-PR-1: catalog enforcerRef paths are written
+  // relative to the peaks-loop source root (catalog + enforcers both
+  // live at <root>/src/services/audit/...). Resolving against the
+  // audited --project root produces false orphans on every downstream
+  // project. Use resolvePeaksLoopRoot() and keep `projectRoot` for
+  // test/legacy callers (the parameter is intentionally ignored here).
+  void projectRoot;
+  const peaksLoopRoot = resolvePeaksLoopRoot();
   const hits: LintHit[] = [];
   for (const entry of RED_LINE_CATALOG) {
     if (!entry.enforcerRef) continue;
-    const absPath = join(projectRoot, entry.enforcerRef);
+    const absPath = join(peaksLoopRoot, entry.enforcerRef);
     if (!existsSync(absPath)) {
       hits.push(syntheticHit(
         'rl-audit-no-orphan-enforcer-001',

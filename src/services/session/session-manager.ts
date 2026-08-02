@@ -462,6 +462,42 @@ export function getSessionIdCanonical(projectRoot: string): string | null {
 }
 
 /**
+ * Slice 4.0.7-dogfood-PR-2 (ice-cola surface probe 2026-08-02): the
+ * single shared resolver that the peaks code / peaks workflow / peaks
+ * route CLI families now use to look up the active session id.
+ *
+ * Pre-rid each of these 4 CLIs had its own private helper that read
+ * `getSkillPresence` (which is `.peaks/.active-skill.json`, set by
+ * `peaks skill presence:set <skill>`) instead of the canonical binding
+ * (`.peaks/_runtime/session.json`, written by `peaks workspace init`).
+ * As a result, any session that was created via `peaks workspace init`
+ * but never had `peaks skill presence:set peaks-code` called on it
+ * (the common case for downstream consumer projects and any 24h-mode
+ * session that never flips sub-skills) reported `NO_ACTIVE_SESSION`
+ * from the 4 affected CLIs even though `peaks session info --active`
+ * returned a valid id.
+ *
+ * Resolution order:
+ *   1. explicit `override` (caller-passed --session-id)
+ *   2. canonicalize-on-read (`getSessionIdCanonical`) — handles the
+ *      stored "." vs caller-passed absolute realpath mismatch
+ *   3. strict-equality fallback (`getSessionId`) — handles the
+ *      pre-canonicalize binding form
+ *
+ * The function returns `null` when no binding exists; callers must
+ * decide whether `null` is a hard error (most CLIs print
+ * `NO_ACTIVE_SESSION` and exit 1) or a soft skip (a few CLIs
+ * silently use `'unknown-sid'` as the dispatch fallback).
+ */
+export function resolveActiveSessionId(
+  projectRoot: string,
+  override?: string,
+): string | null {
+  if (override !== undefined && override.length > 0) return override;
+  return getSessionIdCanonical(projectRoot) ?? getSessionId(projectRoot);
+}
+
+/**
  * Get the absolute path to the current session directory.
  * Creates the session if it doesn't exist.
  *

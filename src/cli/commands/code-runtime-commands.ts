@@ -479,12 +479,19 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
 // Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
 // Only the 5 runtime probes above use it; keeping it local avoids the
 // cross-file helper import.
+// Slice 4.0.7-dogfood-PR-2: now uses the shared canonical resolver
+// (`resolveActiveSessionId` from services/session) so context-now /
+// post-compact-detect / auto-compact / gate-step-08 / emit-handoff see
+// the same session id that `peaks session info --active` returns.
+// The pre-rid helper read `getSkillPresence` (the
+// `.peaks/.active-skill.json` file), which was a different store from
+// `.peaks/_runtime/session.json` — the two were kept in sync only when
+// `peaks skill presence:set` was called explicitly.
+import { resolveActiveSessionId } from '../../services/session/index.js';
 function readActiveSid(projectRoot: string): string | null {
   try {
-    const presence = getSkillPresence(projectRoot);
-    if (presence === null || presence === undefined) return null;
-    return presence.sessionId ?? null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return resolveActiveSessionId(projectRoot);
+  } catch {
     return null;
   }
 }
