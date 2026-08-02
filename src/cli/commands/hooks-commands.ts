@@ -19,7 +19,7 @@ import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
-type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
+type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean; withEditEnforcement?: boolean; withScopeCounter?: boolean };
 
 function resolveScope(options: { global?: boolean }): HookScope {
   return options.global ? 'global' : 'project';
@@ -55,12 +55,22 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
  * the install shape so the JSON envelope doesn't claim a hook the
  * service did not write.
  */
-function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
+function listExpectedEntriesForIde(ide: IdeId, options: { skipProgress?: boolean; withEditEnforcement?: boolean; withScopeCounter?: boolean } = {}): ReadonlyArray<{ matcher: string; sentinel: string }> {
   const adapter = getAdapter(ide);
+  const out: { matcher: string; sentinel: string }[] = [];
   if (ide === 'trae') {
-    return [{ matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' }];
+    out.push({ matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' });
+  } else {
+    out.push({ matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' });
   }
-  return [{ matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' }];
+  // Slice 4.0.7-PR-meta-5: opt-in meta-1 / meta-3 hook entries.
+  if (options.withEditEnforcement === true) {
+    out.push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', sentinel: 'peaks edit enforcement' });
+  }
+  if (options.withScopeCounter === true) {
+    out.push({ matcher: 'Edit|Write|MultiEdit|NotebookEdit', sentinel: 'peaks scope counter' });
+  }
+  return out;
 }
 
 /**
@@ -127,22 +137,26 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     hooks
       .command('install')
       .description(
-        `Install the peaks-managed gate-enforce hook entry into the adapter's settings.json. Slice #014: only the gate-enforce entry is installed; the legacy progress-start entry is no longer installed. Idempotent: re-runs are no-ops. Project scope by default.`
+        `Install the peaks-managed gate-enforce hook entry into the adapter's settings.json. Slice #014: only the gate-enforce entry is installed by default; the legacy progress-start entry is no longer installed. Idempotent: re-runs are no-ops. Project scope by default. Slice 4.0.7-PR-meta-5: --with-edit-enforcement and --with-scope-counter opt-in flags add the corresponding PreToolUse hook entries (off by default to preserve the existing install behavior).`
       )
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', "target adapter id (claude-code | trae); default: auto-detect from env/cwd")
       .option('--dry-run', 'show what would change without writing')
       .option('--no-progress', 'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry')
+      .option('--with-edit-enforcement', 'Slice 4.0.7-PR-meta-5: opt-in. Add the Edit-enforcement PreToolUse hook entry (pre-tool-edit-enforcement.sh). Default false to preserve the existing install behavior. Once installed, the hook blocks src/** edits without an RD artifact on disk.')
+      .option('--with-scope-counter', 'Slice 4.0.7-PR-meta-5: opt-in. Add the scope-counter PreToolUse hook entry (pre-tool-scope-counter.sh). Default false. The hook counts cumulative application-source edits and emits a fail-LOUD reflection reminder at thresholds 5, 10, 20.')
   ).action((options: HookCliOptions) => {
     const scope = resolveScope(options);
     const projectRoot = resolveProjectRoot(scope, options.project);
     const ide = resolveIdeForCommand(options, projectRoot);
     const skipProgress = options.progress === false;
+    const withEditEnforcement = options.withEditEnforcement === true;
+    const withScopeCounter = options.withScopeCounter === true;
     try {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot, { ide, skipProgress });
-        const dryRunEntries = listExpectedEntriesForIde(ide, skipProgress);
+        const dryRunEntries = listExpectedEntriesForIde(ide, { skipProgress, withEditEnforcement, withScopeCounter });
         const bridgeCopy = scope === 'global'
           ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
           : { copied: false, source: '', target: '' };
@@ -179,14 +193,16 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         );
         return;
       }
-      const result = applyHookInstall(scope, projectRoot, { ide, skipProgress });
+      const result = applyHookInstall(scope, projectRoot, { ide, skipProgress, withEditEnforcement, withScopeCounter });
       // Slice #3: build the per-IDE entries summary from the actual installed
       // entries, not the slice #1 PEAKS_HOOK_ENTRIES constant (which is the
       // claude-code default). The user's JSON envelope must reflect the IDE
       // they targeted. Slice #014: the install only emits the gate-enforce
       // entry; the summary mirrors the install shape, NOT a hardcoded
-      // expected list.
-      const installedEntries = listExpectedEntriesForIde(ide, skipProgress);
+      // expected list. Slice 4.0.7-PR-meta-5: the summary now also
+      // includes the opt-in Edit-enforcement + scope-counter entries
+      // when the user passed --with-edit-enforcement / --with-scope-counter.
+      const installedEntries = listExpectedEntriesForIde(ide, { skipProgress, withEditEnforcement, withScopeCounter });
       // Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): when
       // the install targets global scope, also copy the superpowers-bridge
       // hook script from src/services/hooks/ to the user-global hooks

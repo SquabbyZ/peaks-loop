@@ -72,6 +72,21 @@ export type HookInstallOptions = {
    * hook entries use it.
    */
   readonly skipProgress?: boolean;
+  /**
+   * Slice 4.0.7-PR-meta-5: opt-in Edit-enforcement hook entry. When
+   * `true`, the install emits the additional PreToolUse hook entry
+   * pointing at `pre-tool-edit-enforcement.sh`. Default `false` to
+   * preserve the existing install behavior; users who want the
+   * Edit layer enforced pass `--with-edit-enforcement` on the CLI
+   * (or set `PEAKS_INSTALL_EDIT_ENFORCEMENT=1`).
+   */
+  readonly withEditEnforcement?: boolean;
+  /**
+   * Slice 4.0.7-PR-meta-5: opt-in scope-counter hook entry. When
+   * `true`, the install emits the additional PreToolUse hook entry
+   * pointing at `pre-tool-scope-counter.sh`. Default `false`.
+   */
+  readonly withScopeCounter?: boolean;
 };
 
 // --- Module-level defaults (claude-code) -----------------------------------
@@ -148,6 +163,16 @@ function resolveIde(options: HookInstallOptions | undefined): IdeId {
 /** Slice #013: read the skipProgress opt-in flag. Slice #014: the underlying install no longer emits the progress-start entry, so the flag is effectively a no-op (kept for API stability). */
 function resolveSkipProgress(options: HookInstallOptions | undefined): boolean {
   return options?.skipProgress === true;
+}
+
+/** Slice 4.0.7-PR-meta-5: read the withEditEnforcement opt-in flag. */
+function resolveWithEditEnforcement(options: HookInstallOptions | undefined): boolean {
+  return options?.withEditEnforcement === true;
+}
+
+/** Slice 4.0.7-PR-meta-5: read the withScopeCounter opt-in flag. */
+function resolveWithScopeCounter(options: HookInstallOptions | undefined): boolean {
+  return options?.withScopeCounter === true;
 }
 
 export type HookInstallPlan = {
@@ -287,6 +312,34 @@ export type PeaksHookEntry = {
 };
 
 /**
+ * Slice 4.0.7-PR-meta-1: the Edit-enforcement hook entry. Off by
+ * default; opt in via `peaks hooks install --with-edit-enforcement`
+ * (or `PEAKS_INSTALL_EDIT_ENFORCEMENT=1` env). The entry points at
+ * the new `pre-tool-edit-enforcement.sh` script in
+ * `src/services/hooks/`. The matcher targets Edit / Write / MultiEdit
+ * / NotebookEdit (Claude Code: "Edit|Write|MultiEdit|NotebookEdit";
+ * Trae: same). When the hook fires, the script blocks src/** edits
+ * without an RD artifact on disk (per slice 4.0.7-PR-meta-1 design).
+ */
+export const EDIT_ENFORCEMENT_HOOK_MATCHER = 'Edit|Write|MultiEdit|NotebookEdit';
+export const EDIT_ENFORCEMENT_HOOK_SENTINEL = 'peaks edit enforcement';
+export const EDIT_ENFORCEMENT_HOOK_EVENT = 'PreToolUse';
+
+/**
+ * Slice 4.0.7-PR-meta-3: the scope-counter hook entry. Off by
+ * default. Tracks cumulative application-source edits in the
+ * active session and emits a fail-LOUD reflection reminder at
+ * thresholds 5, 10, 20. The LLM cannot continue without writing
+ * to `.peaks/_runtime/<sid>/scope-reflection.md` once a threshold
+ * is hit. Different from the harness-side SCOPE WARNING (which
+ * is informational noise); the meta-3 hook surfaces a checkpoint
+ * the LLM must reference in its next turn.
+ */
+export const SCOPE_COUNTER_HOOK_MATCHER = 'Edit|Write|MultiEdit|NotebookEdit';
+export const SCOPE_COUNTER_HOOK_SENTINEL = 'peaks scope counter';
+export const SCOPE_COUNTER_HOOK_EVENT = 'PreToolUse';
+
+/**
  * Compute the per-IDE peaks hook entries to merge into the settings file.
  * Replaces the slice #1 hardcoded `PEAKS_HOOK_ENTRIES` constant; the constant
  * remains exported (computed for claude-code) for backward compat.
@@ -303,11 +356,33 @@ export type PeaksHookEntry = {
  * can find + remove any stale progress-start entry that an older
  * `peaks hooks install` may have written before this slice.
  */
-function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[] {
+function resolveHookEntries(ide: IdeId, options: HookInstallOptions | { skipProgress?: boolean; withEditEnforcement?: boolean; withScopeCounter?: boolean } = {}): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
-  return [
+  const entries: PeaksHookEntry[] = [
     { sentinel: spec.hookEnforceSentinel, matcher: spec.hookEnforceMatcher, command: spec.hookEnforceCommand, event: spec.hookEnforceEvent }
   ];
+  // Slice 4.0.7-PR-meta-1: opt-in Edit enforcement. Default false
+  // to preserve the existing `peaks hooks install` behavior; users
+  // who want the LLM Edit layer enforced call install with the
+  // opt-in flag or env var.
+  if ('withEditEnforcement' in options && options.withEditEnforcement === true) {
+    entries.push({
+      sentinel: EDIT_ENFORCEMENT_HOOK_SENTINEL,
+      matcher: EDIT_ENFORCEMENT_HOOK_MATCHER,
+      command: 'peaks edit-enforcement',
+      event: EDIT_ENFORCEMENT_HOOK_EVENT
+    });
+  }
+  // Slice 4.0.7-PR-meta-3: opt-in scope counter. Default false.
+  if ('withScopeCounter' in options && options.withScopeCounter === true) {
+    entries.push({
+      sentinel: SCOPE_COUNTER_HOOK_SENTINEL,
+      matcher: SCOPE_COUNTER_HOOK_MATCHER,
+      command: 'peaks scope-counter',
+      event: SCOPE_COUNTER_HOOK_EVENT
+    });
+  }
+  return entries;
 }
 
 /**
@@ -534,7 +609,7 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
 }
 
 /** Merge all peaks-managed hook entries into settings, preserving all other keys and hooks. */
-function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId, _skipProgress = false): Record<string, unknown> {
+function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId, options: { skipProgress?: boolean; withEditEnforcement?: boolean; withScopeCounter?: boolean } = {}): Record<string, unknown> {
   const existingHooks = (settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks))
     ? (settings.hooks as Record<string, unknown>)
     : {};
@@ -543,7 +618,7 @@ function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId,
   // beforeToolCall; Claude: gate-enforce on PreToolUse). Group by event
   // so each event array is independently merged.
   const ourByEvent = new Map<string, PeaksHookEntry[]>();
-  for (const spec of resolveHookEntries(ide)) {
+  for (const spec of resolveHookEntries(ide, options)) {
     const list = ourByEvent.get(spec.event) ?? [];
     list.push(spec);
     ourByEvent.set(spec.event, list);
@@ -618,7 +693,7 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   // entry. The chain cannot run raw `git worktree add` (or
   // `podman run`) without an explicit `peaks hooks uninstall`
   // first. Both helpers are pure + idempotent.
-  const merged = withTriggeredDenyList(withSuperpowersSkillDenylist(withHooksInstalledForIde(settings, ide)));
+  const merged = withTriggeredDenyList(withSuperpowersSkillDenylist(withHooksInstalledForIde(settings, ide, { withEditEnforcement: resolveWithEditEnforcement(options), withScopeCounter: resolveWithScopeCounter(options) })));
   atomicWriteJson(settingsPath, merged);
   return { ...baseResult, alreadyInstalled: false, applied: true };
 }

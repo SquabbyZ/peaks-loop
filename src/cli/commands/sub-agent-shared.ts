@@ -69,6 +69,17 @@ export type DispatchOptions = {
    * worktree without needing a separate `peaks worktree auth grant`.
    */
   isolation?: string;
+  /**
+   * Slice 4.0.7-PR-meta-4: when true, the dispatch CLI also emits a
+   * ready-to-exec bash script to stdout (in addition to the JSON
+   * envelope) so the LLM can run the script via the Bash tool
+   * instead of having to parse toolCall args and re-execute them
+   * via the Agent tool. Lowers the dispatch friction documented
+   * in `.peaks/memory/2026-07-28-sub-agent-visibility-issue.md`.
+   * The dry-run architecture is preserved: the script invokes
+   * the canonical `peaks sub-agent exec` surface, not a side-step.
+   */
+  emitBashScript?: boolean;
   json?: boolean;
 };
 
