@@ -60,6 +60,42 @@ async function readPackageJsonDeps(projectRoot: string): Promise<{ exists: boole
   }
 }
 
+/**
+ * Slice 4.0.7-dogfood-PR-8: walk packages/[name]/package.json one
+ * level deep and merge each sub-package's deps into a single map
+ * (later sub-packages win on key collision; this is the conservative
+ * "first detected framework" behavior). Returns empty when the
+ * project is not a monorepo or has no packages dir. Deliberately
+ * does NOT recurse into nested workspaces.
+ */
+async function readMonorepoSubPackageDeps(projectRoot: string): Promise<Record<string, string>> {
+  const packagesDir = join(projectRoot, 'packages');
+  if (!(await pathExists(packagesDir))) return {};
+  let entries: string[];
+  try {
+    entries = await readdir(packagesDir);
+  } catch {
+    return {};
+  }
+  const merged: Record<string, string> = {};
+  for (const entry of entries) {
+    if (entry === '.' || entry === '..') continue;
+    const subPkgPath = join(packagesDir, entry, 'package.json');
+    if (!(await pathExists(subPkgPath))) continue;
+    try {
+      const raw = await readText(subPkgPath);
+      const parsed = JSON.parse(raw) as PackageJsonRecord;
+      Object.assign(merged, parsed.dependencies ?? {});
+      Object.assign(merged, parsed.devDependencies ?? {});
+      Object.assign(merged, parsed.peerDependencies ?? {});
+      Object.assign(merged, parsed.optionalDependencies ?? {});
+    } catch {
+      // skip malformed sub-package; keep walking
+    }
+  }
+  return merged;
+}
+
 async function detectBackendFrameworks(deps: Record<string, string>): Promise<string[]> {
   return BACKEND_DEP_NAMES.filter((name) => name !== 'next' && Object.prototype.hasOwnProperty.call(deps, name));
 }
@@ -265,8 +301,18 @@ function decideFrontendOnly(report: Omit<ArchetypeReport, 'frontendOnly' | 'fron
 export async function scanArchetype(options: ArchetypeScanOptions): Promise<ArchetypeReport> {
   const { projectRoot } = options;
   const { exists: hasPackageJson, deps } = await readPackageJsonDeps(projectRoot);
-  const backendFrameworks = await detectBackendFrameworks(deps);
-  const hasNext = Object.prototype.hasOwnProperty.call(deps, 'next');
+  // Slice 4.0.7-dogfood-PR-8 (ice-cola surface probe 2026-08-02): a
+  // monorepo root often carries only a thin workspace manifest (no
+  // framework deps). Ice-cola root has peaks-loop only, and the
+  // @nestjs/core dep lives in packages[server].package.json. Pre-rid
+  // this reported `hasBackendFramework: false` for a NestJS monorepo
+  // because the dep scan only looked at the root. The fix adds a
+  // 1-level-deep walk into the packages dir and merges each
+  // sub-package's deps into the dedup result.
+  const monorepoSubDeps = await readMonorepoSubPackageDeps(projectRoot);
+  const mergedDeps: Record<string, string> = { ...deps, ...monorepoSubDeps };
+  const backendFrameworks = await detectBackendFrameworks(mergedDeps);
+  const hasNext = Object.prototype.hasOwnProperty.call(mergedDeps, 'next');
   const hasNextApiRoutes = await detectNextApiRoutes(projectRoot, hasNext);
   const backendDirsPresent = await detectBackendDirs(projectRoot);
   const swaggerPaths = await detectSwagger(projectRoot);

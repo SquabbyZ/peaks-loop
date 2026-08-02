@@ -101,6 +101,19 @@ function tailLines(text: string, max: number): string {
 
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
+  // Slice 4.0.7-dogfood-PR-10 (ice-cola surface probe 2026-08-02):
+  // detect pnpm-workspace.yaml and run a per-package typecheck instead
+  // of the root `tsc --noEmit`. Pre-rid the typecheck stage ran
+  // against the root, which has no `tsconfig.json` (only
+  // `tsconfig.base.json`) in ice-cola, and reported
+  // `tsc exited with code 1` in 2ms — a fake-fail with no actionable
+  // detail. The fix dispatches to `pnpm -r --parallel exec tsc
+  // --noEmit` (or `pnpm -r typecheck` if defined) and reports
+  // per-package failures in `data.failedPackages`.
+  const isMonorepo = existsSync(join(projectRoot, 'pnpm-workspace.yaml'));
+  if (isMonorepo) {
+    return runMonorepoTypecheck(projectRoot, start);
+  }
   // Per Windows npx ENOENT (observations 2317+2792 from
   // 2026-06-09), prefer the project-local `node_modules/.bin/tsc`
   // (symlink on Unix, .cmd on Windows). The local binary is
@@ -118,6 +131,65 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
       ? `Typecheck passed in ${result.durationMs}ms.`
       : tailLines(result.stdout + result.stderr, 10) || `tsc exited with code ${result.exitCode}.`,
     data: { exitCode: result.exitCode }
+  };
+}
+
+/**
+ * Slice 4.0.7-dogfood-PR-10: per-package typecheck for pnpm
+ * monorepos. Tries `pnpm -r typecheck` first (the convention), then
+ * falls back to `pnpm -r --parallel exec tsc --noEmit`. Captures
+ * per-package failures so callers can see which sub-packages
+ * actually failed (the pre-rid "tsc exited with code 1" was an
+ * unhelpful 1-line summary that took 2ms — clear fake-fail).
+ */
+async function runMonorepoTypecheck(projectRoot: string, start: number): Promise<SliceCheckStage> {
+  const pnpm = resolveLocalBinary(projectRoot, 'pnpm');
+  // First try the convention script.
+  const r1 = runCommand(
+    pnpm.command,
+    [...pnpm.args, '-r', '--workspace-concurrency=4', 'typecheck'],
+    projectRoot,
+    300_000,
+    pnpm.shell
+  );
+  let result = r1;
+  let mode: 'pnpm -r typecheck' | 'pnpm -r exec tsc --noEmit' = 'pnpm -r typecheck';
+  if (result.status === 'fail') {
+    // Convention script missing in some sub-packages. Fall back to
+    // direct tsc invocation in parallel.
+    const tsc = resolveLocalBinary(projectRoot, 'tsc');
+    result = runCommand(
+      pnpm.command,
+      [...pnpm.args, '-r', '--parallel', 'exec', tsc.command, ...tsc.args, '--noEmit'],
+      projectRoot,
+      300_000,
+      pnpm.shell
+    );
+    mode = 'pnpm -r exec tsc --noEmit';
+  }
+  const failedPackages: Array<{ package: string; exitCode: number; stderrTail: string }> = [];
+  // pnpm -r prints "<pkg>> error TS..." lines on failure. Extract
+  // them so the operator can see which sub-package broke.
+  const failLines = result.stdout.split('\n');
+  for (const line of failLines) {
+    const m = line.match(/^([^>\s]+)>\s+(.+)$/);
+    if (m && m[1] !== undefined && m[2] !== undefined && /error TS/.test(m[2])) {
+      failedPackages.push({
+        package: m[1],
+        exitCode: result.exitCode,
+        stderrTail: m[2].slice(0, 200)
+      });
+    }
+  }
+  return {
+    name: 'typecheck',
+    description: `${mode} (monorepo per-package typecheck)`,
+    status: result.status,
+    durationMs: Date.now() - start,
+    detail: result.status === 'pass'
+      ? `Monorepo typecheck passed in ${Date.now() - start}ms (${mode}).`
+      : tailLines(result.stdout + result.stderr, 10) || `pnpm exited with code ${result.exitCode}.`,
+    data: { exitCode: result.exitCode, mode, failedPackages }
   };
 }
 

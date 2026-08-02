@@ -213,12 +213,51 @@ function parseLanguage(value: string): StandardsLanguage {
 }
 
 function detectLanguageInternal(projectRoot: string): StandardsLanguage {
+  // Slice 4.0.7-dogfood-PR-7 (ice-cola surface probe 2026-08-02): a
+  // monorepo root often has no `tsconfig.json` (it has
+  // `tsconfig.base.json` + per-package `tsconfig.json`), and the root
+  // `package.json` may be a thin workspace manifest (no language-bearing
+  // deps). Pre-rid, ice-cola (4-package TypeScript monorepo:
+  // NestJS server / React admin / Tauri client / Hermes agent) was
+  // misclassified as `javascript` because the root has no `tsconfig.json`
+  // and the root `package.json#devDependencies` only lists `peaks-loop`
+  // (a string of "javascript" in the standards devDep pack). The fix
+  // walks `packages/*/` recursively and prefers the first match of a
+  // language-bearing manifest over the root.
+  if (scanMonorepoPackages(projectRoot, 'tsconfig.json')) return 'typescript';
   if (existsSync(join(projectRoot, 'tsconfig.json'))) return 'typescript';
+  if (scanMonorepoPackages(projectRoot, 'package.json')) return 'javascript';
   if (existsSync(join(projectRoot, 'package.json'))) return 'javascript';
   if (existsSync(join(projectRoot, 'pyproject.toml')) || existsSync(join(projectRoot, 'requirements.txt'))) return 'python';
   if (existsSync(join(projectRoot, 'go.mod'))) return 'go';
   if (existsSync(join(projectRoot, 'Cargo.toml'))) return 'rust';
   return 'generic';
+}
+
+/**
+ * Slice 4.0.7-dogfood-PR-7: look one level deep into the standard
+ * pnpm monorepo layout (`packages/<name>/`) and return true if any
+ * sub-package contains the named manifest. We deliberately do NOT
+ * recurse arbitrarily (no fs.walk) — the convention is one
+ * packages/[name]/ level. A repo with a nested
+ * workspaces/[name]/[name]/package.json is not in the supported
+ * monorepo shape and will fall through to the root scan.
+ */
+function scanMonorepoPackages(projectRoot: string, manifestName: string): boolean {
+  const packagesDir = join(projectRoot, 'packages');
+  if (!existsSync(packagesDir)) return false;
+  let entries: string[];
+  try {
+    entries = readdirSync(packagesDir);
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    if (entry === '.' || entry === '..') continue;
+    const candidate = join(packagesDir, entry, manifestName);
+    if (existsSync(candidate)) return true;
+  }
+  return false;
 }
 
 /**

@@ -57,6 +57,29 @@ export function formatTestToolDetection(): string {
 }
 
 /**
+ * Slice 4.0.7-dogfood-PR-9: optional monorepo block prepended when
+ * `<projectRoot>/pnpm-workspace.yaml` exists. The pre-rid static
+ * template did not mention monorepos at all, so sub-agents on a
+ * monorepo project (e.g. ice-cola, 4 packages) ran `pnpm test` which
+ * fanned out to every sub-package — a 36-minute wall clock for what
+ * was a single-slice change. The block tells the sub-agent to scope
+ * to a single sub-package via `pnpm -r --filter @scope/name test`
+ * and to detect the layout via `peaks test --json` first.
+ *
+ * The block is empty when the project is not a monorepo, so the
+ * single-package case is byte-identical to the pre-rid prompt.
+ */
+export const MONOREPO_TEST_TOOL_BLOCK = `## Monorepo Test Tool Detection (only when pnpm-workspace.yaml exists)
+
+When \`<projectRoot>/pnpm-workspace.yaml\` is present, the project is a pnpm monorepo. The root \`package.json#scripts.test\` is typically \`pnpm -r test\` (recursive across all packages) and \`pnpm test\` from the root will fan out to every sub-package. **Do not run that.** Scope to a single sub-package:
+
+- detect the active sub-package by looking for \`packages/<name>/package.json\` (or via \`pnpm -r --filter \${YOUR_PACKAGE_NAME} test\`)
+- run \`pnpm --filter @<scope>/<name> test <pattern>\` for one sub-package only
+- if a top-level test script is genuinely needed across multiple packages, prefix with \`PEAKS_FULL_TEST=1\` AND justify in the final report
+
+A repo without \`pnpm-workspace.yaml\` has no monorepo block; the pre-rid static template applies unchanged.`;
+
+/**
  * Slice 2026-07-29-dispatch-stall-governance / S5 (AC-4.1 / AC-4.2) —
  * pure scope classifier. Returns a typed result so callers (the
  * dispatch prompt template, future test-runner bridges) can decide

@@ -159,6 +159,24 @@ function renderContextBlock(probe: ContextPercentProbe | null): string {
   if (probe !== null && probe !== undefined) {
     const usedPct = (probe.ratio * 100).toFixed(1);
     const freePct = ((1 - probe.ratio) * 100).toFixed(1);
+    // Slice 4.0.7-dogfood-PR-11 (ice-cola surface probe 2026-08-02):
+    // when the source is conservative-fallback, the ratio is
+    // hard-coded to 0 (no signal available). The pre-rid prompt
+    // rendered "0.0% used (100.0% free)" without flagging that
+    // this is a fallback, so the sub-agent thought it had 100%
+    // free and never re-checked. The fix short-circuits to the
+    // "no probe available" message when the source is not one of
+    // the trusted values emitted by peaks-loop's own readers.
+    const KNOWN_SOURCES = new Set(['token-counted', 'transcript-estimate', 'statusline']);
+    if (!KNOWN_SOURCES.has(probe.source)) {
+      return `## Context window (no probe available)
+
+The orchestrator captured a probe with source: \`${probe.source}\` (ratio ${usedPct}%) but the dispatch layer does not trust this source. The pre-rid dispatch prompt rendered this as "0.0% used (100.0% free)" without flagging the fallback, which caused sub-agents to think they had 100% free and never re-check. **Treat the displayed ratio as unverified.**
+
+If you need to evaluate context pressure, run \`peaks code context-now --project <root>\` and trust its \`ratio\` field. Do not estimate from message length.
+
+`;
+    }
     const action = probe.ratio >= 0.95
       ? 'RED-LINE — call `peaks compact auto --execute` immediately.'
       : probe.ratio >= 0.85
