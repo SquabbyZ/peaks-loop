@@ -763,6 +763,143 @@ export function installBundledOutputStyles(options = {}) {
 }
 
 /**
+ * Slice 2026-08-02 — auto-register bundled output style.
+ *
+ * Real user feedback (2026-08-02): `npm i -g peaks-loop@latest` on a
+ * fresh 0-1 project copied `peaks-skill-swarm.md` into
+ * `~/.claude/output-styles/` but never wrote
+ * `outputStyle: 'peaks-skill-swarm'` into `~/.claude/settings.json`.
+ * Result: Claude Code loaded no Peaks output style in new sessions.
+ *
+ * The fix: when `peaks-skill-swarm.md` is present in the bundled output
+ * styles directory AND `~/.claude/settings.json` does NOT yet declare
+ * `outputStyle`, merge in `outputStyle: 'peaks-skill-swarm'` while
+ * preserving every other key. If the user already set `outputStyle`,
+ * leave it alone — the user is the source of truth.
+ *
+ * Resolution precedence:
+ *   1. options.settingsFile  (explicit override / test hook)
+ *   2. PEAKS_CLAUDE_SETTINGS_FILE env var  (CI override)
+ *   3. homedir-relative `<homedir>/.claude/settings.json`  (default)
+ *
+ * Soft-fail contract: every error path (missing file, malformed JSON,
+ * missing bundled style file, permission denied) is logged to stderr
+ * and returns `{ skipped: true, ... }` instead of throwing. The
+ * postinstall must never fail on this step because the bundled file
+ * itself was already written successfully.
+ */
+function resolveSettingsFilePath(options = {}) {
+  if (typeof options.settingsFile === 'string' && options.settingsFile.length > 0) {
+    return resolve(options.settingsFile);
+  }
+  const envOverride = process.env.PEAKS_CLAUDE_SETTINGS_FILE;
+  if (typeof envOverride === 'string' && envOverride.length > 0) {
+    return resolve(envOverride);
+  }
+  return resolve(homedir(), '.claude', 'settings.json');
+}
+
+export function installBundledOutputStyleDefault(options = {}) {
+  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_OUTPUT_STYLE_DEFAULT === '1') {
+    return { skipped: true, reason: 'PEAKS_SKIP_OUTPUT_STYLE_DEFAULT=1' };
+  }
+
+  const bundledStylesDir = resolve(
+    options.targetRoot
+      ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
+      ?? join(homedir(), '.claude', 'output-styles')
+  );
+  const settingsPath = resolveSettingsFilePath(options);
+  const bundledStyleName = 'peaks-skill-swarm.md';
+  const bundledStylePath = join(bundledStylesDir, bundledStyleName);
+
+  // Read the existing settings.json (if any) FIRST so a malformed file
+  // surfaces as a parse error (more actionable to the user than the
+  // generic "bundled style not present" message). Malformed JSON is a
+  // user-authored file we MUST NOT clobber — log and skip.
+  let existing = null;
+  if (existsSync(settingsPath)) {
+    const stats = getPathStats(settingsPath);
+    if (!stats || !stats.isFile() || stats.isSymbolicLink() || stats.nlink !== 1) {
+      process.stderr.write(
+        `peaks install-skills: refusing to overwrite non-regular settings.json at ${settingsPath}\n`
+      );
+      return { skipped: true, reason: 'settings.json is not a regular file' };
+    }
+    try {
+      const raw = readFileSafely(settingsPath, 'Claude settings.json path changed during read');
+      const parsed = JSON.parse(raw);
+      if (!isPlainObject(parsed)) {
+        process.stderr.write(
+          `peaks install-skills: refusing to overwrite settings.json that is not a JSON object at ${settingsPath}\n`
+        );
+        return { skipped: true, reason: 'settings.json is not a JSON object' };
+      }
+      existing = parsed;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(
+        `peaks install-skills: failed to parse settings.json at ${settingsPath}: ${message}; leaving untouched\n`
+      );
+      return { skipped: true, reason: 'settings.json parse error' };
+    }
+  }
+
+  // Pre-condition: the bundled style file must be present in the
+  // dispatched target. If it's not, we MUST NOT inject
+  // `outputStyle: 'peaks-skill-swarm'` — Claude Code would then fail
+  // to load the style and fall back to default anyway, leaving the
+  // user with broken state. Skipping is the safe default.
+  if (!existsSync(bundledStylePath)) {
+    return { skipped: true, reason: `bundled output style not present at ${bundledStylePath}` };
+  }
+
+  // User-authored outputStyle wins — never overwrite.
+  if (existing !== null && typeof existing.outputStyle === 'string' && existing.outputStyle.length > 0) {
+    return { skipped: true, reason: `user-defined outputStyle already set: ${existing.outputStyle}` };
+  }
+
+  const next = existing === null
+    ? { outputStyle: 'peaks-skill-swarm' }
+    : { ...existing, outputStyle: 'peaks-skill-swarm' };
+
+  const existingJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
+  const nextJson = `${JSON.stringify(next, null, 2)}\n`;
+  if (existingJson === nextJson) {
+    return { skipped: true, reason: 'no change' };
+  }
+
+  try {
+    writeFileAtomically(
+      settingsPath,
+      nextJson,
+      'Claude settings.json path changed during write',
+      () => {
+        if (!existsSync(settingsPath)) return;
+        const stats = getPathStats(settingsPath);
+        if (!stats || !stats.isFile() || stats.isSymbolicLink() || stats.nlink !== 1) {
+          throw new Error('Claude settings.json path is not a regular file');
+        }
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(
+      `peaks install-skills: failed to write settings.json at ${settingsPath}: ${message}\n`
+    );
+    return { skipped: true, reason: 'write error', error: message };
+  }
+
+  return {
+    installed: true,
+    created: existing === null,
+    updated: existing !== null,
+    settingsPath,
+    outputStyle: 'peaks-skill-swarm',
+  };
+}
+
+/**
  * Slice 7/7 — bundled agents (Claude Code sub-agent prompts).
  *
  * Mirrors `installBundledOutputStyles` but writes to
@@ -1204,6 +1341,40 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     }
     if (outputStylesResult.skipped.length > 0) {
       process.stderr.write(`Peaks output styles skipped because local files already exist: ${outputStylesResult.skipped.join(', ')}\n`);
+    }
+
+    // Slice 2026-08-02 — auto-register bundled output style.
+    //
+    // After the bundled style file lands in `~/.claude/output-styles/`,
+    // we also need Claude Code to actually USE it — otherwise the user
+    // (real feedback 2026-08-02: fresh 0-1 project like
+    // `Desktop\ticket-cross`) sees the default style in new sessions.
+    //
+    // This step reads `~/.claude/settings.json`, and only if the user
+    // hasn't set `outputStyle` yet, writes
+    // `outputStyle: 'peaks-skill-swarm'` while preserving every other
+    // key. Malformed settings.json / IO errors / non-regular files are
+    // soft-failed to stderr (the bundled file is already on disk, so
+    // postinstall never aborts here).
+    //
+    // The `targetRoot` here mirrors the dispatch target of
+    // `installBundledOutputStyles()` above so the env-var override
+    // path (test fixtures + CI) stays consistent: if the bundled
+    // style file was dispatched to an env-overridden dir, the
+    // auto-register step checks THAT dir, not the user's homedir.
+    try {
+      const dispatchTargetRoot = process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
+        ?? join(homedir(), '.claude', 'output-styles');
+      const styleDefaultResult = installBundledOutputStyleDefault({ targetRoot: dispatchTargetRoot });
+      if (styleDefaultResult.installed) {
+        process.stdout.write(
+          `Peaks output style auto-registered: ${styleDefaultResult.outputStyle}\n` +
+            `  → wrote ${styleDefaultResult.settingsPath}\n`
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`Peaks output style default was not installed: ${message}\n`);
     }
     if (userConfigResult.created) {
       process.stdout.write('Peaks user config created: ~/.peaks/config.json\n');
