@@ -451,3 +451,34 @@ user_imperative: "在桌面端列出所有 loop"
 ## End of file
 
 Total red lines: 9 (RL-0..RL-9). Any new red line introduced in any future slice must be added in the 4-section form above; `peaks standards lint --category loop-engineering` will reject the change otherwise.
+
+## RL-10 — Capability Baseline / Guard / Audit (applies to all peaks-loop slices touching product semantics)
+
+## Failure modes
+- A future slice silently changes the behavior of one of the 15 P0 journeys.
+- A guard contract is rewritten to make it pass without user approval.
+- An LLM audit is allowed to self-pass without independent context.
+- A baseline update is performed without the user's explicit `AskUserQuestion` confirmation.
+
+## Rewrite
+```text
+user_imperative: "改这个 bug"
+  → declarative:
+      capability_baseline: frozen
+      guard_runner: pure
+      audit_runner: independent_context
+      user_confirmation: required_for_freeze_update
+      final_review_dimensions: 5
+      cross_check: guard_and_independent_and_karpathy
+```
+
+## Self-check
+- Did this slice change any of the 15 P0 journeys' external behavior?
+- If yes, did the user approve the change via `AskUserQuestion` and run `peaks baseline freeze-update`?
+- Did the guard contracts for the affected journeys still pass?
+- Did the 5th-dim verdict on the final review become `fail` or `inconclusive`?
+
+## Out-of-scope
+- Internal refactors that do not change the external behavior of a P0 journey.
+- Documentation-only changes (do not require baseline update).
+- Slice-internal unit tests that are not part of the 15 guard contracts.
