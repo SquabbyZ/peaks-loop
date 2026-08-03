@@ -105,6 +105,7 @@
     "test:dev:cli": "vitest run tests/unit",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:capability-guard": "vitest run --config vitest.config.integration.ts tests/integration/capability-guard",
     "test:cli": "vitest run tests/unit",
     "test:workflow": "vitest run tests/unit",
     "test:audit:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",

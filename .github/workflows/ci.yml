@@ -43,6 +43,9 @@ jobs:
           # Suppress per-platform timing flake; tests stub Date where needed.
           TZ: UTC
 
+      - name: Run capability guards
+        run: pnpm test:capability-guard
+
   binding-store-multi-process:
     # Slice v2.18.0 REDO — two-Claude-windows CI integration test.
     # Exercises the binding-store P0 fix across 2 truly distinct child
