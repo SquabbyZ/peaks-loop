@@ -1,0 +1,452 @@
+{
+  "schemaVersion": "2026-08-03",
+  "version": "4.0.8",
+  "signedBy": "SquabbyZ",
+  "signedAt": "2026-08-03T00:00:00.000Z",
+  "rows": [
+    {
+      "journeyId": "J01",
+      "intent": "User only describes intent or picks an option; the system picks the skill and runs the underlying CLI on the user's behalf.",
+      "observable": {
+        "inputs": [
+          { "name": "natural-language goal", "shape": "free text or AskUserQuestion option" }
+        ],
+        "outputs": [
+          { "name": "routedSkill + confidence", "shape": "JSON envelope with ok / data / warnings / nextActions" }
+        ],
+        "errors": [
+          { "name": "no route matched", "code": "MISSING_ARG" }
+        ]
+      },
+      "invariants": [
+        "The CLI verb is never shown to the user as a required input",
+        "The user only ever picks an option or describes intent in natural language",
+        "The LLM, not the user, executes the underlying CLI command"
+      ],
+      "forbiddenChanges": [
+        "Adding a CLI verb as a required argument to the user-facing surface",
+        "Pushing the user toward hand-authoring a JSON manifest or skill name"
+      ],
+      "sourceFiles": [
+        "src/cli/commands/_super.ts",
+        "src/cli/commands/_register.ts",
+        "tests/integration/super-command-routing.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J02",
+      "intent": "A user requirement moves through goal bind, RD, implementation, QA, and final review; every hard gate stops the slice on failure.",
+      "observable": {
+        "inputs": [
+          { "name": "user goal + rid", "shape": "natural-language description or goal struct" }
+        ],
+        "outputs": [
+          { "name": "stage transition log + verdict", "shape": "JSON envelope with stage + state + verdict" }
+        ],
+        "errors": [
+          { "name": "gate failure", "code": "GATE_BLOCKED" }
+        ]
+      },
+      "invariants": [
+        "Every hard gate (audit / RD / QA / final-review) is enforced; a failure transitions state back to the prior role",
+        "The user never hand-authors a SKILL.md, manifest, or gate JSON to keep the lifecycle moving",
+        "The pipeline state machine advances only when each role's verdict is recorded"
+      ],
+      "forbiddenChanges": [
+        "Allowing a slice to bypass a hard gate by skipping the verdict log",
+        "Forcing the user to type a CLI verb (e.g. peaks workflow advance) to move the slice"
+      ],
+      "sourceFiles": [
+        "src/services/workflow/workflow-router-service.ts",
+        "src/services/workflow/pipeline-verify-service.ts",
+        "src/cli/commands/workflow-commands.ts",
+        "tests/integration/job-e2e.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J03",
+      "intent": "A reproducible failure mode is captured as a regression test, fixed, and proven not to break adjacent capabilities.",
+      "observable": {
+        "inputs": [
+          { "name": "failure repro + adjacent surface", "shape": "natural-language description or rid" }
+        ],
+        "outputs": [
+          { "name": "regression-test patch + adjacent-test proof", "shape": "JSON envelope with new test + green adjacent suite" }
+        ],
+        "errors": [
+          { "name": "adjacent suite breaks", "code": "ADJACENT_REGRESSION" }
+        ]
+      },
+      "invariants": [
+        "Every regression fix lands with a vitest/integration test that fails on the unfixed code path",
+        "Adjacent capabilities (the rid-005 closure set) remain green after the fix",
+        "No silent-catch or fake-green pattern is reintroduced in src/services/**"
+      ],
+      "forbiddenChanges": [
+        "Marking a regression fixed without a test that fails on the unfixed code",
+        "Using --exclude or .skip to make the suite green"
+      ],
+      "sourceFiles": [
+        "skills/peaks-final-review/SKILL.md",
+        "src/services/final-review/final-review-service.ts",
+        "tests/integration/five-new-rids-e2e.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J04",
+      "intent": "A user-approved goal (intent, scope, non-goals, success criteria, red lines) exists before implementation and is not silently rewritten.",
+      "observable": {
+        "inputs": [
+          { "name": "human need", "shape": "natural-language statement" }
+        ],
+        "outputs": [
+          { "name": "6-dimension audit + proposed goal", "shape": "audit-goal envelope with completeness gate" }
+        ],
+        "errors": [
+          { "name": "missing audit dimension", "code": "INCOMPLETE_AUDIT" }
+        ]
+      },
+      "invariants": [
+        "Autonomous LLM work never proceeds on a partial audit; IncompleteAuditError halts the slice",
+        "The audit covers exactly six dimensions: correctness, completeness, scope, risks, alternatives, constraints",
+        "The goal is the only contract that downstream RD / QA read from; it is never silently rewritten"
+      ],
+      "forbiddenChanges": [
+        "Removing any of the six required audit dimensions from auditGoal()",
+        "Allowing RD to start without an accepted goal artifact"
+      ],
+      "sourceFiles": [
+        "src/services/audit/audit-goal-service.ts",
+        "src/services/audit/audit-goal-types.ts",
+        "skills/peaks-audit/SKILL.md"
+      ]
+    },
+    {
+      "journeyId": "J05",
+      "intent": "Before any slice exits, all four dimensions (functional / problem / no-new / intact) are evidenced; ambiguous items surface to the user.",
+      "observable": {
+        "inputs": [
+          { "name": "slice rid + LLM runner", "shape": "rid string + injected LlmRunner" }
+        ],
+        "outputs": [
+          { "name": "4-dim review envelope", "shape": "FinalReviewOutput with per-dimension verdict + evidence" }
+        ],
+        "errors": [
+          { "name": "missing dimension or low confidence", "code": "DIMENSION_INCONCLUSIVE" }
+        ]
+      },
+      "invariants": [
+        "Every final review contains exactly four dimensions: functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact",
+        "Ambiguous verdicts (inconclusive / low-confidence) surface to the user, never auto-pass",
+        "The review command exits non-zero when any dimension lacks evidence"
+      ],
+      "forbiddenChanges": [
+        "Allowing a slice to exit on three of four dimensions",
+        "Replacing the evidence list with a free-form LLM string"
+      ],
+      "sourceFiles": [
+        "src/services/final-review/final-review-service.ts",
+        "src/services/final-review/final-review-types.ts",
+        "skills/peaks-final-review/SKILL.md",
+        "tests/integration/baseline-cli.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J06",
+      "intent": "After compaction, session exit, or restart, the system locates the deepest completed gate and offers a resume option.",
+      "observable": {
+        "inputs": [
+          { "name": "session id + checkpoint", "shape": "sessionId string + checkpoint file" }
+        ],
+        "outputs": [
+          { "name": "resume plan / deepest-completed gate", "shape": "JSON envelope with resume-from stage and nextActions" }
+        ],
+        "errors": [
+          { "name": "no checkpoint", "code": "CHECKPOINT_MISSING" }
+        ]
+      },
+      "invariants": [
+        "The resume option always identifies the deepest completed gate (audit / RD / QA / final-review)",
+        "Resume never silently re-runs an already-passed gate",
+        "The user only picks from a list of resume options; the CLI verb is run by the LLM"
+      ],
+      "forbiddenChanges": [
+        "Auto-advancing past a gate on resume without an explicit user choice",
+        "Forcing the user to type a CLI verb to resume"
+      ],
+      "sourceFiles": [
+        "src/services/session/session-resume-service.ts",
+        "src/services/session/session-checkpoint-service.ts",
+        "skills/peaks-resume/SKILL.md",
+        "tests/integration/dispatch-isolation-lifecycle.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J07",
+      "intent": "The user only says \"run tests\"; the LLM runs the correct suite and reports results honestly. No fake green.",
+      "observable": {
+        "inputs": [
+          { "name": "test pattern or framework", "shape": "free text or package.json script" }
+        ],
+        "outputs": [
+          { "name": "vitest summary + per-file status", "shape": "JSON envelope with pass / fail / skip counts" }
+        ],
+        "errors": [
+          { "name": "framework not detected", "code": "TEST_FRAMEWORK_UNKNOWN" }
+        ]
+      },
+      "invariants": [
+        "vitest 4.1.10 is the only test runner; the suite MUST NOT be locked at 5.x",
+        "Per-test fingerprint cache never returns 'passed' for an unverified file (fileMtime + fileSha256 gate)",
+        "Test-cache writes never go to source-controlled paths (gitignored under .peaks/_runtime/)"
+      ],
+      "forbiddenChanges": [
+        "Bumping vitest to 5.x to satisfy a coverage threshold",
+        "Skipping tests via describe.skip / it.skip to make the suite green"
+      ],
+      "sourceFiles": [
+        "src/cli/commands/test-commands.ts",
+        "src/services/test-cache/test-cache-service.ts",
+        "tests/integration/baseline-cli.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J08",
+      "intent": "A successful run is promoted only after gates pass and a regression-skeptic check; replays are gated by anti-drift evaluation.",
+      "observable": {
+        "inputs": [
+          { "name": "successful run rid + crystallization request", "shape": "rid string + cli flag" }
+        ],
+        "outputs": [
+          { "name": "loop_release + bee_release rows", "shape": "crystallized asset envelope with rl-* compliance" }
+        ],
+        "errors": [
+          { "name": "red-line violation", "code": "RL_VIOLATION" }
+        ]
+      },
+      "invariants": [
+        "Crystallization requires all gates (audit / RD / QA / final-review) to be in a passing state",
+        "Every crystallized release honors the karpathy-engineered red lines defined in .peaks/standards/loop-engineering-guidelines.md",
+        "Replays are gated by anti-drift evaluation before any new release row is inserted"
+      ],
+      "forbiddenChanges": [
+        "Crystallizing an asset when any gate is in a non-passing state",
+        "Crystallizing without referencing the loop-engineering-guidelines file"
+      ],
+      "sourceFiles": [
+        "src/services/crystallization/crystallization-service.ts",
+        "src/services/crystallization/crystallization-store.ts",
+        ".peaks/standards/loop-engineering-guidelines.md",
+        "tests/integration/asset-crystallize-cli.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J09",
+      "intent": "A user describes a procedure; the system generates, validates, and registers a runnable SOP with checkable gates.",
+      "observable": {
+        "inputs": [
+          { "name": "procedure description", "shape": "free text or cli flag (id, name)" }
+        ],
+        "outputs": [
+          { "name": "manifest + skill registration", "shape": "JSON envelope with initSop / lintSop envelope" }
+        ],
+        "errors": [
+          { "name": "lint failure", "code": "SOP_LINT_FAILED" }
+        ]
+      },
+      "invariants": [
+        "An SOP id must match SOP_ID_PATTERN (lowercase kebab, no dots/slashes) to prevent path traversal",
+        "Reserved prefixes (peaks-, peaks) cannot be authored by users",
+        "lintSop() runs before registerSop() so the manifest is valid at registration time"
+      ],
+      "forbiddenChanges": [
+        "Authoring an SOP outside of initSop() that bypasses lintSop()",
+        "Bypassing the SOP_ID_PATTERN guard to write to a reserved path"
+      ],
+      "sourceFiles": [
+        "src/services/sop/sop-service.ts",
+        "src/services/sop/sop-check-service.ts",
+        "src/services/sop/sop-types.ts",
+        "src/cli/commands/sop-commands.ts",
+        "tests/integration/skill-loop-engineering-readiness-cli.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J10",
+      "intent": "LLM can install, switch, check, and uninstall hooks / statusline / handle; permission gaps escalate honestly, no silent fake success.",
+      "observable": {
+        "inputs": [
+          { "name": "ide + scope", "shape": "free text or --global / --project flag" }
+        ],
+        "outputs": [
+          { "name": "settings.json diff + post-install status", "shape": "JSON envelope with plan / apply / read result" }
+        ],
+        "errors": [
+          { "name": "permission denied", "code": "HOOK_PERMISSION_DENIED" }
+        ]
+      },
+      "invariants": [
+        "planHookInstall() runs before applyHookInstall() so the diff is reviewable",
+        "Permission gaps return a structured HOOK_PERMISSION_DENIED, never silently swallowed",
+        "The hooks-settings-service is the single source of truth; no parallel writes to ~/.claude/settings.json"
+      ],
+      "forbiddenChanges": [
+        "Writing to settings.json outside of applyHookInstall()",
+        "Returning ok=true when a hook could not be installed"
+      ],
+      "sourceFiles": [
+        "src/cli/commands/hooks-commands.ts",
+        "src/cli/commands/ide-commands.ts",
+        "src/services/skills/hooks-settings-service.ts",
+        "tests/integration/ide/install-skills-dispatch.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J11",
+      "intent": "Audit + L3 doctor + convert to OpenSpec change records; failures stop.",
+      "observable": {
+        "inputs": [
+          { "name": "doctor findings or red-line failures", "shape": "DoctorFinding[] or red-line code" }
+        ],
+        "outputs": [
+          { "name": "openspec change draft + freezing step", "shape": "JSON envelope with change-id + freeze envelope" }
+        ],
+        "errors": [
+          { "name": "doctor failure", "code": "DOCTOR_CHECK_FAILED" }
+        ]
+      },
+      "invariants": [
+        "Every OpenSpec change is generated from a doctor finding or red-line failure, never hallucinated",
+        "Doctor checks live under src/services/doctor/doctor-service/checks/ as a code-driven fixed-registry tree",
+        "A doctor check failure halts the conversion; partial proposals are rejected"
+      ],
+      "forbiddenChanges": [
+        "Generating an openspec change without a doctor finding or red-line failure",
+        "Re-introducing the legacy monolithic doctor-service.ts"
+      ],
+      "sourceFiles": [
+        "src/services/doctor/doctor-service.ts",
+        "src/services/doctor/doctor-service/index.ts",
+        "src/services/openspec/openspec-propose-from-doctor-service.ts",
+        "src/cli/commands/openspec-commands.ts"
+      ]
+    },
+    {
+      "journeyId": "J12",
+      "intent": "Dispatch / worktree lease / heartbeat / release / GC form a complete lifecycle without conflict or leak.",
+      "observable": {
+        "inputs": [
+          { "name": "dispatch request + isolation mode", "shape": "CLI flags (--isolation worktree / shared / host)" }
+        ],
+        "outputs": [
+          { "name": "lease lifecycle log", "shape": "JSON envelope with spawn / renew / list / gc / release" }
+        ],
+        "errors": [
+          { "name": "lease conflict", "code": "LEASE_CONFLICT" }
+        ]
+      },
+      "invariants": [
+        "Every spawn writes a lease; every terminal heartbeat fires a release; gc never runs against an in-flight lease",
+        "The lease store is a pure-function module; atomic FS writes happen at the CLI command",
+        "Auto-release on terminal heartbeat is best-effort but idempotent: duplicate release is a no-op"
+      ],
+      "forbiddenChanges": [
+        "Spawning a worktree without writing a corresponding lease row",
+        "Running gc against a lease whose heartbeat is still active"
+      ],
+      "sourceFiles": [
+        "src/services/worktree/worktree-lease.ts",
+        "src/services/dispatch/sub-agent-dispatcher.ts",
+        "src/services/dispatch/await-batch.ts",
+        "tests/integration/worktree-lease-lifecycle.test.ts",
+        "tests/integration/dispatch-isolation-lifecycle.test.ts"
+      ]
+    },
+    {
+      "journeyId": "J13",
+      "intent": "Draft → edit → tone check → publish → archive moves through the gates.",
+      "observable": {
+        "inputs": [
+          { "name": "content brief", "shape": "natural-language topic or draft path" }
+        ],
+        "outputs": [
+          { "name": "published artifact + archive version", "shape": "JSON envelope with stage transitions" }
+        ],
+        "errors": [
+          { "name": "tone check failure", "code": "TONE_CHECK_FAILED" }
+        ]
+      },
+      "invariants": [
+        "Every stage transition (draft → edit → tone-check → publish → archive) is recorded in the workflow state machine",
+        "A tone-check or compliance-gate failure halts the lifecycle; partial publish is rejected",
+        "The skill does NOT import peaks-code internals; it reuses the Loop Engineering primitives"
+      ],
+      "forbiddenChanges": [
+        "Skipping the tone-check gate to publish faster",
+        "Importing peaks-code domain logic into peaks-content"
+      ],
+      "sourceFiles": [
+        "skills/peaks-content/SKILL.md",
+        ".peaks/standards/loop-engineering-guidelines.md",
+        "src/services/workflow/workflow-router-service.ts"
+      ]
+    },
+    {
+      "journeyId": "J14",
+      "intent": "Triage → classify → reference merged-PRs → fix → commit → PR draft.",
+      "observable": {
+        "inputs": [
+          { "name": "target repo + issue range", "shape": "natural-language description or flag" }
+        ],
+        "outputs": [
+          { "name": "per-issue PR description files + submit script", "shape": "JSON envelope with PR body files" }
+        ],
+        "errors": [
+          { "name": "rubric-banned target", "code": "SECURITY_CRITICAL_BLOCK" }
+        ]
+      },
+      "invariants": [
+        "Every fix carries an AI-modified declaration in the commit body (RL-3)",
+        "Rubric-banned targets (OAuth / secrets / agent-loop / prompt-cache) are refused before any commit",
+        "Per-batch commits land on per-batch branches with normalized PR bodies"
+      ],
+      "forbiddenChanges": [
+        "Fixing issues on a security-critical hot path (auth / secrets / agent loop / prompt cache)",
+        "Skipping the AI-modified declaration to ship faster"
+      ],
+      "sourceFiles": [
+        "skills/peaks-issue-fix-orchestrator/SKILL.md",
+        ".peaks/standards/loop-engineering-guidelines.md"
+      ]
+    },
+    {
+      "journeyId": "J15",
+      "intent": "A change is archived only when its `Capability Mapping` block matches the c8 coverage summary.",
+      "observable": {
+        "inputs": [
+          { "name": "change-id + coverage-summary.json", "shape": "flag + capability mapping block" }
+        ],
+        "outputs": [
+          { "name": "archive lock + freeze envelope", "shape": "JSON envelope with archive-applied status" }
+        ],
+        "errors": [
+          { "name": "coverage mismatch", "code": "COVERAGE_MISMATCH" }
+        ]
+      },
+      "invariants": [
+        "Pre-cond 2 (Coverage Evidence) is enforced: capability rows must be marked 'covered' AND coverage-summary.json must agree",
+        "Coverage-summary discovery order is fixed: <projectRoot>/coverage/coverage-summary.json then /openspec/coverage-summary.json",
+        "--force compounds with coverageGateBypassed + coverageMismatchBypassed flags; never silent"
+      ],
+      "forbiddenChanges": [
+        "Allowing archive without a ## Capability Mapping block in proposal.md",
+        "Bypassing the c8 cross-check without the explicit bypass flags"
+      ],
+      "sourceFiles": [
+        "src/services/openspec/openspec-archive-service.ts",
+        "src/services/openspec/coverage-evidence-reader.ts",
+        "tests/integration/openspec-archive-coverage-gate-e2e.test.ts"
+      ]
+    }
+  ]
+}
