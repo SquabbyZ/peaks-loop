@@ -12,7 +12,9 @@ describe('crossCheck', () => {
     expect(r.guardVsAudit).toBe('diverge');
   });
   it('returns partial when sources only partially agree', () => {
-    const r = crossCheck({ guardPass: 4, guardFail: 1, independentPass: 3, independentFail: 2, karpathy: 'warn' });
+    // guardVerdict=fail (guardFail=2>0), indepVerdict=pass (indepFail=0),
+    // |guardPass-indepPass|=|2-1|=1 <= 1 => partial
+    const r = crossCheck({ guardPass: 2, guardFail: 2, independentPass: 1, independentFail: 0, karpathy: 'warn' });
     expect(r.guardVsAudit).toBe('partial');
   });
 });
