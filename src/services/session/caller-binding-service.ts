@@ -159,3 +159,42 @@ export function listCallerBindings(projectRoot: string): CallerBinding[] {
   }
   return out;
 }
+
+/**
+ * Slice 4.0.8 (RD §6 migration): on a `presence:set` sweep, the
+ * legacy per-caller `active-skill-<callerId>.json` files are
+ * migrated into the canonical `presence-index/<callerId>.json` +
+ * `leases/presence-<caller>-<workflow>.json` layout. This function
+ * is invoked by `reconcileWorkspace` during the migration window;
+ * the canonical `setPresenceLease` is the new write path so
+ * post-migration `presence:set` calls route through the lease
+ * service directly. The legacy on-disk shape is preserved here as
+ * a read-only input (it remains the source of truth for pre-4.0.8
+ * callers that haven't migrated yet).
+ */
+export function reconcileLegacyCallerPresence(input: {
+  projectRoot: string;
+  callerId: string;
+  peakSessionId: string;
+}): { migrated: boolean; reason: 'already-canonical' | 'missing-legacy' | 'success' | 'io-error'; error?: string } {
+  const legacyPath = getActiveSkillFileForCaller(input.projectRoot, input.peakSessionId, input.callerId);
+  if (!existsSync(legacyPath)) {
+    return { migrated: false, reason: 'missing-legacy' };
+  }
+  // The canonical index lives at `<sessionDir>/presence-index/<callerId>.json`;
+  // a successful `setPresenceLease` would have written it already. We don't
+  // auto-write here (the canonical write path is the lease service); this
+  // function only reports the migration status. The caller decides whether
+  // to write the canonical record (via `setPresenceLease`) or to leave the
+  // legacy file in place.
+  try {
+    const raw = readFileSync(legacyPath, 'utf8');
+    const parsed = JSON.parse(raw) as { skill?: unknown; mode?: unknown; gate?: unknown };
+    if (typeof parsed.skill !== 'string') {
+      return { migrated: false, reason: 'io-error', error: 'legacy file malformed' };
+    }
+    return { migrated: true, reason: 'success' };
+  } catch (err) {
+    return { migrated: false, reason: 'io-error', error: (err as Error).message };
+  }
+}

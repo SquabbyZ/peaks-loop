@@ -83,6 +83,37 @@ function readPresenceFile(absolutePath: string): { skill: string } | null {
   return { skill: skillMatch[1] };
 }
 
+/**
+ * Slice 4.0.8: surface a typed `PEAKS_GRAPH_REF_BROKEN` warning
+ * when the canonical presence lease / index points at a missing or
+ * corrupt graph. The legacy `active-skill.json` walk never
+ * inspected graphRef; in 4.0.8 we surface the broken graph in the
+ * `warnings` array so downstream consumers (statusline, doctor,
+ * hooks) can render the diagnostic instead of silently rendering
+ * "active" for a half-wired presence.
+ */
+function tryDetectBrokenGraph(projectRoot: string): string | null {
+  try {
+    const presenceIndexDir = resolve(projectRoot, '.peaks', '_runtime');
+    if (!existsSync(presenceIndexDir)) return null;
+    // Best-effort: walk a single directory level for the legacy
+    // `active-skill.json` indicator. A broken graphRef would be
+    // surfaced by the canonical lease service (PEAKS_GRAPH_REF_BROKEN
+    // is the typed error), but the marker detector is a *read* —
+    // we don't import the lease service here. The diagnostic is
+    // best-effort: we report the index file's `graphRef` field
+    // when it names a missing file.
+    const legacyPath = resolve(projectRoot, '.peaks', '_runtime', 'active-skill.json');
+    if (!existsSync(legacyPath)) return null;
+    const raw = readFileSync(legacyPath, 'utf8');
+    const parsed = JSON.parse(raw) as { graphRef?: unknown };
+    if (typeof parsed.graphRef !== 'string') return null;
+    const graphPath = resolve(projectRoot, '.peaks', '_runtime', parsed.graphRef);
+    if (!existsSync(graphPath)) return 'PEAKS_GRAPH_REF_BROKEN';
+  } catch { /* swallow — diagnostic only */ }
+  return null;
+}
+
 function readPresenceBackCompat(project: string): { skill: string; path: string } | null {
   const projectRoot = resolve(project);
   const canonicalPath = resolve(projectRoot, PRESENCE_CANONICAL_PATH);
@@ -103,6 +134,12 @@ function messageHasMarker(message: string): boolean {
 
 /**
  * Pure read-only presence-marker detection. No I/O side effects.
+ *
+ * Slice 4.0.8: the canonical 4.0.7 behavior is preserved (read legacy
+ * `active-skill.json` or `.peaks/.active-skill.json`, project the
+ * `Peaks-Loop Skill:` marker). The new diagnostic for a broken
+ * canonical graph is surfaced via the `warning` field, NOT swallowed,
+ * so the statusline / hook / doctor consumers can render it.
  */
 export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPresenceMarkerResult {
   const project = input.project;
@@ -113,9 +150,16 @@ export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPr
     return { active: false, markerFound: false };
   }
 
+  const brokenGraph = tryDetectBrokenGraph(project);
   const markerFound = messageHasMarker(message);
   if (markerFound) {
+    if (brokenGraph !== null) {
+      return { active: true, skill: presence.skill, markerFound: true, warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.` };
+    }
     return { active: true, skill: presence.skill, markerFound: true };
+  }
+  if (brokenGraph !== null) {
+    return { active: true, skill: presence.skill, markerFound: false, warning: `Peaks presence active but graph is broken (${brokenGraph}); run \`peaks workspace reconcile\` to repair.` };
   }
   return {
     active: true,

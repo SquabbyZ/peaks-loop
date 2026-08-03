@@ -69,8 +69,26 @@ type FailableStage = Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
 export interface AutoCompactInput {
   /** Project root for context (default cwd). */
   readonly projectRoot: string;
-  /** Caller-provided in-flight batch probe (default false). */
+  /**
+   * Caller-provided in-flight batch probe (default false). Slice
+   * 4.0.8 (D4d): production callers should pass a `probeInflightBatch`
+   * function (see below). The legacy `inFlightBatch` boolean
+   * remains as a TEST-ONLY seam — the CLI gates it behind
+   * `process.env.PEAKS_TEST_SEAM === '1'` so a production run
+   * never consults the boolean as truth.
+   */
   readonly inFlightBatch?: InFlightBatchProbe | undefined;
+  /**
+   * Slice 4.0.8 (D4d): graph-only in-flight probe. When supplied,
+   * the orchestrator calls this function and uses the boolean
+   * result as the production `inFlightBatch` signal. The legacy
+   * boolean parameter is suppressed in production callers — the
+   * CLI's `--in-flight-batch` flag is gated behind
+   * `PEAKS_TEST_SEAM === '1'`. The pure decision function
+   * `evaluateAutoCompactDecision` retains the boolean signature
+   * for the test seam + the red-line override.
+   */
+  readonly probeInflightBatch?: (() => boolean) | undefined;
   /**
    * Force execute even when ratio < threshold (test seam). In
    * production this is always `false` — peaks-loop drives compact
@@ -209,7 +227,20 @@ export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 's
  */
 export function evaluateAutoCompactDecision(input: {
   ratio: number;
-  inFlightBatch?: InFlightBatchProbe | undefined;
+  /**
+   * Caller-provided in-flight batch signal. Accepts either a plain
+   * boolean (convenience / repro seam) or the full `InFlightBatchProbe`
+   * shape (production callers — graph-probe-backed). When the boolean
+   * form is `true`, the normalized probe carries
+   * `hasInFlightBatch: true`. Slice 4.0.8 hotfix.
+   */
+  inFlightBatch?: boolean | InFlightBatchProbe | undefined;
+  /**
+   * Legacy camelCase alias for `inFlightBatch`. Production repro
+   * inputs use `inflightBatch: true|false`; the orchestrator
+   * normalizes it to the same internal shape. Slice 4.0.8 hotfix.
+   */
+  inflightBatch?: boolean | InFlightBatchProbe | undefined;
   force?: boolean | undefined;
   bypassRedLine?: boolean | undefined;
   mode?: AutoCompactMode | undefined;
@@ -220,21 +251,38 @@ export function evaluateAutoCompactDecision(input: {
    * carve-out for the Mac-only `transcript-estimate` signal.
    */
   source?: string | undefined;
-}): { shouldCompact: boolean; reason: 'below-threshold' | 'in-flight-batch' | 'pre-compact' | 'red-line'; trigger: CompactTrigger } {
+}): {
+  shouldCompact: boolean;
+  reason: 'below-threshold' | 'in-flight-batch' | 'pre-compact' | 'red-line';
+  trigger: CompactTrigger;
+  /** Typed verdict enum (RD §4 24h-mode contract). Slice 4.0.8 hotfix. */
+  action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' | 'defer';
+} {
   const trigger = evaluateCompactTrigger(input.ratio, input.mode ?? 'standard');
-  if (trigger.kind === 'none' || trigger.kind === 'soft-warn') {
-    return { shouldCompact: false, reason: 'below-threshold', trigger };
+  // Normalize both `inFlightBatch` and `inflightBatch` (boolean | probe)
+  // into a single `InFlightBatchProbe` shape. The probe reads
+  // `hasInFlightBatch`; the boolean reads truthiness.
+  const rawProbe = input.inFlightBatch ?? input.inflightBatch;
+  const probe: InFlightBatchProbe | undefined =
+    typeof rawProbe === 'boolean'
+      ? { hasInFlightBatch: rawProbe }
+      : rawProbe;
+  if (trigger.kind === 'none') {
+    return { shouldCompact: false, reason: 'below-threshold', trigger, action: 'ok' };
+  }
+  if (trigger.kind === 'soft-warn') {
+    return { shouldCompact: false, reason: 'below-threshold', trigger, action: 'soft-warn' };
   }
   if (trigger.kind === 'red-line') {
     // Red line: ignore in-flight batch — synchronous dispatch wins.
-    return { shouldCompact: true, reason: 'red-line', trigger };
+    return { shouldCompact: true, reason: 'red-line', trigger, action: 'red-line' };
   }
   // pre-compact zone (0.85 ≤ ratio < 0.95): honor D6.e in-flight deferral.
-  if (input.inFlightBatch?.hasInFlightBatch === true) {
-    return { shouldCompact: false, reason: 'in-flight-batch', trigger };
+  if (probe?.hasInFlightBatch === true) {
+    return { shouldCompact: false, reason: 'in-flight-batch', trigger, action: 'defer' };
   }
   if (input.force) {
-    return { shouldCompact: true, reason: 'pre-compact', trigger };
+    return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
   }
   // Slice 2026-07-31-rid-mac-transcript-estimate-trigger: transcript-estimate
   // is the ONLY signal available on Mac Claude Code (no env-var, no statusline
@@ -244,9 +292,9 @@ export function evaluateAutoCompactDecision(input: {
   // Mac auto-compact silent-failure mode without an audit. No higher-priority
   // source is present (`claude-code-env` would have been P1, `statusline-poll`
   // P2, `user-overridden` P4) — Mac's only signal is `transcript-estimate`.
-  if (input.source === 'transcript-estimate' && input.ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO) return { shouldCompact: true, reason: 'pre-compact', trigger };
+  if (input.source === 'transcript-estimate' && input.ratio >= AUTO_COMPACT_PRE_COMPACT_RATIO) return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
   // Default: peaks-loop drives pre-compact autonomously.
-  return { shouldCompact: true, reason: 'pre-compact', trigger };
+  return { shouldCompact: true, reason: 'pre-compact', trigger, action: 'auto-compact-now' };
 }
 
 /**
@@ -667,7 +715,17 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
   const decision = evaluateAutoCompactDecision({
     ratio: probe.ratio,
-    inFlightBatch: input.inFlightBatch,
+    // Slice 4.0.8 (D4d): production `inFlightBatch` MUST come from
+    // the graph probe (see `workflow-inflight-probe.ts`). The
+    // legacy boolean is preserved as a TEST-ONLY seam: when
+    // `probeInflightBatch` is supplied, we call it and pass the
+    // result as a `InFlightBatchProbe` so the pure decision function
+    // sees a graph-backed value. When only the boolean is
+    // supplied, we treat it as the test seam (the CLI gates it
+    // behind `PEAKS_TEST_SEAM === '1'`).
+    inFlightBatch: input.probeInflightBatch !== undefined
+      ? { hasInFlightBatch: input.probeInflightBatch() }
+      : input.inFlightBatch,
     force: input.force,
     bypassRedLine: input.bypassRedLine,
     mode,

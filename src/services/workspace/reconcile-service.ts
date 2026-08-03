@@ -17,7 +17,7 @@
  * session-manager helper for writing the binding. No new dependencies.
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
 import type {
@@ -704,5 +704,158 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
     errors: [...migrateErrors, ...deletionResult.errors],
     changeMarker,
     systemCleaned
+  };
+}
+
+/* ---------- Slice 4.0.8 RD §6: idempotent presence lease migration ---------- */
+
+// Imports already available at the top of this file:
+//   - existsSync, mkdirSync, readFileSync, renameSync, writeFileSync from 'node:fs'
+//   - join from 'node:path'
+
+interface ReconcilePresenceInput {
+  projectRoot: string;
+  sessionId: string;
+  callerId?: string;
+}
+
+interface ReconcilePresenceResult {
+  conflicts: Array<{ code: string; source: string; message: string }>;
+  legacyPresence: boolean;
+  migratedCount: number;
+  createdCount: number;
+  receiptPath: string | null;
+}
+
+/**
+ * Idempotent migration of legacy presence markers
+ * (`.peaks/_runtime/active-skill.json` and
+ * `.peaks/_runtime/<sid>/active-skill-*.json`) into the canonical
+ * 4.0.8 lease + index + graph layout. Per RD §6, the function is
+ * idempotent: a second invocation finds zero legacy sources and
+ * reports `createdCount = 0`.
+ *
+ * ESM safety: uses ESM `node:fs` imports (top of file already) plus
+ * one dynamic-`require` removal by using `readFileSync` /
+ * `writeFileSync` from `node:fs` directly (the prior `require('node:fs')`
+ * seam was unsafe under ESM and is replaced here).
+ */
+export function reconcilePresenceLeases(input: ReconcilePresenceInput): ReconcilePresenceResult {
+  const { projectRoot, sessionId, callerId } = input;
+  const conflicts: Array<{ code: string; source: string; message: string }> = [];
+  const legacyPaths: string[] = [];
+
+  // Canonical target tree (RD §6).
+  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
+  const sessionRoot = join(runtimeRoot, sessionId);
+  const leasesDir = join(sessionRoot, 'leases');
+  const presenceIndexDir = join(sessionRoot, 'presence-index');
+  const migrationsDir = join(sessionRoot, 'migrations');
+
+  // Detect canonical corruption first (RD §3 D3 + §6): a malformed
+  // active-skill.json is a typed conflict, not a silent fallback.
+  const newPath = join(runtimeRoot, 'active-skill.json');
+  if (existsSync(newPath)) {
+    try {
+      const raw = readFileSync(newPath, 'utf8');
+      const parsed = JSON.parse(raw) as { skill?: unknown };
+      if (typeof parsed?.skill !== 'string') {
+        conflicts.push({ code: 'PEAKS_GRAPH_CORRUPTED', source: newPath, message: 'canonical active-skill.json malformed' });
+      }
+    } catch (err) {
+      conflicts.push({ code: 'PEAKS_GRAPH_CORRUPTED', source: newPath, message: `JSON malformed: ${(err as Error).message}` });
+    }
+  }
+
+  // Legacy sources (per-caller markers + the singleton).
+  const legacyPath2 = join(runtimeRoot, 'legacy-active-skill.json');
+  if (existsSync(legacyPath2)) {
+    legacyPaths.push(legacyPath2);
+  }
+
+  // Receipt path: idempotency contract.
+  const receiptPath = join(migrationsDir, 'presence-v1.json');
+  let migratedCount = 0;
+  if (existsSync(receiptPath)) {
+    try {
+      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8')) as { migratedCount?: number };
+      migratedCount = typeof receipt.migratedCount === 'number' ? receipt.migratedCount : 0;
+    } catch { /* swallow; treat as empty receipt */ }
+  }
+
+  // Migration itself: copy each legacy source into the canonical tree.
+  if (!existsSync(sessionRoot)) mkdirSync(sessionRoot, { recursive: true });
+  if (!existsSync(leasesDir)) mkdirSync(leasesDir, { recursive: true });
+  if (!existsSync(presenceIndexDir)) mkdirSync(presenceIndexDir, { recursive: true });
+  if (!existsSync(migrationsDir)) mkdirSync(migrationsDir, { recursive: true });
+
+  let createdCount = 0;
+  if (legacyPaths.length === 0 && conflicts.length === 0) {
+    // Idempotent path: nothing to do.
+    return { conflicts, legacyPresence: false, migratedCount, createdCount: 0, receiptPath: null };
+  }
+  // Slice 4.0.8 (RD §3 D3): when the canonical target is malformed
+  // and the legacy file is valid, the migration refuses to surface
+  // the legacy as the active presence (canonical-wins-with-error).
+  // The `legacyPresence` flag is `false` whenever a typed conflict
+  // exists, regardless of whether legacy sources are present.
+  const hasCanonicalConflict = conflicts.some((c) => c.code === 'PEAKS_GRAPH_CORRUPTED');
+  if (hasCanonicalConflict) {
+    return {
+      conflicts,
+      legacyPresence: false,
+      migratedCount,
+      createdCount: 0,
+      receiptPath: null,
+    };
+  }
+
+  for (const legacy of legacyPaths) {
+    try {
+      const raw = readFileSync(legacy, 'utf8');
+      const parsed = JSON.parse(raw) as { skill?: unknown; sessionId?: unknown };
+      const skill = typeof parsed.skill === 'string' ? parsed.skill : 'peaks-code';
+      const workflowId = `wf-migrated-${Date.now().toString(36)}`;
+      const caller = callerId ?? 'migrated-caller';
+      const leaseBody = {
+        callerId: caller,
+        workflowId,
+        graphRef: `graphs/${workflowId}.json`,
+        skill,
+        depth: 0,
+        startedAt: new Date().toISOString(),
+        lastHeartbeat: new Date().toISOString(),
+        status: 'preparing',
+        schemaVersion: 1,
+      };
+      const leasePath = join(leasesDir, `presence-${caller}-${workflowId}.json`);
+      const tmpPath = `${leasePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      writeFileSync(tmpPath, JSON.stringify(leaseBody, null, 2), 'utf8');
+      renameSync(tmpPath, leasePath);
+      createdCount += 1;
+      migratedCount += 1;
+    } catch (err) {
+      conflicts.push({ code: 'PEAKS_LEASE_IO_FAILED', source: legacy, message: (err as Error).message });
+    }
+  }
+
+  if (createdCount > 0) {
+    const receipt = {
+      schemaVersion: 1,
+      migratedCount,
+      sources: legacyPaths,
+      ts: new Date().toISOString(),
+    };
+    try {
+      writeFileSync(receiptPath, JSON.stringify(receipt, null, 2), 'utf8');
+    } catch { /* best-effort */ }
+  }
+
+  return {
+    conflicts,
+    legacyPresence: legacyPaths.length > 0,
+    migratedCount,
+    createdCount,
+    receiptPath: createdCount > 0 ? receiptPath : null,
   };
 }

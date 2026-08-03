@@ -8,6 +8,8 @@ import { detectPresenceMarker } from '../../../services/hooks/presence-marker-de
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { generateProjectContext } from '../../../services/memory/project-context-service.js';
 import { getSessionId, setSessionMeta } from '../../../services/session/session-manager.js';
+import { resolveCallerProjection } from '../../../services/session/resolve-caller-id.js';
+import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -193,7 +195,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('presence:set <name>')
-      .description('Set the currently active Peaks skill for session-wide visibility')
+      .description('Set the currently active Peaks skill for session-wide visibility. Slice 4.0.8: requires a bound session and an adapter-resolved caller id (fail-closed); raw unlink is rejected.')
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
@@ -211,20 +213,45 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
       return;
     }
+    // Slice 4.0.8 (D1 + D2): `presence:set` is fail-closed. We refuse
+    // any write when (a) no peaks session is bound, or (b) the active
+    // IDE adapter cannot resolve a valid callerId. Both failures
+    // surface BEFORE any filesystem write. The legacy
+    // `setSkillPresence` wrapper is kept as a compat shim for tests
+    // and CLI flows that intentionally do not need a session — but
+    // production CLI traffic must go through this gate.
+    const boundSessionId = getSessionId(projectRoot);
+    if (boundSessionId === null) {
+      printResult(
+        io,
+        fail('skill.presence:set', 'PEAKS_SESSION_NOT_BOUND',
+          'No canonical peaks session is bound for this project (RD §3 D1).',
+          { projectRoot, name },
+          ['Run `peaks workspace init --project <p>` first, then re-run `peaks skill presence:set`.']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      resolveCallerProjection({ projectRoot });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      printResult(
+        io,
+        fail('skill.presence:set', 'PEAKS_CALLER_NOT_RESOLVED',
+          `Active IDE adapter could not resolve a callerId (RD §3 D1): ${message}`,
+          { projectRoot, name },
+          ['Ensure the active IDE is detected by `peaks` and the IDE session variable is set.',
+           'Or pass PEAKS_CALLER_ID=<id> or --caller-id <id> for scripted usage.']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
     const presence = setSkillPresence(name, options.mode, options.gate, options.project);
-    // As of slice 003-2026-06-06-session-layout-canonicalize we do NOT
-    // call `ensureSession` here. The CLI wrapper previously spawned a
-    // new session on every presence call, which made the canonical
-    // session binding drift (the LLM saw the session id change every
-    // turn). The presence now reuses the session bound at
-    // `.peaks/_runtime/session.json` (or the legacy `.peaks/.session.json`
-    // during the back-compat window). If no session is bound, the
-    // presence still writes the active-skill marker — downstream code
-    // can `peaks workspace init` separately to create the session.
-    //
     // Session metadata is updated when a session is bound (read-only
     // path: `getSessionId`). We do not auto-spawn a session.
-    const boundSessionId = getSessionId(projectRoot);
     if (boundSessionId !== null) {
       setSessionMeta(projectRoot, boundSessionId, {
         skill: name,
@@ -238,10 +265,18 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('presence:clear')
-      .description('Clear the active Peaks skill presence indicator and update project context')
+      .description('Clear the active Peaks skill presence indicator. Slice 4.0.8: routes workflow leases through `workflow terminalize`; only session-exit may clear ad-hoc leases. Raw unlink is FORBIDDEN.')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action(async (options: { project?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    // Slice 4.0.8 (DR): `presence:clear` is a workflow terminalizer,
+    // not a raw unlink. For workflow-bound leases the call is routed
+    // through `workflow terminalize` (canonical in
+    // workflow-presence-lifecycle.ts). Ad-hoc (non-workflow) leases
+    // remain terminalizable only via session exit. We delegate to the
+    // compat shim `clearSkillPresence`, which the compat wrapper
+    // re-routes to `terminalizePresenceLease` when a workflow
+    // binding is present.
     const removed = clearSkillPresence(options.project);
     // Auto-update project context so future sessions have up-to-date history.
     // Slice 2026-07-15-project-scan-bootstrap: generateProjectContext now also
@@ -253,6 +288,48 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       // non-fatal: context update failure should not block presence clear
     }
     printResult(io, ok('skill.presence:clear', { active: false, removed, projectContextUpdated: true }), options.json);
+  });
+
+  // Slice 4.0.8 (RD §4): manual lease GC primitive. LLM-coordinated;
+  // never a user-typed requirement. The user / LLM runner invokes
+  // `peaks skill lease gc --project <p>` to drain leases that meet
+  // both stale predicates (24h start AND 1h heartbeat) for the
+  // canonical project. Returns a typed envelope so the runner can
+  // branch on the aggregate counters.
+  // Note: `.command('lease gc')` implicitly creates the `lease`
+  // parent under `skill`; we MUST NOT also call `.command('lease')`
+  // separately, or Commander.js throws "cannot add command 'lease' as
+  // already have command 'lease'" at startup.
+  addJsonOption(
+    skill
+      .command('lease gc')
+      .description('Manually sweep stale presence leases for the canonical project. Both predicates required: now - lastHeartbeat > 1h AND now - startedAt > 24h. Drained leases are classified; corrupt graphs surface as PEAKS_GRAPH_REF_BROKEN warnings and are excluded.')
+      .option('--project <path>', 'project root (default: cwd)')
+      .option('--now <iso>', 'override the current time (test seam)')
+  ).action(async (options: { project?: string; now?: string; json?: boolean }) => {
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    try {
+      const result = await gcStalePresenceLeases({
+        projectRoot,
+        ...(options.now !== undefined ? { now: options.now } : {}),
+        trigger: 'manual',
+      });
+      printResult(io, ok('skill.lease.gc', {
+        envelopeVersion: '4.0.8',
+        removed: result.removed,
+        retained: result.retained,
+        trigger: result.trigger,
+        inFlightBatch: result.inFlightBatch,
+        warnings: result.warnings,
+        errors: result.errors,
+      }, result.warnings.map((w) => `${w.code}: ${w.message}`), [
+        'GC predicate: now - lastHeartbeat > 1h AND now - startedAt > 24h (RD §3 D2 + D3).',
+        'Re-run `peaks workspace init` or `peaks skill presence:set` to sweep the same project on the bound trigger.',
+      ]), options.json);
+    } catch (err) {
+      printResult(io, fail('skill.lease.gc', 'PEAKS_LEASE_GC_FAILED', getErrorMessage(err), { projectRoot }, ['Re-run with a valid --project and ensure the session is bound.']), options.json);
+      process.exitCode = 1;
+    }
   });
 
   // Slice 002 (v2.15.0) — AC-1: presence staleness detector.

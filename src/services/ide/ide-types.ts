@@ -161,6 +161,21 @@ export interface IdeAdapter {
    * other IDEs without changing this signature (optional method).
    */
   readonly detectCurrentModel?: () => Promise<string | undefined>;
+  /**
+   * Slice 4.0.8 presence-lease-graph (RD §5): per-IDE caller-id resolution.
+   *
+   * Returns the calling window's `callerId` derived from the IDE's own
+   * session signal (e.g. `CLAUDE_CODE_SESSION_ID` for Claude Code). The
+   * adapter owns the priority rules (vendor-neutral override first, then
+   * the IDE-declared variable). Empty / missing / unsupported values
+   * resolve to a thrown `PEAKS_CALLER_NOT_RESOLVED` error so the CLI
+   * boundary can surface a typed envelope.
+   *
+   * Core presence / graph services MUST accept `callerId` as an argument
+   * and never inspect vendor env vars. Vendor neutrality is preserved by
+   * funnelling all vendor signal through this method.
+   */
+  readonly resolveCallerId: (env?: NodeJS.ProcessEnv) => string;
 }
 
 /**

@@ -115,7 +115,7 @@ export interface DispatchRecord {
    * truth for "this record is v3.1-form"; readers check
    * `version === '3.1'` for forward-compatible dispatching.
    */
-  readonly version: '3.2';
+  readonly version: '4.0.0';
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly outcome: DispatchOutcome;
@@ -198,6 +198,22 @@ export interface DispatchRecord {
    * merge transcript.
    */
   readonly mergeBackAttempts: number;
+  /**
+   * Slice 4.0.8 RD §4 D4c (presence-lease-graph): the workflow id +
+   * graph node id + graphRef this dispatch is bound to. Persisted
+   * directly in the dispatch record (NOT in a sidecar) so the
+   * envelope-writer `markCompleted` can auto-transition the bound
+   * graph node to `envelope-received` with `ackStatus=pending` in
+   * one protected update.
+   *
+   * The schema bump from `3.2 → 4.0.0` is BREAKING in the sense
+   * that the literal type is narrowed. The optional `?` keeps back-
+   * compat for old records that pre-date the binding (the
+   * `upgradeRecord` reader defaults them to `null`).
+   */
+  readonly workflowId: string | null;
+  readonly graphNodeId: string | null;
+  readonly graphRef: string | null;
 }
 
 /** Input for the initial write. */
@@ -227,6 +243,14 @@ export type WriteInitialDispatchInput = {
    * time when `--isolation` is requested.
    */
   isolationStartedAt?: string | null;
+  /**
+   * Slice 4.0.8: workflow graph binding for the dispatch. Defaults
+   * to `null` so a non-graph dispatch (legacy CLI flow, ad-hoc
+   * dispatch) still writes a v4.0.0 record.
+   */
+  workflowId?: string | null;
+  graphNodeId?: string | null;
+  graphRef?: string | null;
 };
 
 /** Heartbeat write input. */
@@ -277,7 +301,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
   const record: DispatchRecord = {
-    version: '3.2',
+    version: '4.0.0',
     createdAt: now().toISOString(),
     completedAt: null,
     outcome: 'no-execution',
@@ -324,7 +348,14 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     // New records start with empty serviceKill and zero attempts;
     // the merge-back-runner (Task 9) populates them in place.
     serviceKill: [],
-    mergeBackAttempts: 0
+    mergeBackAttempts: 0,
+    // Slice 4.0.8: workflow graph binding (RD §4 D4c). Defaults to
+    // `null` for legacy / ad-hoc dispatches that do not bind a graph
+    // node; v4.0.0 schema is structural (required field), so a `null`
+    // is the explicit "no binding" state.
+    workflowId: typeof input.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.workflowId) ? input.workflowId : null,
+    graphNodeId: typeof input.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.graphNodeId) ? input.graphNodeId : null,
+    graphRef: typeof input.graphRef === 'string' && input.graphRef.length > 0 ? input.graphRef : null,
   };
 
   writeAtomic(safePath, record);
@@ -719,6 +750,61 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
     writeAtomic(input.recordPath, next);
     return { record: next };
   });
+  // Slice 4.0.8 RD §4 D4c: after validating the artifact/envelope
+  // association with `dispatchRef`, automatically transition the
+  // bound graph node to `envelope-received` with
+  // `ackStatus=pending`. This is the auto-transition the parent
+  // ack protocol relies on — the canonical dispatch chain is
+  // `prepare -> dispatched -> running -> envelope-received -> consumed-by-parent`.
+  // The transition runs through `workflow-node-lifecycle.writeEnvelope`
+  // so the same typed error contract (PEAKS_ENVELOPE_GRAPH_MISMATCH,
+  // PEAKS_GRAPH_REF_BROKEN, etc.) is reused. Failures are swallowed
+  // (best-effort; the dispatch record itself is the source of truth
+  // and the transition is observable through the graph store).
+  if (result.record.workflowId !== null && result.record.graphNodeId !== null && result.record.graphRef !== null) {
+    try {
+      // Lazy ESM dynamic import: the graph lifecycle service is not
+      // on the dispatch hot path; it would be wasteful to import it
+      // for non-graph-bound dispatches. ESM dynamic import returns
+      // a promise; we do not await (best-effort) — the dispatch
+      // record write is the load-bearing artifact, and the graph
+      // node transition is observable to the next CLI call.
+      void (async () => {
+        try {
+          const lifecycleMod = await import('../workflow/workflow-node-lifecycle.js');
+          const storeMod = await import('../workflow/workflow-graph-store.js');
+          const sessionRoot = (() => {
+            try {
+              return storeMod.graphPathFor({
+                projectRoot: input.projectRoot ?? '',
+                sessionId: result.record.sessionId,
+                graphRef: result.record.graphRef ?? '',
+                workflowId: result.record.workflowId ?? '',
+              });
+            } catch { return null; }
+          })();
+          if (sessionRoot === null) return;
+          const graph = storeMod.readGraph({
+            projectRoot: input.projectRoot ?? '',
+            sessionId: result.record.sessionId,
+            graphRef: result.record.graphRef ?? '',
+            workflowId: result.record.workflowId ?? '',
+          });
+          const node = graph.nodes.find((n) => n.id === result.record.graphNodeId);
+          if (node === undefined) return;
+          // Use the dispatch record's path as the dispatchRef. The
+          // record itself is the load-bearing artifact; the
+          // graph-node transition is a derived side-effect.
+          const dispatchRef = input.recordPath;
+          lifecycleMod.writeEnvelope({
+            graphNode: node,
+            dispatchRef,
+            envelopeDispatchRef: dispatchRef,
+          });
+        } catch { /* best-effort graph transition */ }
+      })();
+    } catch { /* best-effort */ }
+  }
   // Slice 2026-06-23-audit-4th #A4: update the active-dispatches
   // index. Best-effort (the on-disk record is the source of truth);
   // we only attempt the update when the trusted projectRoot is
@@ -850,19 +936,14 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     throw new Error('Dispatch record root must be an object');
   }
   const obj = parsed as Record<string, unknown>;
-  // Slice 2026-07-29-rid-prose-only-sweep Part 34: the version
-  // field is now the literal '3.1'. Legacy v2 and v3 records
-  // (version: 2 or version: 3) are accepted transparently and
-  // upgraded to v3.1 on read. The forward-compat check rejects
-  // records with an unknown version string (which would
-  // indicate either a much-older build or a much-newer one
-  // with a schema we have not implemented). v1 records
-  // (pre-audit-trail) must be regenerated.
+  // Slice 4.0.8: 3.2 → 4.0.0 schema bump. The literal type narrows
+  // to '4.0.0' but legacy v3.2 / v3.1 / 3 / 2 / 1 records are
+  // accepted transparently and upgraded on read.
   const rawVersion = obj.version;
-  if (rawVersion !== '3.2' && rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
+  if (rawVersion !== '4.0.0' && rawVersion !== '3.2' && rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
     throw new Error(
-      `Dispatch record version mismatch: expected '3.2', '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
-      'The v1 → v3.2 migration is in-file; records from much older or newer builds must be regenerated.'
+      `Dispatch record version mismatch: expected '4.0.0', '3.2', '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
+      'The v1 → v4.0.0 migration is in-file; records from much older or newer builds must be regenerated.'
     );
   }
   const role = stringField(obj, 'role');
@@ -906,7 +987,7 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     : 'legacy-batch';
 
   return {
-    version: '3.2',
+    version: '4.0.0',
     createdAt,
     completedAt,
     outcome,
@@ -955,7 +1036,13 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
       : [],
     mergeBackAttempts: typeof obj.mergeBackAttempts === 'number' && Number.isFinite(obj.mergeBackAttempts) && obj.mergeBackAttempts >= 0
       ? Math.floor(obj.mergeBackAttempts)
-      : 0
+      : 0,
+    // Slice 4.0.8: 3.2 → 4.0.0 migration. v3.2 records on disk
+    // pre-date the workflow-graph binding; default all three
+    // fields to `null` so a legacy record upgrades transparently.
+    workflowId: typeof obj.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(obj.workflowId) ? obj.workflowId : null,
+    graphNodeId: typeof obj.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(obj.graphNodeId) ? obj.graphNodeId : null,
+    graphRef: typeof obj.graphRef === 'string' ? obj.graphRef : null
   };
 }
 

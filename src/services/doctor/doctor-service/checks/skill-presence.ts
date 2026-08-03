@@ -2,6 +2,14 @@
  * Check: skill presence current + freshness
  * (`skill-presence:current` and `skill-presence:freshness`).
  *
+ * Slice 4.0.8 (RD §3 + §4 D3): the diagnostic also surfaces
+ * stale / lost / broken-graph leases by running a `dry-run` GC
+ * summary through `gcStalePresenceLeases`. The summary carries
+ * `removed` / `retained` counts plus per-lease warnings (typed
+ * `PEAKS_GRAPH_REF_BROKEN`, `PEAKS_GRAPH_CORRUPTED`); the doctor
+ * surfaces them so the operator can run `peaks workspace reconcile`
+ * to repair.
+ *
  * Two checks sharing one read of the `presence` context field.
  *   - `skill-presence:current` is informational: passes when the
  *     presence is wired, with a message describing the active
@@ -62,7 +70,7 @@ function run({ options, presence }: DoctorContext): readonly DoctorCheck[] {
       checks.push({
         id: 'skill-presence:freshness',
         ok: false,
-        message: `Skill presence ${presence.skill} is stale (set ${presence.setAt}, ~${ageHours}h ago); run peaks skill presence:clear if the role has ended`
+        message: `Skill presence ${presence.skill} is stale (set ${presence.setAt}, ~${ageHours}h ago); run peaks skill presence:clear if the role has ended, or \`peaks skill lease gc\` to drain the canonical lease`
       });
     } else {
       checks.push({

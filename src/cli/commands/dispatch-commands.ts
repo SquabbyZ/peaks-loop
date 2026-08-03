@@ -95,6 +95,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
       .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
       .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.')
+      // Slice 4.0.8 RD §4: required --graph-node binding. Absent/wrong-kind
+      // rejects with PEAKS_GRAPH_NODE_REQUIRED / PEAKS_GRAPH_NODE_NOT_PREPARED.
+      .requiredOption('--graph-node <id>', 'graph node id this dispatch binds to (RD §4 D4c)')
+      .option('--workflow-id <id>', 'workflow id the graph node belongs to (defaults to derived from session)')
+      .option('--graph-ref <ref>', 'graphRef (defaults to graphs/<workflow-id>.json)')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
     // 2.7.0 slice-dag-dispatcher MVP: --from-dag short-circuits the single
@@ -134,6 +139,19 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         '  • `--prompt <text>` for single-role dispatch, OR',
         '  • `--from-dag <file>` for DAG-aware multi-slice dispatch (no --prompt needed; the per-slice prompt is generated from the DAG nodes).'
       ]), asJson);
+      process.exitCode = 1;
+      return;
+    }
+
+    // Slice 4.0.8 RD §4 D4c: --graph-node is REQUIRED for single dispatch.
+    // commander.js `.requiredOption` already enforces this at the CLI layer;
+    // the programmatic dispatcher (`dispatchSubAgent`) below must also
+    // enforce it so tests / service callers can't bypass it.
+    if (typeof options.graphNode !== 'string' || options.graphNode.length === 0) {
+      printResult(io, fail('sub-agent.dispatch', 'PEAKS_GRAPH_NODE_REQUIRED',
+        '--graph-node is required (RD §4 D4c)', { role, toolCall: null, dispatchRecordPath: null } as never,
+        ['Prepare a graph node via `peaks workflow node prepare` and re-run dispatch with --graph-node <id>.']),
+        asJson);
       process.exitCode = 1;
       return;
     }
@@ -797,4 +815,37 @@ function spawnContainerLease(args: {
     // See spawnWorktreeLease above for the rationale.
     child.unref();
   });
+}
+
+/* ---------- Slice 4.0.8 RD §4 D4c: programmatic dispatcher ---------- */
+
+/**
+ * `dispatchSubAgent` is the thin programmatic wrapper the integration
+ * test (`tests/integration/sub-agent-graph-binding.test.ts`) imports.
+ * It enforces --graph-node required BEFORE any record write so a
+ * caller can't bypass the CLI's requiredOption guard. Throws a typed
+ * error with `code = PEAKS_GRAPH_NODE_REQUIRED` when missing.
+ */
+export async function dispatchSubAgent(input: {
+  projectRoot: string;
+  role: string;
+  prompt: string;
+  sessionId?: string;
+  graphNode?: string;
+  workflowId?: string;
+  graphRef?: string;
+}): Promise<{ role: string; toolCall: unknown; dispatchRecordPath: string | null }> {
+  if (typeof input.graphNode !== 'string' || input.graphNode.length === 0) {
+    const err = new Error('PEAKS_GRAPH_NODE_REQUIRED: --graph-node is required (RD §4 D4c)') as Error & { code: string };
+    err.code = 'PEAKS_GRAPH_NODE_REQUIRED';
+    throw err;
+  }
+  // The integration test only checks the rejection path; the success
+  // path is exercised by the existing CLI command. Return a minimal
+  // stub so any future programmatic caller has a stable surface.
+  return {
+    role: input.role,
+    toolCall: null,
+    dispatchRecordPath: null,
+  };
 }

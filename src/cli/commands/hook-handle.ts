@@ -96,8 +96,11 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       // Other tools: allow (no-op; future events will be added here).
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
         // L2.1 P0 #1: code-commit-ban. Deny `git commit` / `git apply` from peaks-* skills
-        // BEFORE the SOP gate runs. The active skill is read from the per-caller
-        // active-skill file (see active-skill-resolver.ts).
+        // BEFORE the SOP gate runs. The active skill is read from the canonical
+        // lease projection (see active-skill-resolver.ts, slice 4.0.8).
+        // The envelope shape (skill / callerId / sessionId / source) is
+        // unchanged from 4.0.7; the underlying source is now
+        // `canonical` for the lease + index path.
         const activeSkill = resolveActiveSkillForCaller(projectRoot);
         if (activeSkill.skill !== null) {
           const codeDecision = evaluateCodeBan({ skill: activeSkill.skill, command: fallbackCommand });

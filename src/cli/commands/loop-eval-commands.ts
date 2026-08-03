@@ -113,9 +113,12 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
   // Renamed from `plan` to `graph` to avoid collision with the existing
   // `peaks workflow plan <read|refresh|detect-trigger>` family registered
   // by workflow-plan-commands.ts (slice 025).
+  // Reuse the existing `graph` parent if `registerWorkflowLifecycleCommand`
+  // already created one (it owns `peaks workflow graph show|list`).
+  const existingGraph = workflow.commands.find((c) => c.name() === 'graph');
+  const graphParent = existingGraph ?? workflow.command('graph').description('workflow graph read commands (slice A.3 dry-run + slice 4.0.8 lifecycle)');
   addJsonOption(
-    workflow
-      .command('graph')
+    graphParent
       .description('Slice A.3 dry-run: render the workflow graph (phases + parallel groups + evaluators + budget). No phase is executed.')
       .argument('<id>', 'workflow id')
       .requiredOption('--session <sid>', 'session id')

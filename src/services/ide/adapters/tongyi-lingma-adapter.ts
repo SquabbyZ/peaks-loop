@@ -44,5 +44,22 @@ export const TONGYI_LINGMA_ADAPTER: IdeAdapter = {
   capabilities: {
     gateEnforce: true,
     statusline: true
-  }
+  },
+  // Slice 4.0.8 RD §5: Tongyi Lingma vendor signal unverified — fail closed.
+  resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
+    const e = env ?? process.env;
+    const override = e.PEAKS_CALLER_ID;
+    if (typeof override === 'string' && override.trim().length > 0) {
+      const trimmed = override.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const candidate = e.TONGYI_LINGMA_SESSION_ID;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      const trimmed = candidate.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Tongyi Lingma vendor signal unverified') as Error & { code: string };
+    err.code = 'PEAKS_CALLER_NOT_RESOLVED';
+    throw err;
+  },
 };

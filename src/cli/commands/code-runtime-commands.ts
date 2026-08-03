@@ -30,6 +30,7 @@ import {
   JobShapeDecisionError
 } from '../../services/code/job-shape-decision.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import { probeInFlightBatch } from '../../services/workflow/workflow-inflight-probe.js';
 
 export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void {
   addJsonOption(
@@ -123,12 +124,38 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           process.exitCode = 1;
           return;
         }
+        // Slice 4.0.8 (D4d): production `inFlightBatch` MUST come from
+        // the workflow graph probe. The legacy `--in-flight-batch`
+        // boolean CLI flag is a TEST-ONLY seam (gated by
+        // `PEAKS_TEST_SEAM === '1'`). When the env flag is unset
+        // (the production case), we wire `probeInflightBatch` to the
+        // canonical `workflow-inflight-probe.ts` service so the
+        // production decision is graph-backed, not lease-age.
+        const isTestSeam = process.env.PEAKS_TEST_SEAM === '1';
         const result = await runAutoCompact({
           projectRoot: opts.project,
           sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? undefined,
-          inFlightBatch: opts.inFlightBatch === true
-            ? { hasInFlightBatch: true }
-            : undefined,
+          ...(isTestSeam && opts.inFlightBatch === true
+            ? { inFlightBatch: { hasInFlightBatch: true } }
+            : {}),
+          ...(!isTestSeam
+            ? {
+                probeInflightBatch: () => {
+                  // Synchronous probe: the workflow-inflight-probe
+                  // service is pure / synchronous (no I/O). The
+                  // empty `graphs` array is the production CLI
+                  // default — callers that want a richer fixture
+                  // (e.g. `peaks session 24h-mode`) should hand-roll
+                  // a probe and pass it via the orchestrator's
+                  // input. When no graph is materialized, the
+                  // probe returns `inFlightBatch: false`, matching
+                  // the 4.0.7 zero-pause contract for stock
+                  // projects.
+                  const out = probeInFlightBatch({ now: new Date().toISOString(), graphs: [] });
+                  return out.inFlightBatch === true;
+                },
+              }
+            : {}),
           force: opts.force === true,
           bypassRedLine: opts.bypassRedLine === true,
           mode: modeName

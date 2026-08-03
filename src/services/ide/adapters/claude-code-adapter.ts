@@ -102,4 +102,22 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     installStrategy: 'symlink',
     envVarOverride: 'PEAKS_CLAUDE_SKILLS_DIR',
   },
+  // Slice 4.0.8 RD §5: Claude Code resolves PEAKS_CALLER_ID (override) →
+  // CLAUDE_CODE_SESSION_ID. Empty/invalid → typed PEAKS_CALLER_NOT_RESOLVED.
+  resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
+    const e = env ?? process.env;
+    const override = e.PEAKS_CALLER_ID;
+    if (typeof override === 'string' && override.trim().length > 0) {
+      const trimmed = override.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const v = e.CLAUDE_CODE_SESSION_ID;
+    if (typeof v === 'string' && v.trim().length > 0) {
+      const trimmed = v.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: no Claude Code session id available') as Error & { code: string };
+    err.code = 'PEAKS_CALLER_NOT_RESOLVED';
+    throw err;
+  },
 };

@@ -73,7 +73,7 @@ export const TRAE_ADAPTER: IdeAdapter = {
   capabilities: {
     gateEnforce: true,
     statusline: true,
-  }
+  },
   // Standards: UNVERIFIED — see slice #012+ (Trae real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). The slice #011
   // framework lands; per-IDE values for Trae are a follow-up gated on
@@ -82,4 +82,22 @@ export const TRAE_ADAPTER: IdeAdapter = {
   // (CLAUDE.md + .claude/rules/**) with a stderr warning, and the
   // postinstall script writes skills + output-styles to the legacy
   // `~/.claude/{skills,output-styles}` paths with a stderr warning.
+  // Slice 4.0.8 RD §5: Trae resolves PEAKS_CALLER_ID (override) →
+  // TRAE_SESSION_ID. Empty/invalid → typed PEAKS_CALLER_NOT_RESOLVED.
+  resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
+    const e = env ?? process.env;
+    const override = e.PEAKS_CALLER_ID;
+    if (typeof override === 'string' && override.trim().length > 0) {
+      const trimmed = override.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const v = e.TRAE_SESSION_ID;
+    if (typeof v === 'string' && v.trim().length > 0) {
+      const trimmed = v.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: no Trae session id available') as Error & { code: string };
+    err.code = 'PEAKS_CALLER_NOT_RESOLVED';
+    throw err;
+  },
 };

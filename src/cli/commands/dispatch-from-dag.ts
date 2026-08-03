@@ -97,6 +97,28 @@ export async function runDispatchFromDag(
     return;
   }
 
+  // Slice 4.0.8 RD §4 D4c: each DAG node must map to an explicitly
+  // prepared workflow graph node before sub-agent dispatch. Reject
+  // unmapped nodes with PEAKS_GRAPH_NODE_REQUIRED. The mapping is
+  // carried via the `graphNode` annotation on each DAG node, OR — as
+  // a back-compat fallback for DAGs without the annotation — the
+  // DAG node id itself is treated as the graph node id. Either way,
+  // the graph node must be prepared (RD §3 D4c) before the dispatch
+  // CLI runs.
+  for (const node of dag.nodes) {
+    const graphNodeId = (node as { graphNode?: unknown }).graphNode;
+    const candidate = typeof graphNodeId === 'string' && graphNodeId.length > 0 ? graphNodeId : node.id;
+    if (typeof candidate !== 'string' || candidate.length === 0) {
+      printResult(io, fail('sub-agent.dispatch', 'PEAKS_GRAPH_NODE_REQUIRED',
+        `DAG node ${node.id} has no graph-node mapping (RD §4 D4c)`,
+        { role, toolCall: null, dispatchRecordPath: null, dagNodeId: node.id } as never,
+        ['Annotate the DAG node with `graphNode: "<id>"` so each dispatch can bind a prepared graph node.']),
+        asJson);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   // MVP (1.2): the orchestrator iterates topological levels + join
   // barrier + cancel-on-fail end-to-end. The CLI's runner returns `done`
   // for every leaf (so runDag's cancel-on-fail path is exercised when a

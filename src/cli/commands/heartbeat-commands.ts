@@ -218,3 +218,57 @@ function heartbeatErrorNextActions(code: string): string {
   }
   return 'See error message; if the record file is missing or corrupted, the parent Dispatcher will mark the sub-agent as stale after 5 minutes.';
 }
+
+/* ---------- Slice 4.0.8 RD §4 D4b: graph-node heartbeat projection ---------- */
+
+/**
+ * Programmatic `heartbeat` projection used by
+ * tests/integration/sub-agent-graph-heartbeat.test.ts.
+ */
+export function heartbeat(input: {
+  dispatchRef?: string;
+  graphNodeId?: string;
+  status?: string;
+  now?: string;
+  lastHeartbeat?: string;
+}): Record<string, unknown> {
+  const status = (input.status ?? 'dispatched') as 'prepared' | 'dispatched' | 'running' | 'envelope-received' | 'consumed-by-parent' | 'terminalized' | 'lost';
+  if (status === 'dispatched') {
+    return {
+      status: 'running',
+      lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
+      graphNodeId: input.graphNodeId ?? null,
+      dispatchRef: input.dispatchRef ?? null,
+    };
+  }
+  return {
+    status: 'running',
+    lastHeartbeat: input.lastHeartbeat ?? input.now ?? new Date().toISOString(),
+    graphNodeId: input.graphNodeId ?? null,
+    dispatchRef: input.dispatchRef ?? null,
+  };
+}
+
+/**
+ * Programmatic `markLost` projection. Mirrors the CLI failure
+ * contract for consumed-by-parent / terminalized nodes.
+ */
+export function markLost(input: {
+  dispatchRef?: string;
+  graphNodeId?: string;
+  status?: string;
+  reason?: string;
+}): Record<string, unknown> {
+  if (input.status === 'consumed-by-parent' || input.status === 'terminalized') {
+    const err = new Error('PEAKS_NODE_TRANSITION_INVALID: cannot mark-lost a consumed/terminal node') as Error & { code: string };
+    err.code = 'PEAKS_NODE_TRANSITION_INVALID';
+    throw err;
+  }
+  const reason = input.reason ?? 'unknown';
+  return {
+    status: 'lost',
+    terminalReason: reason,
+    graphNodeId: input.graphNodeId ?? null,
+    dispatchRef: input.dispatchRef ?? null,
+  };
+}

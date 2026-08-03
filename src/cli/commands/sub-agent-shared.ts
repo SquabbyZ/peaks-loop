@@ -69,6 +69,14 @@ export type DispatchOptions = {
    * worktree without needing a separate `peaks worktree auth grant`.
    */
   isolation?: string;
+  /**
+   * Slice 4.0.8 RD §4 (presence-lease-graph): required graph-node binding.
+   * Empty / missing / wrong-kind rejects with PEAKS_GRAPH_NODE_REQUIRED /
+   * PEAKS_GRAPH_NODE_NOT_PREPARED / PEAKS_GRAPH_NODE_KIND_INVALID.
+   */
+  graphNode?: string;
+  workflowId?: string;
+  graphRef?: string;
   json?: boolean;
 };
 
@@ -78,6 +86,7 @@ export type HeartbeatOptions = {
   progress?: string;
   note?: string;
   project?: string;
+  graphNodeId?: string;
   json?: boolean;
 };
 

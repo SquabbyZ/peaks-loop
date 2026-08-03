@@ -8,7 +8,7 @@ Use Peaks-Loop TXT for the compact handoff capsule: mode, validated decisions, a
 
 ## Workflow completion (no auto-exit)
 
-peaks-code does NOT itself call `peaks skill presence:clear --project <repo>` at workflow end. Presence management is delegated to the last downstream skill in the workflow (peaks-rd, peaks-qa, peaks-txt); each of those skills owns its own presence:clear step per its SKILL.md. peaks-code only sets presence: it does not unset it.
+peaks-code does NOT itself call `peaks skill presence:clear --project <repo>` at workflow end. Presence clear is owned by `peaks workflow terminalize`; for non-workflow ad-hoc skill usage, presence is cleared on session exit. Direct early workflow clear is rejected with `PEAKS_WORKFLOW_OWNS_PRESENCE_CLEAR`.
 
 The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-code` to do so. The header continues to display whatever skill is active; the user can `/peaks-code` again to re-anchor.
 

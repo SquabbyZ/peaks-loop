@@ -32,6 +32,7 @@ import { ensureSessionWithRotation } from '../../../services/session/session-man
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
 import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
+import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -452,6 +453,25 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       //     freshly-written files. Surface that as a nextAction so the
       //     human sees what was written.
       const warningsForEnvelope: string[] = [];
+      // Slice 4.0.8 (D3): after session binding, run the same
+      // canonical GC sweep `peaks skill presence:set` would
+      // perform. A `peaks workspace init` is a natural sweep
+      // trigger (the session id was just minted, all prior leases
+      // for the project are by definition same-project). Failures
+      // surface as warnings; the GC never blocks init.
+      try {
+        const gcResult = await gcStalePresenceLeases({
+          projectRoot,
+          trigger: 'workspace-init',
+        });
+        if (gcResult.removed > 0) {
+          warningsForEnvelope.push(
+            `Stale lease sweep removed ${gcResult.removed} lease(s) for the canonical project (retained ${gcResult.retained}).`
+          );
+        }
+      } catch (err) {
+        warningsForEnvelope.push(`lease sweep failed: ${getErrorMessage(err)}`);
+      }
       if (report.standardsMissing.missing && !hasStandardsCheckedMarker(projectRoot, sessionId)) {
         warningsForEnvelope.push(report.standardsMissing.remediation);
         nextActions.push(

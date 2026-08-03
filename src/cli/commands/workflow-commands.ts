@@ -32,6 +32,10 @@ import { registerSwarmCommands } from './swarm-commands.js';
 // Additive; the existing rid-013 `registerSwarmCommands` and rid-012
 // `registerTechCommands` registrations are byte-for-byte untouched.
 import { registerAutonomousSwarmCommands } from './autonomous-swarm-commands.js';
+// Slice 4.0.8 — workflow lifecycle (init / graph show / graph list / node
+// prepare / node ack / node mark-lost / terminalize). Registered as a
+// sibling command group, not merged with planning handlers, per RD §4.
+import { registerWorkflowLifecycleCommand } from './workflow-lifecycle-commands.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
 import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
@@ -572,6 +576,11 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   // `registerSwarmCommands` and rid-012 `registerTechCommands` calls
   // above are byte-for-byte untouched.
   registerAutonomousSwarmCommands(program, io);
+
+  // Slice 4.0.8 — workflow lifecycle CLI (init / graph show / graph list /
+  // node prepare / node ack / node mark-lost / terminalize). Registered
+  // sibling to planning handlers per RD §4.
+  registerWorkflowLifecycleCommand(program, io);
 
   // Slice #13 Swarm Algorithm Upgrade — 4 additional subcommands.
   // (peaks swarm plan above is slice #13.1; the 4 below are 13.2-13.5).

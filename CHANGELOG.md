@@ -1,5 +1,53 @@
 # Changelog
 
+## 4.0.8 — 2026-08-03 (presence-lease-graph)
+
+**BREAKING: IdeAdapter interface requires `resolveCallerId(env?)`**. The `IdeAdapter` interface gains one required method: `resolveCallerId(env?: NodeJS.ProcessEnv) => string`. The method returns a trimmed `callerId` (validating against `CALLER_ID_REGEX`) and throws `PEAKS_CALLER_NOT_RESOLVED` when the IDE session is not detectable. **4.0.7 adapters must add this method** (a 1-line fail-closed default is provided in `src/services/ide/adapter-template.ts` if you need a starter). Slice 4.0.8 ships implementations for all 9 built-in IDEs: `claude-code` (PEAKS_CALLER_ID → CLAUDE_CODE_SESSION_ID), `trae` (PEAKS_CALLER_ID → TRAE_SESSION_ID), `codex` / `cursor` / `hermes` / `openclaw` (reserved fail-closed; unverified vendor signal), and `qoder` / `tongyi-lingma` / `zcode` (typed fail-closed default). The `PLATFORM_FALLBACKS` table is **DELETED** in 4.0.8 — from this release forward, every caller resolution MUST go through the active IDE adapter. Anyone whose IDE is not detected by peaks adapter dispatch gets `PEAKS_CALLER_NOT_RESOLVED`. This is the desired product contract (vendor-neutral).
+
+**BREAKING: dispatch record schema v3.2 → v4.0.0**. The persisted dispatch record gains three new fields: `workflowId: string | null`, `graphNodeId: string | null`, `graphRef: string | null`. These are the graph-binding triple that ties a sub-agent dispatch to a prepared workflow node. **Back-compat readers** that pin the on-disk shape must update to handle the new optional fields; readers that ignore unknown fields are unaffected. The `version` literal narrows from `'3.2'` to `'4.0.0'`. The envelope writer `markCompleted` automatically transitions the bound graph node to `envelope-received` with `ackStatus=pending` once the artifact/envelope ↔ `dispatchRef` binding is validated, so the parent ack protocol is observable from the dispatch record itself. The `peaks sub-agent dispatch` CLI gains the required `--graph-node <id>` option (rejects missing / wrong-kind with `PEAKS_GRAPH_NODE_REQUIRED` / `PEAKS_GRAPH_NODE_KIND_INVALID`).
+
+**24h mode `inFlightBatch` is now graph-backed** (RD §3 D4d). The production `inFlightBatch` signal in `auto-compact-orchestrator.ts` now calls `workflow-inflight-probe.probeInflightBatch()` (which reads the canonical graph store). The legacy `--in-flight-batch` CLI boolean is preserved as a TEST-ONLY seam gated by `process.env.PEAKS_TEST_SEAM === '1'`; a production run never consults the boolean as truth. The pure decision function `evaluateAutoCompactDecision` retains the boolean signature for the test seam and the red-line override (≥ 95% is still a synchronous hard-gate, regardless of in-flight state).
+
+**`peaks skill presence:set` and `presence:clear` are fail-closed**. `presence:set` now refuses any write when no Peaks session is bound (`PEAKS_SESSION_NOT_BOUND`) or the active IDE adapter cannot resolve a valid callerId (`PEAKS_CALLER_NOT_RESOLVED`). The compat shim `setSkillPresence` is preserved for legacy statusline / hook / dashboard consumers; it routes through `presence-lease-service.setPresenceLease` when a session is bound. `presence:clear` no longer performs a raw unlink — workflow-bound leases route through `terminalizeWorkflow` so the graph terminal node, the lease, the caller index, and one observability event are all updated in one lifecycle lock (RD §3 D4c + DR). The compat shim still removes the legacy `active-skill.json` so a stale marker from a prior CLI version cannot resurrect; the canonical lease + index entries are not touched by the shim.
+
+**`peaks skill lease gc --project <p>` is the manual lease sweep primitive** (RD §4 D4c). The GC predicate is `now - lastHeartbeat > 1h AND now - startedAt > 24h30m` (24h = peaks-loop "24h AI 编排器" product contract; 30min = boundary tolerance, not safety buffer). GC runs on `presence:set`, `peaks workspace init`, and the manual `peaks skill lease gc` CLI. Corrupt graphs surface as `PEAKS_GRAPH_REF_BROKEN` warnings and are excluded from removal. A follow-up workflow reclaims a cleared lease explicitly.
+
+**Canonical presence lease + workflow graph are the source of truth** (RD §2 + §3). The 4.0.7 singleton `active-skill.json` and per-caller `active-skill-<callerId>.json` files are LEGACY READ INPUTS only. The canonical layout is:
+
+| Path under `.peaks/_runtime/<sessionId>/` | Purpose |
+|---|---|
+| `graphs/<workflowId>.json` | Canonical workflow graph |
+| `leases/presence-<callerId>-<workflowId>.json` | Canonical caller/workflow presence lease |
+| `presence-index/<callerId>.json` | Additive read index (no lifecycle fields) |
+| `migrations/presence-v1.json` | Idempotent reconcile receipt |
+
+Core presence / graph services contain **zero vendor env var lookups**: `CLAUDE_CODE_SESSION_ID | TRAE_SESSION_ID | CURSOR_SESSION_ID | CODEX_SESSION_ID | HERMES_SESSION_ID | OPENCLAW_SESSION_ID` never appear in `src/services/{skills,workflow,code}/**`. The 4.0.7 hard-ban on `require('node:...')` in `src/services/**` is preserved (verified by the audit grep below).
+
+### Anti-fake-green verification
+
+1. `rg "require\(['\"]node:" src/services/` — 0 hits.
+2. `rg "CLAUDE_CODE_SESSION_ID|TRAE_SESSION_ID|CURSOR_SESSION|CODEX_SESSION|HERMES_SESSION|OPENCLAW_SESSION" src/services/skills/ src/services/workflow/` — 0 hits in non-adapter code.
+3. `rg "PLATFORM_FALLBACKS" src/services/` — 0 hits.
+4. Production ESM repro: `node -e "import('./dist/src/services/code/auto-compact-orchestrator.js').then(m => console.log(m.evaluateAutoCompactDecision({ratio: 0.86, inFlightBatch: { hasInFlightBatch: true }})?.action))"` → `'defer'`. (Production now treats `inFlightBatch: true` as a graph-backed signal from `probeInflightBatch`, NOT a CLI boolean. A `defer` at 0.86 closes the 4.0.4 24h偶发 auto-compact-bug.)
+5. Production ESM repro: `node -e "import('./dist/src/services/skills/presence-lease-service.js').then(m => console.log(typeof m.setPresenceLease, typeof m.gcStalePresenceLeases))"` — both functions exported and runtime-resolvable.
+6. Production ESM repro: `import presence-lease-service` with `callerId: ''` and no session → `PEAKS_CALLER_NOT_RESOLVED` (or `PEAKS_SESSION_NOT_BOUND`) thrown BEFORE any filesystem write.
+
+### Locked acceptance gate (13 QA test files, all green in 4.0.8)
+
+- `tests/unit/skills/presence-lease-service.test.ts` — TC-SM-01..08, TC-SM-12 + TC-AG-01/04/05
+- `tests/unit/workflow/workflow-graph-store.test.ts`
+- `tests/unit/workflow/workflow-state-machine.test.ts` — TC-SM-01..12 + TC-AP-01..07
+- `tests/unit/workflow/workflow-inflight-probe.test.ts` — TC-IF-01..09
+- `tests/integration/workflow-presence-lease-lifecycle.test.ts`
+- `tests/integration/workflow-node-ack-protocol.test.ts`
+- `tests/integration/sub-agent-graph-binding.test.ts`
+- `tests/integration/sub-agent-graph-heartbeat.test.ts`
+- `tests/integration/skill-presence-lease-gc.test.ts`
+- `tests/integration/workspace-reconcile-presence-leases.test.ts`
+- `tests/integration/session-24h-graph-inflight.test.ts` — TC-IF-01..09 + TC-AG-06/07
+- `tests/integration/workflow-terminalize-atomicity.test.ts`
+- `tests/integration/ide-caller-resolution.test.ts`
+
 ## 4.0.6 — 2026-08-02 (postinstall auto-register outputStyle)
 
 - **postinstall auto-registers `outputStyle: peaks-skill-swarm` into `~/.claude/settings.json`.**

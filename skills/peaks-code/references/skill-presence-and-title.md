@@ -18,7 +18,7 @@ peaks statusline install --project <repo>   # idempotent; skips if already insta
 
 Then display the compact status header: `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
-Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
+Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — clear is owned by workflow terminalize; follow-up workflows re-claim via new workflow init.
 
 ## Step 2.5 — Set session title
 

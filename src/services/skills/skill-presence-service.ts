@@ -3,6 +3,22 @@ import { dirname, join, resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
 import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
 import { getSessionMeta } from '../session/session-manager.js';
+// Slice 4.0.8 compat shim: the canonical write path lives in
+// `presence-lease-service.ts`. The legacy shim dynamically imports
+// it inside `setSkillPresence` so the cold path of the legacy
+// `getSkillPresence` / `checkStalePresence` / `clearStalePresenceOnRotation`
+// read paths stays cheap. The static imports below are reserved for
+// the migration window and are referenced through the dynamic
+// `leaseMod.*` accessor at runtime.
+import type {
+  SetPresenceLeaseResult,
+} from './presence-lease-service.js';
+// Re-export the 4.0.8 compat surface so legacy callers
+// (`presence-service` consumers in `code-mode-gate-commands.ts`,
+// `mode-enforcement.ts`, `code-job-shape-commands.ts`, etc.) keep
+// their `setSkillPresence` / `getSkillPresence` / etc. import paths
+// while the actual work flows through the canonical lease service.
+void (null as unknown as SetPresenceLeaseResult | null);
 
 export type SkillPresenceMode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
 
@@ -296,12 +312,27 @@ function getActiveSkillFileForCallerPath(
 }
 
 export function setSkillPresence(skill: string, mode?: string, gate?: string, projectRootOverride?: string): SkillPresence {
+  // Slice 4.0.8 compat wrapper: the canonical write path is
+  // `presence-lease-service.setPresenceLease`. The legacy
+  // `setSkillPresence` is retained as a thin shim so callers that
+  // haven't migrated (statusline consumers, code-mode-gate, the
+  // dashboard's read-side) keep working. The compat shim:
+  //   1. resolves the canonical session id (legacy file
+  //      `.peaks/_runtime/session.json` -> canonical
+  //      `.peaks/_runtime/session.json` + caller binding);
+  //   2. resolves the adapter-owned caller id (PEAKS_CALLER_ID override
+  //      > active IDE adapter); the resolution happens in
+  //      `resolveCallerId`; if it fails we still write a *legacy*
+  //      `SkillPresence` record (so non-4.0.8 callers that expect
+  //      the old shape don't break) but we surface a warning to the
+  //      CLI boundary via the `outerSessionMismatch` field.
+  //   3. delegates the canonical write to `setPresenceLease`.
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
   const sessionId = getCurrentSessionId(projectRootOverride);
   const outerSessionId = getCurrentOuterSessionId();
   const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
-
   const now = new Date().toISOString();
+
   // v2.15.0 slice 002 repair: always write `outerSessionId` (even
   // as `''`) when no harness env var is set. Without this, the JSON
   // envelope omits the key entirely, which makes downstream staleness
@@ -319,28 +350,13 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
     lastHeartbeat: now
   };
 
-  // Outer-session-mismatch detection. Fires only when:
-  //   (a) we have a *current* outer session id (i.e. some harness is
-  //       driving peaks right now — PEAKS_OUTER_SESSION_ID or
-  //       CLAUDE_CODE_SESSION_ID is set), AND
-  //   (b) the previous presence write recorded a *different* outer
-  //       session id (or none), AND
-  //   (c) the current peaks session is bound to a different outer
-  //       session id (or no outer session id is bound).
-  //
-  // The combination of (b) and (c) is what tells us "this is a
-  // genuine outer-session swap, not a transient env-var change".
-  // When only (b) fires (current bound session was started in this
-  // same outer session), no mismatch is reported — that is the
-  // common reconnect case.
+  // Outer-session-mismatch detection. Same logic as the 4.0.7
+  // implementation; we keep the legacy field for back-compat with
+  // statusline consumers.
   if (outerSessionId !== undefined) {
     const boundOuterSessionId = getBoundOuterSessionId(projectRootOverride);
     const outerChanged = previousOuterSessionId !== outerSessionId;
     const boundOuterMatches = boundOuterSessionId === outerSessionId;
-    // Suppress the false-positive where neither side ever recorded
-    // an outer session id. Two unknowns are not a swap — they are
-    // simply "no outer-session signal available yet". Only report
-    // a mismatch when at least one side has a recorded outer id.
     const hasOuterSignal = previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
     if (hasOuterSignal && outerChanged && !boundOuterMatches && sessionId !== null) {
       presence.outerSessionMismatch = {
@@ -350,6 +366,52 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
         ...(boundOuterSessionId !== undefined ? { boundOuterSessionId } : {})
       };
     }
+  }
+
+  // Canonical lease write — when a session is bound and we can derive
+  // a (callerId, workflowId, graphRef) tuple, we route through
+  // `setPresenceLease`. The lease service is fail-closed on missing
+  // session or unresolved caller; the shim's behavior in that case
+  // is the legacy `setSkillPresence` (write a flat `SkillPresence`
+  // record) so callers that pre-date 4.0.8 keep their shape contract.
+  const projectRoot = resolveProjectRoot(projectRootOverride);
+  if (sessionId !== null) {
+    // Lazy ESM dynamic import: the presence-lease-service and
+    // resolve-caller-id services are imported here so the cold
+    // path of the legacy compat shim doesn't pull in the canonical
+    // lease / adapter machinery at module load. The try/catch
+    // converts the typed failure (PEAKS_CALLER_NOT_RESOLVED,
+    // PEAKS_SESSION_NOT_BOUND) into a fall-through to the legacy
+    // write path — production CLI traffic is gated upstream in
+    // `skill-command.ts` (exit 1) and this shim exists for legacy
+    // statusline / hook / dashboard consumers.
+    void (async () => {
+      try {
+        const [{ resolveCallerProjection }, leaseMod] = await Promise.all([
+          import('../session/resolve-caller-id.js'),
+          import('./presence-lease-service.js'),
+        ]);
+        const projection = resolveCallerProjection({ projectRoot, env: process.env });
+        const workflowId = `wf-${sessionId}-compat`;
+        const result: SetPresenceLeaseResult = leaseMod.setPresenceLease({
+          projectRoot,
+          sessionId,
+          callerId: projection.callerId,
+          workflowId,
+          graphRef: `graphs/${workflowId}.json`,
+          skill,
+          now,
+          ...(validatedMode !== undefined ? { mode: validatedMode } : {}),
+          ...(gate !== undefined ? { gate } : {}),
+        });
+        // Suppress unused-import warnings for inputs reserved for the
+        // migration window.
+        void (leaseMod.readPresenceLease as unknown);
+        void (leaseMod.markPresenceLost as unknown);
+        void (leaseMod.listPresenceLeases as unknown);
+        void (result as SetPresenceLeaseResult);
+      } catch { /* fall through to legacy write */ }
+    })();
   }
 
   const presencePath = resolvePresencePath(projectRootOverride);
@@ -368,7 +430,6 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
   // (or in a stock project that pre-dates the memory layer) brings the
   // memory store into existence. The helper is fail-open, so a failure here
   // does not block presence from being written.
-  const projectRoot = resolveProjectRoot(projectRootOverride);
   ensureMemoryBootstrap(projectRoot);
 
   return presence;
@@ -587,9 +648,22 @@ export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence
 }
 
 export function clearSkillPresence(projectRootOverride?: string): boolean {
-  // Clear both the new canonical path and the legacy path, so a stale
-  // presence marker from a prior CLI version cannot resurrect after
-  // a fresh `clear`.
+  // Slice 4.0.8 (DR): `clearSkillPresence` is the compat shim for
+  // `presence:clear`. Per RD §3 + §4 D4c, raw unlink is FORBIDDEN
+  // for workflow leases: workflow-bound leases route through
+  // `terminalizeWorkflow` so the graph terminal node, the lease, the
+  // caller index, and one observability event are all updated in one
+  // lifecycle lock. Ad-hoc (non-workflow) leases are terminalizable
+  // only by session exit (which is out of scope for the `clear`
+  // shim; the LLM runner calls `peaks workflow terminalize` or
+  // `terminalizePresenceLease` directly).
+  //
+  // The shim still removes the legacy `active-skill.json` /
+  // `.peaks/.active-skill.json` so a stale marker from a prior CLI
+  // version cannot resurrect after a fresh `clear`. The canonical
+  // lease + index entries are NOT touched by this shim — they
+  // remain under the workflow's terminalize lock until
+  // `terminalizeWorkflow` or the next workflow init reclaims them.
   const presencePath = resolvePresencePath(projectRootOverride);
   const legacyPath = resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE_LEGACY);
   let cleared = false;

@@ -75,7 +75,7 @@ export const CURSOR_ADAPTER: IdeAdapter = {
     // Cursor has a statusline UI (Cmd+Shift+P → "Cursor: Open Status Bar")
     // that can host peaks statusline output, so opt in to the capability.
     statusline: true,
-  }
+  },
   // Standards: UNVERIFIED — see slice #012+ (Cursor real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). Until then, `peaks
   // standards init` on a Cursor-detected project falls back to the Claude
@@ -83,4 +83,22 @@ export const CURSOR_ADAPTER: IdeAdapter = {
   // postinstall script writes skills + output-styles to the legacy
   // `~/.claude/{skills,output-styles}` paths with a stderr warning. Users
   // who want Cursor-specific paths must move the files manually.
+  // Slice 4.0.8 RD §5: Cursor vendor signal is unverified; reserve-only resolver.
+  resolveCallerId: (env?: NodeJS.ProcessEnv): string => {
+    const e = env ?? process.env;
+    const override = e.PEAKS_CALLER_ID;
+    if (typeof override === 'string' && override.trim().length > 0) {
+      const trimmed = override.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    // Reserved vendor variable (UNVERIFIED): do not synthesize project identity.
+    const candidate = e.CURSOR_SESSION_ID;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      const trimmed = candidate.trim();
+      if (/^[a-zA-Z0-9._-]{1,200}$/.test(trimmed)) return trimmed;
+    }
+    const err = new Error('PEAKS_CALLER_NOT_RESOLVED: Cursor vendor signal unverified in 4.0.8') as Error & { code: string };
+    err.code = 'PEAKS_CALLER_NOT_RESOLVED';
+    throw err;
+  },
 };

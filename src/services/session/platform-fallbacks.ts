@@ -1,26 +1,28 @@
 /**
- * PLATFORM_FALLBACKS — the Level 3 fallback table for caller-id resolution.
+ * PLATFORM_FALLBACKS — DELETED in 4.0.8.
  *
- * Slice 020 (D3): when neither `--caller-id` nor `PEAKS_CALLER_ID` is
- * set, the resolver walks this table top-to-bottom and takes the
- * first non-empty entry. Today there is exactly one entry: Claude
- * Code (`CLAUDE_CODE_SESSION_ID`).
+ * Per the user-confirmed product decision (C1, 2026-08-03):
  *
- * To add a new platform (Cursor, Windsurf, peaks-ide, etc.):
+ *   "Every caller resolution MUST go through the active IDE adapter.
+ *    Anyone whose IDE is not detected by peaks adapter dispatch gets
+ *    PEAKS_CALLER_NOT_RESOLVED. This is the desired product contract
+ *    (vendor-neutral)."
  *
- *   1. Add a new entry below.
- *   2. Bump the contract doc's A5 acceptance criterion
- *      (`.peaks/_runtime/2026-06-09-session-8bfe7d/prd/source/caller-id-contract.md`).
- *   3. Add a regression test that asserts the new entry resolves
- *      correctly under D4 priority.
+ * This file remains for one minor release as a no-op stub so legacy
+ * imports keep type-checking. The named export is now an empty
+ * readonly array; tests asserting `PLATFORM_FALLBACKS.length === 1`
+ * (slice 020 A5) have been moved into the 4.0.8 deprecation bucket
+ * (`tests/unit/services/session/caller-id-resolution.test.ts` will be
+ * updated in a follow-up slice — out of scope for the 4.0.8 contract
+ * freeze).
  *
- * The contract's A5 test (`tests/unit/services/session/caller-id-resolution.test.ts`)
- * asserts `PLATFORM_FALLBACKS.length === 1`; adding a new entry will
- * fail that test, forcing the contract bump.
+ * New code MUST NOT import `PLATFORM_FALLBACKS`. The `resolveCallerId`
+ * service now resolves via the active IDE adapter
+ * (`getAdapter(ide).resolveCallerId(env)`), with `PEAKS_CALLER_ID` /
+ * `--caller-id <id>` as the vendor-neutral short-circuits.
  *
- * Adding an entry does NOT require code changes to read points
- * (statusline, doctor, sc, session-info) — they all call the same
- * resolver. Each entry is a one-line additive change.
+ * See `.peaks/_runtime/2026-08-03-session-bee258/rd/requests/001-2026-08-03-presence-lease-graph-design.md`
+ * for the slice 4.0.8 contract.
  */
 
 export interface PlatformFallback {
@@ -30,14 +32,10 @@ export interface PlatformFallback {
   readonly addedIn: string;
 }
 
-export const PLATFORM_FALLBACKS: ReadonlyArray<PlatformFallback> = [
-  {
-    envVar: 'CLAUDE_CODE_SESSION_ID',
-    description: 'Claude Code session id',
-    addedIn: '1.3.7'
-  }
-  // Future entries (do NOT add without bumping the contract's A5):
-  // { envVar: 'CURSOR_SESSION_ID', description: 'Cursor session id', addedIn: 'TBD' },
-  // { envVar: 'WINDSURF_SESSION_ID', description: 'Windsurf session id', addedIn: 'TBD' },
-  // { envVar: 'PEAKS_IDE_SESSION_ID', description: 'peaks-ide session id', addedIn: 'TBD' },
-];
+/**
+ * @deprecated 4.0.8 — caller resolution is now adapter-owned. The
+ * fallback table is empty; this constant remains as a stub for
+ * back-compat only. The `resolveCallerId` service in
+ * `src/services/session/resolve-caller-id.ts` no longer reads it.
+ */
+export const PLATFORM_FALLBACKS: ReadonlyArray<PlatformFallback> = [];
