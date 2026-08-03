@@ -20,7 +20,8 @@ export type DimensionKind =
   | 'functional-completeness'
   | 'problem-resolution'
   | 'no-new-bugs'
-  | 'existing-functionality-intact';
+  | 'existing-functionality-intact'
+  | 'capability-consistency';
 
 export type DimensionVerdict = 'pass' | 'fail' | 'inconclusive';
 export type EvidenceKind =
