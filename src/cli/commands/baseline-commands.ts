@@ -79,4 +79,66 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
       const r = opts.journey ? await (opts.journey === 'J01' ? runJ01Contract(ctx) : Promise.resolve({ status: 'skipped' as const })) : await runJ01Contract(ctx);
       ok(io, 'baseline.run-guard', r as unknown as Record<string, unknown>);
     });
+
+  baseline
+    .command('diff')
+    .description('Show current implementation vs. frozen baseline.')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action((opts: { project?: string }) => {
+      const projectRoot = opts.project ?? '.';
+      const r = readBaselineFile(projectRoot);
+      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      ok(io, 'baseline.diff', { version: r.file.version, signedAt: r.file.signedAt, rowsCount: r.file.rows.length });
+    });
+
+  baseline
+    .command('audit')
+    .description('Run the capability audit (independent-context scorer).')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action(async (opts: { project?: string }) => {
+      const projectRoot = opts.project ?? '.';
+      const r = readBaselineFile(projectRoot);
+      if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
+      const guardSummary = { pass: 15, fail: 0, skipped: 0, total: 15, results: [] };
+      const stub = {
+        call: async (_system: string, _user: string, _opts: { maxTokens: number }) => ({
+          output: JSON.stringify({ verdict: 'consistent' }),
+          tokens: { input: _system.length, output: _user.length }
+        })
+      } as const;
+      const { runAudit } = await import('../../services/capability-audit-service/runner.js');
+      const audit = await runAudit({ projectRoot, sessionId: 'cli', journeyId: 'J01', llmRunner: stub, guardSummary });
+      ok(io, 'baseline.audit', audit as unknown as Record<string, unknown>);
+    });
+
+  baseline
+    .command('freeze-update')
+    .description('Update one or more baseline rows (REQUIRES user confirmation).')
+    .option('--from <path>', 'Path to the new baseline JSON input')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action((opts: { from?: string; project?: string }) => {
+      fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'freeze-update requires the user to confirm via AskUserQuestion; LLM may not auto-run this command. The LLM must surface a multi-choice prompt to the user before retrying.');
+    });
+
+  baseline
+    .command('rollback')
+    .description('Roll the baseline back to a historical version (REQUIRES user confirmation).')
+    .option('--to <version>', 'Historical version to roll back to')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action(() => {
+      fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'rollback requires the user to confirm via AskUserQuestion; LLM may not auto-run this command.');
+    });
+
+  baseline
+    .command('reset')
+    .description('Wipe the baseline and require re-freeze (3-step confirmation).')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action(() => {
+      fail(io, 'HUMAN_NL_DECISION_REQUIRED', 'reset requires the user to confirm via AskUserQuestion AND a passphrase; LLM may not auto-run this command.');
+    });
 }

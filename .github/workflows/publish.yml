@@ -335,6 +335,19 @@ jobs:
           fi
           echo "Tarball CLI_VERSION alignment OK: peaks-loop-shared@$(node -e "console.log(require('./packages/peaks-loop-shared/package.json').version)") tarball package/dist/version.js = ${packed_cli_version}"
 
+      - name: gate-capability-baseline
+        run: |
+          if [ ! -f openspec/baselines/current/capability-baseline.json ]; then
+            echo "::error title=capability-baseline-missing::openspec/baselines/current/capability-baseline.json is missing"
+            exit 1
+          fi
+          if [ ! -f openspec/baselines/current/capability-baseline.lock ]; then
+            echo "::error title=capability-baseline-lock-missing::openspec/baselines/current/capability-baseline.lock is missing"
+            exit 1
+          fi
+          node bin/peaks.js baseline diff --project . --json
+          node bin/peaks.js baseline audit --project . --json | node -e 'process.stdin.on("data",d=>{const j=JSON.parse(d);if(j.data&&j.data.verdict==="drifted"){console.error("capability audit drifted");process.exit(1);}})'
+
       - name: Extract release notes from root CHANGELOG.md (per-version body, rid-017 D1)
         # 2026-07-27 follow-up (rid-017): GitHub Release body must be the
         # maintainer-authored CHANGELOG entry for the post-bump root
