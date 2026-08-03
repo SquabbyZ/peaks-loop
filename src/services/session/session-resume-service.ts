@@ -6,6 +6,10 @@
  * prepend to its own prompt. The output is LLM-friendly: stable
  * headings, monospace paths, and bullet lists — easy for the model to
  * scan and reason about.
+ *
+ * Resume locates the deepestGate (the latest completed gate in the
+ * workflow) so the skill can pick up the next step without re-asking
+ * the user for state already captured at that gate.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
