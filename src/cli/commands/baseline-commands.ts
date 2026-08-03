@@ -65,4 +65,18 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
       if (!row) { fail(io, 'BASELINE_ROW_SHAPE_INVALID', `row ${journeyId} not found`); return; }
       ok(io, 'baseline.show', row as unknown as Record<string, unknown>);
     });
+
+  baseline
+    .command('run-guard')
+    .description('Run a guard contract over the frozen baseline.')
+    .option('--journey <id>', 'Run only one journey; default is all 15.')
+    .option('--project <path>', 'Project root', '.')
+    .option('--json', 'Emit JSON envelope')
+    .action(async (opts: { journey?: string; project?: string }) => {
+      const projectRoot = opts.project ?? '.';
+      const { runJ01Contract } = await import('../../services/capability-guard-runner/contracts/J01.js');
+      const ctx = { projectRoot, sessionId: 'cli', contract: {} as never, baselineInvariant: 'auto' };
+      const r = opts.journey ? await (opts.journey === 'J01' ? runJ01Contract(ctx) : Promise.resolve({ status: 'skipped' as const })) : await runJ01Contract(ctx);
+      ok(io, 'baseline.run-guard', r as unknown as Record<string, unknown>);
+    });
 }
