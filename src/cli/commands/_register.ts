@@ -5,6 +5,7 @@ import { registerAdapterCommands } from './adapter-commands.js';
 import { registerAdapterS2ACommands } from './adapter-commands-s2a.js';
 import { registerAssetCommands } from './asset-commands.js';
 import { registerAuditCommands } from './audit-commands.js';
+import { registerBaselineCommands } from './baseline-commands.js';
 import { registerAutonomousSwarmCommands } from './autonomous-swarm-commands.js';
 import { registerBeeCommands } from './bee-commands.js';
 import { registerCapabilityCommands } from './capability-commands.js';
@@ -129,6 +130,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['loop-commands', registerLoopCommands], ['loop-eval-commands', registerWorkflowEvalCommands],
   ['evolution-commands', registerEvolutionCommands], ['asset-commands', registerAssetCommands],
   ['bee-commands', registerBeeCommands], ['ecc-commands', registerEccCommands],
+  ['baseline-commands', registerBaselineCommands],
   ['upgrade-commands', registerUpgradeCommands], ['code-review-commands', registerCodeReviewCommands],
   ['security-audit-commands', registerSecurityAuditCommands], ['perf-audit-commands', registerPerfAuditCommands],
   ['verdict-aggregate-command', registerVerdictAggregateCommands], ['log-commands', registerLogCommands],
