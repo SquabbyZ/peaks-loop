@@ -94,14 +94,15 @@ function withPinnedClock<T>(nowMs: number, fn: () => T): T {
 describe('render — capability matrix (exact strings)', () => {
   it('unicode: active presence renders Peaks ● peaks-code → peaks-loop with cyan escape', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    // At t=0 the marquee band sits at the LEFT edge covering visible
-    // cells [0, 2] of the line — the first 3 characters (`Pea`) get
-    // re-painted to the highlight SGR `#E0E0E0`. The rest of the line
-    // keeps the brand purple + dim purple tokens. Asserting the full
-    // string pins both the colour surface AND the band anchor.
+    // At t=0 the marquee band sits at the LEFT edge. With BAND_WIDTH=3
+    // the band covers cells [0, 1] (center=0 clamps; halfBand=1 → only
+    // cells inside the visible range are painted). The first 2 characters
+    // (`Pe`) get re-painted to the highlight SGR `#E0E0E0`. The rest of
+    // the line keeps the brand purple + dim purple tokens. Asserting the
+    // full string pins both the colour surface AND the band anchor.
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
+    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPe\x1b[0maks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('unicode: stripped output for active presence is Peaks ● peaks-code → peaks-loop', () => {
@@ -147,9 +148,10 @@ describe('render — capability matrix (exact strings)', () => {
   it('ansi-unicode: cyan escape appears around brand and active glyph', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
-    // Marquee band at t=0 paints the first 3 visible cells with the
-    // highlight SGR; the rest of the line keeps the brand purple.
-    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
+    // Marquee band at t=0 paints the first 2 visible cells with the
+    // highlight SGR (center=0 clamps; halfBand=1); the rest of the
+    // line keeps the brand purple.
+    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPe\x1b[0maks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('ansi-unicode: stripped output for idle is identical to unicode idle', () => {
@@ -257,23 +259,66 @@ describe('render — stale and invalid-presence diagnostics', () => {
   });
 });
 
-describe('render — 2.4s breathing glyph rotation', () => {
-  it('unicode active glyph rotates every 480ms inside the 2.4s period', () => {
-    const samples = [0, 480, 960, 1440, 1920, 2400].map((t) => {
+describe('render — turn-boundary visibility (1.5s gap)', () => {
+  // Brief: between two typical turns (~1.5s apart) the breathing glyph
+  // must jump 1-2 frames and the marquee band must visibly translate.
+  // Old 2.4s / 2.0s periods made both movements imperceptible.
+  it('unicode active glyph at nowMs=0 differs from nowMs=1500 (1500 % 1200 = 300 → glyph index 1)', () => {
+    const model = activeModel(presenceOf('peaks-code'));
+    const out0 = withPinnedClock(0, () => renderStatusLine(model, { capability: 'unicode' }));
+    const out1500 = withPinnedClock(1500, () => renderStatusLine(model, { capability: 'unicode' }));
+    expect(out0.split(' ')[1]).not.toBe(out1500.split(' ')[1]);
+    // Anchor: at t=0 the first slot of the unicode palette (index 0)
+    // is rendered. Strip ANSI to read the visible glyph verbatim.
+    const glyph0 = out0.replace(/\x1b\[[0-9;]*m/g, '').split(' ')[1];
+    expect(glyph0).toBe('●');
+  });
+
+  it('marquee band moves visibly between nowMs=0 (left edge) and nowMs=1500 (mid-line)', () => {
+    // Phase at 0: 0.0  → sweep 0  → center 0  → band [0, 1] (left edge).
+    // Phase at 1500: 1500%800=700, phase=0.875, sweep=(1-0.875)*2=0.25
+    //                center=round(0.25*28)=7 → band [6, 8] (mid-line).
+    // The contract is "band visibly translates between two turns ~1.5s
+    // apart". Assert on band-anchor position via the highlight SGR
+    // (which is interleaved with brand-purple wrapping inside the band,
+    // so a literal substring match is brittle). Stripping ANSI to count
+    // the SGR moves the assertion onto a stable invariant.
+    const model = activeModel(presenceOf('peaks-code'));
+    const out0 = withPinnedClock(0, () => renderStatusLine(model, { capability: 'unicode' }));
+    const out1500 = withPinnedClock(1500, () => renderStatusLine(model, { capability: 'unicode' }));
+    // The two outputs must differ — band moved.
+    expect(out0).not.toBe(out1500);
+    // At t=0 the band sits at the LEFT edge; the highlight SGR paints
+    // the first 2 visible cells ('Pe'). The exact prefix pins the band
+    // anchor at the leftmost position.
+    expect(out0.startsWith('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPe\x1b[0m')).toBe(true);
+    // At t=1500 the band has moved off the left edge. The leading prefix
+    // no longer carries the highlight SGR — only the brand-purple SGR
+    // wraps the first 5 visible cells ('Peaks').
+    expect(out1500.startsWith('\x1b[1;38;2;90;101;216mPeaks\x1b[0m')).toBe(true);
+    // The band at t=1500 still emits highlight SGR (proves the band is
+    // mid-line, not at the edge).
+    expect(out1500).toContain('\x1b[1;38;2;224;224;224m');
+  });
+});
+
+describe('render — 1.2s breathing glyph rotation', () => {
+  it('unicode active glyph rotates every 240ms inside the 1.2s period', () => {
+    const samples = [0, 240, 480, 720, 960, 1200].map((t) => {
       const out = withPinnedClock(t, () =>
         renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'unicode' }),
       );
       return out;
     });
     const glyphs = samples.map((s) => s.split(' ')[1]);
-    // 2.4s period = one full rotation; expect all five distinct glyphs across the 0..1920ms window.
+    // 1.2s period = one full rotation; expect all five distinct glyphs across the 0..960ms window.
     expect(new Set(glyphs.slice(0, 5)).size).toBe(5);
-    // The glyph at t=0 and t=2400 should match (one full cycle).
+    // The glyph at t=0 and t=1200 should match (one full cycle).
     expect(glyphs[0]).toBe(glyphs[5]);
   });
 
   it('breathing does not change total visible width across the period', () => {
-    const widths = [0, 240, 480, 720, 960, 1200, 1440, 1680, 1920, 2160, 2399].map((t) =>
+    const widths = [0, 240, 480, 720, 960, 1199].map((t) =>
       withPinnedClock(t, () => {
         const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
         return renderStatusLine(model, { capability: 'unicode' }).length;
@@ -286,9 +331,10 @@ describe('render — 2.4s breathing glyph rotation', () => {
     const a = withPinnedClock(0, () =>
       renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
     );
-    const b = withPinnedClock(1200, () =>
+    const b = withPinnedClock(600, () =>
       renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
     );
+    // 600ms lands mid-period (1.2s); the breathing glyph must differ.
     expect(a.split(' ')[1]).not.toBe(b.split(' ')[1]);
   });
 
@@ -333,7 +379,7 @@ describe('behavior — defaults and capability boundaries', () => {
     const out = withPinnedClock(0, () => renderStatusLine(model));
     // Same marquee-anchored expected string as the explicit unicode
     // capability test — the default tier matches `unicode`.
-    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
+    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPe\x1b[0maks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('covers every capability literal at runtime', () => {
@@ -492,10 +538,11 @@ describe('render — compact precedence (exact strings)', () => {
 describe('render — compact precedence falls through to C1 when compact.kind=none', () => {
   it('none preserves the normal C1 active line', () => {
     const model = compactActiveModel({ kind: 'none', filledCells: 0 });
-    // Marquee at t=0 paints the leading 3 cells with the highlight SGR.
+    // Marquee at t=0 paints the leading 2 cells with the highlight SGR
+    // (center clamps at 0; halfBand=1).
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
+    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPe\x1b[0maks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('none preserves the normal C1 idle line', () => {
