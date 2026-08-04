@@ -2,6 +2,7 @@ import { basename } from 'node:path';
 import type {
   StatusLineModel,
   StatusLinePresence,
+  StatusLineActiveLeaf,
 } from './skill-statusline-service.js';
 import type {
   CompactStatuslineState,
@@ -207,25 +208,6 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
 const BREATHING_GLYPHS_UNICODE = ['●', '◐', '◑', '◒', '◓'] as const;
 const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
 const BREATHING_PERIOD_MS = 2_400;
-/**
- * Bee-tier (1-level sub-role) skills and their full orchestrator
- * parent name. The terminal status line shows both layers when a bee
- * is active: the active bee name plus a `↑<parent-full>` marker
- * pointing at the dispatching orchestrator.
- */
-const BEE_TO_PARENT: Readonly<Record<string, string>> = {
-  'peaks-prd': 'peaks-code',
-  'peaks-rd': 'peaks-code',
-  'peaks-qa': 'peaks-code',
-  'peaks-ui': 'peaks-code',
-  'peaks-sc': 'peaks-code',
-  'peaks-txt': 'peaks-code',
-  'peaks-final-review': 'peaks-code',
-  'peaks-resume': 'peaks-code',
-  'peaks-status': 'peaks-code',
-  'peaks-test': 'peaks-code',
-  'peaks-reviewer': 'peaks-code',
-};
 
 function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
   const set = capability === 'ascii' ? BREATHING_GLYPHS_ASCII : BREATHING_GLYPHS_UNICODE;
@@ -282,6 +264,21 @@ function rootLabel(projectRoot: string | null): string {
  * prefix and the project root label. Kept separate so the token layout
  * is obvious at the call site and so each state has a single
  * responsibility.
+ *
+ * Active-leaf rendering (slice 2026-08-04-rid-005-statusline-dual-skill):
+ * when the model carries an `activeLeaf` (an in-flight bee dispatch under
+ * the orchestrator), the line surfaces the leaf role alongside the
+ * orchestrator skill. The render priorities are:
+ *
+ *   - activeLeaf === null                       → `${skill}` (current behavior)
+ *   - activeLeaf.pendingCount === 1             → `${leaf} | ${skill}`
+ *   - activeLeaf.pendingCount > 1               → `${leaf} (+${N-1}) | ${skill}`
+ *
+ * The orchestrator skill itself is rendered with its mode token; the leaf
+ * role is rendered without a mode (the leaf does not own the mode state —
+ * the orchestrator does). The 14→1 bee skill mapping that previously
+ * forced every bee role to render with a `↑<parent>` marker was removed
+ * in this slice; the dual-skill layout above replaces it.
  */
 function renderActive(
   presence: StatusLinePresence | null,
@@ -289,6 +286,7 @@ function renderActive(
   nowMs: number,
   capability: StatusLineCapability,
   noColor: boolean,
+  activeLeaf: StatusLineActiveLeaf | null,
 ): string {
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
@@ -300,16 +298,17 @@ function renderActive(
   }
   const skill = presence.skill;
   const dot = renderActiveDot(capability, nowMs, noColor);
-  const beeParent = BEE_TO_PARENT[skill];
   const modeToken = typeof presence.mode === 'string' && presence.mode.length > 0
     ? brandRun(` [${presence.mode}]`, noColor, capability)
     : '';
-  // Bee-tier skills surface both layers: the active bee name plus
-  // the full parent orchestrator name. Mode is shown for every
-  // active skill (not just peaks-code) so the line carries the same
-  // mode taxonomy for any bee in flight.
-  if (beeParent !== undefined) {
-    return `${dot} ${brandRun(skill, noColor, capability)} ${brandRun(`↑${beeParent}`, noColor, capability)}${modeToken}`;
+  // Dual-skill layout: leaf role (in-flight bee) + orchestrator skill.
+  if (activeLeaf !== null) {
+    const leaf = brandRun(activeLeaf.role, noColor, capability);
+    const tail = activeLeaf.pendingCount > 1
+      ? ` ${brandRun(`(+${activeLeaf.pendingCount - 1})`, noColor, capability)}`
+      : '';
+    const sep = brandRun(' | ', noColor, capability);
+    return `${dot} ${leaf}${tail}${sep}${brandRun(skill, noColor, capability)}${modeToken}`;
   }
   return `${dot} ${brandRun(skill, noColor, capability)}${modeToken}`;
 }
@@ -714,7 +713,7 @@ export function renderStatusLine(
   } else {
     switch (model.state) {
       case 'active':
-        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor)}${rootSuffix}`;
+        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf)}${rootSuffix}`;
         break;
       case 'stale':
         line = `${brand} ${renderStale(model.presence, model.ageMs, palette, capability, noColor)}${rootSuffix}`;

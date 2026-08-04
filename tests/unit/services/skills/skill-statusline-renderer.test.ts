@@ -54,19 +54,20 @@ function activeModel(presence: StatusLinePresence | null, projectRoot: string | 
     presence,
     ageMs: null,
     compact: { kind: 'none', filledCells: 0 },
+    activeLeaf: null,
   };
 }
 
 function staleModel(presence: StatusLinePresence, ageMs: number): StatusLineModel {
-  return { state: 'stale', projectRoot: ROOT, presence, ageMs, compact: { kind: 'none', filledCells: 0 } };
+  return { state: 'stale', projectRoot: ROOT, presence, ageMs, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
 }
 
 function invalidModel(): StatusLineModel {
-  return { state: 'invalid-presence', projectRoot: ROOT, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 } };
+  return { state: 'invalid-presence', projectRoot: ROOT, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
 }
 
 function idleModel(projectRoot: string | null = ROOT): StatusLineModel {
-  return { state: 'idle', projectRoot, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 } };
+  return { state: 'idle', projectRoot, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
 }
 
 function compactActiveModel(compact: CompactStatuslineState): StatusLineModel {
@@ -76,6 +77,7 @@ function compactActiveModel(compact: CompactStatuslineState): StatusLineModel {
     presence: presenceOf('peaks-code'),
     ageMs: null,
     compact,
+    activeLeaf: null,
   };
 }
 
@@ -180,39 +182,50 @@ describe('render — peaks-code mode display', () => {
     )).toBe('Peaks ● peaks-code → peaks-loop');
   });
 
-  it('peaks-rd with mode surfaces both layers and the mode token', () => {
-    const model = activeModel(presenceOf('peaks-rd', { mode: 'full-auto' }));
+  it('peaks-rd active leaf surfaces both layers and the orchestrator mode token', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
+    model.activeLeaf = { role: 'peaks-rd', pendingCount: 1 };
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-rd ↑peaks-code [full-auto] → peaks-loop');
+    )).toBe('Peaks ● peaks-rd | peaks-code [full-auto] → peaks-loop');
   });
 
-  it('peaks-qa with mode surfaces both layers and the mode token', () => {
-    const model = activeModel(presenceOf('peaks-qa', { mode: 'strict' }));
+  it('peaks-qa active leaf surfaces both layers and the orchestrator mode token', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'strict' }));
+    model.activeLeaf = { role: 'peaks-qa', pendingCount: 1 };
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-qa ↑peaks-code [strict] → peaks-loop');
+    )).toBe('Peaks ● peaks-qa | peaks-code [strict] → peaks-loop');
   });
 
-  it('peaks-rd surfaces both layers with the parent marker (no mode)', () => {
-    const model = activeModel(presenceOf('peaks-rd'));
+  it('peaks-rd active leaf with no orchestrator mode token', () => {
+    const model = activeModel(presenceOf('peaks-code'));
+    model.activeLeaf = { role: 'peaks-rd', pendingCount: 1 };
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
-    )).toBe('Peaks ● peaks-rd ↑peaks-code → peaks-loop');
+    )).toBe('Peaks ● peaks-rd | peaks-code → peaks-loop');
   });
 
-  it('orchestrator skill (peaks-code) does not show a parent marker', () => {
+  it('orchestrator skill (peaks-code) with no active leaf shows just the orchestrator', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-code [full-auto] → peaks-loop');
   });
 
-  it('unknown bee-style skill is rendered without a parent marker', () => {
+  it('unknown skill in presence is rendered verbatim (no parent marker, no leaf mapping)', () => {
     const model = activeModel(presenceOf('peaks-some-bee-future'));
     expect(withPinnedClock(0, () =>
       stripped(renderStatusLine(model, { capability: 'unicode' })),
     )).toBe('Peaks ● peaks-some-bee-future → peaks-loop');
+  });
+
+  it('multi-leaf active (pendingCount > 1) renders the (+N-1) suffix on the leaf', () => {
+    const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
+    model.activeLeaf = { role: 'peaks-rd', pendingCount: 3 };
+    expect(withPinnedClock(0, () =>
+      stripped(renderStatusLine(model, { capability: 'unicode' })),
+    )).toBe('Peaks ● peaks-rd (+2) | peaks-code [full-auto] → peaks-loop');
   });
 
   it('mode token is bracketed in ascii capability too', () => {

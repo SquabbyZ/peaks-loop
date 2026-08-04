@@ -25,11 +25,11 @@
  *   4. null (caller did not set a skill; enforcers can decide to skip)
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSessionIdCanonical } from '../../session/session-manager.js';
 import { getSessionDir } from '../../session/getSessionDir.js';
-import { readPresenceLease } from '../../skills/presence-lease-service.js';
+import { readPresenceLease, listPresenceLeases } from '../../skills/presence-lease-service.js';
 import { getCurrentSessionId } from '../../skills/skill-presence-service.js';
 
 const ACTIVE_SKILL_PREFIX = 'active-skill-';
@@ -38,6 +38,16 @@ export interface ActiveSkillResolution {
   readonly skill: string | null;
   readonly callerId: string | null;
   readonly sessionId: string | null;
+  /**
+   * Mode token recorded on the canonical lease (e.g. `full-auto`,
+   * `assisted`, `swarm`, `strict`). `null` when the source is not
+   * `canonical` (the legacy `active-skill-*.json` files do not
+   * surface a mode field, and the `env` / `none` cases are test
+   * overrides). Slice 2026-08-04-rid-005 surfaced this so the
+   * statusline can render the orchestrator's mode alongside the
+   * active leaf role.
+   */
+  readonly mode: string | null;
   /** `canonical` = presence-lease-service; `legacy` = per-caller active-skill file; `env` = test override; `none` = nothing wired. */
   readonly source: 'env' | 'file' | 'canonical' | 'none';
 }
@@ -51,72 +61,84 @@ export interface ActiveSkillResolution {
  * `legacyPresence: true` — the legacy `.peaks/_runtime/<sid>/active-skill-*.json`
  * walk. Returns the first match.
  */
-export function resolveActiveSkillForCaller(projectRoot: string, opts?: { legacyPresence?: boolean }): ActiveSkillResolution {
+export function resolveActiveSkillForCaller(
+  projectRoot: string,
+  opts?: { legacyPresence?: boolean; callerId?: string | null },
+): ActiveSkillResolution {
   const envOverride = process.env.PEAKS_ACTIVE_SKILL;
   if (typeof envOverride === 'string' && envOverride.length > 0) {
-    return { skill: envOverride, callerId: null, sessionId: null, source: 'env' };
+    return { skill: envOverride, callerId: null, sessionId: null, mode: null, source: 'env' };
   }
 
   let sessionId: string | null = null;
   try {
     sessionId = getSessionIdCanonical(projectRoot);
   } catch {
-    return { skill: null, callerId: null, sessionId: null, source: 'none' };
+    return { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' };
   }
   if (sessionId === null) {
-    return { skill: null, callerId: null, sessionId: null, source: 'none' };
+    return { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' };
   }
 
   // 4.0.8 preferred: read the canonical lease projection. The lease
-  // service exposes `readPresenceLease({ projectRoot, sessionId,
-  // callerId, workflowId, graphRef })`; we need *some* callerId to
-  // point at a single lease. Hook enforcers don't have a callerId
-  // (they're per-IDE, per-window), so we walk the canonical
-  // presence-index to find any active lease. When the index is empty
-  // (e.g. ad-hoc / pre-migration projects) we fall through to the
-  // legacy walk below.
+  // service writes leases to `<sessionDir>/leases/presence-<caller>-<workflow>.json`
+  // (RD §4). We enumerate that directory via `listPresenceLeases`,
+  // which is the lease-service's own helper and knows the canonical
+  // layout. The first in-flight (status === 'preparing' | 'running')
+  // lease wins; this preserves the prior behaviour of returning a
+  // single skill per resolution. When the lease dir is empty (e.g.
+  // ad-hoc / pre-migration projects) we fall through to the legacy
+  // walk below.
   const sessionDir = getSessionDir(projectRoot, sessionId);
   if (!existsSync(sessionDir)) {
-    return { skill: null, callerId: null, sessionId, source: 'none' };
+    return { skill: null, callerId: null, sessionId, mode: null, source: 'none' };
   }
-  let entries: string[] = [];
+  let canonicalLeases: ReturnType<typeof listPresenceLeases> = [];
   try {
-    entries = readdirSync(sessionDir);
+    canonicalLeases = listPresenceLeases(projectRoot, sessionId);
   } catch {
-    entries = [];
+    canonicalLeases = [];
   }
-  const indexEntries = entries.filter((e) => !e.startsWith(ACTIVE_SKILL_PREFIX) && e.endsWith('.json') && !e.includes('.tmp-'));
-  for (const entry of indexEntries) {
-    // The canonical presence-index lives at `<sessionDir>/presence-index/<callerId>.json`.
-    // We synthesise the read from any presence-* lease file we find;
-    // the readPresenceLease call surfaces a typed `PresenceProjection`
-    // and we map `lease.skill` → resolution.
-    if (!entry.startsWith('presence-')) continue;
-    const callerId = entry.slice('presence-'.length, -'.json'.length);
-    // Derive workflowId from the same file name (canonical
-    // leaseFilePath encodes `presence-<caller>-<workflow>.json`).
-    const lastDash = callerId.lastIndexOf('-');
-    if (lastDash < 0) continue;
-    const workflowId = callerId.slice(lastDash + 1);
-    const pureCaller = callerId.slice(0, lastDash);
+  for (const lease of canonicalLeases) {
+    if (lease.status !== 'preparing' && lease.status !== 'running') continue;
+    if (typeof lease.skill !== 'string' || lease.skill.length === 0) continue;
+    // When a callerId is supplied, restrict the walk to that
+    // caller's lease. Slice 2026-08-04-rid-005 surfaces this for the
+    // statusline read so two concurrent sessions bound to the same
+    // project session do not see each other's skill.
+    if (typeof opts?.callerId === 'string' && opts.callerId.length > 0 && lease.callerId !== opts.callerId) continue;
     try {
       const projection = readPresenceLease({
         projectRoot,
         sessionId,
-        callerId: pureCaller,
-        workflowId,
-        graphRef: `graphs/${workflowId}.json`,
+        callerId: lease.callerId,
+        workflowId: lease.workflowId,
+        graphRef: lease.graphRef,
       });
       if (projection.lease !== null && typeof projection.lease.skill === 'string' && projection.lease.skill.length > 0) {
-        return { skill: projection.lease.skill, callerId: pureCaller, sessionId, source: 'canonical' };
+        return {
+          skill: projection.lease.skill,
+          callerId: lease.callerId,
+          sessionId,
+          mode: typeof projection.mode === 'string' && projection.mode.length > 0 ? projection.mode : null,
+          source: 'canonical',
+        };
       }
-    } catch { /* fall through to legacy walk */ }
+    } catch { /* fall through to next lease */ }
   }
 
   // Legacy fall-back (one minor release). Gated on `legacyPresence:
-  // true` so production hooks prefer the canonical projection.
+  // true` so production hooks prefer the canonical projection. Reads
+  // the session dir root for the per-caller `active-skill-*.json`
+  // marker files written by the 4.0.7 `setSkillPresenceForCaller`.
   if (opts?.legacyPresence === true) {
-    for (const entry of entries) {
+    let legacyEntries: string[] = [];
+    try {
+      legacyEntries = readdirSync(sessionDir);
+    } catch {
+      legacyEntries = [];
+    }
+    for (const entry of legacyEntries) {
       if (!entry.startsWith(ACTIVE_SKILL_PREFIX) || !entry.endsWith('.json')) continue;
       const callerId = entry.slice(ACTIVE_SKILL_PREFIX.length, -'.json'.length);
       const filePath = join(sessionDir, entry);
@@ -124,7 +146,7 @@ export function resolveActiveSkillForCaller(projectRoot: string, opts?: { legacy
         const raw = readFileSync(filePath, 'utf8');
         const parsed = JSON.parse(raw) as { skill?: unknown };
         if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
-          return { skill: parsed.skill, callerId, sessionId, source: 'file' };
+          return { skill: parsed.skill, callerId, sessionId, mode: null, source: 'file' };
         }
       } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // skip malformed file
@@ -137,5 +159,5 @@ export function resolveActiveSkillForCaller(projectRoot: string, opts?: { legacy
   // walk can still resolve a session id if the canonical resolver
   // returns null (e.g. ad-hoc projects without a `.peaks/_runtime/session.json`).
   void getCurrentSessionId;
-  return { skill: null, callerId: null, sessionId, source: 'none' };
+  return { skill: null, callerId: null, sessionId, mode: null, source: 'none' };
 }
