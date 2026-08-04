@@ -11,6 +11,30 @@ import { getSessionId, setSessionMeta } from '../../../services/session/session-
 import { resolveCallerProjection } from '../../../services/session/resolve-caller-id.js';
 import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
+import { stableRealPath } from '../../../shared/path-utils.js';
+
+/**
+ * Canonicalize a user-supplied `--project <path>` value.
+ *
+ * Git Bash on Windows hands us forward-slash paths
+ * (`C:/Users/.../peaks-loop`) while `peaks workspace init` writes the
+ * backslash form, and either side may carry a trailing separator or
+ * differing case. Resolving to the real path here means every
+ * downstream consumer (`getSessionId`, `setSessionMeta`,
+ * `setSkillPresence`) sees one stable form.
+ *
+ * Returns the input unchanged when it cannot be resolved (path does
+ * not exist yet, or is not readable) so a bad `--project` still
+ * reaches the existing error handling rather than throwing here.
+ */
+function canonicalizeProjectOption(project: string | undefined): string | undefined {
+  if (project === undefined) return undefined;
+  try {
+    return stableRealPath(project);
+  } catch {
+    return project;
+  }
+}
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 // Slice S0 (4.0.0-beta.5 peaks-solo dispatcher release):
@@ -163,7 +187,8 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .option('--check-stale', 'slice 002 (v2.15.0): also report whether the recorded outer session id still matches the current one. Default false (back-compat).')
       .option('--project <path>', 'project root (default: cwd)')
   ).action((options: { json?: boolean; checkStale?: boolean; project?: string }) => {
-    const presence = getSkillPresence(options.project);
+    const projectOption = canonicalizeProjectOption(options.project);
+    const presence = getSkillPresence(projectOption);
     if (presence === null) {
       printResult(io, ok('skill.presence', { active: false }), options.json);
       return;
@@ -174,7 +199,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       // pieces of info from a single CLI invocation. The presence
       // is returned UNCHANGED — `--check-stale` is a read-only flag,
       // not a clear.
-      const staleness = checkStalePresence({ projectRootOverride: options.project });
+      const staleness = checkStalePresence({ projectRootOverride: projectOption });
       printResult(
         io,
         ok('skill.presence', {
@@ -200,7 +225,8 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .option('--gate <gate>', 'current gate')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action((name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
-    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    const projectOption = canonicalizeProjectOption(options.project);
+    const projectRoot = projectOption ?? findProjectRoot(process.cwd()) ?? process.cwd();
     if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
       printResult(
         io,
@@ -243,13 +269,13 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
           `Active IDE adapter could not resolve a callerId (RD §3 D1): ${message}`,
           { projectRoot, name },
           ['Ensure the active IDE is detected by `peaks` and the IDE session variable is set.',
-           'Or pass PEAKS_CALLER_ID=<id> or --caller-id <id> for scripted usage.']),
+           'Or set PEAKS_CALLER_ID=<id> in the environment for scripted usage.']),
         options.json
       );
       process.exitCode = 1;
       return;
     }
-    const presence = setSkillPresence(name, options.mode, options.gate, options.project);
+    const presence = setSkillPresence(name, options.mode, options.gate, projectOption);
     // Session metadata is updated when a session is bound (read-only
     // path: `getSessionId`). We do not auto-spawn a session.
     if (boundSessionId !== null) {
