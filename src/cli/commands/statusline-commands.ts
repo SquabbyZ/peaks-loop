@@ -105,7 +105,7 @@ export async function runDefaultStatuslineRender(
     env: process.env,
     isTTY: Boolean(process.stdout.isTTY),
   });
-  const text = renderStatusLine(model, { capability });
+  const text = renderStatusLine(model, { capability }, process.env);
   if (options.json === true) {
     io.stdout(JSON.stringify({ ok: true, command: 'statusline.render', data: { text } }, null, 2));
     return;

@@ -98,8 +98,8 @@ declareDimensions(
   ['render', 'behavior', 'integration', 'a11y'],
 );
 
-const SID = '2026-08-01-task6-integ';
-const NOW_ISO = '2026-08-01T12:00:00.000Z';
+const SID = `2026-08-01-task6-integ-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+const NOW_ISO = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago — fresh enough to render as 'active' (not stale).
 
 // ---------------------------------------------------------------------------
 // Robust dist path resolution (rejection #6)
@@ -353,6 +353,17 @@ function spawnCli(
 }
 
 /**
+ * Strip ANSI escape sequences from a string. Statusline assertions
+ * check the visible text, not the byte sequence — the marquee band
+ * splits tokens across SGR reset boundaries, and the brand purple
+ * wraps every glyph in `\x1b[1;38;2;90;101;216m`. Strip first, then
+ * assert on what the terminal actually paints.
+ */
+function stripped(s: string): string {
+  return s.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/**
  * Primary-path invocation: pass a stdin payload so the IDE-equivalent
  * resolution (workspace.current_dir + session_id) drives the render.
  * This is the EXACT contract Claude Code uses:
@@ -404,19 +415,35 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     if (!active) return;
     writeSessionFile(active);
     writePresence(active);
+    // Clear any compact records left over from a previous test so
+    // the "no lifecycle" baseline case is truly free of compact state.
+    // Includes the canonical lifecycle AND every legacy fallback path
+    // that decideCompactStatusline reads when lifecycle is missing:
+    //   <sessionDir>/auto-compact-pending.json     (legacy v1)
+    //   <sessionDir>/compact-history.jsonl        (legacy v1)
+    //   <sessionDir>/txt/auto-compact-pending.json (legacy v2)
+    const sessionDir = dirname(active.lifecyclePath);
+    rmSync(active.lifecyclePath, { force: true });
+    rmSync(join(sessionDir, 'auto-compact-pending.json'), { force: true });
+    rmSync(join(sessionDir, 'compact-history.jsonl'), { force: true });
+    rmSync(join(sessionDir, 'txt', 'auto-compact-pending.json'), { force: true });
   });
 
   it('normal C1 (no lifecycle): "Peaks ● peaks-rd › <basename>"', () => {
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    // No lifecycle file seeded; the renderer must fall back to the C1 baseline.
+    rmSync(active.lifecyclePath, { force: true });
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    // The brand prefix + active glyph + skill + (gate hidden — `implementation`
-    // is not in ATTENTION_GATE_LABELS) + root label. CLI appends a trailing
-    // newline; the primary line consumer (Claude Code) reads it as-is.
-    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
+    // The brand prefix + a breathing active glyph + skill + (gate hidden
+    // — `implementation` is not in ATTENTION_GATE_LABELS) + root label.
+    // CLI appends a trailing newline; the primary line consumer (Claude
+    // Code) reads it as-is. The active glyph rotates through the
+    // breathing set every 480ms (`●◐◑◒◓`), so we assert on the stable
+    // substrings rather than pinning the exact glyph.
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 
   it('queued lifecycle: primary line carries the queued compact segment', () => {
@@ -426,8 +453,8 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('queued');
-    expect(r.stdout).toContain('[░░░░░░░░]');
+    expect(stripped(r.stdout)).toContain('queued');
+    expect(stripped(r.stdout)).toContain('[░░░░░░░░]');
   });
 
   it('compacting lifecycle: primary line carries the 4-cell compact segment', () => {
@@ -437,8 +464,8 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[████░░░░]');
-    expect(r.stdout).toContain('compacting');
+    expect(stripped(r.stdout)).toContain('[████░░░░]');
+    expect(stripped(r.stdout)).toContain('compacting');
   });
 
   it('completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio', () => {
@@ -449,12 +476,12 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[████████]');
+    expect(stripped(r.stdout)).toContain('[████████]');
     // The primary line formats the after-ratio as a percentage (`.toFixed(0)`),
     // not the raw 0..1 decimal. The compact subcommand path preserves the
     // raw decimal (`→ 0.42`); the primary line strips the leading zero for
     // visual density.
-    expect(r.stdout).toContain('42%');
+    expect(stripped(r.stdout)).toContain('42%');
   });
 
   it('failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)', () => {
@@ -473,9 +500,9 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     // errorSummary is intentionally NOT in the primary line (it's a noisy
     // long field) — it surfaces on the compact subcommand via
     // `peaks statusline compact`, which IS what the diagnostic surface is.
-    expect(r.stdout).toContain('[████░░░░]');
-    expect(r.stdout).toContain('failed');
-    expect(r.stdout).toContain('compacting');
+    expect(stripped(r.stdout)).toContain('[████░░░░]');
+    expect(stripped(r.stdout)).toContain('failed');
+    expect(stripped(r.stdout)).toContain('compacting');
   });
 
   it('back to normal (lifecycle removed): primary line returns to the C1 baseline', () => {
@@ -488,7 +515,8 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     rmSync(active.lifecyclePath, { force: true });
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 });
 
@@ -513,9 +541,10 @@ describe('behavior — completed lifecycle EXPIRES after 10s in the primary stat
     expect(r.status).toBe(0);
     // The 10-second expiry has elapsed: the compact segment is suppressed,
     // the primary line returns to the C1 baseline (active presence + brand).
-    expect(r.stdout).toBe(`Peaks ● peaks-rd › ${basename(active.projectRoot)}\n`);
-    expect(r.stdout).not.toContain('✓');
-    expect(r.stdout).not.toMatch(/\[[█░]+]/);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
+    expect(stripped(r.stdout)).not.toContain('✓');
+    expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
   });
 
   it('completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)', () => {
@@ -533,7 +562,7 @@ describe('behavior — completed lifecycle EXPIRES after 10s in the primary stat
     }));
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[████████]');
+    expect(stripped(r.stdout)).toContain('[████████]');
   });
 });
 
@@ -567,7 +596,9 @@ describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer 
       PEAKS_STATUSLINE_ASCII: '',
     });
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('●');
+    // Breathing glyph rotates through ●◐◑◒◓ every 480ms; assert the
+    // set rather than pinning the exact glyph.
+    expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
     expect(r.stdout).not.toContain('\x1b[');
   });
 
@@ -577,7 +608,7 @@ describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer 
     writePresence(active);
     const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('●');
+    expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
   });
 });
 
@@ -658,8 +689,8 @@ describe('integration — the CLI reads the lifecycle + presence from the spawne
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
     // QA gate is in ATTENTION_GATE_LABELS → warning glyph + skill + gate.
-    expect(r.stdout).toContain('peaks-qa');
-    expect(r.stdout).toContain('QA');
+    expect(stripped(r.stdout)).toContain('peaks-qa');
+    expect(stripped(r.stdout)).toContain('QA');
   });
 });
 

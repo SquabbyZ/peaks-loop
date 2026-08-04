@@ -92,9 +92,14 @@ function withPinnedClock<T>(nowMs: number, fn: () => T): T {
 describe('render — capability matrix (exact strings)', () => {
   it('unicode: active presence renders Peaks ● peaks-code → peaks-loop with cyan escape', () => {
     const model = activeModel(presenceOf('peaks-code'));
+    // At t=0 the marquee band sits at the LEFT edge covering visible
+    // cells [0, 2] of the line — the first 3 characters (`Pea`) get
+    // re-painted to the highlight SGR `#E0E0E0`. The rest of the line
+    // keeps the brand purple + dim purple tokens. Asserting the full
+    // string pins both the colour surface AND the band anchor.
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('\x1b[1;38;2;90;101;216mPeaks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m peaks-code → peaks-loop');
+    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('unicode: stripped output for active presence is Peaks ● peaks-code → peaks-loop', () => {
@@ -140,7 +145,9 @@ describe('render — capability matrix (exact strings)', () => {
   it('ansi-unicode: cyan escape appears around brand and active glyph', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
-    expect(out).toBe('\x1b[1;38;2;90;101;216mPeaks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m peaks-code → peaks-loop');
+    // Marquee band at t=0 paints the first 3 visible cells with the
+    // highlight SGR; the rest of the line keeps the brand purple.
+    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('ansi-unicode: stripped output for idle is identical to unicode idle', () => {
@@ -311,7 +318,9 @@ describe('behavior — defaults and capability boundaries', () => {
   it('default capability is unicode (cyan escape is emitted even without options)', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out = withPinnedClock(0, () => renderStatusLine(model));
-    expect(out).toBe('\x1b[1;38;2;90;101;216mPeaks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m peaks-code → peaks-loop');
+    // Same marquee-anchored expected string as the explicit unicode
+    // capability test — the default tier matches `unicode`.
+    expect(out).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('covers every capability literal at runtime', () => {
@@ -377,7 +386,10 @@ describe('a11y — output hygiene and forbidden glyphs', () => {
   it('rendered string never balloons beyond the small model surface', () => {
     const model = activeModel(presenceOf('peaks-code', { mode: 'assisted', gate: 'startup' }));
     const out = renderStatusLine(model, { capability: 'unicode' });
-    expect(out.length).toBeLessThanOrEqual(120);
+    // 200 byte ceiling: the marquee highlight SGR + brand purple
+    // every glyph roughly doubles the byte length of the stripped
+    // text. The visible line itself stays under ~50 characters.
+    expect(out.length).toBeLessThanOrEqual(200);
   });
 });
 
@@ -454,8 +466,12 @@ describe('render — compact precedence (exact strings)', () => {
     });
     const out = renderStatusLine(model, { capability: 'unicode' });
     expect(out).toContain('Peaks');
-    expect(out).toContain('compact-lifecycle: triggerRatio out of range');
-    expect(out).toContain('→ peaks-loop');
+    // The marquee highlight splits the diagnostic phrase across an
+    // SGR reset boundary; assert on the visible text after stripping
+    // ANSI so the band sweep never breaks the contract.
+    const visible = out.replace(/\x1b\[[0-9;]*m/g, '');
+    expect(visible).toContain('compact-lifecycle: triggerRatio out of range');
+    expect(visible).toContain('→ peaks-loop');
     expect(out).not.toContain('?');
   });
 });
@@ -463,9 +479,10 @@ describe('render — compact precedence (exact strings)', () => {
 describe('render — compact precedence falls through to C1 when compact.kind=none', () => {
   it('none preserves the normal C1 active line', () => {
     const model = compactActiveModel({ kind: 'none', filledCells: 0 });
+    // Marquee at t=0 paints the leading 3 cells with the highlight SGR.
     expect(withPinnedClock(0, () =>
       renderStatusLine(model, { capability: 'unicode' }),
-    )).toBe('\x1b[1;38;2;90;101;216mPeaks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m peaks-code → peaks-loop');
+    )).toBe('\x1b[1;38;2;90;101;216m\x1b[1;38;2;224;224;224mPea\x1b[0mks\x1b[0m \x1b[1;38;2;90;101;216m●\x1b[0m \x1b[1;38;2;90;101;216mpeaks-code\x1b[0m\x1b[1;38;2;90;101;216m → \x1b[0mpeaks-loop');
   });
 
   it('none preserves the normal C1 idle line', () => {

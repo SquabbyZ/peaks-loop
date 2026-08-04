@@ -91,12 +91,40 @@ const BRAND_SGR_OPEN = `\x1b[1;${BRAND_RGB}m`;
 const BRAND_SGR_FULL_OPEN = `\x1b[${BRAND_RGB}m`;
 const BRAND_SGR_CLOSE = '\x1b[0m';
 
+/**
+ * Highlight color used by the marquee scan band. `#E0E0E0` bright-grey
+ * + bold = "bleached" foreground that reads as a scanner sweeping
+ * over the colored text. Kept distinct from brand white (`#FFFFFF`)
+ * because pure white on `#5A65D8` brand purple reads as a strobe;
+ * the off-white tint gives the same "scanner" affordance without the
+ * flicker.
+ */
+const HIGHLIGHT_RGB = '38;2;224;224;224';
+const HIGHLIGHT_SGR_OPEN = `\x1b[1;${HIGHLIGHT_RGB}m`;
+
 function accent(text: string): string {
   return `${BRAND_SGR_OPEN}${text}${BRAND_SGR_CLOSE}`;
 }
 
 function accentGlyph(glyph: string): string {
   return `${BRAND_SGR_OPEN}${glyph}${BRAND_SGR_CLOSE}`;
+}
+
+// (kept for the brandText/active-dot helpers that inline the same SGR; the
+// buildPalette factory owns per-token SGR injection now and does not call
+// through these wrappers.)
+
+/**
+ * Render the supplied text in the brand purple, honouring the
+ * `noColor` flag. Returns plain text when NO_COLOR is set or the
+ * tier is ASCII. Used by the active / stale / compact renders for
+ * tokens that the {@link buildPalette} cannot pre-stamp (skill
+ * name, mode, age, attention labels).
+ */
+function brandRun(text: string, noColor: boolean, capability: StatusLineCapability): string {
+  if (text.length === 0) return text;
+  if (noColor || capability === 'ascii') return text;
+  return `${BRAND_SGR_OPEN}${text}${BRAND_SGR_CLOSE}`;
 }
 
 /**
@@ -110,68 +138,71 @@ function blinkingAccentGlyph(glyph: string): string {
   return `\x1b[5;1;${BRAND_RGB}m${glyph}\x1b[0m`;
 }
 
-const PALETTES: Readonly<Record<StatusLineCapability, StatusPalette>> = {
-  'ansi-unicode': {
-    active: accentGlyph('●'),
-    idle: blinkingAccentGlyph('○'),
-    warning: '\x1b[33m!\x1b[0m',      // amber warning (semantic alarm)
-    inlineSeparator: ' · ',
-    trailSeparator: ' → ',
-    idleLabel: 'empty',
-    invalidMessage: 'presence unreadable',
+/**
+ * Build the per-capability palette. `noColor=true` strips every brand
+ * ANSI SGR (warning / failed remain because they are SEMANTIC alarms,
+ * not brand colour). The unicode glyphs are kept as-is — NO_COLOR
+ * (https://no-color.org) addresses ANSI sequences, not UTF-8 chars.
+ */
+function buildPalette(capability: StatusLineCapability, noColor: boolean): StatusPalette {
+  // Brand SGR helpers, noColor-aware.
+  const brand = (text: string): string =>
+    noColor || capability === 'ascii' ? text : `${BRAND_SGR_OPEN}${text}${BRAND_SGR_CLOSE}`;
+  const brandGlyph = (glyph: string): string =>
+    noColor || capability === 'ascii' ? glyph : `${BRAND_SGR_OPEN}${glyph}${BRAND_SGR_CLOSE}`;
+  const dimBrand = (text: string): string => {
+    if (noColor || capability === 'ascii') return text;
+    return `\x1b[2;${BRAND_RGB}m${text}\x1b[0m`;
+  };
+  const blinkBrand = (glyph: string): string => {
+    if (noColor || capability === 'ascii') return glyph;
+    return `\x1b[5;1;${BRAND_RGB}m${glyph}\x1b[0m`;
+  };
+  // Warning + failed stay semantic — they are alarms, not brand colour.
+  // noColor still suppresses them because a tiny log consumer that
+  // sets NO_COLOR expects raw text.
+  const warning = noColor || capability === 'ascii' ? '!' : '\x1b[33m!\x1b[0m';
+  const failed = noColor || capability === 'ascii' ? 'x' : '\x1b[31m✕\x1b[0m';
+
+  if (capability === 'ascii') {
+    return {
+      active: '*',
+      idle: 'o',
+      warning,
+      inlineSeparator: ' . ',
+      trailSeparator: ' -> ',
+      idleLabel: 'empty',
+      invalidMessage: 'presence unreadable',
+      compact: {
+        queued: '[', preparing: '+', compacting: '+', verifying: '+',
+        completed: '*', failed,
+      },
+      barFilled: '#',
+      barEmpty: '-',
+      ratioArrow: '->',
+    };
+  }
+  return {
+    active: brandGlyph('●'),
+    idle: blinkBrand('○'),
+    warning,
+    inlineSeparator: brand(' · '),
+    trailSeparator: brand(' → '),
+    idleLabel: brand('empty'),
+    invalidMessage: brand('presence unreadable'),
     compact: {
-      queued: accentGlyph('◐'),
-      preparing: accentGlyph('◑'),
-      compacting: accentGlyph('◒'),
-      verifying: accentGlyph('◓'),
-      completed: accentGlyph('✓'),
-      failed: '\x1b[31m✕\x1b[0m',  // failed is a semantic alarm
+      queued: brandGlyph('◐'),
+      preparing: brandGlyph('◑'),
+      compacting: brandGlyph('◒'),
+      verifying: brandGlyph('◓'),
+      completed: brandGlyph('✓'),
+      failed,
     },
-    barFilled: '█',
-    barEmpty: '░',
-    ratioArrow: '→',
-  },
-  unicode: {
-    active: accentGlyph('●'),
-    idle: blinkingAccentGlyph('○'),
-    warning: '\x1b[33m!\x1b[0m',
-    inlineSeparator: ' · ',
-    trailSeparator: ' → ',
-    idleLabel: 'empty',
-    invalidMessage: 'presence unreadable',
-    compact: {
-      queued: accentGlyph('◐'),
-      preparing: accentGlyph('◑'),
-      compacting: accentGlyph('◒'),
-      verifying: accentGlyph('◓'),
-      completed: accentGlyph('✓'),
-      failed: '\x1b[31m✕\x1b[0m',
-    },
-    barFilled: '█',
-    barEmpty: '░',
-    ratioArrow: '→',
-  },
-  ascii: {
-    active: '*',
-    idle: 'o',
-    warning: '!',
-    inlineSeparator: ' . ',
-    trailSeparator: ' -> ',
-    idleLabel: 'empty',
-    invalidMessage: 'presence unreadable',
-    compact: {
-      queued: '[',
-      preparing: '+',
-      compacting: '+',
-      verifying: '+',
-      completed: '*',
-      failed: 'x',
-    },
-    barFilled: '#',
-    barEmpty: '-',
-    ratioArrow: '->',
-  },
-};
+    barFilled: brand('█'),
+    barEmpty: dimBrand('░'),
+    ratioArrow: dimBrand('→'),
+  };
+}
 
 const BREATHING_GLYPHS_UNICODE = ['●', '◐', '◑', '◒', '◓'] as const;
 const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
@@ -202,23 +233,22 @@ function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): st
   return set[index] as string;
 }
 
-function renderActiveDot(capability: StatusLineCapability, nowMs: number): string {
+function renderActiveDot(capability: StatusLineCapability, nowMs: number, noColor: boolean): string {
   // Brief: the active dot carries the project accent (`#5A65D8` bold)
   // in both colored tiers. The breathing glyph is wrapped in a fresh
   // SGR on every render so the IDE sees a single accent per refresh.
+  // NO_COLOR strips the SGR but keeps the glyph (still rotates).
   const glyph = pickBreathingGlyph(capability, nowMs);
-  if (capability === 'ascii') return glyph;
-  return accentGlyph(glyph);
+  if (noColor || capability === 'ascii') return glyph;
+  return `${BRAND_SGR_OPEN}${glyph}${BRAND_SGR_CLOSE}`;
 }
 
-function brandText(capability: StatusLineCapability): string {
+function brandText(capability: StatusLineCapability, noColor: boolean): string {
   // Brief: brand carries the project accent (`#5A65D8` bold) in both
-  // colored tiers. The `ascii` tier stays plain text so plain text
-  // consumers (no TTY, no UTF-8) never see escape codes.
-  if (capability === 'ansi-unicode' || capability === 'unicode') {
-    return accent(BRAND);
-  }
-  return BRAND;
+  // colored tiers. The `ascii` tier and NO_COLOR stay plain text so
+  // log / file consumers never see escape codes.
+  if (noColor || capability === 'ascii') return BRAND;
+  return `${BRAND_SGR_OPEN}${BRAND}${BRAND_SGR_CLOSE}`;
 }
 
 /**
@@ -230,8 +260,8 @@ function brandText(capability: StatusLineCapability): string {
  */
 const DEFAULT_CAPABILITY: StatusLineCapability = 'unicode';
 
-function paletteFor(capability: StatusLineCapability | undefined): StatusPalette {
-  return PALETTES[capability ?? DEFAULT_CAPABILITY];
+function paletteFor(capability: StatusLineCapability | undefined, noColor: boolean): StatusPalette {
+  return buildPalette(capability ?? DEFAULT_CAPABILITY, noColor);
 }
 
 function formatAge(ageMs: number | null): string {
@@ -258,6 +288,7 @@ function renderActive(
   palette: StatusPalette,
   nowMs: number,
   capability: StatusLineCapability,
+  noColor: boolean,
 ): string {
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
@@ -265,33 +296,35 @@ function renderActive(
   const attentionLabel = isAttentionGate(presence.gate);
   if (attentionLabel !== null) {
     // Attention gate — surface the warning glyph + human-readable label.
-    return `${palette.warning} ${presence.skill}${palette.inlineSeparator}${attentionLabel}`;
+    return `${palette.warning} ${brandRun(presence.skill, noColor, capability)}${palette.inlineSeparator}${brandRun(attentionLabel, noColor, capability)}`;
   }
   const skill = presence.skill;
-  const dot = renderActiveDot(capability, nowMs);
+  const dot = renderActiveDot(capability, nowMs, noColor);
   const beeParent = BEE_TO_PARENT[skill];
   const modeToken = typeof presence.mode === 'string' && presence.mode.length > 0
-    ? ` [${presence.mode}]`
+    ? brandRun(` [${presence.mode}]`, noColor, capability)
     : '';
   // Bee-tier skills surface both layers: the active bee name plus
   // the full parent orchestrator name. Mode is shown for every
   // active skill (not just peaks-code) so the line carries the same
   // mode taxonomy for any bee in flight.
   if (beeParent !== undefined) {
-    return `${dot} ${skill} ↑${beeParent}${modeToken}`;
+    return `${dot} ${brandRun(skill, noColor, capability)} ${brandRun(`↑${beeParent}`, noColor, capability)}${modeToken}`;
   }
-  return `${dot} ${skill}${modeToken}`;
+  return `${dot} ${brandRun(skill, noColor, capability)}${modeToken}`;
 }
 
 function renderStale(
   presence: StatusLinePresence | null,
   ageMs: number | null,
   palette: StatusPalette,
+  capability: StatusLineCapability,
+  noColor: boolean,
 ): string {
   const skill = presence?.skill ?? 'unknown';
   const age = formatAge(ageMs);
-  const ageSuffix = age ? `${palette.inlineSeparator}${age}` : '';
-  return `${palette.warning} ${skill}${ageSuffix}`;
+  const ageSuffix = age ? `${palette.inlineSeparator}${brandRun(age, noColor, capability)}` : '';
+  return `${palette.warning} ${brandRun(skill, noColor, capability)}${ageSuffix}`;
 }
 
 function renderInvalid(palette: StatusPalette): string {
@@ -443,6 +476,19 @@ function renderCompact(
  * is a logger, a file, or any non-interactive sink, and only enables ANSI
  * under an explicit supported condition (TTY + no env veto).
  */
+/**
+ * NO_COLOR (https://no-color.org) is the cross-industry signal that NO
+ * ANSI escape sequences should be emitted. The unicode/ansi-unicode
+ * tiers honour it by stripping every brand SGR while keeping the UTF-8
+ * glyphs (●, █, ░, ◐, …) — NO_COLOR addresses ANSI specifically.
+ * PEAKS_STATUSLINE_ASCII is the stricter override that also drops the
+ * unicode glyphs; both can coexist and the ASCII override wins.
+ */
+function isNoColor(env: NodeJS.ProcessEnv): boolean {
+  const v = env['NO_COLOR'];
+  return typeof v === 'string' && v.length > 0 && v !== '0' && v.toLowerCase() !== 'false';
+}
+
 export function resolveStatusLineCapability(input: {
   readonly env: NodeJS.ProcessEnv;
   readonly isTTY: boolean;
@@ -458,11 +504,162 @@ export function resolveStatusLineCapability(input: {
   if (typeof asciiFlag === 'string' && (asciiFlag === '1' || asciiFlag === 'true' || asciiFlag === 'yes')) {
     return 'ascii';
   }
-  // NO_COLOR is honored by the IDE adapter (which sets
-  // `PEAKS_STATUSLINE_ASCII=1` to fully opt out). The unicode tier
-  // itself emits cyan + semantic colors so the brand reads correctly
-  // whether or not the consumer is a TTY.
+  // NO_COLOR is honoured at render time (see {@link renderStatusLine});
+  // capability stays unicode so the UTF-8 glyphs survive — only the
+  // brand SGR is suppressed.
   return input.isTTY ? 'ansi-unicode' : 'unicode';
+}
+
+export function isNoColorEnv(env: NodeJS.ProcessEnv): boolean {
+  return isNoColor(env);
+}
+
+/**
+ * Marquee scan band — a single-pass light band that sweeps left ↔ right
+ * across the entire status line on a 2 s round trip. The band's
+ * foreground color is `#E0E0E0` (off-white) with `1;` (bold) — see
+ * {@link HIGHLIGHT_SGR_OPEN}. Cells OUTSIDE the band keep their
+ * original SGR (brand purple or semantic warning/failed); only cells
+ * INSIDE the band are temporarily re-painted to the highlight color.
+ *
+ * Why it does NOT use SGR 7 (reverse video):
+ *   - Reverse video inverts BOTH background and foreground, which on a
+ *     `#5A65D8` background swaps to a white background — visually that
+ *     reads as a solid white block instead of a scan band.
+ *   - The off-white foreground + bold keeps the original background
+ *     visible behind each glyph, so the band reads as "lit text" not
+ *     as a solid stripe — closer to the CSDN-style scan-band reference
+ *     image.
+ *
+ * Phase formula:
+ *   phase ∈ [0, 1) over MARQUEE_PERIOD_MS
+ *   sweep = phase < 0.5 ? phase * 2 : (1 - phase) * 2     ← triangle wave 0→1→0
+ *   center = sweep * (width - 1)
+ *   band covers visible-cell range [center - half, center + half]
+ *
+ * When the band would land outside the visible range (center ≤ half
+ * OR center ≥ width-1-half) it is clipped — the band never appears
+ * off-line. At `nowMs = 0` the band sits at the LEFT edge covering
+ * cells [0, bandWidth); this is a deliberate deterministic anchor
+ * for tests that pin `withPinnedClock(0, ...)`.
+ *
+ * ASCII tier: skipped — there are no SGR codes to inject.
+ */
+const MARQUEE_PERIOD_MS = 2_000;
+const MARQUEE_BAND_WIDTH = 5;
+
+/**
+ * Visible-character width of an ANSI-bearing string. Skips every
+ * `\x1b[...m` escape so the count reflects what the terminal paints,
+ * not the byte length on the wire.
+ */
+export function visibleCharWidth(s: string): number {
+  let w = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\x1b' && s[i + 1] === '[') {
+      const m = s.indexOf('m', i + 2);
+      if (m !== -1) {
+        i = m;
+        continue;
+      }
+    }
+    w++;
+  }
+  return w;
+}
+
+interface AnsiToken {
+  readonly kind: 'text' | 'esc';
+  readonly value: string;
+}
+
+/**
+ * Split an ANSI string into a flat token stream. Escape sequences are
+ * grouped as `\x1b[...m` (single token, kind='esc'); everything else
+ * is grouped as a single 'text' run. Used by {@link applyMarquee} to
+ * locate visible-cell ranges inside an SGR-bearing string.
+ */
+export function tokenizeAnsi(s: string): readonly AnsiToken[] {
+  const out: AnsiToken[] = [];
+  let i = 0;
+  let buf = '';
+  const flush = (): void => {
+    if (buf.length > 0) {
+      out.push({ kind: 'text', value: buf });
+      buf = '';
+    }
+  };
+  while (i < s.length) {
+    if (s[i] === '\x1b' && s[i + 1] === '[') {
+      const m = s.indexOf('m', i + 2);
+      if (m !== -1) {
+        flush();
+        out.push({ kind: 'esc', value: s.slice(i, m + 1) });
+        i = m + 1;
+        continue;
+      }
+    }
+    buf += s[i];
+    i++;
+  }
+  flush();
+  return out;
+}
+
+/**
+ * Apply the marquee highlight band to an ANSI-bearing string. Pure.
+ * - `bandStart` / `bandEnd` are visible-cell indices (0-based).
+ * - Cells in [bandStart, bandEnd] receive a `\x1b[1;38;2;224;224;224m`
+ *   prefix; cells after the band receive the closing `\x1b[0m` reset
+ *   so the rest of the line keeps its original SGR.
+ * - Empty strings and zero-width bands return the input unchanged.
+ */
+export function applyMarqueeHighlight(s: string, bandStart: number, bandEnd: number): string {
+  if (s.length === 0) return s;
+  if (bandEnd < 0 || bandStart > bandEnd) return s;
+  const tokens = tokenizeAnsi(s);
+  const parts: string[] = [];
+  let visibleIdx = 0;
+  let inside = false;
+  for (const tok of tokens) {
+    if (tok.kind === 'esc') {
+      parts.push(tok.value);
+      continue;
+    }
+    for (let k = 0; k < tok.value.length; k++) {
+      const cellPos = visibleIdx + k;
+      const inBand = cellPos >= bandStart && cellPos <= bandEnd;
+      if (inBand && !inside) {
+        parts.push(HIGHLIGHT_SGR_OPEN);
+        inside = true;
+      } else if (!inBand && inside) {
+        parts.push('\x1b[0m');
+        inside = false;
+      }
+      parts.push(tok.value[k]!);
+    }
+    visibleIdx += tok.value.length;
+  }
+  if (inside) parts.push('\x1b[0m');
+  return parts.join('');
+}
+
+/**
+ * Compute the marquee band for a string at time `nowMs` and re-emit
+ * the string with the band applied. ASCII tier is a pass-through (no
+ * SGR to inject) — the scanner has no visible effect on plain text.
+ */
+export function applyMarquee(s: string, nowMs: number, capability: StatusLineCapability): string {
+  if (capability === 'ascii') return s;
+  const width = visibleCharWidth(s);
+  if (width === 0) return s;
+  const phase = (nowMs % MARQUEE_PERIOD_MS) / MARQUEE_PERIOD_MS;
+  const sweep = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+  const center = Math.round(sweep * (width - 1));
+  const halfBand = Math.floor(MARQUEE_BAND_WIDTH / 2);
+  const bandStart = Math.max(0, center - halfBand);
+  const bandEnd = Math.min(width - 1, center + halfBand);
+  return applyMarqueeHighlight(s, bandStart, bandEnd);
 }
 
 /**
@@ -476,16 +673,29 @@ export function resolveStatusLineCapability(input: {
  * Compact-state precedence: when `model.compact.kind !== 'none'` the
  * compact bar replaces the active/idle/stale content. The C1 baseline
  * line is preserved when the compact state is `none`.
+ *
+ * The full line is wrapped by {@link applyMarquee} so the brand-purple
+ * text + non-focal bar cells share a single colour surface while the
+ * scanner band paints its `#E0E0E0` highlight over a moving slice.
+ *
+ * Idle suppression: the marquee is OFF when `model.state === 'idle'`
+ * (and no compact state is active). Idle keeps the slow-blink `○`
+ * as the only motion — the user is asking whether the harness is
+ * running a skill; the scan band would compete for attention and
+ * obscure that question. Active / stale / invalid-presence / compact
+ * states all keep the marquee.
  */
 export function renderStatusLine(
   model: StatusLineModel,
   options?: StatusLineRenderOptions,
+  env?: NodeJS.ProcessEnv,
 ): string {
   const capability: StatusLineCapability = options?.capability ?? DEFAULT_CAPABILITY;
-  const palette = paletteFor(capability);
+  const noColor = env !== undefined ? isNoColor(env) : false;
+  const palette = paletteFor(capability, noColor);
   const root = rootLabel(model.projectRoot);
   const rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
-  const brand = brandText(capability);
+  const brand = brandText(capability, noColor);
   // Breathing pulse: key off a single wall-clock read at the start of
   // render so the output is deterministic for a given invocation. The
   // glyph remains a single cell so total visible width is constant.
@@ -493,23 +703,35 @@ export function renderStatusLine(
 
   const compactSegment = renderCompact(model.compact, palette);
 
-  if (compactSegment.length > 0) {
+  let line: string;
+  const hasCompact = compactSegment.length > 0;
+  if (hasCompact) {
     // Compact state replaces the active / stale / idle skill content.
     // `invalid-presence` still surfaces its own diagnostic when compact
     // is also `invalid` (the compact diagnostic wins, since it's the
     // more recent failure mode).
-    return `${brand} ${compactSegment}${rootSuffix}`;
+    line = `${brand} ${compactSegment}${rootSuffix}`;
+  } else {
+    switch (model.state) {
+      case 'active':
+        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor)}${rootSuffix}`;
+        break;
+      case 'stale':
+        line = `${brand} ${renderStale(model.presence, model.ageMs, palette, capability, noColor)}${rootSuffix}`;
+        break;
+      case 'invalid-presence':
+        line = `${brand} ${renderInvalid(palette)}${rootSuffix}`;
+        break;
+      case 'idle':
+      default:
+        line = `${brand} ${renderIdle(palette)}${rootSuffix}`;
+        break;
+    }
   }
 
-  switch (model.state) {
-    case 'active':
-      return `${brand} ${renderActive(model.presence, palette, nowMs, capability)}${rootSuffix}`;
-    case 'stale':
-      return `${brand} ${renderStale(model.presence, model.ageMs, palette)}${rootSuffix}`;
-    case 'invalid-presence':
-      return `${brand} ${renderInvalid(palette)}${rootSuffix}`;
-    case 'idle':
-    default:
-      return `${brand} ${renderIdle(palette)}${rootSuffix}`;
-  }
+  // Marquee is OFF for idle (and only idle). Compact states always
+  // carry the band because the compact bar IS the headline. NO_COLOR
+  // skips the band entirely — there's no SGR to inject.
+  const shouldMarquee = !noColor && (hasCompact || model.state !== 'idle');
+  return shouldMarquee ? applyMarquee(line, nowMs, capability) : line;
 }
