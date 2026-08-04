@@ -19,6 +19,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { normalizePath } from '../../shared/path-utils.js';
 import type { MigrateResult } from './schema.js';
 
 export interface MigrateOpts {
@@ -56,7 +57,7 @@ function escapeRe(input: string): string {
 
 /** True iff `absPath` falls under any skip-path (substring match). */
 export function shouldSkip(projectRoot: string, absPath: string): boolean {
-  const rel = relative(projectRoot, absPath).replace(/\\/g, '/');
+  const rel = normalizePath(relative(projectRoot, absPath));
   return SKIP_DIRS.some((skip) => rel.includes(skip));
 }
 

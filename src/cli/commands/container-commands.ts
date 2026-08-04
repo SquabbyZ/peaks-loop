@@ -33,6 +33,7 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
+import { normalizePath } from '../../shared/path-utils.js';
 import {
   containerLeaseFilePath,
   deserializeContainerLease,
@@ -176,7 +177,7 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       // `--label peaks.leaseId=<id>` lets `peaks container
       // list` / `peaks container gc` find orphans by label
       // when the lease file is missing.
-      const cidFile = `${joinPathSession(projectRoot, sessionId).replace(/\\/g, '/')}/.${runtime.runtime}-cid-${leaseId}`;
+      const cidFile = `${normalizePath(joinPathSession(projectRoot, sessionId))}/.${runtime.runtime}-cid-${leaseId}`;
       try {
         execSync(
           `${runtime.runtime} run --rm -d --cidfile "${cidFile}" --label "peaks.leaseId=${leaseId}" --label "peaks.rid=${options.rid}" -v "${mount}:/work" -w /work ${image} sleep infinity`,

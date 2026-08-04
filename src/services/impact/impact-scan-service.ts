@@ -14,6 +14,8 @@
  * subset. Persistence is per-invocation (no state file).
  */
 
+import { normalizePath } from '../../shared/path-utils.js';
+
 /** A single impacted file predicted from a changed file. */
 export interface ImpactedFile {
   /** Absolute or relative path. */
@@ -77,7 +79,7 @@ export const DEFAULT_BUSINESS_FLOWS: ReadonlyMap<string, readonly string[]> = ne
  * (the file itself, the parent dir, the project-wide pattern).
  */
 function pathToGlobs(path: string): string[] {
-  const normalized = path.replace(/\\/g, '/');
+  const normalized = normalizePath(path);
   const parts = normalized.split('/');
   // Drop the filename → get the parent pattern: "src/foo/" → "src/**"
   const parent = parts.length > 1 ? parts.slice(0, -1).join('/') + '/**' : '**';
@@ -86,7 +88,7 @@ function pathToGlobs(path: string): string[] {
 
 /** Simple glob matcher supporting `**` and `*`. */
 export function matchGlob(pattern: string, path: string): boolean {
-  const normalizedPath = path.replace(/\\/g, '/');
+  const normalizedPath = normalizePath(path);
   // Build regex by splitting on glob tokens, escaping the rest.
   // Order: ** (doublestar) → .* ; * → [^/]* ; other → escape
   let regexStr = '';
@@ -154,7 +156,7 @@ export function runImpactScan(opts: ImpactScanOptions): ImpactScanReport {
   // Predict other files that may be affected (siblings of changed files).
   const impactedFiles: ImpactedFile[] = [];
   for (const f of changed) {
-    const parts = f.replace(/\\/g, '/').split('/');
+    const parts = normalizePath(f).split('/');
     if (parts.length <= 1) continue;
     const parent = parts.slice(0, -1).join('/');
     impactedFiles.push({

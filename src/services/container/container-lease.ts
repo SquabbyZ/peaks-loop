@@ -30,6 +30,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { posix as path } from 'node:path';
+import { normalizePath } from '../../shared/path-utils.js';
 
 export const DEFAULT_TTL_BY_ROLE: Readonly<Record<string, number>> = Object.freeze({
   rd: 30 * 60 * 1_000,
@@ -155,7 +156,7 @@ export function deserializeContainerLease(raw: string): ContainerLease {
 
 function joinPath(...segments: ReadonlyArray<string>): string {
   if (segments.length === 0) return '';
-  const normalized = segments.map((s) => s.replace(/\\/g, '/'));
+  const normalized = segments.map((s) => normalizePath(s));
   let acc: string = normalized[0] as string;
   for (let i = 1; i < normalized.length; i++) {
     acc = path.join(acc, normalized[i] as string);

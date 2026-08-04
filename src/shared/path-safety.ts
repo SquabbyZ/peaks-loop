@@ -11,13 +11,10 @@
  */
 
 import { posix } from 'node:path';
-
-function normalizeForwardSlashes(input: string): string {
-  return input.replace(/\\/g, '/');
-}
+import { normalizePath } from './path-utils.js';
 
 function hasUnsafePathShape(input: string): boolean {
-  const normalized = normalizeForwardSlashes(input);
+  const normalized = normalizePath(input);
 
   if (input.includes('\\')) return true;
   if (!normalized || normalized === '.' || normalized === '..') return true;
@@ -38,7 +35,7 @@ export function isUnsafeArtifactPath(path: string): boolean {
 }
 
 function normalizeArtifactPath(input: string): string {
-  const normalized = posix.normalize(normalizeForwardSlashes(input));
+  const normalized = posix.normalize(normalizePath(input));
   return normalized.replace(/\/$/, '');
 }
 

@@ -27,6 +27,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { posix as path } from 'node:path';
+import { normalizePath } from '../../shared/path-utils.js';
 
 /**
  * Per-role default TTL. Sub-agent dispatch duration varies by role:
@@ -290,7 +291,7 @@ export function deserializeLease(raw: string): WorktreeLease {
  *  so reads + writes always agree. */
 function joinPath(...segments: ReadonlyArray<string>): string {
   if (segments.length === 0) return '';
-  const normalized = segments.map((s) => s.replace(/\\/g, '/'));
+  const normalized = segments.map((s) => normalizePath(s));
   let acc: string = normalized[0] as string;
   for (let i = 1; i < normalized.length; i++) {
     acc = path.join(acc, normalized[i] as string);
