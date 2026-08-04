@@ -207,7 +207,7 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
 
 const BREATHING_GLYPHS_UNICODE = ['●', '◐', '◑', '◒', '◓'] as const;
 const BREATHING_GLYPHS_ASCII = ['*', 'o', '+', '~', '|'] as const;
-const BREATHING_PERIOD_MS = 1_200;
+const BREATHING_PERIOD_MS = 600;
 
 function pickBreathingGlyph(capability: StatusLineCapability, nowMs: number): string {
   const set = capability === 'ascii' ? BREATHING_GLYPHS_ASCII : BREATHING_GLYPHS_UNICODE;
@@ -515,7 +515,7 @@ export function isNoColorEnv(env: NodeJS.ProcessEnv): boolean {
 
 /**
  * Marquee scan band — a single-pass light band that sweeps left ↔ right
- * across the entire status line on an 0.8 s round trip. The band's
+ * across the entire status line on a 0.4 s round trip. The band's
  * foreground color is `#E0E0E0` (off-white) with `1;` (bold) — see
  * {@link HIGHLIGHT_SGR_OPEN}. Cells OUTSIDE the band keep their
  * original SGR (brand purple or semantic warning/failed); only cells
@@ -544,8 +544,8 @@ export function isNoColorEnv(env: NodeJS.ProcessEnv): boolean {
  *
  * ASCII tier: skipped — there are no SGR codes to inject.
  */
-const MARQUEE_PERIOD_MS = 800;
-const MARQUEE_BAND_WIDTH = 3;
+const MARQUEE_PERIOD_MS = 400;
+const MARQUEE_BAND_WIDTH = 2;
 
 /**
  * Visible-character width of an ANSI-bearing string. Skips every

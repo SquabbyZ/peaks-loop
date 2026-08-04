@@ -94,7 +94,7 @@ function withPinnedClock<T>(nowMs: number, fn: () => T): T {
 describe('render — capability matrix (exact strings)', () => {
   it('unicode: active presence renders Peaks ● peaks-code → peaks-loop with cyan escape', () => {
     const model = activeModel(presenceOf('peaks-code'));
-    // At t=0 the marquee band sits at the LEFT edge. With BAND_WIDTH=3
+    // At t=0 the marquee band sits at the LEFT edge. With BAND_WIDTH=2
     // the band covers cells [0, 1] (center=0 clamps; halfBand=1 → only
     // cells inside the visible range are painted). The first 2 characters
     // (`Pe`) get re-painted to the highlight SGR `#E0E0E0`. The rest of
@@ -263,7 +263,7 @@ describe('render — turn-boundary visibility (1.5s gap)', () => {
   // Brief: between two typical turns (~1.5s apart) the breathing glyph
   // must jump 1-2 frames and the marquee band must visibly translate.
   // Old 2.4s / 2.0s periods made both movements imperceptible.
-  it('unicode active glyph at nowMs=0 differs from nowMs=1500 (1500 % 1200 = 300 → glyph index 1)', () => {
+  it('unicode active glyph at nowMs=0 differs from nowMs=1500 (1500 % 600 = 300 → glyph index 2)', () => {
     const model = activeModel(presenceOf('peaks-code'));
     const out0 = withPinnedClock(0, () => renderStatusLine(model, { capability: 'unicode' }));
     const out1500 = withPinnedClock(1500, () => renderStatusLine(model, { capability: 'unicode' }));
@@ -276,8 +276,8 @@ describe('render — turn-boundary visibility (1.5s gap)', () => {
 
   it('marquee band moves visibly between nowMs=0 (left edge) and nowMs=1500 (mid-line)', () => {
     // Phase at 0: 0.0  → sweep 0  → center 0  → band [0, 1] (left edge).
-    // Phase at 1500: 1500%800=700, phase=0.875, sweep=(1-0.875)*2=0.25
-    //                center=round(0.25*28)=7 → band [6, 8] (mid-line).
+    // Phase at 1500: 1500%400=300, phase=0.75, sweep=(1-0.75)*2=0.5
+    //                center=round(0.5*30)=15 → band [14, 16] (mid-line).
     // The contract is "band visibly translates between two turns ~1.5s
     // apart". Assert on band-anchor position via the highlight SGR
     // (which is interleaved with brand-purple wrapping inside the band,
@@ -300,25 +300,48 @@ describe('render — turn-boundary visibility (1.5s gap)', () => {
     // mid-line, not at the edge).
     expect(out1500).toContain('\x1b[1;38;2;224;224;224m');
   });
+
+  // rid-007: at typical 0.5s turn gaps the breathing glyph must change on
+  // EVERY render. With the 600ms period, 500ms advances the glyph index by
+  // 500/120 ≈ 4.17 slots, so consecutive renders can never repeat.
+  it('0.5s gap always produces a different breathing glyph (0 → 500 → 1000ms)', () => {
+    const model = activeModel(presenceOf('peaks-code'));
+    const glyphAt = (t: number): string =>
+      withPinnedClock(t, () => renderStatusLine(model, { capability: 'unicode' }))
+        .replace(/\x1b\[[0-9;]*m/g, '')
+        .split(' ')[1] as string;
+    const t0 = glyphAt(0);
+    const t05 = glyphAt(500);
+    const t1 = glyphAt(1000);
+    expect(t0).not.toBe(t05); // 0.5s gap must jump
+    expect(t05).not.toBe(t1); // 0.5s gap must jump
+    // Exact-anchor the 600ms derivation so a revert to the rid-006
+    // 1200ms period (indices 0/2/4 → ●/◑/◓) fails this case, not just
+    // the inequality: 500 % 600 = 500 → index 4 (◓); 1000 % 600 = 400
+    // → index 3 (◒).
+    expect(t0).toBe('●');
+    expect(t05).toBe('◓');
+    expect(t1).toBe('◒');
+  });
 });
 
-describe('render — 1.2s breathing glyph rotation', () => {
-  it('unicode active glyph rotates every 240ms inside the 1.2s period', () => {
-    const samples = [0, 240, 480, 720, 960, 1200].map((t) => {
+describe('render — 0.6s breathing glyph rotation', () => {
+  it('unicode active glyph rotates every 120ms inside the 0.6s period', () => {
+    const samples = [0, 120, 240, 360, 480, 600].map((t) => {
       const out = withPinnedClock(t, () =>
         renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'unicode' }),
       );
       return out;
     });
     const glyphs = samples.map((s) => s.split(' ')[1]);
-    // 1.2s period = one full rotation; expect all five distinct glyphs across the 0..960ms window.
+    // 0.6s period = one full rotation; expect all five distinct glyphs across the 0..480ms window.
     expect(new Set(glyphs.slice(0, 5)).size).toBe(5);
-    // The glyph at t=0 and t=1200 should match (one full cycle).
+    // The glyph at t=0 and t=600 should match (one full cycle).
     expect(glyphs[0]).toBe(glyphs[5]);
   });
 
   it('breathing does not change total visible width across the period', () => {
-    const widths = [0, 240, 480, 720, 960, 1199].map((t) =>
+    const widths = [0, 120, 240, 360, 480, 599].map((t) =>
       withPinnedClock(t, () => {
         const model = activeModel(presenceOf('peaks-code', { mode: 'full-auto' }));
         return renderStatusLine(model, { capability: 'unicode' }).length;
@@ -331,16 +354,16 @@ describe('render — 1.2s breathing glyph rotation', () => {
     const a = withPinnedClock(0, () =>
       renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
     );
-    const b = withPinnedClock(600, () =>
+    const b = withPinnedClock(300, () =>
       renderStatusLine(activeModel(presenceOf('peaks-code')), { capability: 'ascii' }),
     );
-    // 600ms lands mid-period (1.2s); the breathing glyph must differ.
+    // 300ms lands mid-period (0.6s); the breathing glyph must differ.
     expect(a.split(' ')[1]).not.toBe(b.split(' ')[1]);
   });
 
   it('idle, stale, invalid, and compact states never breathe', () => {
     const idle = withPinnedClock(0, () => renderStatusLine(idleModel(), { capability: 'unicode' }));
-    const idle2 = withPinnedClock(1200, () => renderStatusLine(idleModel(), { capability: 'unicode' }));
+    const idle2 = withPinnedClock(600, () => renderStatusLine(idleModel(), { capability: 'unicode' }));
     expect(idle).toBe(idle2);
   });
 });

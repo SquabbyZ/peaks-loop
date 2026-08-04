@@ -106,17 +106,17 @@ describe('applyMarquee — phase formula and capability gating', () => {
 
   it('at nowMs=0 the band sits at the LEFT edge covering cells [0, 1]', () => {
     const out = applyMarquee(SAMPLE, 0, 'unicode');
-    // BAND_WIDTH=3 → halfBand=1; at nowMs=0 center=0, so band covers
+    // BAND_WIDTH=2 → halfBand=1; at nowMs=0 center=0, so band covers
     // visible cells [0, 1] = 'Pe'.
     expect(out).toContain('\x1b[1;38;2;224;224;224mPe\x1b[0m');
     expect(out.startsWith('\x1b[1;38;2;224;224;224mPe\x1b[0m')).toBe(true);
   });
 
-  it('at nowMs=400 (phase=0.5) the band sits at the RIGHT edge covering cells [44, 45]', () => {
-    const out = applyMarquee(SAMPLE, 400, 'unicode');
-    // width = 46 (visible cells); period = 800ms → phase at 400 = 0.5,
-    // sweep = 1.0; center = round(1.0 * 45) = 45; halfBand = 1;
-    // bandStart = 44, bandEnd = 45 (the last 2 cells 'op' of
+  it('at nowMs=200 (phase=0.5) the band sits at the RIGHT edge covering cells [41, 42]', () => {
+    const out = applyMarquee(SAMPLE, 200, 'unicode');
+    // width = 43 (visible cells); period = 400ms → phase at 200 = 0.5,
+    // sweep = 1.0; center = round(1.0 * 42) = 42; halfBand = 1;
+    // bandStart = 41, bandEnd = 42 (the last 2 cells 'op' of
     // 'peaks-loop'). After the band, the reset is injected.
     expect(out).toContain('\x1b[1;38;2;224;224;224mop\x1b[0m');
   });
