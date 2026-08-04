@@ -11,6 +11,7 @@ import { runDoctor } from '../../services/doctor/index.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 type OpenSpecListOptions = {
   project?: string;
@@ -46,7 +47,7 @@ function resolveScanOptions(project: string | undefined): OpenSpecScanOptions {
   if (project === undefined) {
     return {};
   }
-  return { openspecRoot: `${project.replace(/\\/g, '/').replace(/\/$/, '')}/openspec` };
+  return { openspecRoot: `${normalizePath(project).replace(/\/$/, '')}/openspec` };
 }
 
 async function loadRenderRequest(requestPath: string): Promise<OpenSpecRenderRequest> {

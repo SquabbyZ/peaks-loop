@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 /**
  * Slice 2026-06-29-change-id-root-removal: list the immediate children of
@@ -535,7 +536,7 @@ export function isWriterCreatedSiblingShape(siblingDir: string): boolean {
       continue;
     }
     if (stat.isFile()) {
-      const rel = node.rel.replace(/\\/g, '/');
+      const rel = normalizePath(node.rel);
       const matches = WRITER_ALLOWED_RELATIVE_PATTERNS.some((re) => re.test(rel));
       if (!matches) {
         return false;

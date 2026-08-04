@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { extname, basename } from 'node:path';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 export type FileCategory = 'source' | 'config' | 'docs' | 'lockfile' | 'test' | 'unknown';
 
@@ -54,7 +55,7 @@ function classifyFile(filePath: string): FileCategory {
  * wrote `.peaks/**` markdown would be misclassified as a docs change.
  */
 function isArtifactWorkspaceFile(filePath: string): boolean {
-  const normalized = filePath.replace(/\\/g, '/');
+  const normalized = normalizePath(filePath);
   return normalized === '.peaks' || normalized.startsWith('.peaks/');
 }
 

@@ -22,6 +22,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 // pre-built.
 import { getSessionDir } from '../session/getSessionDir.js';
 import type { AutonomousResumePlan } from './workflow-autonomous-types.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 const MAX_RESUME_ARTIFACT_BYTES = 256_000;
 
@@ -75,7 +76,7 @@ function normalizeRoleRelativePath(artifact: string, _sessionId: string): string
   // the path separators and strips any leading `/`; the `sessionId`
   // argument is preserved on the signature for backward call-site
   // compatibility but is no longer embedded in the path.
-  return artifact.replace(/\\/g, '/').replace(/^\/+/, '');
+  return normalizePath(artifact).replace(/^\/+/, '');
 }
 
 function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, artifact: string): string | null {
@@ -84,7 +85,7 @@ function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, ar
   // sub-path (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) is
   // strictly a sub-root drill, not a top-level dir derivation.
   const sessionScopeRoot = getSessionDir(artifactWorkspacePath, sessionId);
-  const normalizedArtifact = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
+  const normalizedArtifact = normalizePath(artifact).replace(/^\/+/, '');
   const artifactPath = resolve(sessionScopeRoot, normalizedArtifact);
   try {
     const artifactWorkspaceRealPath = realpathSync(artifactWorkspacePath);

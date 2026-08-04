@@ -24,6 +24,7 @@
 import { posix, relative, resolve, isAbsolute as nodeIsAbsolute } from 'node:path';
 
 import { isPathInsideArtifactRoot as _isPathInsideArtifactRoot } from '../../shared/path-safety.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 export type Result<T, E> =
   | { ok: true; value: T }
@@ -168,7 +169,7 @@ export function planArtifactPath(
   // Always normalize separators to forward-slashes for the JSON-safe output,
   // then run posix.normalize so empty segments (foo//bar) and `..` segments
   // collapse to canonical form.
-  const forwardSlashed = candidateRaw.replace(/\\/g, '/');
+  const forwardSlashed = normalizePath(candidateRaw);
   const normalized = posix.normalize(forwardSlashed);
 
   // Resolve against workspaceRoot. If the candidate is already absolute,
@@ -189,7 +190,7 @@ export function planArtifactPath(
   }
 
   const relativePath = relative(workspaceRoot, absolutePath);
-  const jsonSafeRelativePath = relativePath.replace(/\\/g, '/');
+  const jsonSafeRelativePath = normalizePath(relativePath);
 
   return ok({ absolutePath, relativePath, jsonSafeRelativePath });
 }

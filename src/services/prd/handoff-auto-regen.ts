@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { showRequestArtifact, type RequestArtifactRole } from '../artifacts/request-artifact-service.js';
 import { sha256OfBody } from './handoff-service.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 export type HandoffAutoRegenResult =
   | { status: 'created'; path: string; sha256: string }
@@ -69,7 +70,7 @@ export async function autoRegenPrdHandoff(opts: {
     'goals: []',
     'acceptanceCriteria: []',
     'preservedBehavior: []',
-    `handoffPath: ${handoffPath.replace(opts.projectRoot, '').replace(/\\/g, '/').replace(/^\//, '')}`,
+    `handoffPath: ${normalizePath(handoffPath.replace(opts.projectRoot, '')).replace(/^\//, '')}`,
     '---',
     ''
   ].join('\n');

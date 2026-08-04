@@ -26,6 +26,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
 import { ok, err, type Result } from './artifact-boundary.js';
+import { normalizePath } from '../../shared/path-utils.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,7 +138,7 @@ export async function resolveCoverageSummaryPath(input: {
 }
 
 function toPosix(p: string): string {
-  return p.replace(/\\/g, '/').replace(/\/$/, '');
+  return normalizePath(p).replace(/\/$/, '');
 }
 
 async function isReadable(p: string): Promise<boolean> {
@@ -189,7 +190,7 @@ export async function readC8Summary(path: string): Promise<CoverageSummary> {
     if (lines === null || statements === null || functions === null || branches === null) {
       continue;
     }
-    const normalizedKey = posix.normalize(key.replace(/\\/g, '/'));
+    const normalizedKey = posix.normalize(normalizePath(key));
     files.set(normalizedKey, {
       path: normalizePathSep(normalizedKey),
       relativePath: normalizedKey,
@@ -219,7 +220,7 @@ function asMetric(input: unknown): { pct: number; covered: number; total: number
 }
 
 function normalizePathSep(p: string): string {
-  return p.replace(/\\/g, '/');
+  return normalizePath(p);
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +295,7 @@ function parseCapabilityRow(line: string): Omit<CapabilityMappingRow, 'line'> | 
   if (/^-+$/.test(capability.replace(/\s+/g, ''))) return null;
   const row: Omit<CapabilityMappingRow, 'line'> = {
     capability,
-    source: source.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/$/, ''),
+    source: normalizePath(source).replace(/^\.\//, '').replace(/\/$/, ''),
   };
   if (testAnchor !== undefined && testAnchor !== '') {
     row.testAnchor = testAnchor;
@@ -320,7 +321,7 @@ export async function resolveCapabilityFiles(input: {
 }): Promise<ReadonlyArray<string>> {
   const abs = resolve(input.projectRoot, input.row.source);
   if (!(await isDirectory(abs))) {
-    const rel = relative(input.projectRoot, abs).replace(/\\/g, '/');
+    const rel = normalizePath(relative(input.projectRoot, abs));
     return [rel];
   }
   return await walkTsFiles(abs, input.projectRoot);
@@ -344,7 +345,7 @@ async function walkTsFiles(absRoot: string, projectRoot: string): Promise<string
       if (entry.isDirectory()) {
         stack.push(full);
       } else if (entry.isFile() && entry.name.endsWith('.ts')) {
-        const rel = relative(projectRoot, full).replace(/\\/g, '/');
+        const rel = normalizePath(relative(projectRoot, full));
         out.push(rel);
       }
     }
@@ -445,7 +446,7 @@ export async function findStaleChangeFiles(input: {
 }): Promise<ReadonlyArray<string>> {
   const { stat: statFn } = await import('node:fs/promises');
   const summaryMtime = (await statFn(input.summary.path)).mtimeMs;
-  const changeRoot = `${input.openspecRoot.replace(/\\/g, '/').replace(/\/$/, '')}/changes/${input.changeId}`;
+  const changeRoot = `${normalizePath(input.openspecRoot).replace(/\/$/, '')}/changes/${input.changeId}`;
   const candidates = [
     `${changeRoot}/proposal.md`,
     `${changeRoot}/tasks.md`,
@@ -480,7 +481,7 @@ export async function findStaleChangeFiles(input: {
     try {
       const m = (await statFn(candidate)).mtimeMs;
       if (m > summaryMtime) {
-        stale.push(relative(input.projectRoot, candidate).replace(/\\/g, '/'));
+        stale.push(normalizePath(relative(input.projectRoot, candidate)));
       }
     } catch {
       // file does not exist — not stale, just absent
