@@ -19,10 +19,11 @@
  * Changes). No behavior change. The bridge adds nothing of its own.
  */
 
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
+import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import {
   getSessionId,
   getSessionIdCanonical,
@@ -38,19 +39,6 @@ const META_FILE = 'session.json';
 
 function getLegacySessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', LEGACY_SESSION_FILE);
-}
-
-function canonicalizeProjectRoot(p: string): string {
-  try {
-    return realpathSync(p);
-  } catch {
-    return resolve(p);
-  }
-}
-
-function resolveStoredAgainstCaller(stored: string, caller: string): string {
-  const resolved = resolve(caller, stored);
-  return canonicalizeProjectRoot(resolved);
 }
 
 function generateSessionId(): string {
@@ -75,7 +63,11 @@ function readSessionFile(projectRoot: string): { sessionId: string; createdAt: s
 
   try {
     const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (data.sessionId && data.projectRoot === projectRoot) {
+    if (
+      data.sessionId &&
+      typeof data.projectRoot === 'string' &&
+      projectRootsMatch(data.projectRoot, projectRoot)
+    ) {
       return data as { sessionId: string; createdAt: string; projectRoot: string };
     }
     return null;
@@ -92,11 +84,10 @@ function readSessionFileCanonical(projectRoot: string): { sessionId: string; cre
 
   try {
     const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    const storedRaw = typeof data.projectRoot === 'string' ? data.projectRoot : null;
     if (
       data.sessionId &&
-      storedRaw !== null &&
-      resolveStoredAgainstCaller(storedRaw, projectRoot) === resolveStoredAgainstCaller(projectRoot, projectRoot)
+      typeof data.projectRoot === 'string' &&
+      projectRootsMatch(data.projectRoot, projectRoot)
     ) {
       return data as { sessionId: string; createdAt: string; projectRoot: string };
     }
@@ -112,7 +103,14 @@ function writeSessionFile(projectRoot: string, info: { sessionId: string; create
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(sessionFile, JSON.stringify(info, null, 2), 'utf8');
+  let canonicalProjectRoot: string;
+  try {
+    canonicalProjectRoot = stableRealPath(info.projectRoot);
+  } catch {
+    canonicalProjectRoot = info.projectRoot;
+  }
+  const canonicalInfo = { ...info, projectRoot: canonicalProjectRoot };
+  writeFileSync(sessionFile, JSON.stringify(canonicalInfo, null, 2), 'utf8');
 }
 
 function getMetaFilePath(projectRoot: string, sessionId: string): string {
