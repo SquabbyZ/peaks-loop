@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.0.9 — 2026-08-04 (statusline-marquee)
+
+**statusline: brand purple + scan-band marquee + NO_COLOR support.**
+
+- **Brand-purple surface.** Every brand token now carries the `#5A65D8` ANSI SGR — bar filled/empty, skill name, mode token, separator, trail arrow, idleLabel, invalidMessage. Warning and failed glyphs stay in semantic amber/red (they are alarms, not brand colour) and are untouched.
+- **Scan-band marquee.** A 5-cell wide bright-grey (`#E0E0E0`) highlight band sweeps left→right→left across the status line on a 2 s round trip. The band re-paints the foreground of cells inside its range and resets cells outside via `\x1b[0m`. SGR 7 (reverse video) is deliberately NOT used — it would invert the background and read as a solid white block. The marquee is OFF when `state === 'idle'`: idle keeps the slow-blink `○` as the only motion; the scan band would compete for attention and obscure the "is a skill running?" question.
+- **NO_COLOR support.** `peaks statusline` now reads `NO_COLOR` (the cross-industry https://no-color.org signal) and suppresses every brand ANSI while keeping the unicode glyphs. `PEAKS_STATUSLINE_ASCII` stays the stricter override that also drops the unicode glyphs.
+
+**Tests.** statusline-related tests: 102/102 green (`skill-statusline-renderer.test.ts` 59/59, `skill-statusline-marquee.test.ts` 19/19 new, `statusline-cli-integration.test.ts` 24/24). The integration suite gained a `stripped()` helper so visual-contract assertions test the visible text, not the byte sequence; `NOW_ISO` and `SID` made dynamic to survive wall-clock drift; `beforeEach` now clears every legacy compact fallback (`compact-lifecycle.json` + `auto-compact-pending.json` + `compact-history.jsonl` + `txt/auto-compact-pending.json`) so tests do not pollute one another.
+
+**Lockstep bump.** peaks-loop-mut `0.1.13 → 0.1.14`, peaks-loop-shared `0.0.38 → 0.0.39` (CLI_VERSION re-stamped to 4.0.9), peaks-loop-shared-channel `0.0.17 → 0.0.18`.
+
 ## 4.0.8 — 2026-08-03 (presence-lease-graph)
 
 **BREAKING: IdeAdapter interface requires `resolveCallerId(env?)`**. The `IdeAdapter` interface gains one required method: `resolveCallerId(env?: NodeJS.ProcessEnv) => string`. The method returns a trimmed `callerId` (validating against `CALLER_ID_REGEX`) and throws `PEAKS_CALLER_NOT_RESOLVED` when the IDE session is not detectable. **4.0.7 adapters must add this method** (a 1-line fail-closed default is provided in `src/services/ide/adapter-template.ts` if you need a starter). Slice 4.0.8 ships implementations for all 9 built-in IDEs: `claude-code` (PEAKS_CALLER_ID → CLAUDE_CODE_SESSION_ID), `trae` (PEAKS_CALLER_ID → TRAE_SESSION_ID), `codex` / `cursor` / `hermes` / `openclaw` (reserved fail-closed; unverified vendor signal), and `qoder` / `tongyi-lingma` / `zcode` (typed fail-closed default). The `PLATFORM_FALLBACKS` table is **DELETED** in 4.0.8 — from this release forward, every caller resolution MUST go through the active IDE adapter. Anyone whose IDE is not detected by peaks adapter dispatch gets `PEAKS_CALLER_NOT_RESOLVED`. This is the desired product contract (vendor-neutral).
