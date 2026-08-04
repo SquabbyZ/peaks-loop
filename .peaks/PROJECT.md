@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-01T16:21:38.590Z
+> Last updated: 2026-08-03T16:27:35.219Z
 
 ## Project: peaks-loop
 
@@ -44,10 +44,12 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (15 sessions)
+## Timeline (17 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-08-03 | `2026-08-03-session-1b6cf3` | Untitled | 对 RD 产出的两份 deliverable 做 **4 维验收**: |
+| 2026-08-03 | `2026-08-03-session-bee258` | Untitled | ROLE: hotfix sub-agent for peaks-loop 4.0.8 — fix production ESM repro |
 | 2026-08-01 | `2026-08-01-session-410315` | Untitled | Primary statusline reads and lifecycle transition writes. |
 | 2026-07-31 | `2026-07-31-session-84c3da` | Untitled | **Session**: 2026-07-31-session-84c3da |
 | 2026-07-30 | `2026-07-30-session-602e5c` | 测试体系从零重建 (epic) | peaks-code |
@@ -61,7 +63,5 @@
 | 2026-07-25 | `2026-07-25-session-6da9d9` | Untitled | $ ./node_modules/.bin/vitest run tests/integration/sub-agent-dispatch- |
 | 2026-07-24 | `2026-07-24-session-fafee4` | Untitled | peaks-rd |
 | 2026-07-24 | `2026-07-24-session-f13da7` | Untitled | **Date:** 2026-07-24 |
-| ? | `2026-06-11-session-edbe91` | Untitled | - |
-| ? | `2026-06-06-session-5b1095` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
