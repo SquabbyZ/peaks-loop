@@ -1,5 +1,31 @@
 # Changelog
 
+## 4.0.10 — 2026-08-04 (path-canonicalize + statusline-read-isolation)
+
+**Windows statusline fixed.** `peaks-loop@4.0.9` always rendered `peaks empty` on Windows Git Bash. Root cause: the session-binding reader used strict `===` to compare `projectRoot`; the binding had been written with backslashes (`C:\Users\...`) but `peaks skill presence:set --project C:/Users/...` arrived with forward slashes, and Node treats them as distinct strings. The 4.0.8 fail-closed `PEAKS_SESSION_NOT_BOUND` gate then blocked the presence marker write, and the statusline never had a real skill to display.
+
+**Cross-platform path canonicalization** (5 rid: `5ae2fa6d` / `e8b467d8` / `4e22ce39` / `033df6f6` / `8da617de`):
+- `src/services/session/session-manager.ts` + `src/services/session/session-binding-bridge.ts` — `readSessionFile` / `writeSessionFile` use the canonical `projectRootsMatch` (stableRealPath + normalizePath + isWindows case-fold).
+- `src/shared/path-utils.ts` — `projectRootsMatch` lifted from session-manager to be the single source of truth for cross-platform path comparison.
+- 17 out-of-scope `replace(/\\/g, '/')` sites consolidated to `path-utils.normalizePath`. The remaining 1 site (`karpathy-service.ts:222`) is a reverse escape (`\\` → `\\\\`) and is intentionally out of scope.
+- Hard rule entered `.peaks/standards/common/coding-style.md`: no strict `===` on filesystem paths, no hand-rolled `realpathSync` in non-`path-utils` modules, no `path.replace(/\\/g, '/')` in new code. Sediment at `.peaks/memory/2026-08-04-cross-platform-path-utility-rule.md`.
+
+**Statusline read-side isolation** (1 rid: `8da617de`):
+- `peaks statusline` now reads from `active-skill-resolver.resolveActiveSkillForCaller` (canonical lease walk) instead of the project-level single file. callerId extracted from `stdin.caller_id` → `CLAUDE_CODE_SESSION_ID` env → null fallback.
+- Multi-session isolation: `peaks skill presence:set` in session A no longer leaks into session B's statusline.
+- Active leaf display: statusline now shows `${leaf} (+N-1) | peaks-code [mode]` when sub-agents are in flight (e.g. `peaks-rd | peaks-code [full-auto]`). The 14→1 bee skill → `peaks-code` mapping in the renderer is removed.
+- **Bug fix discovered and closed during rid-005**: `active-skill-resolver.ts` was reading from the session directory root expecting `presence-*.json` files, but `presence-lease-service.ts` actually writes under `leases/` subdir. Option A fix: resolver now reads from the canonical `leases/` subdir via `listPresenceLeases`.
+
+**Shorter animation periods** (2 rid: `52a968f7` / `532bd1b1`):
+- `MARQUEE_PERIOD_MS` 2000 → 800 → 400 (statusline scan band round trip)
+- `BREATHING_PERIOD_MS` 2400 → 1200 → 600 (breathing glyph rotation)
+- `MARQUEE_BAND_WIDTH` 5 → 3 → 2 (highlight band width)
+- At 400ms / 600ms periods, 0.5-1s turn intervals produce visibly different breathing glyph + band position on every statusline render.
+
+**Tests.** 88/88 statusline vitest green; 47 path-canonicalize test cases green across 4 test files. ESM repros validate 0.5-1.5s turn-interval phase difference at the production level.
+
+**Lockstep bump.** peaks-loop-shared `0.0.39 → 0.0.40` (CLI_VERSION re-stamped to 4.0.10).
+
 ## 4.0.9 — 2026-08-04 (statusline-marquee)
 
 **statusline: brand purple + scan-band marquee + NO_COLOR support.**
