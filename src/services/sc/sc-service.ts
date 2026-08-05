@@ -5,6 +5,7 @@ import { isInsidePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import { getArtifactRemoteRepo, getArtifactWorkspaceStatus, getLocalArtifactPath } from '../artifacts/workspace-service.js';
 import { getSessionId } from '../session/session-manager.js';
+import { listPresenceLeases } from '../skills/presence-lease-service.js';
 
 export type ChangeImpact = {
   sessionId: string;
@@ -108,10 +109,10 @@ const SLICE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 
 /**
  * Resolution sources for `resolveArtifactSession`, in priority order.
- * - `active-skill`: the orchestrator's active-skill marker
- *   (`.peaks/_runtime/active-skill.json`, with a one-minor-release
- *   fallback to `.peaks/.active-skill.json`) `sessionId` points to a
- *   session dir that owns the slice's marker artifact.
+ * - `active-skill`: the canonical sid-scoped lease projection
+ *   (`.peaks/_runtime/<sid>/leases/presence-*.json`) for the bound
+ *   session id. When at least one in-flight lease exists under the
+ *   session dir, that session owns the slice's marker artifact.
  * - `session-json`: the workspace binding in
  *   `.peaks/_runtime/session.json` (with back-compat fallback to
  *   `.peaks/.session.json`) points to a session dir that owns the
@@ -205,31 +206,30 @@ function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string,
 }
 
 /**
- * Read the orchestrator's active-skill marker and return its
- * `sessionId`, or null when the file is missing / malformed.
+ * Resolve the canonical sid-scoped lease session id (replaces the
+ * removed `.peaks/_runtime/active-skill.json` single-slot marker
+ * reader). Reads the workspace session binding
+ * (`.peaks/_runtime/session.json`, with back-compat fallback to
+ * `.peaks/.session.json`) and returns its `sessionId` when at least
+ * one in-flight canonical lease exists under
+ * `.peaks/_runtime/<sid>/leases/`.
  *
- * As of slice 2026-06-05-peaks-runtime-layer the canonical home is
- * `<projectRoot>/.peaks/_runtime/active-skill.json`. The legacy
- * `<projectRoot>/.peaks/.active-skill.json` is consulted as a
- * one-minor-release back-compat fallback: if the new path is
- * absent but the legacy path is present and valid, we use the
- * legacy value. The new path always wins when both exist.
+ * Slice 4.0.11 statusline-sid-scoped-lease C: the project-level
+ * `active-skill.json` is removed; the canonical sid-scoped lease
+ * projection (`.peaks/_runtime/<sid>/leases/presence-*.json`) is the
+ * authoritative source. The session-id is now read from the
+ * workspace binding (which was already tier 2 in the old resolver),
+ * gated on the existence of an in-flight lease so a stale binding
+ * with no live presence does not produce a false `active-skill`
+ * tier hit. Returns null when the session binding is missing /
+ * malformed, or when no in-flight lease exists.
  */
 function readActiveSkillSessionId(projectRoot: string): string | null {
-  const newPath = join(projectRoot, '.peaks', '_runtime', 'active-skill.json');
-  const legacyPath = join(projectRoot, '.peaks', '.active-skill.json');
-  const pathToRead = existsSync(newPath) ? newPath : legacyPath;
-  if (!existsSync(pathToRead)) return null;
-  try {
-    const raw = readFileSync(pathToRead, 'utf8');
-    const parsed = JSON.parse(raw) as { sessionId?: unknown };
-    if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
-      return parsed.sessionId;
-    }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
-  return null;
+  const sessionId = readSessionJsonBinding(projectRoot);
+  if (sessionId === null) return null;
+  const leases = listPresenceLeases(projectRoot, sessionId);
+  const hasInFlight = leases.some((l) => l.status === 'running' || l.status === 'preparing');
+  return hasInFlight ? sessionId : null;
 }
 
 /**
@@ -362,9 +362,13 @@ function readdirSyncSafe(dir: string): string[] {
  * Resolve the session id that owns the slice's artifacts using a 3-tier
  * precedence:
  *
- *   1. `.peaks/_runtime/active-skill.json` `sessionId` (with back-compat
- *      fallback to `.peaks/.active-skill.json`) if it points to a real
- *      session that owns the slice.
+ *   1. The canonical sid-scoped lease projection under the bound
+ *      session id (workspace binding + at least one in-flight lease
+ *      in `.peaks/_runtime/<sid>/leases/`). Slice 4.0.11 statusline-
+ *      sid-scoped-lease C collapsed the previous
+ *      `.peaks/_runtime/active-skill.json` reader into this tier —
+ *      the session id is now read from the canonical workspace
+ *      binding (was tier 2), gated on a live lease.
  *   2. `.peaks/_runtime/session.json` `sessionId` (with back-compat
  *      fallback to `.peaks/.session.json`) if it points to a real
  *      session that owns the slice.

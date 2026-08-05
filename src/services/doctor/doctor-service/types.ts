@@ -61,6 +61,15 @@ export type WorkspaceLayoutInspection = {
    * to an empty array when the field is missing.
    */
   perChangeIdDirs?: string[];
+  /**
+   * Slice 4.0.11 statusline-sid-scoped-lease C — single-slot
+   * presence files that are stale after the sid-scoped lease
+   * projection shipped in 4.0.8. Reported separately from
+   * `legacyDotfiles` so the doctor message names the specific
+   * "stale single-slot presence" condition. Optional for back-compat
+   * with probes injected by older tests.
+   */
+  staleSingleSlotFiles?: string[];
 };
 
 export type WorkspaceLayoutProbe = () => WorkspaceLayoutInspection;

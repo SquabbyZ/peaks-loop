@@ -45,9 +45,7 @@ const SKIP_DIRS = new Set([
   'caller',
   'callers',
   'sop-state',
-  'system',
-  'active-skill.json',
-  '.active-skill.json'
+  'system'
 ]);
 
 const SESSION_DIR_RE = /^\d{4}-\d{2}-\d{2}-session-/;

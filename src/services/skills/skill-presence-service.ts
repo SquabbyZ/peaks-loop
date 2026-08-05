@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { dirname, join, resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
 import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
-import { getSessionMeta } from '../session/session-manager.js';
+import { getSessionId, getSessionMeta } from '../session/session-manager.js';
 // Slice 4.0.8 compat shim: the canonical write path lives in
 // `presence-lease-service.ts`. The legacy shim dynamically imports
 // it inside `setSkillPresence` so the cold path of the legacy
@@ -10,6 +10,7 @@ import { getSessionMeta } from '../session/session-manager.js';
 // read paths stays cheap. The static imports below are reserved for
 // the migration window and are referenced through the dynamic
 // `leaseMod.*` accessor at runtime.
+import { listPresenceLeases } from './presence-lease-service.js';
 import type {
   SetPresenceLeaseResult,
 } from './presence-lease-service.js';
@@ -93,50 +94,20 @@ function getCurrentOuterSessionId(): string | undefined {
   return undefined;
 }
 
-// As of slice 2026-06-05-peaks-runtime-layer the orchestrator's
-// active-skill marker lives under `.peaks/_runtime/active-skill.json`.
-// The legacy `.peaks/.active-skill.json` path is preserved as a
-// read-only fallback for one minor release so older CLI versions (or
-// trees that have not been migrated by `peaks workspace reconcile`)
-// keep working without a forced re-init.
-const PRESENCE_FILE = join('.peaks', '_runtime', 'active-skill.json');
-const PRESENCE_FILE_LEGACY = '.peaks/.active-skill.json';
+// Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
+// project-level single-slot presence files
+// `.peaks/_runtime/active-skill.json` and `.peaks/.active-skill.json`
+// are REMOVED from this module. The canonical sid-scoped lease
+// projection (`.peaks/_runtime/<sid>/leases/presence-*.json`) is the
+// only source of truth. The legacy constants `PRESENCE_FILE` and
+// `PRESENCE_FILE_LEGACY` are deleted; readers use `listPresenceLeases`.
+
 const SESSION_FILE = join('.peaks', '_runtime', 'session.json');
 const SESSION_FILE_LEGACY = '.peaks/.session.json';
 
 function resolveProjectRoot(override?: string): string {
   if (override) return resolve(override);
   return findProjectRoot(process.cwd()) ?? process.cwd();
-}
-
-function resolvePresencePath(projectRootOverride?: string): string {
-  return resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE);
-}
-
-/**
- * Back-compat read for the active-skill marker. Prefers the new
- * canonical `.peaks/_runtime/active-skill.json`; falls back to the
- * legacy `.peaks/.active-skill.json` for one minor release.
- *
- * Returns the parsed SkillPresence object, or null when neither
- * file is present / valid. The legacy file is never written by
- * current code — only the new path receives writes.
- */
-function readSkillPresenceBackCompat(projectRootOverride?: string): { presence: SkillPresence; path: string } | null {
-  const presencePath = resolvePresencePath(projectRootOverride);
-  const legacyPath = resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE_LEGACY);
-  const pathToRead = existsSync(presencePath) ? presencePath : legacyPath;
-  if (!existsSync(pathToRead)) return null;
-  try {
-    const raw = readFileSync(pathToRead, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
-      return null;
-    }
-    return { presence: parsed as SkillPresence, path: pathToRead };
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
 }
 
 /**
@@ -166,6 +137,40 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
+}
+
+/**
+ * Slice 4.0.11 statusline-sid-scoped-lease C: read the canonical
+ * sid-scoped lease projection and project the freshest in-flight
+ * lease into the legacy `SkillPresence` shape that the public
+ * `getSkillPresence` / `checkStalePresence` /
+ * `clearStalePresenceOnRotation` consumers expect. The projection
+ * is lossy (the lease does not carry `outerSessionId`; `setAt`
+ * maps to `startedAt`; `lastHeartbeat` is reused as `lastHeartbeat`).
+ *
+ * Returns `null` when the bound session has no in-flight leases
+ * (`running` or `preparing`); terminalized leases are ignored so
+ * the read does not resurrect a stale skill on a fresh session.
+ */
+function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence | null {
+  const projectRoot = resolveProjectRoot(projectRootOverride);
+  const sessionId = getSessionId(projectRoot);
+  if (sessionId === null) return null;
+  const leases = listPresenceLeases(projectRoot, sessionId);
+  const inFlight = leases.filter((l) => l.status === 'running' || l.status === 'preparing');
+  if (inFlight.length === 0) return null;
+  inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
+  const lease = inFlight[0];
+  // The lease carries `callerId` (the adapter / harness session id),
+  // not the legacy `outerSessionId` field. Project it for back-compat
+  // with `clearStalePresenceOnRotation`'s outer-mismatch check.
+  return {
+    skill: lease.skill,
+    sessionId,
+    outerSessionId: lease.callerId,
+    setAt: lease.startedAt,
+    lastHeartbeat: lease.lastHeartbeat
+  };
 }
 
 /**
@@ -215,22 +220,12 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
  * legacy `.peaks/.active-skill.json` for one minor release.
  */
 function getPreviousOuterSessionId(projectRootOverride?: string): string | undefined {
-  const result = readSkillPresenceBackCompat(projectRootOverride);
+  const result = readSkillPresenceFromLease(projectRootOverride);
   if (result === null) return undefined;
-  const parsed = result.presence as { outerSessionId?: unknown; claudeSessionId?: unknown };
-  if (typeof parsed.outerSessionId === 'string' && parsed.outerSessionId.length > 0) {
-    return parsed.outerSessionId;
-  }
-  // Legacy field name. Honour it on the read side so v1.2.x
-  // presence files do not show as a false mismatch.
-  if (typeof parsed.claudeSessionId === 'string' && parsed.claudeSessionId.length > 0) {
-    return parsed.claudeSessionId;
+  if (typeof result.outerSessionId === 'string' && result.outerSessionId.length > 0) {
+    return result.outerSessionId;
   }
   return undefined;
-}
-
-export function exportSkillPresence(projectRootOverride?: string): string {
-  return resolvePresencePath(projectRootOverride);
 }
 
 // ============================================================================
@@ -435,21 +430,14 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
 }
 
 export function getSkillPresence(projectRootOverride?: string): SkillPresence | null {
-  const result = readSkillPresenceBackCompat(projectRootOverride);
-  if (result === null) return null;
-  const { presence, path: presencePath } = result;
-  if (typeof presence.sessionId === 'string' && presence.sessionId.length > 0) {
-    const currentSessionId = getCurrentSessionId(projectRootOverride);
-    if (currentSessionId && presence.sessionId !== currentSessionId) {
-      try {
-        unlinkSync(presencePath);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // best effort
-      }
-      return null;
-    }
-  }
-  return presence;
+  // Slice 4.0.11 statusline-sid-scoped-lease C: read from the
+  // canonical sid-scoped lease projection. The legacy
+  // `unlinkSync(presencePath)` purge on session-mismatch is
+  // removed: the lease projection is keyed off the bound session
+  // id, so a mismatch cannot happen — `listPresenceLeases`
+  // already filters by the session-id resolved from the workspace
+  // binding.
+  return readSkillPresenceFromLease(projectRootOverride);
 }
 
 /**
@@ -509,7 +497,7 @@ export function checkStalePresence(opts?: {
    */
   currentOuter?: string | undefined;
 }): StalenessCheck {
-  const result = readSkillPresenceBackCompat(opts?.projectRootOverride);
+  const result = readSkillPresenceFromLease(opts?.projectRootOverride);
   // `opts?.currentOuter === undefined` is the omitted-key case. A
   // falsy string `''` is an explicit "no signal" (used by tests to
   // simulate a CLI run with no harness env vars).
@@ -585,11 +573,11 @@ export function clearStalePresenceOnRotation(opts: {
   currentOuterSessionId: string | undefined;
   rotatedOutSessionId: string | null;
 }): { cleared: boolean; reason: string | null; recordedOuter?: string } {
-  const result = readSkillPresenceBackCompat(opts.projectRootOverride);
+  const result = readSkillPresenceFromLease(opts.projectRootOverride);
   if (result === null) {
     return { cleared: false, reason: 'no-presence' };
   }
-  const recorded = result.presence.outerSessionId;
+  const recorded = result.outerSessionId;
   const current = opts.currentOuterSessionId;
   // If the recorded outer id matches the new (current) outer id,
   // this presence is NOT stale — the user just reconnected from
@@ -627,20 +615,14 @@ export function clearStalePresenceOnRotation(opts: {
 }
 
 export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence | null {
-  const result = readSkillPresenceBackCompat(projectRootOverride);
-  if (result === null) return null;
-  const { presence, path: presencePath } = result;
-  if (typeof presence.sessionId === 'string' && presence.sessionId.length > 0) {
-    const currentSessionId = getCurrentSessionId(projectRootOverride);
-    if (currentSessionId && presence.sessionId !== currentSessionId) {
-      try {
-        unlinkSync(presencePath);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // best effort
-      }
-      return null;
-    }
-  }
+  // Slice 4.0.11 statusline-sid-scoped-lease C: read from the
+  // canonical sid-scoped lease projection. The legacy
+  // unlink-on-session-mismatch purge is removed: the lease is
+  // keyed off the bound session id, so the mismatch path cannot
+  // fire (a lease under session A is never returned when the bound
+  // session is B).
+  const presence = readSkillPresenceFromLease(projectRootOverride);
+  if (presence === null) return null;
   // Slice 4.0.11 statusline-sid-scoped-lease A: the legacy write to
   // the single-slot marker file was removed. Heartbeat refresh now
   // lives exclusively in `presence-lease-service.setPresenceLease`
@@ -669,12 +651,25 @@ export function clearSkillPresence(projectRootOverride?: string): boolean {
   // `.peaks/.active-skill.json` so a stale marker from a prior CLI
   // version cannot resurrect after a fresh `clear`. The canonical
   // lease + index entries are NOT touched by this shim — they
-  // remain under the workflow's terminalize lock until
-  // `terminalizeWorkflow` or the next workflow init reclaims them.
-  const presencePath = resolvePresencePath(projectRootOverride);
-  const legacyPath = resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE_LEGACY);
+  // Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
+  // single-slot presence files (`.peaks/_runtime/active-skill.json`
+  // and `.peaks/.active-skill.json`) are removed. The canonical
+  // sid-scoped lease projection (under
+  // `.peaks/_runtime/<sid>/leases/`) is untouched here — workflow
+  // leases route through `terminalizeWorkflow`, NOT this shim.
+  //
+  // This shim remains as a best-effort stale-file cleanup for
+  // projects that still carry the deprecated single-slot file from
+  // a pre-4.0.11 CLI version. After one minor release the legacy
+  // paths are gone and the loop is a no-op. Returns true when a
+  // stale file was actually removed.
+  const projectRoot = resolveProjectRoot(projectRootOverride);
+  const candidates: ReadonlyArray<string> = [
+    resolve(projectRoot, '.peaks', '_runtime', 'active-skill.json'),
+    resolve(projectRoot, '.peaks', '.active-skill.json')
+  ];
   let cleared = false;
-  for (const p of [presencePath, legacyPath]) {
+  for (const p of candidates) {
     if (!existsSync(p)) continue;
     try {
       unlinkSync(p);

@@ -38,7 +38,7 @@ function run({ options, presence }: DoctorContext): readonly DoctorCheck[] {
       {
         id: 'skill-presence:current',
         ok: true,
-        message: 'No active Peaks skill presence (.peaks/.active-skill.json absent or invalid)'
+        message: 'No active Peaks skill presence (no canonical lease under .peaks/_runtime/<sid>/leases/)'
       },
       {
         id: 'skill-presence:freshness',

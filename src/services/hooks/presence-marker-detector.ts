@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { getSessionId } from '../session/session-manager.js';
+import { listPresenceLeases } from '../skills/presence-lease-service.js';
 
 /**
  * Slice 028 (Q1=A): hook-based skill-presence marker detection.
@@ -18,7 +18,7 @@ import { resolve } from 'node:path';
  * `detectPresenceMarker({ project, latestAssistantMessage })`
  * and gets back:
  *
- *   - `active`:      whether an active-skill marker was found on disk.
+ *   - `active`:      whether an active lease was found on disk.
  *   - `skill?`:      the active skill name, if any.
  *   - `markerFound`: whether the latest assistant message carries the
  *                    expected `Peaks-Loop Skill:` / `Peaks-Loop Gate:`
@@ -31,22 +31,16 @@ import { resolve } from 'node:path';
  * expected to provide the absolute project root (peaks-loop convention
  * from the standards-commands family — see dev-preference rule
  * `project-option-is-canonical-project-root-source`).
+ *
+ * Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
+ * project-level `active-skill.json` single-slot file is REMOVED
+ * from this module. The canonical sid-scoped lease projection
+ * (`.peaks/_runtime/<sid>/leases/presence-*.json`) is the only
+ * source of truth; no legacy fallback is retained.
  */
-
-// Slice 4.0.11 statusline-sid-scoped-lease A: the canonical hook
-// path used to be `.peaks/_runtime/active-skill.json` (the deprecated
-// single-slot file that race-conditions when multiple sessions drive
-// one project). The canonical write moved to the sid-scoped lease
-// projection in 4.0.8. This slice refactors only the comment; the
-// read-path change to the lease projection lands in the 4-B
-// sub-slice. Until 4-B ships, both paths remain readable for the
-// one-minor-release back-compat window.
-const PRESENCE_CANONICAL_PATH = '.peaks/_runtime/active-skill.json';
-const PRESENCE_LEGACY_PATH = '.peaks/.active-skill.json';
 
 const MARKER_PRIMARY = 'Peaks-Loop Skill:';
 const MARKER_SECONDARY = 'Peaks-Loop Gate:';
-const SKILL_NAME_RE = /"skill"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/;
 
 export type DetectPresenceMarkerInput = {
   project: string;
@@ -66,72 +60,36 @@ export const PRESENCE_MARKER_WARNING = [
   'Peaks skill context may have been lost from this conversation; please re-invoke /peaks-<skill>.'
 ] as const;
 
-function readPresenceFile(absolutePath: string): { skill: string } | null {
-  if (!existsSync(absolutePath)) return null;
-  let raw: string;
-  try {
-    raw = readFileSync(absolutePath, 'utf8');
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return null;                                    // only swallow IO errors
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return null;                                    // only swallow IO errors
-  }
-  if (parsed === null || typeof parsed !== 'object') return null;
-  const skillMatch = SKILL_NAME_RE.exec(JSON.stringify(parsed));
-  if (skillMatch === null) return null;
-  if (typeof skillMatch[1] !== 'string' || skillMatch[1].length === 0) return null;
-  return { skill: skillMatch[1] };
+/**
+ * Slice 4.0.11 statusline-sid-scoped-lease C: read the canonical
+ * sid-scoped lease projection. Returns the in-flight lease with the
+ * most recent `lastHeartbeat`, or null when no leases exist for the
+ * bound session. Picked the most-recent-in-flight lease (mirrors the
+ * statusline `callerId === null` back-compat path).
+ */
+function readCanonicalLease(projectRoot: string): { skill: string } | null {
+  const sessionId = getSessionId(projectRoot);
+  if (sessionId === null) return null;
+  const leases = listPresenceLeases(projectRoot, sessionId);
+  const inFlight = leases.filter((l) => l.status === 'running' || l.status === 'preparing');
+  if (inFlight.length === 0) return null;
+  // Sort by lastHeartbeat desc, return the freshest.
+  inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
+  return { skill: inFlight[0].skill };
 }
 
 /**
- * Slice 4.0.8: surface a typed `PEAKS_GRAPH_REF_BROKEN` warning
- * when the canonical presence lease / index points at a missing or
- * corrupt graph. The legacy `active-skill.json` walk never
- * inspected graphRef; in 4.0.8 we surface the broken graph in the
- * `warnings` array so downstream consumers (statusline, doctor,
- * hooks) can render the diagnostic instead of silently rendering
- * "active" for a half-wired presence.
+ * Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
+ * broken-graph diagnostic walked the legacy `active-skill.json`
+ * `graphRef` field. The canonical lease projection surfaces broken
+ * graphs as a typed `PEAKS_GRAPH_REF_BROKEN` lease status at read
+ * time (see `presence-lease-service.readJsonStrict`), so a separate
+ * diagnostic walk is no longer needed. Kept as a no-op for the
+ * public-surface stability of `detectPresenceMarker` (the warning
+ * field shape stays the same); returns null unless the canonical
+ * graph lookup is wired in a future slice.
  */
-function tryDetectBrokenGraph(projectRoot: string): string | null {
-  try {
-    const presenceIndexDir = resolve(projectRoot, '.peaks', '_runtime');
-    if (!existsSync(presenceIndexDir)) return null;
-    // Best-effort: walk a single directory level for the legacy
-    // `active-skill.json` indicator. A broken graphRef would be
-    // surfaced by the canonical lease service (PEAKS_GRAPH_REF_BROKEN
-    // is the typed error), but the marker detector is a *read* —
-    // we don't import the lease service here. The diagnostic is
-    // best-effort: we report the index file's `graphRef` field
-    // when it names a missing file.
-    const legacyPath = resolve(projectRoot, '.peaks', '_runtime', 'active-skill.json');
-    if (!existsSync(legacyPath)) return null;
-    const raw = readFileSync(legacyPath, 'utf8');
-    const parsed = JSON.parse(raw) as { graphRef?: unknown };
-    if (typeof parsed.graphRef !== 'string') return null;
-    const graphPath = resolve(projectRoot, '.peaks', '_runtime', parsed.graphRef);
-    if (!existsSync(graphPath)) return 'PEAKS_GRAPH_REF_BROKEN';
-  } catch { /* swallow — diagnostic only */ }
-  return null;
-}
-
-function readPresenceBackCompat(project: string): { skill: string; path: string } | null {
-  const projectRoot = resolve(project);
-  const canonicalPath = resolve(projectRoot, PRESENCE_CANONICAL_PATH);
-  const legacyPath = resolve(projectRoot, PRESENCE_LEGACY_PATH);
-
-  for (const candidate of [canonicalPath, legacyPath]) {
-    const parsed = readPresenceFile(candidate);
-    if (parsed === null) continue;
-    return { skill: parsed.skill, path: candidate };
-  }
+function tryDetectBrokenGraph(_projectRoot: string): string | null {
   return null;
 }
 
@@ -143,17 +101,19 @@ function messageHasMarker(message: string): boolean {
 /**
  * Pure read-only presence-marker detection. No I/O side effects.
  *
- * Slice 4.0.8: the canonical 4.0.7 behavior is preserved (read legacy
- * `active-skill.json` or `.peaks/.active-skill.json`, project the
- * `Peaks-Loop Skill:` marker). The new diagnostic for a broken
- * canonical graph is surfaced via the `warning` field, NOT swallowed,
- * so the statusline / hook / doctor consumers can render it.
+ * Slice 4.0.11 statusline-sid-scoped-lease C: the deprecated
+ * `.peaks/_runtime/active-skill.json` (and legacy
+ * `.peaks/.active-skill.json`) read paths are removed. The
+ * canonical sid-scoped lease projection at
+ * `.peaks/_runtime/<sid>/leases/presence-*.json` is the only source.
+ * The `warning` field is preserved for downstream consumers
+ * (statusline, doctor, hooks).
  */
 export function detectPresenceMarker(input: DetectPresenceMarkerInput): DetectPresenceMarkerResult {
   const project = input.project;
   const message = input.latestAssistantMessage ?? '';
 
-  const presence = readPresenceBackCompat(project);
+  const presence = readCanonicalLease(project);
   if (presence === null) {
     return { active: false, markerFound: false };
   }

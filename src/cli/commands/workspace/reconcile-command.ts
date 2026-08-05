@@ -40,9 +40,12 @@ export function registerWorkspaceReconcileCommand(workspace: Command, io: Progra
           'By default (no --apply) the command performs four actions:\n' +
           '  1. Migrates legacy runtime files into .peaks/_runtime/: ' +
           '.peaks/.session.json -> .peaks/_runtime/session.json, ' +
-          '.peaks/.active-skill.json -> .peaks/_runtime/active-skill.json, ' +
           '.peaks/sop-state/ -> .peaks/_runtime/sop-state/ ' +
-          '(idempotent; no-op if already on the new layout).\n' +
+          '(idempotent; no-op if already on the new layout). ' +
+          'Single-slot presence files (.peaks/.active-skill.json and ' +
+          '.peaks/_runtime/active-skill.json) are no longer migrated; ' +
+          'they were removed in slice 4.0.11 and should be deleted ' +
+          'manually if present.\n' +
           '  2. Re-points .peaks/_runtime/session.json to the canonical session ' +
           'using a 4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
           'latest any-file mtime -> dir-name sort.\n' +
