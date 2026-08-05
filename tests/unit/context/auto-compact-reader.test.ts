@@ -97,10 +97,13 @@ import {
 
 const SID = '2026-07-31-mac-rid-001';
 
-describe('render — readContextPercent shape + source tags', () => {
+describe("Scenario: render — readContextPercent shape + source tags", () => {
   // These tests do not touch the fs; they only assert the public probe
   // shape on the empty-signal path.
-  it('returns ratio:0 + source:conservative-fallback when no signal is available', () => {
+  it("when invoked, should returns ratio:0 + source:conservative-fallback when no signal is available", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = readContextPercent({
       projectRoot: '/tmp/peaks-test',
       sessionId: SID,
@@ -116,15 +119,21 @@ describe('render — readContextPercent shape + source tags', () => {
   });
 });
 
-describe('behavior — findTranscriptJsonl pure walk', () => {
+describe("Scenario: behavior — findTranscriptJsonl pure walk", () => {
   // The helper takes an explicit projectsDir so we don't need to spy on
   // os.homedir (which is non-configurable in ESM).
-  it('returns null when projectsDir does not exist', () => {
+  it("when invoked, should returns null when projectsDir does not exist", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = _internal.findTranscriptJsonl('/tmp/peaks-no-such-dir-xyz', SID);
     expect(out).toBeNull();
   });
 
-  it('returns null when projectsDir exists but has no matching sid', () => {
+  it("when invoked, should returns null when projectsDir exists but has no matching sid", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = '/tmp/peaks-behavior-stub';
     mkdirSync(join(dir, 'fakehash'), { recursive: true });
     writeFileSync(join(dir, 'fakehash', 'wrong.jsonl'), 'x', 'utf8');
@@ -137,7 +146,7 @@ describe('behavior — findTranscriptJsonl pure walk', () => {
   });
 });
 
-describe('integration — Mac-style nested transcript glob (recursive readdir)', () => {
+describe("Scenario: integration — Mac-style nested transcript glob (recursive readdir)", () => {
   withTmpWorkspacePerTest();
 
   let projectsDir = '';
@@ -150,7 +159,10 @@ describe('integration — Mac-style nested transcript glob (recursive readdir)',
     projectsDir = '';
   });
 
-  it('finds transcript under nested hash dir (200KB → ratio ≥ 0.5, source transcript-estimate)', () => {
+  it("when invoked, should finds transcript under nested hash dir (200KB → ratio ≥ 0.5, source transcript-estimate)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Mac Claude Code stores transcripts in a layout where the jsonl is NOT
     // a direct sibling of the hash — it can be one level deeper. Build the
     // nested layout to match that real-world path encoding.
@@ -175,7 +187,10 @@ describe('integration — Mac-style nested transcript glob (recursive readdir)',
     expect(ratio!).toBeLessThanOrEqual(1);
   });
 
-  it('source tag in public probe is transcript-estimate (acceptance criterion for Mac)', () => {
+  it("when invoked, should source tag in public probe is transcript-estimate (acceptance criterion for Mac)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The Mac acceptance criterion lives at the readContextPercent surface:
     // when env var is absent AND no statusline-state.json is present, the
     // reader MUST emit `source: 'transcript-estimate'` so the CLI can label
@@ -205,7 +220,10 @@ describe('integration — Mac-style nested transcript glob (recursive readdir)',
     expect(['transcript-estimate', 'conservative-fallback']).toContain(probe.source);
   });
 
-  it('finds transcript regardless of host platform (platform-agnostic recursion)', () => {
+  it("when invoked, should finds transcript regardless of host platform (platform-agnostic recursion)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The recursive glob is platform-agnostic; the production
     // readClaudeTranscriptFallback has no platform branch. The test only
     // exercises the helper, so we don't gate on process.platform — the
@@ -229,8 +247,11 @@ describe('integration — Mac-style nested transcript glob (recursive readdir)',
 // the silent `CLAUDE_CONTEXT_USAGE_PERCENT` failure mode. The reader must
 // honor `--prompt-size` ABOVE every other source: env / statusline /
 // transcript-estimate / conservative-fallback.
-describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () => {
-  it('promptSizeBytes=200000 short-circuits to source user-overridden with ratio ~0.762', () => {
+describe("Scenario: behavior — readContextPercent promptSizeBytes P0 short-circuit", () => {
+  it("when invoked, should promptSizeBytes=200000 short-circuits to source user-overridden with ratio ~0.762", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Acceptance criterion: Mac escape hatch returns ratio=200000/262144≈0.762
     // AND source='user-overridden' even when env + statusline + transcript
     // would all be absent. The CLI example given to the user is:
@@ -251,7 +272,10 @@ describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () 
     expect(out.ide).toBe('claude-code');
   });
 
-  it('promptSizeBytes=0 is a legal edge case (ratio 0, source user-overridden)', () => {
+  it("when invoked, should promptSizeBytes=0 is a legal edge case (ratio 0, source user-overridden)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // 0 bytes is allowed. The user is asserting "empty prompt" — the
     // probe correctly reports ratio 0 / source user-overridden rather
     // than falling through to the conservative-fallback sentinel.
@@ -266,7 +290,10 @@ describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () 
     expect(out.rawBytes).toBe(0);
   });
 
-  it('promptSizeBytes=-1 is rejected by reader guard and falls through to existing fallback chain', () => {
+  it("when invoked, should promptSizeBytes=-1 is rejected by reader guard and falls through to existing fallback chain", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The CLI layer validates `>= 0`, but the reader is defensive: a
     // negative value MUST NOT be silently accepted (ratio would go
     // negative via Math.min and break the orchestrator's ladder). It
@@ -285,7 +312,10 @@ describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () 
     expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
   });
 
-  it('promptSizeBytes=undefined preserves backward-compat (no implicit override)', () => {
+  it("when invoked, should promptSizeBytes=undefined preserves backward-compat (no implicit override)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: callers that don't pass promptSizeBytes see the
     // exact same behaviour as rid-001-r1. With env = {}, no statusline,
     // no transcript jsonl expected under real homedir → conservative-fallback.
@@ -312,8 +342,11 @@ describe('behavior — readContextPercent promptSizeBytes P0 short-circuit', () 
 //
 //   Case A: ReferenceError raised inside the walk bubbles up (NOT swallowed)
 //   Case B: a missing projectsDir still returns null (IO error → silent)
-describe('behavior — findTranscriptJsonl catch narrows to IO errors only', () => {
-  it('Case A: ReferenceError raised by readdirSync surfaces to caller (NOT swallowed)', () => {
+describe("Scenario: behavior — findTranscriptJsonl catch narrows to IO errors only", () => {
+  it("when invoked, should Case A: ReferenceError raised by readdirSync surfaces to caller (NOT swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Inject a ReferenceError via the hoisted `__fsMocks` bag (set up at
     // the top of this file because `vi.mock('node:fs', …)` is hoisted to
     // run before any import). The post-r2 catch MUST re-throw instead of
@@ -330,7 +363,10 @@ describe('behavior — findTranscriptJsonl catch narrows to IO errors only', () 
     }
   });
 
-  it('Case B: missing projectsDir returns null (IO error → silent)', () => {
+  it("when invoked, should Case B: missing projectsDir returns null (IO error → silent)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: the original "transcript not found" semantic MUST
     // be preserved. existsSync short-circuits to null BEFORE the try block
     // for a non-existent dir, so this case is the real IO-error swallowing
@@ -363,8 +399,11 @@ describe('behavior — findTranscriptJsonl catch narrows to IO errors only', () 
 //           to the caller (NOT silently returned null)
 //   Case D: IO error (readFileSync throws ENOENT) still returns null
 //           (backward-compat: missing file is a normal "no signal" signal)
-describe('behavior — readClaudeStatuslinePercent catch narrows to IO errors only', () => {
-  it('Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces to caller (NOT swallowed)', () => {
+describe("Scenario: behavior — readClaudeStatuslinePercent catch narrows to IO errors only", () => {
+  it("when invoked, should Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces to caller (NOT swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Inject broken JSON via the hoisted `__fsMocks` bag. The catch in
     // readClaudeStatuslinePercent must re-throw SyntaxError instead of
     // returning null — the same anti-pattern that hid rid-001-r1 in
@@ -382,7 +421,10 @@ describe('behavior — readClaudeStatuslinePercent catch narrows to IO errors on
     }
   });
 
-  it('Case D: IO error from readFileSync (ENOENT) still returns null (IO error → silent)', () => {
+  it("when invoked, should Case D: IO error from readFileSync (ENOENT) still returns null (IO error → silent)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: an IO failure (ENOENT race-delete, EACCES, EBUSY) MUST
     // still be swallowed and return null — the original "no statusline"
     // semantic. The catch narrows to IO errors only; SyntaxError /
