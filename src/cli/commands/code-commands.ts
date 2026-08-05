@@ -31,6 +31,7 @@ import { registerCodeRunCommand } from './code-run-command.js';
 import { registerCodeModeGateCommands } from './code-mode-gate-commands.js';
 import { registerCodeJobShapeCommands } from './code-job-shape-commands.js';
 import { registerCodeRuntimeCommands } from './code-runtime-commands.js';
+import { registerCodeOrchestratorCanDoCommand } from './code-orchestrator-can-do.js';
 
 export type CodeStepKind = 'memory' | 'preflight' | 'rd' | 'qa' | 'emit';
 export interface CodeStep {
@@ -162,5 +163,6 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
   registerCodeModeGateCommands(code, io);
   registerCodeJobShapeCommands(code, io);
   registerCodeRuntimeCommands(code, io);
+  registerCodeOrchestratorCanDoCommand(code, io);
   registerCodeRunCommand(code, io);
 }

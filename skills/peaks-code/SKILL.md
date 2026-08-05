@@ -102,6 +102,10 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 
 **Step 0.7 resume rule (read-FIRST):** on resume, `peaks code gate-step-08` reads `progress.json` first and surfaces `Next: slice #N of M (<currentSlice>)` so the orchestrator picks up at the right slice without re-reading the artifact tree.
 
+### Peaks-Loop Step 0.51 — `orchestrator-can-do` probe (slice 2026-08-05, lesson-encoded CLI)
+
+> **Before deciding to push a slice to the next session**, run `peaks code orchestrator-can-do --slice-spec '<text>' --json`. The command evaluates 4 boundary questions (source code? sub-agent available? requires user decision? context sustainable?) and returns whether the slice can be done in the current session. Default to `canDoInSession=true` unless hard blockers are present; sub-agent dispatch (`peaks sub-agent dispatch rd`) is the canonical delegation path for source-code changes. This encodes the 2026-08-05 lesson — orchestrator MUST NOT Edit/Write `src/` directly, but MUST delegate via sub-agent dispatch. See `.peaks/memory/2026-08-05-peaks-code-orchestrator-capability-misjudgment.md`.
+
 ### Peaks-Loop Step N+2: Auto-compact at the warning line (v2.13.0 zero-pause contract)
 
 > **Zero-pause contract.** When context usage crosses the pre-compact threshold, peaks-loop **automatically fires `peaks compact auto --execute` — the LLM does NOT prompt the user to run `/compact` manually**. Stale prose that says "ask the user to compact" silently stalls the workflow. The v2.13.0 contract makes auto-compact a system responsibility, not a user action.
