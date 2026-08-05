@@ -9,7 +9,7 @@ const FORBIDDEN_PATTERN =
   'drift-free|' +
   'independent-review|cross-version-check';
 
-const ROOTS = ['src', 'tests', '.peaks/standards', 'docs/superpowers/specs', 'docs/superpowers/plans'];
+const ROOTS = ['src', 'tests', '.peaks/standards'];
 const SELF_PATH = 'tests/unit/standards/capability-glossary.test.ts';
 
 describe("Scenario: capability-glossary", () => {

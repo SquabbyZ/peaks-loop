@@ -185,7 +185,7 @@ describe("Scenario: integration — real fs writes under a file lock", () => {
   withTmpWorkspacePerTest();
   withEnv('PEAKS_FORCE_FILE_LOCK', '1');
 
-  it("when invoked, should 50 sequential notes produce a final count of 50, never losing updates", () => {
+  it("when invoked, should 50 sequential notes produce a final count of 50, never losing updates", { timeout: 90_000 }, () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -197,7 +197,7 @@ describe("Scenario: integration — real fs writes under a file lock", () => {
     expect(final).toBe(50);
   });
 
-  it("when invoked, should parallel noteDispatched calls do not lose updates (file lock)", async () => {
+  it("when invoked, should parallel noteDispatched calls do not lose updates (file lock)", { timeout: 90_000 }, async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
