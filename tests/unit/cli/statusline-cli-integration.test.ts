@@ -101,6 +101,15 @@ declareDimensions(
 const SID = `2026-08-01-task6-integ-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
 const NOW_ISO = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago — fresh enough to render as 'active' (not stale).
 
+/**
+ * Stable callerId for the canonical lease written by `writePresence`.
+ * The same id is forwarded on stdin (see `runStatuslineStdin`) so the
+ * CLI's per-caller lease resolver finds the lease without falling back
+ * to the host's `CLAUDE_CODE_SESSION_ID` (which on this host is the
+ * test-runner's harness session id and would resolve to `idle`).
+ */
+const HARNESS_CALLER_ID = 'statusline-cli-integration';
+
 // ---------------------------------------------------------------------------
 // Robust dist path resolution (rejection #6)
 // ---------------------------------------------------------------------------
@@ -292,16 +301,100 @@ function writeSessionFile(h: Harness): void {
   );
 }
 
+/**
+ * Write a canonical presence lease for the harness session.
+ *
+ * Slice 2026-08-05-statusline-sid-scoped-lease-A removed the deprecated
+ * `.peaks/_runtime/active-skill.json` write path. Slice 4-B removed the
+ * read fallback that consumed it. The CLI now reads exclusively from
+ * `.peaks/_runtime/<sid>/leases/presence-<caller>-<workflow>.json` (and
+ * the per-caller index under `presence-index/<caller>.json`). The
+ * integration tests must therefore seed the CANONICAL layout instead of
+ * the legacy single-slot file.
+ *
+ * We inline a small writer here (rather than importing
+ * `setPresenceLease` from `~/src/services/skills/presence-lease-service`)
+ * so the spawned CLI subprocess (which loads `dist/cli/index.js`) and the
+ * in-process test code can share the EXACT on-disk shape without
+ * coupling the test file to the source tree (the test is a
+ * real-subprocess integration test by design — it must not import any
+ * module the CLI itself depends on at runtime, or we'd lose the
+ * "spawn the real binary" property the suite exists to verify).
+ *
+ * The on-disk shape mirrors `setPresenceLease`'s write of
+ * `SkillPresenceLease` (`presence-lease-types.ts`) plus its sibling
+ * `PresenceIndex`. The CLI does NOT dereference a `graphs/<wf>.json`
+ * file at read time (the read-side projection tolerates a missing
+ * graph), so we skip writing the workflow graph.
+ */
 function writePresence(h: Harness, overrides: Record<string, unknown> = {}): void {
-  const payload = {
-    skill: 'peaks-rd',
-    mode: 'integration-test',
-    gate: 'implementation',
-    setAt: NOW_ISO,
-    claudeSessionId: h.sessionId,
-    ...overrides,
+  const skill = typeof overrides.skill === 'string' && overrides.skill.length > 0
+    ? overrides.skill
+    : 'peaks-rd';
+  const mode = typeof overrides.mode === 'string' && overrides.mode.length > 0
+    ? overrides.mode
+    : 'integration-test';
+  const gate = typeof overrides.gate === 'string' && overrides.gate.length > 0
+    ? overrides.gate
+    : 'implementation';
+  // The harness uses a deterministic callerId so the canonical lease
+  // file is byte-stable across reruns. The CLI resolves the caller
+  // either from stdin.caller_id or from the harness's
+  // `CLAUDE_CODE_SESSION_ID` env; the per-caller index lets the reader
+  // O(1)-locate the lease without enumerating the leases dir.
+  const callerId = HARNESS_CALLER_ID;
+  const workflowId = `wf-${h.sessionId}`;
+  const graphRef = `graphs/${workflowId}.json`;
+  const startedAt = typeof overrides.setAt === 'string' ? overrides.setAt : NOW_ISO;
+  const lastHeartbeat = typeof overrides.lastHeartbeat === 'string' ? overrides.lastHeartbeat : startedAt;
+
+  const sessionDir = dirname(h.lifecyclePath);
+  // The `lifecyclePath` already ends in `<sid>/compact-lifecycle.json`,
+  // so its dirname is `<projectRoot>/.peaks/_runtime/<sid>/` — the
+  // canonical session dir the CLI reads. We must NOT append
+  // `h.sessionId` again here (that would double-nest and the CLI's
+  // reader, which calls `getSessionIdCanonical` to resolve the bound
+  // session id, would enumerate a different path).
+  if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true });
+
+  const leaseDir = join(sessionDir, 'leases');
+  if (!existsSync(leaseDir)) mkdirSync(leaseDir, { recursive: true });
+  const leaseFile = join(leaseDir, `presence-${callerId}-${workflowId}.json`);
+  const lease: Record<string, unknown> = {
+    callerId,
+    workflowId,
+    graphRef,
+    skill,
+    depth: 0,
+    startedAt,
+    lastHeartbeat,
+    status: 'running',
+    mode,
+    schemaVersion: 1,
   };
-  writeFileSync(h.presencePath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+  if (gate) lease['gate'] = gate;
+  writeFileSync(leaseFile, JSON.stringify(lease, null, 2) + '\n', 'utf8');
+
+  const indexDir = join(sessionDir, 'presence-index');
+  if (!existsSync(indexDir)) mkdirSync(indexDir, { recursive: true });
+  const indexFile = join(indexDir, `${callerId}.json`);
+  writeFileSync(
+    indexFile,
+    JSON.stringify(
+      {
+        callerId,
+        sessionId: h.sessionId,
+        leaseRef: leaseFile,
+        workflowId,
+        graphRef,
+        updatedAt: startedAt,
+        schemaVersion: 1,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
 }
 
 function seedLifecycle(h: Harness, record: CompactLifecycleRecord): void {
@@ -365,10 +458,19 @@ function stripped(s: string): string {
 
 /**
  * Primary-path invocation: pass a stdin payload so the IDE-equivalent
- * resolution (workspace.current_dir + session_id) drives the render.
- * This is the EXACT contract Claude Code uses:
- *   - writes `{"workspace":{"current_dir":"..."},"session_id":"..."}` to stdin
+ * resolution (workspace.current_dir + session_id + caller_id) drives the
+ * render. This is the EXACT contract Claude Code uses:
+ *   - writes `{"workspace":{"current_dir":"..."},"session_id":"...","caller_id":"..."}` to stdin
  *   - reads the statusline from the spawned CLI's stdout
+ *
+ * The `caller_id` field is REQUIRED for slice 2026-08-05-statusline-sid-scoped-lease
+ * — the canonical reader resolves presence via the per-caller lease, and
+ * the harness's callerId must match the lease's `callerId`. Without
+ * `caller_id` on stdin, the CLI falls back to `process.env.CLAUDE_CODE_SESSION_ID`
+ * which is the test-runner's harness session id — that caller has no
+ * matching lease and the render collapses to `idle`. The harness's
+ * `writePresence` writes the lease under the same callerId we send
+ * here, so the read is a deterministic hit.
  */
 function runStatuslineStdin(
   h: Harness,
@@ -377,6 +479,7 @@ function runStatuslineStdin(
   const stdin = JSON.stringify({
     workspace: { current_dir: h.projectRoot },
     session_id: h.sessionId,
+    caller_id: HARNESS_CALLER_ID,
   });
   return spawnCli(['statusline'], { stdinPayload: stdin, env: extraEnv });
 }
@@ -448,7 +551,13 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     // Code) reads it as-is. The active glyph rotates through the
     // breathing set every 480ms (`●◐◑◒◓`), so we assert on the stable
     // substrings rather than pinning the exact glyph.
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    //
+    // Slice 2026-08-04 rid-005 + slice 4-B/C: the renderer dropped the
+    // `↑peaks-code` bee-tier parent marker. With NO in-flight leaf
+    // dispatch seeded, `activeLeaf === null` and the line collapses to
+    // `${dot} ${skill}${modeToken}` — so the expected shape is
+    // `● peaks-rd [integration-test]`.
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 
@@ -536,7 +645,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     rmSync(active.lifecyclePath, { force: true });
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 });
@@ -565,7 +674,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
     expect(r.status).toBe(0);
     // The 10-second expiry has elapsed: the compact segment is suppressed,
     // the primary line returns to the C1 baseline (active presence + brand).
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd ↑peaks-code \[integration-test\] → /);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
     expect(stripped(r.stdout)).not.toContain('✓');
     expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
@@ -742,9 +851,19 @@ describe("Scenario: integration — the CLI reads the lifecycle + presence from 
     writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
     const r = runStatuslineStdin(active);
     expect(r.status).toBe(0);
-    // QA gate is in ATTENTION_GATE_LABELS → warning glyph + skill + gate.
-    expect(stripped(r.stdout)).toContain('peaks-qa');
-    expect(stripped(r.stdout)).toContain('QA');
+    // The canonical lease projection (slice 2026-08-05-statusline-sid-scoped-lease)
+    // surfaces `skill` + `mode` only — `gate` is intentionally NOT part of
+    // the typed `SkillPresenceLease` (presence-lease-types.ts) and the
+    // canonical resolver (active-skill-resolver.ts) does not project it
+    // into the statusline model. The QA attention-gate warning glyph +
+    // `QA` label render path is therefore NOT exercised by this slice's
+    // canonical fixture; the legacy active-skill.json path that surfaced
+    // `gate` is removed. We assert the canonical shape: presence skill
+    // rendered with the brand glyph, root label appended. (See
+    // skill-statusline-renderer.test.ts for the attention-gate render
+    // surface, which is unit-tested at the pure renderer level.)
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-qa \[integration-test\] → /);
+    expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 });
 
