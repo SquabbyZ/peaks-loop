@@ -84,6 +84,7 @@
     "schemas/*.json",
     ".claude-plugin/**",
     "config/eslint/.peaks-rules.cjs",
+    "docs/test-style-contract.md",
     "README.md",
     "README-en.md",
     "CHANGELOG.md",
