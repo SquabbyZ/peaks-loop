@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-03T16:27:35.219Z
+> Last updated: 2026-08-05T08:18:53.697Z
 
 ## Project: peaks-loop
 
@@ -44,24 +44,24 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (17 sessions, showing last 15)
+## Timeline (20 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-08-04 | `2026-08-04-session-3fe1be` | Untitled | request: 2026-08-04-statusline-session-id-fix |
+| 2026-08-04 | `2026-08-04-session-70ff1e` | Untitled | peaks-code |
+| 2026-08-04 | `2026-08-04-session-139b31` | Untitled | statusline 当前实现（4.0.9）有 2 个独立的 user-reported 问题： |
 | 2026-08-03 | `2026-08-03-session-1b6cf3` | Untitled | 对 RD 产出的两份 deliverable 做 **4 维验收**: |
 | 2026-08-03 | `2026-08-03-session-bee258` | Untitled | ROLE: hotfix sub-agent for peaks-loop 4.0.8 — fix production ESM repro |
 | 2026-08-01 | `2026-08-01-session-410315` | Untitled | Primary statusline reads and lifecycle transition writes. |
-| 2026-07-31 | `2026-07-31-session-84c3da` | Untitled | **Session**: 2026-07-31-session-84c3da |
+| 2026-07-31 | `2026-07-31-session-84c3da` | Untitled | requestId: 2026-07-31-rid-mac-transcript-estimate-trigger |
 | 2026-07-30 | `2026-07-30-session-602e5c` | 测试体系从零重建 (epic) | peaks-code |
 | 2026-07-28 | `2026-07-29-session-a84955` | Untitled | schemaVersion: 2 |
 | 2026-07-28 | `2026-07-28-session-71a3cf` | Untitled | G1. 产出 **1 份用户视角的功能地图**，覆盖 5 大域 + 13 skill + 5 super-command + 14 后置 s |
 | 2026-07-27 | `2026-07-28-session-22381b` | Untitled | rid: 2026-07-28-rid-020b-24h-mode-integration-verify |
 | 2026-07-27 | `2026-07-28-session-6984fe` | rid-018-019 4.0.0 GA pre-publish BLOCKER | PASS: body non-empty for 4.0.0 (2560 bytes) |
-| 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | schemaVersion: 2 |
+| 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | requestId: rid-016 |
 | 2026-07-27 | `2026-07-27-session-b4e485` | Untitled | - |
 | 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | schemaVersion: 1 |
-| 2026-07-25 | `2026-07-25-session-6da9d9` | Untitled | $ ./node_modules/.bin/vitest run tests/integration/sub-agent-dispatch- |
-| 2026-07-24 | `2026-07-24-session-fafee4` | Untitled | peaks-rd |
-| 2026-07-24 | `2026-07-24-session-f13da7` | Untitled | **Date:** 2026-07-24 |
 
 <!-- peaks-managed:session-history-end -->
