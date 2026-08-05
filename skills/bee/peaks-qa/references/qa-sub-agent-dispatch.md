@@ -66,3 +66,19 @@ The dispatch CLI (`peaks sub-agent dispatch`) automatically prepends a Test Tool
 If the framework is not obvious from `package.json#scripts.test`, the sub-agent should run `peaks test --json` to introspect the resolved framework + argv before picking a runner.
 
 See the block constant at `src/services/dispatch/test-tool-detection.ts` for the verbatim text.
+
+## BDD Test Style Verification (effective rid-2026-08-05-bdd-test-style, v4.0.11+)
+
+When you (peaks-qa) verify a slice, you MUST run the BDD test-style verifier on every new or modified `tests/unit/**/*.test.ts` file in the slice's git diff. Use:
+
+```bash
+node -e "
+const { verifyBddStyle } = await import('./src/services/qa/bdd-test-style-verifier.ts');
+const { execSync } = require('node:child_process');
+const files = execSync('git diff --name-only HEAD~1 -- tests/unit', { encoding: 'utf8' })
+  .split('\n').filter(f => f.endsWith('.test.ts'));
+console.log(JSON.stringify(verifyBddStyle({ projectRoot: '.', testFiles: files })));
+"
+```
+
+If the verifier returns `ok: false`, your verdict MUST be `failed: bdd-style-violation` with the structured reason from the verifier (do NOT mark the slice as passing).
