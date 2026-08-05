@@ -127,6 +127,8 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 
 If the prose audit (`peaks audit red-lines`) flags any of the above, the slice is **blocked** until the prose is rewritten.
 
+See also: references/session-overload-signal-index.md for the 7-signal lookup table the LLM consults before deciding to open a new session.
+
 ## CLI Drift Index (sediment 2026-07-09)
 
 > **Reading guide:** Verified against peaks-loop 4.0.0-beta.6. Each drift below is annotated inline at the relevant step with a `> CLI reality check`. On `error: unknown option ...`, **read the inline reality check first** before guessing.
