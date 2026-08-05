@@ -131,6 +131,8 @@ function readActiveLeaf(
     'never-started',
     'unreadable',
     'stale',
+    'queued', // Slice 2026-08-05 fix: stale dispatch entries stuck at 'queued' should
+              // not pollute statusline as in-flight leaves.
   ]);
   const inFlight = Object.values(index).filter((e) => !terminalStatuses.has(e.status));
   if (inFlight.length === 0) return null;

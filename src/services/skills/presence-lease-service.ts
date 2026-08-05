@@ -226,6 +226,7 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
     graphRef,
     skill: input.skill,
     ...(input.parentWorkflowId ? { parentWorkflowId: input.parentWorkflowId } : {}),
+    ...(input.mode ? { mode: input.mode } : {}),
     depth: input.depth ?? 0,
     startedAt: now,
     lastHeartbeat: now,
