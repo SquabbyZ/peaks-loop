@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.13 — 2026-08-06 (statusline empty-render fix + sid-only marker + multi-binary drift guard)
+
+**Statusline callerId fallback + active `[short-sid]` suffix** (slice `2026-08-05-statusline-empty-render-and-short-sid-suffix`, commit `4be37d08`):
+- `src/services/skills/skill-statusline-service.ts` `readPresenceReadOnly` now retries with `callerId: null` when callerId-filtered resolution returns `source: 'none'`. Multi-tenant isolation invariant preserved (slice 4-B Case A regression test stays green).
+- `src/services/skills/skill-statusline-renderer.ts` introduces `formatShortSid(sessionId) = sessionId.split('-').pop()` helper. Active state now renders `Peaks ● peaks-code → peaks-loop [3fe1be]`.
+- New tests: `tests/unit/skills/skill-statusline-empty-render-and-short-sid-suffix.test.ts` (8 cases). Existing dual-skill test updated to accept the `[aaaa]` suffix.
+- Fixes the "new session statusline empty despite active peaks-code lease" bug (root cause: outerSessionId drift between caller shell and lease's callerId).
+
+**Statusline sid-only marker (idle/stale) + multi-binary drift guard** (slice `2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard`, commits `95654d48` + `34de6c22` repair):
+- `skill-statusline-service.ts` adds `sessionId: string | null` to `StatusLineModel`. `skill-statusline-sid-suffix.ts` (new, 78 LOC) holds `computeRootSuffix` + `formatShortSid` (extracted from renderer for LOC cap; renderer 806 → 776).
+- Idle and stale states now append ` [3fe1be]` after `peaks-loop` when session.json is bound. Invalid-presence stays unchanged (G2 — read-error signal must remain loud).
+- New `peaks doctor check` plugin `build:multi-binary-drift` scans `process.env.PATH` for `peaks` binaries (cross-platform: `peaks` / `peaks.cmd` / `peaks.ps1`), resolves each to its `node_modules/peaks-loop/package.json`, dedupes by realpath, and emits `PEAKS_MULTI_BINARY_DRIFT` warning when ≥ 2 distinct versions coexist. Caught the `/c/nvm4w/nodejs 4.0.12 + /c/Users/smallMark/AppData/Roaming/npm 3.1.2` case that produced "Hook JSON output validation failed" on fresh IDE sessions.
+- **Severity-aware `buildReport`** (the canonical reference for warn-only doctor checks): `DoctorCheck` now carries `severity: 'error' | 'warning'`. `buildReport` separates errors from warnings; `summary.ok = errors === 0`. Multi-binary drift emits `severity: 'warning'`. CLI exit code only flips on errors.
+- Tests: `tests/unit/skills/skill-statusline-sid-only-marker.test.ts` (8 cases) + `tests/unit/doctor/multi-binary-drift-check.test.ts` (13 cases) + `tests/unit/doctor/final-summary-severity.test.ts` (7 cases) + `tests/unit/doctor/doctor-exit-code-warn-only.test.ts` (5 cases). 170/170 green on slice surface.
+
+**Lockstep bump.** peaks-loop-shared `0.0.42 → 0.0.43` (CLI_VERSION re-stamped to 4.0.13); peaks-loop-mut `0.1.15 → 0.1.16`; peaks-loop-shared-channel `0.0.19 → 0.0.20`.
+
 ## 4.0.12 — 2026-08-05 (5-slice optimization bundle)
 
 **publish.yml strict tag gate** (slice 1, commit `f60f7597`):
