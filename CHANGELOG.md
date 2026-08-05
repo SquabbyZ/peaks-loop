@@ -1,5 +1,32 @@
 # Changelog
 
+## 4.0.11 — 2026-08-05 (BDD test-style + statusline bugs)
+
+**BDD given-when-then test style** (rid-2026-08-05-bdd-test-style, 5 slice / 19 commit):
+- `scripts/migrate-to-bdd.mjs` — TS Compiler API-based AST migrator that rewrites every `it()` / `test()` / `describe()` to the given-when-then contract (it description with `when X` or `should Y` + 3-line `// given:` / `// when:` / `// then:` body comment). Idempotent.
+- `src/services/qa/bdd-test-style-verifier.ts` — peaks-qa verification-time verifier that scans `git diff HEAD~1 -- '*.test.ts'` and rejects non-BDD slices (LLM-only enforcement, since callerId from `process.env.CLAUDE_CODE_SESSION_ID` cannot distinguish LLM vs human in Claude Code).
+- `src/reporters/bdd-reporter.ts` — vitest custom reporter (flag-enabled via `--reporter ./src/reporters/bdd-reporter.ts`) emitting `Feature: <file>` / `Scenario: <describe>` / `Given|When|Then` document view.
+- `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md` + `peaks-qa/references/qa-sub-agent-dispatch.md` — `## BDD Test Style Contract` / `## BDD Test Style Verification` soft-constraint sections added.
+- `docs/test-style-contract.md` — LLM test-style guide included in npm `files` array (downstream opt-in).
+- 26 test files migrated across 11 commits (one per top-level directory); 12 files already BDD-form (idempotent migrator skipped silently); 49 unit-test files total now in BDD shape.
+- 49/49 unit tests behaviour-preserved (488 passed / 25 skipped / 0 introduced failures).
+
+**Statusline bug fixes** (3 rid this release):
+- `skill-statusline-service.ts` `readActiveLeaf`: stale `queued` dispatch entries no longer pollute statusline as in-flight leaves. `terminalStatuses` set extended.
+- `presence-lease-service.ts` `setPresenceLease`: lease object now persists `mode` (was being silently dropped — regression from 4.0.8 Presence Lease Graph introduction). `[full-auto]` / `[assisted]` / `[swarm]` / `[strict]` tags now render.
+- `audit/enforcers/active-skill-resolver.ts` legacy fall-back: per-caller `active-skill-*.json` legacy walk now reads and propagates `mode` (was hard-coded `mode: null`).
+
+**Build-chain repair** (silences `npx tsc -p tsconfig.build.json` regression):
+- `src/reporters/bdd-reporter.ts` no longer imports the un-exported `TestModule` / `TestCase` from `vitest/reporters`. Local minimal interfaces (`BddTestModuleLike` / `BddTestCaseLike`) match the runtime shape vitest passes to reporter hooks.
+- Build now succeeds end-to-end; the `dist/` artifacts (which `bin/peaks.js` actually loads) reflect the source-level fixes.
+
+**Cleanup tail** (5 rid carried over from b1 sweep):
+- 63 request artifacts re-staged to terminal state (handed-off / verdict-issued / complete / sc-handoff → done).
+- 8 OpenSpec proposal drift detected and routed through `peaks request transition`.
+- One envelope-test-output log dropped from project root (was orphan inside `.gitignore:5 *.log` but never deleted).
+
+**Lockstep bump.** peaks-loop-shared `0.0.40 → 0.0.41` (CLI_VERSION re-stamped to 4.0.11).
+
 ## 4.0.10 — 2026-08-04 (path-canonicalize + statusline-read-isolation)
 
 **Windows statusline fixed.** `peaks-loop@4.0.9` always rendered `peaks empty` on Windows Git Bash. Root cause: the session-binding reader used strict `===` to compare `projectRoot`; the binding had been written with backslashes (`C:\Users\...`) but `peaks skill presence:set --project C:/Users/...` arrived with forward slashes, and Node treats them as distinct strings. The 4.0.8 fail-closed `PEAKS_SESSION_NOT_BOUND` gate then blocked the presence marker write, and the statusline never had a real skill to display.
