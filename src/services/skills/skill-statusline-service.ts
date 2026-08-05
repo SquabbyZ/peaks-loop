@@ -63,6 +63,20 @@ export type StatusLineModel = {
   ageMs: number | null;
   compact: CompactStatuslineState;
   activeLeaf: StatusLineActiveLeaf | null;
+  /**
+   * Slice 2026-08-05-statusline-sid-only-marker: the canonical session
+   * id resolved for the project root (`getSessionIdCanonical`), or
+   * `null` when no project root is bound or no `.peaks/_runtime/<sid>/`
+   * session is on disk. The renderer reads this to append ` [shortSid]`
+   * to the project name cell for idle / stale states (G1); invalid-
+   * presence still suppresses the suffix (G2).
+   *
+   * Carry-forward for AC1/AC2/AC3: the value is `null` whenever
+   * `projectRoot === null` — the renderer relies on this to skip the
+   * suffix without re-running `getSessionIdCanonical` against a non-
+   * existent root.
+   */
+  sessionId: string | null;
 };
 
 function resolveCwdFromStdin(stdin: StatusLineStdin | null): string {
@@ -256,18 +270,31 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // fallbacks). It replaces the active skill content when kind != 'none'.
   const compact = readCompactState(projectRoot, nowMs);
 
+  // Slice 2026-08-05-statusline-sid-only-marker: resolve the canonical
+  // session id once, up front, so the renderer can read it from the model
+  // without re-running `getSessionIdCanonical`. `null` when the project
+  // root is unbound OR when no `.peaks/_runtime/<sid>/` session exists.
+  let sessionId: string | null = null;
+  if (projectRoot !== null) {
+    try {
+      sessionId = getSessionIdCanonical(projectRoot);
+    } catch {
+      sessionId = null;
+    }
+  }
+
   if (projectRoot === null) {
-    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact, activeLeaf: null };
+    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact, activeLeaf: null, sessionId: null };
   }
 
   // callerId resolves the read-side isolation; back-compat is `null`.
   const callerId = resolveCallerId(stdin);
   const { presence, invalid } = readPresenceReadOnly(projectRoot, callerId);
   if (invalid) {
-    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null };
+    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
   }
   if (presence === null) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
   }
 
   // Session binding: when the presence was stamped with a Claude session id and
@@ -277,7 +304,7 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // fall back to the time-based behavior below for backward compatibility.
   const liveSessionId = typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
   if (presence.claudeSessionId && liveSessionId && presence.claudeSessionId !== liveSessionId) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
   }
 
   const setAtMs = presence.setAt ? Date.parse(presence.setAt) : Number.NaN;
@@ -290,13 +317,12 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // bee skill (e.g. `peaks-rd`) alongside the orchestrator (e.g. `peaks-code`).
   let activeLeaf: StatusLineActiveLeaf | null = null;
   try {
-    const sessionId = getSessionIdCanonical(projectRoot);
     activeLeaf = readActiveLeaf(projectRoot, sessionId);
   } catch {
     activeLeaf = null;
   }
 
-  return { state, projectRoot, presence, ageMs, compact, activeLeaf };
+  return { state, projectRoot, presence, ageMs, compact, activeLeaf, sessionId };
 }
 
 /**

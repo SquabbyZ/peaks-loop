@@ -21,6 +21,10 @@ export * from './doctor-service/index.js';
 export { compareDistVersion } from './doctor-service/checks/dist-source-version.js';
 export { inspectWorkspaceLayout } from './doctor-service/checks/workspace-layout.js';
 export { collectGateguardEntries } from './doctor-service/checks/gateguard-conflict.js';
+export {
+  inspectMultiBinaryDrift,
+  type PeaksBinaryRecord
+} from './doctor-service/checks/multi-binary-drift.js';
 
 // Re-export the fixed plugin registry so characterization tests and
 // future CLI surfaces (e.g. `peaks doctor --list-checks`) can enumerate
@@ -45,6 +49,8 @@ export type {
   CodegraphCapabilityProbe,
   DistVersionComparison,
   DistVersionProbe,
+  MultiBinaryDriftInspection,
+  MultiBinaryDriftProbe,
   WorkspaceLayoutInspection,
   WorkspaceLayoutProbe,
   GateguardHookLocation,

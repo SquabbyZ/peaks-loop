@@ -44,6 +44,7 @@ import { check as statuslineInstall } from './checks/statusline-install.js';
 import { check as statuslineRuntime } from './checks/statusline-runtime.js';
 import { check as codegraphCapability } from './checks/codegraph-capability.js';
 import { check as distSourceVersion } from './checks/dist-source-version.js';
+import { check as multiBinaryDrift } from './checks/multi-binary-drift.js';
 import { check as workspaceLayout } from './checks/workspace-layout.js';
 import { check as gateguardConflict } from './checks/gateguard-conflict.js';
 import { check as checkIdSchema } from './checks/check-id-schema.js';
@@ -72,6 +73,7 @@ export const PLUGINS: ReadonlyArray<DoctorCheckPlugin> = [
   statuslineRuntime,    // id "statusline:runtime"
   codegraphCapability,  // id "capability:codegraph"
   distSourceVersion,    // id "build:dist-version-matches-source"
+  multiBinaryDrift,     // id "build:multi-binary-drift"
   workspaceLayout,      // id "build:workspace-layout-canonical"
   gateguardConflict,    // id "integration:gateguard-peaks-conflict"
   checkIdSchema,        // id "doctor-self:check-id-pattern"

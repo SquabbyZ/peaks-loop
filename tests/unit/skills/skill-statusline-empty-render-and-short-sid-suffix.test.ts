@@ -240,10 +240,17 @@ describe("G2 — short-sid suffix rendering (AC1, AC3, AC5, AC6, AC7)", () => {
     expect(out).not.toContain('empty');
   });
 
-  it("idle state never carries the short-sid suffix (AC3)", () => {
+  it("idle state carries the short-sid suffix (AC3 — updated by sid-only-marker slice)", () => {
     // given: empty session dir — no leases, no active-skill.json
     // when:  buildStatusLineModel + renderStatusLine are called
-    // then:  output is `... empty ...peaks-loop` with no `[3fe1be]`.
+    // then:  output is `Peaks o empty -> peaks-loop [3fe1be]` — the
+    //        idle state now appends `[shortSid]` when a session binding
+    //        is present (G1, slice
+    //        2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard).
+    //        The prior slice asserted the OPPOSITE; this slice
+    //        supersedes that assertion. AC3 in the new PRD relaxes
+    //        to "no sid when projectRoot is null" (verified in
+    //        skill-statusline-sid-only-marker.test.ts).
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
     const stdin = {
@@ -253,6 +260,26 @@ describe("G2 — short-sid suffix rendering (AC1, AC3, AC5, AC6, AC7)", () => {
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
     expect(model.state).toBe('idle');
+    const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ascii' }));
+    expect(out).toContain('empty');
+    expect(out).toContain('[3fe1be]');
+  });
+
+  it("idle state with NO project root never carries the short-sid suffix (AC3 in sid-only-marker slice)", () => {
+    // given: stdin that points at a directory that has no `.peaks/`
+    //        (no project root); the renderer must NOT invent a sid.
+    // when:  buildStatusLineModel + renderStatusLine are called
+    // then:  output is `Peaks o empty` with no `[3fe1be]` (the renderer
+    //        sees projectRoot === null and skips the sid branch).
+    const stdin = {
+      workspace: { current_dir: '/nonexistent-no-project-root' },
+      session_id: 'claude-code-outer-A',
+      caller_id: CALLER_A,
+    };
+    const model = buildStatusLineModel(stdin, NOW_MS);
+    expect(model.state).toBe('idle');
+    expect(model.projectRoot).toBeNull();
+    expect(model.sessionId).toBeNull();
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ascii' }));
     expect(out).toContain('empty');
     expect(out).not.toContain('[3fe1be]');

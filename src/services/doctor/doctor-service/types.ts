@@ -44,6 +44,26 @@ export type DistVersionComparison = {
 
 export type DistVersionProbe = () => DistVersionComparison;
 
+/**
+ * Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+ * (G3/G4) — probe for the multi-binary drift check. The probe returns
+ * the discovered peaks-loop binaries on PATH (with their resolved
+ * version + install date) and a `driftDetected` flag. Injected so tests
+ * can drive the filesystem walk without monkey-patching
+ * `process.env.PATH` or `realpathSync`.
+ */
+export type MultiBinaryDriftInspection = {
+  readonly binaries: ReadonlyArray<{
+    readonly path: string;
+    readonly version: string | null;
+    readonly installDate: string | null;
+  }>;
+  readonly driftDetected: boolean;
+  readonly uniqueVersions: ReadonlyArray<string>;
+};
+
+export type MultiBinaryDriftProbe = () => MultiBinaryDriftInspection;
+
 export type WorkspaceLayoutInspection = {
   topLevelSessionDirs: string[];
   legacyDotfiles: string[];
@@ -162,6 +182,12 @@ export type DoctorOptions = {
   platform?: NodeJS.Platform;
   /** Injected for the build:dist-version-matches-source check (defaults to compareDistVersion on disk). */
   distVersionProbe?: DistVersionProbe;
+  /**
+   * Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+   * (G3/G4) — injected for the build:multi-binary-drift check (defaults
+   * to inspectMultiBinaryDrift against `process.env.PATH`).
+   */
+  multiBinaryDriftProbe?: MultiBinaryDriftProbe;
   /** Injected for the build:workspace-layout-canonical check (defaults to inspectWorkspaceLayout on disk). */
   workspaceLayoutProbe?: WorkspaceLayoutProbe;
   /** Injected for the integration:gateguard-peaks-conflict check (defaults to defaultGateguardProbe on disk). */

@@ -7,7 +7,6 @@ import type {
 import type {
   CompactStatuslineState,
 } from '../compact-statusline/compact-statusline-service.js';
-import { getSessionIdCanonical } from '../session/session-manager.js';
 
 /**
  * Pure formatting layer for the Peaks statusLine. Takes the read-only status
@@ -679,6 +678,40 @@ export function applyMarquee(s: string, nowMs: number, capability: StatusLineCap
 }
 
 /**
+ * Compute the project-root cell of the status line. Returns the
+ * `<trailSep><root>` portion (and optionally the ` [shortSid]` suffix).
+ *
+ * Pure helper — no I/O. The `sessionId` is read from the model that the
+ * service already resolved once via `getSessionIdCanonical`. Per-state
+ * matrix (see the docstring inside {@link renderStatusLine} for the
+ * AC/PB references):
+ *
+ *   - state === 'invalid-presence'           → no sid (G2 invariant)
+ *   - state === 'idle' | 'stale' | 'active'   → sid iff model.sessionId resolves
+ *     to a non-empty shortSid string
+ *   - projectRoot === null                    → empty string
+ *
+ * Exported so tests can drive the helper without spinning up the full
+ * renderer (marquee, palette, etc.).
+ */
+export function computeRootSuffix(
+  model: StatusLineModel,
+  rootLabelText: string,
+  palette: StatusPalette,
+): string {
+  if (!rootLabelText) return '';
+  let suffix = `${palette.trailSeparator}${rootLabelText}`;
+  if (model.state === 'invalid-presence') return suffix;
+  // Defensive: older callers may build a model without `sessionId`
+  // (the field is optional in some test fixtures predating the
+  // sid-only-marker slice). Treat undefined the same as null.
+  if (model.sessionId === null || model.sessionId === undefined) return suffix;
+  const short = formatShortSid(model.sessionId);
+  if (short.length === 0) return suffix;
+  return `${suffix} [${short}]`;
+}
+
+/**
  * Render the status line. Pure — no I/O, no side effects. The output is
  * a single short line suitable for the bottom-of-terminal status bar.
  *
@@ -710,27 +743,27 @@ export function renderStatusLine(
   const noColor = env !== undefined ? isNoColor(env) : false;
   const palette = paletteFor(capability, noColor);
   const root = rootLabel(model.projectRoot);
-  // short-sid suffix (slice 2026-08-05-statusline-empty-render-and-short-sid-suffix):
-  // shown only when presence is `active` AND we have a resolvable project root
-  // to source the canonical session id from. AC3 — empty / idle / stale /
-  // invalid-presence never carry `[short-sid]`. AC6 — compact + active carries
-  // it. Pure ASCII (no narrow space / smart quotes), so Windows PowerShell +
-  // Git Bash + zsh render byte-identical (AC7).
-  let rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
-  if (model.state === 'active' && model.presence !== null && model.projectRoot !== null) {
-    let sidForShort: string | null = null;
-    try {
-      sidForShort = getSessionIdCanonical(model.projectRoot);
-    } catch {
-      sidForShort = null;
-    }
-    if (sidForShort !== null) {
-      const short = formatShortSid(sidForShort);
-      if (short.length > 0) {
-        rootSuffix = `${rootSuffix} [${short}]`;
-      }
-    }
-  }
+  // short-sid suffix (slices
+  //   - 2026-08-05-statusline-empty-render-and-short-sid-suffix (active only)
+  //   - 2026-08-05-statusline-sid-only-marker (idle + stale also)
+  // ):
+  // the project root cell carries ` [shortSid]` after `peaks-loop` whenever
+  // a canonical session id resolves. Per-state matrix:
+  //
+  //   active             → append sid when sessionId !== null          (AC5/PB1)
+  //   idle               → append sid when sessionId !== null          (AC1)
+  //   stale              → append sid when sessionId !== null          (AC2)
+  //   invalid-presence   → NEVER append sid (G2 — read-error signal must
+  //                        stay loud; showing sid would mask the warning)
+  //                                                                         (AC4)
+  //
+  // Compact state with presence is still rendered with the active sid logic
+  // (the active branch already covered this in the prior slice). Compact state
+  // without presence is the same as the underlying idle / invalid-presence /
+  // stale branch; the helper inherits that. Pure ASCII (no narrow space /
+  // smart quotes), so Windows PowerShell + Git Bash + zsh render byte-
+  // identical (AC7 of the prior slice + AC10 of this slice).
+  const rootSuffix = computeRootSuffix(model, root, palette);
   const brand = brandText(capability, noColor);
   // Breathing pulse: key off a single wall-clock read at the start of
   // render so the output is deterministic for a given invocation. The
