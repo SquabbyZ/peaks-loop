@@ -33,6 +33,14 @@ import { resolve } from 'node:path';
  * `project-option-is-canonical-project-root-source`).
  */
 
+// Slice 4.0.11 statusline-sid-scoped-lease A: the canonical hook
+// path used to be `.peaks/_runtime/active-skill.json` (the deprecated
+// single-slot file that race-conditions when multiple sessions drive
+// one project). The canonical write moved to the sid-scoped lease
+// projection in 4.0.8. This slice refactors only the comment; the
+// read-path change to the lease projection lands in the 4-B
+// sub-slice. Until 4-B ships, both paths remain readable for the
+// one-minor-release back-compat window.
 const PRESENCE_CANONICAL_PATH = '.peaks/_runtime/active-skill.json';
 const PRESENCE_LEGACY_PATH = '.peaks/.active-skill.json';
 

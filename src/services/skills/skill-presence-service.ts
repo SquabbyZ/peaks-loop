@@ -414,13 +414,12 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
     })();
   }
 
-  const presencePath = resolvePresencePath(projectRootOverride);
-  const presenceDir = dirname(presencePath);
-  if (!existsSync(presenceDir)) {
-    mkdirSync(presenceDir, { recursive: true });
-  }
-
-  writeFileSync(presencePath, JSON.stringify(presence, null, 2), 'utf8');
+  // Slice 4.0.11 statusline-sid-scoped-lease A: the canonical write
+  // path is now exclusively `presence-lease-service.setPresenceLease`.
+  // The legacy single-slot marker file write was removed in this
+  // slice: every `setSkillPresence` call flows through the sid-scoped
+  // lease + presence-index machinery above. The legacy
+  // `active-skill.json` file is NOT recreated here.
 
   // Skill-activation side effect: ensure `.peaks/memory/` and a full-shape
   // empty `index.json` exist for the project. This is the user-facing fix
@@ -642,8 +641,16 @@ export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence
       return null;
     }
   }
+  // Slice 4.0.11 statusline-sid-scoped-lease A: the legacy write to
+  // the single-slot marker file was removed. Heartbeat refresh now
+  // lives exclusively in `presence-lease-service.setPresenceLease`
+  // (the canonical sid-scoped lease). This function remains as a
+  // read-only back-compat shim for the 4-B / 4-C sub-slices; callers
+  // still receive the in-memory `presence` (with the new
+  // `lastHeartbeat` stamped) but the legacy `active-skill.json` file
+  // is no longer touched. The canonical lease / presence-index
+  // entries are the source of truth for heartbeat freshness.
   presence.lastHeartbeat = new Date().toISOString();
-  writeFileSync(presencePath, JSON.stringify(presence, null, 2), 'utf8');
   return presence;
 }
 
