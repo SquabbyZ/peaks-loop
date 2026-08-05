@@ -159,8 +159,11 @@ function defaultStaleSingleSlotScanner(projectRoot: string): string[] {
     join('.peaks', '.active-skill.json')
   ];
   for (let i = 0; i < candidates.length; i++) {
-    if (existsSync(candidates[i])) {
-      offenders.push(reported[i]);
+    const candidate = candidates[i];
+    const reportedPath = reported[i];
+    if (candidate === undefined || reportedPath === undefined) continue;
+    if (existsSync(candidate)) {
+      offenders.push(reportedPath);
     }
   }
   return offenders;

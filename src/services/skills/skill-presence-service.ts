@@ -161,6 +161,7 @@ function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence
   if (inFlight.length === 0) return null;
   inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
   const lease = inFlight[0];
+  if (lease === undefined) return null;
   // The lease carries `callerId` (the adapter / harness session id),
   // not the legacy `outerSessionId` field. Project it for back-compat
   // with `clearStalePresenceOnRotation`'s outer-mismatch check.
@@ -513,7 +514,7 @@ export function checkStalePresence(opts?: {
       recordedOuterSessionId: undefined
     };
   }
-  const recorded = result.presence.outerSessionId;
+  const recorded = result.outerSessionId;
   // Suppress false-positives when NEITHER side recorded an outer
   // session id (legacy project, no harness signal). Two unknowns
   // are not a swap — they are "no signal available yet".
@@ -523,7 +524,7 @@ export function checkStalePresence(opts?: {
     return {
       stale: false,
       reason: null,
-      presence: result.presence,
+      presence: result,
       currentOuterSessionId: current,
       recordedOuterSessionId: recorded
     };
@@ -532,7 +533,7 @@ export function checkStalePresence(opts?: {
     return {
       stale: false,
       reason: null,
-      presence: result.presence,
+      presence: result,
       currentOuterSessionId: current,
       recordedOuterSessionId: recorded
     };
@@ -540,7 +541,7 @@ export function checkStalePresence(opts?: {
   return {
     stale: true,
     reason: 'outer-session-mismatch',
-    presence: result.presence,
+    presence: result,
     currentOuterSessionId: current,
     recordedOuterSessionId: recorded
   };

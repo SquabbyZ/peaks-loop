@@ -221,10 +221,14 @@ function readPresenceReadOnly(
   if (latest === undefined || typeof latest.skill !== 'string' || latest.skill.length === 0) {
     return { presence: null, invalid: false };
   }
+  // Leases on disk may carry an optional `mode` field (the lease constructor
+  // spreads `input.mode` when present); the typed `SkillPresenceLease` does
+  // not declare it, so widen the read shape here.
+  const latestMode = (latest as { mode?: unknown }).mode;
   return {
     presence: {
       skill: latest.skill,
-      ...(typeof latest.mode === 'string' && latest.mode.length > 0 ? { mode: latest.mode } : {}),
+      ...(typeof latestMode === 'string' && latestMode.length > 0 ? { mode: latestMode } : {}),
       setAt: latest.startedAt,
     },
     invalid: false,

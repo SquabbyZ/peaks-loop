@@ -75,7 +75,9 @@ function readCanonicalLease(projectRoot: string): { skill: string } | null {
   if (inFlight.length === 0) return null;
   // Sort by lastHeartbeat desc, return the freshest.
   inFlight.sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
-  return { skill: inFlight[0].skill };
+  const freshest = inFlight[0];
+  if (freshest === undefined) return null;
+  return { skill: freshest.skill };
 }
 
 /**
