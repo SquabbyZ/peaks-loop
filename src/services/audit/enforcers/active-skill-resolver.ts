@@ -144,9 +144,12 @@ export function resolveActiveSkillForCaller(
       const filePath = join(sessionDir, entry);
       try {
         const raw = readFileSync(filePath, 'utf8');
-        const parsed = JSON.parse(raw) as { skill?: unknown };
+        const parsed = JSON.parse(raw) as { skill?: unknown; mode?: unknown };
         if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
-          return { skill: parsed.skill, callerId, sessionId, mode: null, source: 'file' };
+          const legacyMode = typeof parsed.mode === 'string' && parsed.mode.length > 0
+            ? parsed.mode
+            : null;
+          return { skill: parsed.skill, callerId, sessionId, mode: legacyMode, source: 'file' };
         }
       } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // skip malformed file

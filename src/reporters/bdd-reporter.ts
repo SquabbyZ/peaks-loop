@@ -36,7 +36,14 @@
 //   metadata, no JSON sidecar. Anything beyond what the spec asked
 //   for is excluded by Simplicity First.
 
-import type { Reporter, TestModule, TestCase } from 'vitest/reporters';
+import type { Reporter } from 'vitest/reporters';
+
+// Note: `TestModule` and `TestCase` are intentionally NOT imported from
+// `vitest/reporters` — they are not part of vitest 4.1.10's public API
+// surface (only `Reporter` is exported there; the tree-walking types are
+// internal). We declare minimal local interfaces matching the runtime
+// shape vitest actually passes to the reporter hooks. If a future vitest
+// release adds typed tree-walking exports, this local copy can be deleted.
 
 /**
  * Per-test-case rendered row. We collect everything first and emit
@@ -51,7 +58,22 @@ interface RenderedScenario {
   /** "passed" | "failed" | "skipped". */
   readonly state: 'passed' | 'failed' | 'skipped';
   /** Optional error message for failed tests. */
-  readonly error?: string;
+  readonly error?: string | undefined;
+}
+
+/** Minimal shape of vitest's TestModule tree node. Vitest 4.1.10 does
+ * not export these types publicly; this mirrors the runtime shape
+ * the reporter hooks actually receive. */
+interface BddTestModuleLike {
+  moduleId?: string;
+  relativeModuleId?: string;
+  children: { tests(): Iterable<BddTestCaseLike>; suites(): Iterable<BddTestModuleLike> };
+}
+interface BddTestCaseLike {
+  name: string;
+  fullName?: string;
+  state?: 'passed' | 'failed' | 'skipped';
+  result?: () => unknown;
 }
 
 /** Per-file rendered block. */
@@ -72,8 +94,9 @@ class BddReporter implements Reporter {
    * to drain the per-module scenarios into the document map and
    * mark the file's pass/fail status.
    */
-  onTestModuleEnd(testModule: TestModule): void {
-    const file = basename(testModule.relativeModuleId || testModule.moduleId);
+  onTestModuleEnd(testModule: BddTestModuleLike): void {
+    const moduleId = testModule.relativeModuleId ?? testModule.moduleId ?? '';
+    const file = basename(moduleId);
     const scenarios: RenderedScenario[] = [];
     collectScenarios(testModule, file, scenarios);
     this.features.set(file, scenarios);
@@ -136,7 +159,7 @@ function basename(path: string): string {
  * structure is uniform.
  */
 function collectScenarios(
-  entity: TestModule | { children: { tests(): Iterable<TestCase>; suites(): Iterable<unknown> } },
+  entity: BddTestModuleLike | { children: { tests(): Iterable<BddTestCaseLike>; suites(): Iterable<unknown> } },
   file: string,
   out: RenderedScenario[],
 ): void {
@@ -148,20 +171,21 @@ function collectScenarios(
     const obj = node as {
       name?: string;
       children?: {
-        tests(state?: string): Iterable<TestCase>;
+        tests(state?: string): Iterable<BddTestCaseLike>;
         suites(): Iterable<unknown>;
       };
       type?: string;
-      result?: () => { state: string; errors?: ReadonlyArray<{ message?: string }> };
+      result?: () => unknown;
     };
     if (obj.type === 'test') {
-      const tc = node as unknown as TestCase;
-      const result = tc.result();
-      const state = (result.state === 'passed' || result.state === 'failed' || result.state === 'skipped')
-        ? result.state
+      const tc = node as unknown as BddTestCaseLike;
+      const result = tc.result ? tc.result() : undefined;
+      const resultObj = (result ?? {}) as { state?: string; errors?: ReadonlyArray<{ message?: string }> };
+      const state = (resultObj.state === 'passed' || resultObj.state === 'failed' || resultObj.state === 'skipped')
+        ? resultObj.state
         : 'skipped';
-      const err = result.state === 'failed' && result.errors && result.errors[0]
-        ? (result.errors[0].message ?? 'unknown failure')
+      const err = resultObj.state === 'failed' && resultObj.errors && resultObj.errors[0]
+        ? (resultObj.errors[0].message ?? 'unknown failure')
         : undefined;
       out.push({
         scenario: scenarioLabel,
