@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
 import { decideCompactStatusline } from '../compact-statusline/compact-statusline-service.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../audit/enforcers/active-skill-resolver.js';
+import { listPresenceLeases } from './presence-lease-service.js';
 import { readActiveDispatchIndex, type ActiveDispatchEntry } from '../dispatch/dispatch-record-writer.js';
 import type { CompactStatuslineState } from '../compact-statusline/compact-statusline-service.js';
 
@@ -11,21 +11,27 @@ import type { CompactStatuslineState } from '../compact-statusline/compact-statu
  * Out-of-band Peaks skill status renderer for the Claude Code statusLine.
  *
  * Claude Code invokes the configured statusLine command on every turn and pipes
- * a JSON session payload on stdin. This renderer reads the durable presence file
- * (`.peaks/_runtime/active-skill.json`, with a one-minor-release back-compat
- * fallback to `.peaks/.active-skill.json`) and prints a single line that
- * Claude Code paints at the bottom of the terminal. Because it is rendered
- * by the harness — not emitted as LLM tokens — the signal cannot be forgotten
- * by the model, cannot be confused with normal output, and survives context
- * compaction.
+ * a JSON session payload on stdin. This renderer reads the canonical
+ * sid-scoped lease projection
+ * (`.peaks/_runtime/<sid>/leases/presence-<caller>-<workflow>.json` +
+ * the per-caller index under `presence-index/<caller>.json`) and prints a
+ * single line that Claude Code paints at the bottom of the terminal. Because
+ * it is rendered by the harness — not emitted as LLM tokens — the signal
+ * cannot be forgotten by the model, cannot be confused with normal output,
+ * and survives context compaction.
  *
  * This module is intentionally READ-ONLY. Unlike getSkillPresence in
  * skill-presence-service.ts, it never deletes or rewrites the presence file:
  * the statusLine runs on every turn and must have zero side effects.
+ *
+ * Slice 2026-08-05-statusline-sid-scoped-lease-B: the read no longer falls
+ * back to the project-level `.peaks/_runtime/active-skill.json` (or its
+ * legacy `.peaks/.active-skill.json`). The canonical lease projection is
+ * the only source. When `callerId === null` (non-IDE caller), the read
+ * picks the most recent in-flight lease across all callers; this is the
+ * documented back-compat path.
  */
 
-const PRESENCE_FILE = '.peaks/_runtime/active-skill.json';
-const PRESENCE_FILE_LEGACY = '.peaks/.active-skill.json';
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 export type StatusLineStdin = {
@@ -147,11 +153,18 @@ function readActiveLeaf(
  * Read the presence file without any side effects. Returns null when the file is
  * absent (idle) and a sentinel object for malformed content (invalid-presence).
  *
- * When `callerId` is non-null, delegates to the canonical lease resolver
- * (presence-lease-service via active-skill-resolver) so the read is
- * session+caller-isolated. When `callerId` is null, falls back to the
- * project-level single-file read (back-compat for callers that don't pass
- * a callerId yet, e.g. legacy CLI invocations).
+ * Both branches now route through the canonical sid-scoped lease projection
+ * (slice 2026-08-05-statusline-sid-scoped-lease-B):
+ *   - `callerId !== null` → `resolveActiveSkillForCaller` with the canonical
+ *     (non-legacy) lease projection, filtered to this callerId.
+ *   - `callerId === null` → enumerate `listPresenceLeases` for the
+ *     canonical session and pick the most recent in-flight lease. Back-compat
+ *     for non-IDE callers (e.g. legacy CLI invocations) that have no callerId.
+ *
+ * No fallback to `.peaks/_runtime/active-skill.json` (or its legacy path):
+ * the canonical lease projection is the single source of truth. When no
+ * in-flight leases exist, the read returns `{ presence: null, invalid: false }`
+ * and the renderer falls back to the idle state.
  */
 function readPresenceReadOnly(
   projectRoot: string,
@@ -159,7 +172,7 @@ function readPresenceReadOnly(
 ): { presence: StatusLinePresence | null; invalid: boolean } {
   if (callerId !== null) {
     try {
-      const resolution = resolveActiveSkillForCaller(projectRoot, { legacyPresence: true, callerId });
+      const resolution = resolveActiveSkillForCaller(projectRoot, { callerId });
       if (resolution.source === 'none' || resolution.skill === null) {
         return { presence: null, invalid: false };
       }
@@ -174,35 +187,48 @@ function readPresenceReadOnly(
       return { presence: null, invalid: true };
     }
   }
-  const presencePath = resolve(projectRoot, PRESENCE_FILE);
-  // Back-compat: prefer the new canonical path; fall back to the legacy
-  // `.peaks/.active-skill.json` for one minor release.
-  const pathToRead = existsSync(presencePath) ? presencePath : resolve(projectRoot, PRESENCE_FILE_LEGACY);
-  if (!existsSync(pathToRead)) {
+  // callerId === null branch: enumerate the canonical session dir's leases
+  // and pick the most recent in-flight lease. This is the back-compat path
+  // for non-IDE callers that don't supply a callerId.
+  let sessionId: string | null = null;
+  try {
+    sessionId = getSessionIdCanonical(projectRoot);
+  } catch {
     return { presence: null, invalid: false };
   }
+  if (sessionId === null) {
+    return { presence: null, invalid: false };
+  }
+  let leases: ReturnType<typeof listPresenceLeases> = [];
   try {
-    const parsed: unknown = JSON.parse(readFileSync(pathToRead, 'utf8'));
-    if (!parsed || typeof parsed !== 'object') {
-      return { presence: null, invalid: true };
-    }
-    const candidate = parsed as Record<string, unknown>;
-    if (typeof candidate.skill !== 'string' || candidate.skill.length === 0) {
-      return { presence: null, invalid: true };
-    }
-    return {
-      presence: {
-        skill: candidate.skill,
-        ...(typeof candidate.mode === 'string' ? { mode: candidate.mode } : {}),
-        ...(typeof candidate.gate === 'string' ? { gate: candidate.gate } : {}),
-        ...(typeof candidate.setAt === 'string' ? { setAt: candidate.setAt } : {}),
-        ...(typeof candidate.claudeSessionId === 'string' ? { claudeSessionId: candidate.claudeSessionId } : {})
-      },
-      invalid: false
-    };
+    leases = listPresenceLeases(projectRoot, sessionId);
   } catch {
     return { presence: null, invalid: true };
   }
+  const inFlight = leases
+    .filter((l) => l.status === 'preparing' || l.status === 'running')
+    .filter((l) => typeof l.skill === 'string' && l.skill.length > 0);
+  if (inFlight.length === 0) {
+    return { presence: null, invalid: false };
+  }
+  // Most recent wins — sort by `lastHeartbeat` desc, fall back to `startedAt`.
+  const sorted = inFlight.slice().sort((a, b) => {
+    const hb = b.lastHeartbeat.localeCompare(a.lastHeartbeat);
+    if (hb !== 0) return hb;
+    return b.startedAt.localeCompare(a.startedAt);
+  });
+  const latest = sorted[0];
+  if (latest === undefined || typeof latest.skill !== 'string' || latest.skill.length === 0) {
+    return { presence: null, invalid: false };
+  }
+  return {
+    presence: {
+      skill: latest.skill,
+      ...(typeof latest.mode === 'string' && latest.mode.length > 0 ? { mode: latest.mode } : {}),
+      setAt: latest.startedAt,
+    },
+    invalid: false,
+  };
 }
 
 export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: number): StatusLineModel {
