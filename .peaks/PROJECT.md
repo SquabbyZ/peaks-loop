@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-05T08:18:53.697Z
+> Last updated: 2026-08-05T12:43:18.537Z
 
 ## Project: peaks-loop
 
@@ -48,7 +48,7 @@
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-08-04 | `2026-08-04-session-3fe1be` | Untitled | request: 2026-08-04-statusline-session-id-fix |
+| 2026-08-04 | `2026-08-04-session-3fe1be` | Untitled | requestId: 2026-08-05-bdd-test-style |
 | 2026-08-04 | `2026-08-04-session-70ff1e` | Untitled | peaks-code |
 | 2026-08-04 | `2026-08-04-session-139b31` | Untitled | statusline 当前实现（4.0.9）有 2 个独立的 user-reported 问题： |
 | 2026-08-03 | `2026-08-03-session-1b6cf3` | Untitled | 对 RD 产出的两份 deliverable 做 **4 维验收**: |
