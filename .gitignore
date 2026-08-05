@@ -46,3 +46,5 @@ tmp-mut-test/
 tmp-shared-channel-*/
 **/.tmp-mut-test/
 **/.tmp-shared-channel-*/
+# BDD reporter test fixtures — ephemeral, generated under tests/unit/ at runtime.
+tests/unit/_bdd-reporter-tmp/
