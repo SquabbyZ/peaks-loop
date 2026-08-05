@@ -247,6 +247,10 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
     const data = logsSection === null
       ? { ...report, staleBinding: staleBindingSection }
       : { ...report, logs: logsSection, staleBinding: staleBindingSection };
+    // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+    // repair cycle: `report.summary.ok` already factors in the
+    // severity-aware aggregation in `buildReport` (warnings do NOT
+    // flip `ok`). Stale-binding is independent and still escalates.
     const result = report.summary.ok && staleInstances.length === 0
       ? ok('doctor', data)
       : fail(
@@ -264,9 +268,18 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       printResult(io, result, true);
     } else {
       // Human-readable: one line per check, green/red indicators, no JSON.
+      // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+      // repair cycle: warn-only findings (severity: 'warning') surface
+      // as `! check.ok` with the `! ` (warning) glyph so the operator
+      // can tell them apart from real errors without reading JSON.
       for (const check of report.checks) {
-        const icon = check.ok ? '+' : '×';
-        io.stdout(`  ${icon}  ${check.message}`);
+        if (check.ok) {
+          io.stdout(`  +  ${check.message}`);
+        } else if (check.severity === 'warning') {
+          io.stdout(`  !  ${check.message}`);
+        } else {
+          io.stdout(`  ×  ${check.message}`);
+        }
       }
       if (logsSection !== null) {
         io.stdout('\n  logs:');
@@ -290,11 +303,18 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
           io.stdout('    rerun with --cleanup-stale to drop them');
         }
       }
-      io.stdout(`\n  ${report.summary.passed} passed, ${report.summary.failed} failed`);
+      io.stdout(`\n  ${report.summary.passed} passed, ${report.summary.failed} failed${report.summary.warnings > 0 ? `, ${report.summary.warnings} warning(s)` : ''}`);
       if (!report.summary.ok || staleInstances.length > 0) {
         io.stderr(`\nDOCTOR_FAILED: ${staleInstances.length > 0 ? 'stale binding present' : `${report.summary.failed} check(s) failed`}.`);
+      } else if (report.summary.warnings > 0) {
+        io.stdout(`\n  ${report.summary.warnings} warning(s) present — exit code 0 (warn-only).`);
       }
     }
+    // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+    // repair cycle: `report.summary.ok` already factors in the
+    // severity-aware aggregation in `buildReport` (warnings do NOT
+    // flip `ok`). The exit-code gate remains `summary.ok &&
+    // !staleInstances` — no separate warning special-case needed here.
     if (!report.summary.ok || staleInstances.length > 0) {
       process.exitCode = 1;
     }

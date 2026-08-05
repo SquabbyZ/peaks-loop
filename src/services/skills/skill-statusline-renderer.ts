@@ -7,6 +7,18 @@ import type {
 import type {
   CompactStatuslineState,
 } from '../compact-statusline/compact-statusline-service.js';
+import {
+  computeRootSuffix as computeRootSuffixImpl,
+  formatShortSid,
+} from './skill-statusline-sid-suffix.js';
+
+// Re-export so existing test imports
+// (`import { formatShortSid, computeRootSuffix } from '.../skill-statusline-renderer'`)
+// keep working byte-identically after the helper extraction in slice
+// 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+// repair cycle.
+export { formatShortSid } from './skill-statusline-sid-suffix.js';
+export const computeRootSuffix = computeRootSuffixImpl;
 
 /**
  * Pure formatting layer for the Peaks statusLine. Takes the read-only status
@@ -260,20 +272,13 @@ function rootLabel(projectRoot: string | null): string {
 }
 
 /**
- * Format a session id as a short, terminal-friendly tag.
- *
- * Returns the last kebab-segment of `sessionId` (e.g.
- * `2026-08-04-session-3fe1be` → `3fe1be`), or the empty string when
- * the input is empty. Pure; safe for ASCII rendering across
- * PowerShell, Git Bash, and zsh (AC7).
- *
- * Slice 2026-08-05-statusline-empty-render-and-short-sid-suffix.
+ * `formatShortSid` + `computeRootSuffix` were extracted to
+ * `./skill-statusline-sid-suffix.ts` in the slice
+ * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+ * repair cycle so the renderer file stays under the Karpathy
+ * 800-line cap. Both helpers are re-exported above for back-compat
+ * with existing test imports.
  */
-export function formatShortSid(sessionId: string): string {
-  if (sessionId.length === 0) return '';
-  const last = sessionId.split('-').pop();
-  return last ?? sessionId;
-}
 
 /**
  * Build the "middle" of the status line — everything between the brand
@@ -675,40 +680,6 @@ export function applyMarquee(s: string, nowMs: number, capability: StatusLineCap
   const bandStart = Math.max(0, center - halfBand);
   const bandEnd = Math.min(width - 1, center + halfBand);
   return applyMarqueeHighlight(s, bandStart, bandEnd);
-}
-
-/**
- * Compute the project-root cell of the status line. Returns the
- * `<trailSep><root>` portion (and optionally the ` [shortSid]` suffix).
- *
- * Pure helper — no I/O. The `sessionId` is read from the model that the
- * service already resolved once via `getSessionIdCanonical`. Per-state
- * matrix (see the docstring inside {@link renderStatusLine} for the
- * AC/PB references):
- *
- *   - state === 'invalid-presence'           → no sid (G2 invariant)
- *   - state === 'idle' | 'stale' | 'active'   → sid iff model.sessionId resolves
- *     to a non-empty shortSid string
- *   - projectRoot === null                    → empty string
- *
- * Exported so tests can drive the helper without spinning up the full
- * renderer (marquee, palette, etc.).
- */
-export function computeRootSuffix(
-  model: StatusLineModel,
-  rootLabelText: string,
-  palette: StatusPalette,
-): string {
-  if (!rootLabelText) return '';
-  let suffix = `${palette.trailSeparator}${rootLabelText}`;
-  if (model.state === 'invalid-presence') return suffix;
-  // Defensive: older callers may build a model without `sessionId`
-  // (the field is optional in some test fixtures predating the
-  // sid-only-marker slice). Treat undefined the same as null.
-  if (model.sessionId === null || model.sessionId === undefined) return suffix;
-  const short = formatShortSid(model.sessionId);
-  if (short.length === 0) return suffix;
-  return `${suffix} [${short}]`;
 }
 
 /**

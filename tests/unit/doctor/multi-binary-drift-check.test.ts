@@ -360,7 +360,8 @@ describe('check plugin (drift detection wrapper)', () => {
     expect(emitted.length).toBe(1);
     const single = emitted[0]!;
     expect(single.id).toBe('build:multi-binary-drift');
-    expect(single.ok).toBe(false); // AC7: warning severity surfaces as ok:false in JSON envelope (doctor still exit 0 from the summary block — see tests below)
+    expect(single.ok).toBe(false); // AC7: warning severity surfaces as ok:false in JSON envelope
+    expect(single.severity).toBe('warning'); // AC7 repair: drift check now tags severity so buildReport counts it as a warning, not an error
     expect(single.message).toContain('PEAKS_MULTI_BINARY_DRIFT');
     expect(single.message).toContain('4.0.12');
     expect(single.message).toContain('3.1.2');

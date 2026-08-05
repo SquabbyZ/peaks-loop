@@ -13,10 +13,33 @@
  * keeps working unchanged.
  */
 
+/**
+ * Severity for a single doctor check. `'error'` flips the exit code
+ * (via `buildReport` and the CLI dispatcher); `'warning'` surfaces
+ * the finding in the JSON envelope (`ok: false` + `severity: 'warning'`)
+ * but does NOT escalate the doctor exit code to 1.
+ *
+ * Optional in the type for back-compat with older check plugins that
+ * pre-date the severity-aware summary (slice
+ * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+ * repair cycle). When omitted, the dispatcher treats the check as
+ * `'error'` — i.e. `ok: false` escalates the exit code the same way
+ * it did before this slice.
+ */
+export type DoctorCheckSeverity = 'error' | 'warning';
+
 export type DoctorCheck = {
   id: string;
   ok: boolean;
   message: string;
+  /**
+   * Optional severity tag. When `'warning'`, the check still reports
+   * `ok: false` (so operators see the finding in the JSON envelope)
+   * but `buildReport` does NOT count it as a failure for the
+   * `summary.ok` exit-code calculation. Default-omitted checks
+   * behave as `'error'`.
+   */
+  severity?: DoctorCheckSeverity;
 };
 
 export type DoctorReport = {
@@ -25,6 +48,15 @@ export type DoctorReport = {
     ok: boolean;
     passed: number;
     failed: number;
+    /**
+     * Severity-aware summary (slice
+     * 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+     * repair cycle): count of findings tagged
+     * `severity: 'warning'`. Warnings surface in the JSON envelope
+     * (`ok: false`) but do NOT flip `summary.ok` and therefore do
+     * NOT flip the doctor exit code.
+     */
+    warnings: number;
   };
 };
 

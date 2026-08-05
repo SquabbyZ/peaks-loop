@@ -276,17 +276,20 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
     }
     // Drift detected — WARN-ONLY. AC7: doctor still exit 0 unless
     // another check escalates to error. `ok: false` so the operator
-    // sees the finding in the JSON report but the check itself is
-    // tagged `severity: warning` via a separate field — the doctor's
-    // public summary is `ok: false`, but a future severity-aware
-    // summary can downgrade the doctor exit code without rewriting
-    // the check body.
+    // sees the finding in the JSON report AND the check carries
+    // `severity: 'warning'` so `buildReport` does NOT count it as a
+    // failure when computing `summary.ok`. Slice
+    // 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
+    // repair cycle landed the severity-aware summary so the
+    // previously-handwaved "future severity-aware summary can
+    // downgrade the doctor exit code" actually fires.
     const binaryTable = result.binaries
       .map((b) => `  ${b.path} version=${b.version ?? 'unknown'} date=${b.installDate ?? 'unknown'}`)
       .join('\n');
     return [{
       id: 'build:multi-binary-drift',
       ok: false,
+      severity: 'warning',
       message: `PEAKS_MULTI_BINARY_DRIFT: ${result.uniqueVersions.length} distinct peaks-loop versions on PATH (${result.uniqueVersions.join(', ')}). Run \`npm uninstall -g peaks-loop\` on the stale entries, or reorder PATH so the desired binary resolves first. Binaries:\n${binaryTable}`
     }];
   } catch (error) {
