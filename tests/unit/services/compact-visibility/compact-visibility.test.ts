@@ -99,8 +99,11 @@ const EXPECTED_CELLS = {
   completed: 8,
 } as const;
 
-describe('render — compact cell-bar strings', () => {
-  it('every lifecycle stage maps to the documented fixed cell count', () => {
+describe("Scenario: render — compact cell-bar strings", () => {
+  it("when invoked, should every lifecycle stage maps to the documented fixed cell count", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const expectations: Array<{ stage: 'queued' | 'preparing' | 'compacting' | 'verifying' | 'completed'; cells: 0 | 2 | 4 | 6 | 8 }> = [
       { stage: 'queued', cells: 0 },
       { stage: 'preparing', cells: 2 },
@@ -113,17 +116,26 @@ describe('render — compact cell-bar strings', () => {
     }
   });
 
-  it('renderCompactStatusline: idempotent on empty semantic state', () => {
+  it("when invoked, should renderCompactStatusline: idempotent on empty semantic state", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(renderCompactStatusline({ kind: 'none', filledCells: 0 })).toBe('compact [░░░░░░░░]');
   });
 
-  it('renderCompactStatusline: 4 cells filled = compacting', () => {
+  it("when invoked, should renderCompactStatusline: 4 cells filled = compacting", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'compacting', filledCells: 4 });
     expect(out).toBe('compact [████░░░░]');
     expect(out).not.toMatch(/\?/);
   });
 
-  it('renderCompactStatusline: 8 cells filled = completed (always surfaces the no-after-ratio hint)', () => {
+  it("when invoked, should renderCompactStatusline: 8 cells filled = completed (always surfaces the no-after-ratio hint)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'completed', filledCells: 8 });
     expect(out).toContain('████████');
     expect(out).not.toMatch(/\?/);
@@ -132,32 +144,47 @@ describe('render — compact cell-bar strings', () => {
     expect(out).toMatch(/no measurement|after-ratio unknown|after-ratio not recorded/i);
   });
 
-  it('renderCompactStatusline: failed retains the failedAt cell (default compacting = 4)', () => {
+  it("when invoked, should renderCompactStatusline: failed retains the failedAt cell (default compacting = 4)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'failed', filledCells: 4, failedAt: 'compacting' });
     expect(out).toContain('[████░░░░]');
     expect(out).not.toMatch(/\?/);
   });
 
-  it('renderCompactStatusline: invalid state never renders a reassuring progress bar', () => {
+  it("when invoked, should renderCompactStatusline: invalid state never renders a reassuring progress bar", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'invalid', filledCells: 0, detail: 'lifecycle JSON malformed' });
     expect(out).not.toMatch(/\[/);
     expect(out).not.toMatch(/\?/);
   });
 
-  it('renderCompactStatusline: stalled renders an explicit warning, no guess', () => {
+  it("when invoked, should renderCompactStatusline: stalled renders an explicit warning, no guess", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'stalled', filledCells: 4, detail: 'no heartbeat for 180s' });
     expect(out).not.toMatch(/\?/);
     // stalled is not a green bar — it must surface as a warning
     expect(out).toMatch(/stalled/i);
   });
 
-  it('renderCompactStatusline: completed with afterRatio surfaces the real after', () => {
+  it("when invoked, should renderCompactStatusline: completed with afterRatio surfaces the real after", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'completed', filledCells: 8, afterRatio: 0.42 });
     expect(out).toContain('0.42');
     expect(out).not.toMatch(/\?/);
   });
 
-  it('renderCompactStatusline: completed WITHOUT afterRatio surfaces the "no measurement" hint (no guess)', () => {
+  it("when invoked, should renderCompactStatusline: completed WITHOUT afterRatio surfaces the \"no measurement\" hint (no guess)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = renderCompactStatusline({ kind: 'completed', filledCells: 8 });
     expect(out).not.toMatch(/\?/);
     // The hint must be a stable English token, not a number we invented.
@@ -165,10 +192,13 @@ describe('render — compact cell-bar strings', () => {
   });
 });
 
-describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
+describe("Scenario: behavior — lifecycle dispatch + cell mapping (Task 3)", () => {
   withTmpWorkspacePerTest();
 
-  it('queued lifecycle → 0 cells, kind=queued', () => {
+  it("when invoked, should queued lifecycle → 0 cells, kind=queued", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'queued', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -181,7 +211,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.triggerRatio).toBe(0.87);
   });
 
-  it('preparing lifecycle → 2 cells', () => {
+  it("when invoked, should preparing lifecycle → 2 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'preparing', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -193,7 +226,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.filledCells).toBe(2);
   });
 
-  it('compacting lifecycle → 4 cells', () => {
+  it("when invoked, should compacting lifecycle → 4 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'compacting', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -205,7 +241,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.filledCells).toBe(4);
   });
 
-  it('verifying lifecycle → 6 cells', () => {
+  it("when invoked, should verifying lifecycle → 6 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'verifying', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -217,7 +256,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.filledCells).toBe(6);
   });
 
-  it('completed lifecycle → 8 cells', () => {
+  it("when invoked, should completed lifecycle → 8 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'completed', updatedAt: '2026-08-01T11:59:59.000Z', afterRatio: 0.31 });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -230,7 +272,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.afterRatio).toBe(0.31);
   });
 
-  it('completed lifecycle WITHOUT afterRatio — never invents one', () => {
+  it("when invoked, should completed lifecycle WITHOUT afterRatio — never invents one", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'completed', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = decideCompactStatusline({
@@ -243,7 +288,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.afterRatio).toBeUndefined();
   });
 
-  it('failed-at-compacting lifecycle → kept at 4 cells, retains failedAt hint', () => {
+  it("when invoked, should failed-at-compacting lifecycle → kept at 4 cells, retains failedAt hint", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({
       stage: 'failed',
       updatedAt: '2026-08-01T11:59:59.000Z',
@@ -264,7 +312,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.redLine).toBe(true);
   });
 
-  it('failed-at-preparing lifecycle → kept at 2 cells', () => {
+  it("when invoked, should failed-at-preparing lifecycle → kept at 2 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({
       stage: 'failed',
       updatedAt: '2026-08-01T11:59:59.000Z',
@@ -282,7 +333,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.failedAt).toBe('preparing');
   });
 
-  it('stalled active-stage lifecycle → surfaces stalled kind, retains filledCells', () => {
+  it("when invoked, should stalled active-stage lifecycle → surfaces stalled kind, retains filledCells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'compacting', updatedAt: '2026-08-01T11:58:00.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     // now=12:00:00, updatedAt=11:58:00 = 120s gap, default staleAfterMs=120_000
@@ -297,7 +351,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.filledCells).toBe(4);
   });
 
-  it('invalid lifecycle → kind=invalid, no legacy fallback (no false reassurance)', () => {
+  it("when invoked, should invalid lifecycle → kind=invalid, no legacy fallback (no false reassurance)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), '{ not valid json', 'utf8');
@@ -318,7 +375,10 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
     expect(out.detail).toBeDefined();
   });
 
-  it('redLine is propagated from lifecycle to the decided state', () => {
+  it("when invoked, should redLine is propagated from lifecycle to the decided state", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({
       stage: 'compacting',
       updatedAt: '2026-08-01T11:59:59.000Z',
@@ -335,10 +395,13 @@ describe('behavior — lifecycle dispatch + cell mapping (Task 3)', () => {
   });
 });
 
-describe('behavior — legacy migration priority (no lifecycle, fall back to legacy files)', () => {
+describe("Scenario: behavior — legacy migration priority (no lifecycle, fall back to legacy files)", () => {
   withTmpWorkspacePerTest();
 
-  it('null sessionId → none, filledCells=0', () => {
+  it("when invoked, should null sessionId → none, filledCells=0", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideCompactStatusline({
       projectRoot: process.cwd(),
       sessionId: null,
@@ -348,7 +411,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.filledCells).toBe(0);
   });
 
-  it('no lifecycle, no legacy files → none, 0 cells', () => {
+  it("when invoked, should no lifecycle, no legacy files → none, 0 cells", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideCompactStatusline({
       projectRoot: process.cwd(),
       sessionId: SID,
@@ -358,7 +424,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.filledCells).toBe(0);
   });
 
-  it('legacy pending.json → queued (0 cells), lifecycle wins when it existed', () => {
+  it("when invoked, should legacy pending.json → queued (0 cells), lifecycle wins when it existed", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID, 'txt');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'auto-compact-pending.json'), JSON.stringify({
@@ -373,7 +442,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.filledCells).toBe(0);
   });
 
-  it('legacy pending.json with redLine=true → queued + redLine flag (still 0 cells)', () => {
+  it("when invoked, should legacy pending.json with redLine=true → queued + redLine flag (still 0 cells)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID, 'txt');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'auto-compact-pending.json'), JSON.stringify({
@@ -389,7 +461,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.redLine).toBe(true);
   });
 
-  it('legacy recent history → completed WITHOUT invented afterRatio', () => {
+  it("when invoked, should legacy recent history → completed WITHOUT invented afterRatio", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'compact-history.jsonl');
@@ -409,7 +484,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.afterRatio).toBeUndefined();
   });
 
-  it('legacy history mtime older than 30s + no pending → none', () => {
+  it("when invoked, should legacy history mtime older than 30s + no pending → none", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'compact-history.jsonl');
@@ -425,7 +503,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.filledCells).toBe(0);
   });
 
-  it('pending wins over recent history when lifecycle is missing (legacy priority)', () => {
+  it("when invoked, should pending wins over recent history when lifecycle is missing (legacy priority)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(join(runtime, 'txt'), { recursive: true });
     writeFileSync(join(runtime, 'txt', 'auto-compact-pending.json'), JSON.stringify({
@@ -442,7 +523,10 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
     expect(out.kind).toBe('queued');
   });
 
-  it('LIFECYCLE WINS over legacy pending + history (priority order)', () => {
+  it("when invoked, should LIFECYCLE WINS over legacy pending + history (priority order)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Set up legacy pending + recent history
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(join(runtime, 'txt'), { recursive: true });
@@ -465,15 +549,21 @@ describe('behavior — legacy migration priority (no lifecycle, fall back to leg
   });
 });
 
-describe('behavior — compact-history read (kept from previous slice)', () => {
+describe("Scenario: behavior — compact-history read (kept from previous slice)", () => {
   withTmpWorkspacePerTest();
 
-  it('returns file-missing when the JSONL does not exist', () => {
+  it("when invoked, should returns file-missing when the JSONL does not exist", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = readCompactHistory({ projectRoot: process.cwd(), sessionId: SID });
     expect(out.kind).toBe('file-missing');
   });
 
-  it('returns empty when the JSONL exists but has no content', () => {
+  it("when invoked, should returns empty when the JSONL exists but has no content", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'compact-history.jsonl'), '', 'utf8');
@@ -481,7 +571,10 @@ describe('behavior — compact-history read (kept from previous slice)', () => {
     expect(out.kind).toBe('empty');
   });
 
-  it('returns ok + events when the JSONL has valid lines', () => {
+  it("when invoked, should returns ok + events when the JSONL has valid lines", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'compact-history.jsonl');
@@ -495,7 +588,10 @@ describe('behavior — compact-history read (kept from previous slice)', () => {
     }
   });
 
-  it('surfaces malformed lines as parseErrors without aborting the rest', () => {
+  it("when invoked, should surfaces malformed lines as parseErrors without aborting the rest", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'compact-history.jsonl');
@@ -509,7 +605,10 @@ describe('behavior — compact-history read (kept from previous slice)', () => {
     }
   });
 
-  it('summarizeCompactHistory reports totalCompacts + redLineCount + failedCount', () => {
+  it("when invoked, should summarizeCompactHistory reports totalCompacts + redLineCount + failedCount", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const events = [
       makeEvent({ ts: '2026-07-30T12:00:00.000Z', beforeRatio: 0.85, redLine: false, ok: true }),
       makeEvent({ ts: '2026-07-30T12:05:00.000Z', beforeRatio: 0.95, redLine: true, ok: true }),
@@ -525,10 +624,13 @@ describe('behavior — compact-history read (kept from previous slice)', () => {
   });
 });
 
-describe('behavior — compact-lifecycle record shape (kept from Task 1)', () => {
+describe("Scenario: behavior — compact-lifecycle record shape (kept from Task 1)", () => {
   withTmpWorkspacePerTest();
 
-  it('returns missing when no file has ever been written', () => {
+  it("when invoked, should returns missing when no file has ever been written", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = readCompactLifecycle({
       projectRoot: process.cwd(),
       sessionId: LIFECYCLE_SID,
@@ -538,7 +640,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     expect(out.kind).toBe('missing');
   });
 
-  it('returns invalid (with reason) for malformed JSON; never silently becomes missing', () => {
+  it("when invoked, should returns invalid (with reason) for malformed JSON; never silently becomes missing", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), '{ not valid json', 'utf8');
@@ -555,7 +660,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('returns invalid when schemaVersion is not 1', () => {
+  it("when invoked, should returns invalid when schemaVersion is not 1", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), JSON.stringify({
@@ -578,7 +686,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('returns invalid when triggerRatio is out of range', () => {
+  it("when invoked, should returns invalid when triggerRatio is out of range", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), JSON.stringify({
@@ -601,7 +712,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('returns invalid when stage=failed is missing the failedAt hint', () => {
+  it("when invoked, should returns invalid when stage=failed is missing the failedAt hint", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), JSON.stringify({
@@ -624,7 +738,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('returns stalled for an active stage whose updatedAt is older than staleAfterMs', () => {
+  it("when invoked, should returns stalled for an active stage whose updatedAt is older than staleAfterMs", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'compacting', updatedAt: '2026-08-01T11:58:00.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = readCompactLifecycle({
@@ -639,7 +756,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('terminal "completed" record older than staleAfterMs stays valid (not stalled)', () => {
+  it("when invoked, should terminal \"completed\" record older than staleAfterMs stays valid (not stalled)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({
       stage: 'completed',
       updatedAt: '2026-08-01T11:00:00.000Z',
@@ -659,7 +779,10 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
     }
   });
 
-  it('terminal "failed" record older than staleAfterMs stays valid (not stalled)', () => {
+  it("when invoked, should terminal \"failed\" record older than staleAfterMs stays valid (not stalled)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({
       stage: 'failed',
       updatedAt: '2026-08-01T11:00:00.000Z',
@@ -678,10 +801,13 @@ describe('behavior — compact-lifecycle record shape (kept from Task 1)', () =>
   });
 });
 
-describe('integration — atomic write/read with real fs', () => {
+describe("Scenario: integration — atomic write/read with real fs", () => {
   withTmpWorkspacePerTest();
 
-  it('write then read returns the same record (round trip)', () => {
+  it("when invoked, should write then read returns the same record (round trip)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord();
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const out = readCompactLifecycle({
@@ -693,7 +819,10 @@ describe('integration — atomic write/read with real fs', () => {
     expect(out).toEqual({ kind: 'valid', record });
   });
 
-  it('a second write atomically replaces the first (no leftover tmp files)', () => {
+  it("when invoked, should a second write atomically replaces the first (no leftover tmp files)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const first = makeLifecycleRecord({ runId: 'run-A', stage: 'preparing' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record: first });
     const second = makeLifecycleRecord({ runId: 'run-A', stage: 'compacting' });
@@ -714,7 +843,10 @@ describe('integration — atomic write/read with real fs', () => {
     expect(entries).toEqual([]);
   });
 
-  it('write clamps errorSummary to 160 characters before persisting', () => {
+  it("when invoked, should write clamps errorSummary to 160 characters before persisting", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const long = 'x'.repeat(500);
     const record = makeLifecycleRecord({
       stage: 'failed',
@@ -735,7 +867,10 @@ describe('integration — atomic write/read with real fs', () => {
     }
   });
 
-  it('end-to-end: lifecycle write → decide → render never contains "?"', () => {
+  it("when invoked, should end-to-end: lifecycle write → decide → render never contains \"?\"", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const record = makeLifecycleRecord({ stage: 'verifying', updatedAt: '2026-08-01T11:59:59.000Z' });
     writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
     const state = decideCompactStatusline({
@@ -749,10 +884,13 @@ describe('integration — atomic write/read with real fs', () => {
   });
 });
 
-describe('integration — compact-history end-to-end (kept from previous slice)', () => {
+describe("Scenario: integration — compact-history end-to-end (kept from previous slice)", () => {
   withTmpWorkspacePerTest();
 
-  it('history file written by a real append is readable end-to-end', () => {
+  it("when invoked, should history file written by a real append is readable end-to-end", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(runtime, { recursive: true });
     const path = join(runtime, 'compact-history.jsonl');
@@ -771,10 +909,13 @@ describe('integration — compact-history end-to-end (kept from previous slice)'
   });
 });
 
-describe('a11y — rendered label hygiene (no "?" anywhere)', () => {
+describe("Scenario: a11y — rendered label hygiene (no \"?\" anywhere)", () => {
   withTmpWorkspacePerTest();
 
-  it('every rendered label across the 9 semantic kinds is single-line English, no CLI verb, no stack trace, no "?"', () => {
+  it("when invoked, should every rendered label across the 9 semantic kinds is single-line English, no CLI verb, no stack trace, no \"?\"", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Drive each kind through an actual lifecycle write so the render
     // path is exercised end-to-end.
     const fixtures: Array<{ stage: 'queued' | 'preparing' | 'compacting' | 'verifying' | 'completed' | 'failed'; failedAt?: 'queued' | 'preparing' | 'compacting' | 'verifying'; afterRatio?: number }> = [
@@ -809,7 +950,10 @@ describe('a11y — rendered label hygiene (no "?" anywhere)', () => {
     }
   });
 
-  it('invalid-reason detail is a single line, no CLI verb, no stack trace', () => {
+  it("when invoked, should invalid-reason detail is a single line, no CLI verb, no stack trace", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runtime = join(process.cwd(), '.peaks', '_runtime', LIFECYCLE_SID);
     mkdirSync(runtime, { recursive: true });
     writeFileSync(join(runtime, 'compact-lifecycle.json'), '{', 'utf8');

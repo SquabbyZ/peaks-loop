@@ -61,21 +61,30 @@ function makeDraft(overrides: Partial<WorktreeLeaseDraft> = {}): WorktreeLeaseDr
   };
 }
 
-describe('render — constants and path helpers', () => {
+describe("Scenario: render — constants and path helpers", () => {
   withTmpWorkspacePerTest();
 
-  it('DEFAULT_TTL_BY_ROLE is frozen and has the 6 documented roles', () => {
+  it("when invoked, should DEFAULT_TTL_BY_ROLE is frozen and has the 6 documented roles", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(Object.isFrozen(DEFAULT_TTL_BY_ROLE)).toBe(true);
     expect(Object.keys(DEFAULT_TTL_BY_ROLE).sort()).toEqual(
       ['general', 'prd', 'qa', 'rd', 'sc', 'ui'],
     );
   });
 
-  it('DEFAULT_TTL_MS equals DEFAULT_TTL_BY_ROLE.rd', () => {
+  it("when invoked, should DEFAULT_TTL_MS equals DEFAULT_TTL_BY_ROLE.rd", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(DEFAULT_TTL_MS).toBe(DEFAULT_TTL_BY_ROLE.rd);
   });
 
-  it('TTL values match the documented per-role minutes', () => {
+  it("when invoked, should TTL values match the documented per-role minutes", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(DEFAULT_TTL_BY_ROLE.rd).toBe(30 * 60 * 1_000);
     expect(DEFAULT_TTL_BY_ROLE.qa).toBe(15 * 60 * 1_000);
     expect(DEFAULT_TTL_BY_ROLE.ui).toBe(60 * 60 * 1_000);
@@ -84,19 +93,31 @@ describe('render — constants and path helpers', () => {
     expect(DEFAULT_TTL_BY_ROLE.general).toBe(30 * 60 * 1_000);
   });
 
-  it('leaseStoreDir composes <sessionRuntimeDir>/worktree-leases', () => {
+  it("when invoked, should leaseStoreDir composes <sessionRuntimeDir>/worktree-leases", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(leaseStoreDir('/r')).toBe('/r/worktree-leases');
   });
 
-  it('leaseFilePath composes <storeDir>/<leaseId>.json', () => {
+  it("when invoked, should leaseFilePath composes <storeDir>/<leaseId>.json", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(leaseFilePath('/r', 'abcd')).toBe('/r/worktree-leases/abcd.json');
   });
 
-  it('worktreePath composes <sessionRuntimeDir>/worktrees/<leaseId>', () => {
+  it("when invoked, should worktreePath composes <sessionRuntimeDir>/worktrees/<leaseId>", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(worktreePath('/r', 'abcd')).toBe('/r/worktrees/abcd');
   });
 
-  it('generateLeaseId returns a 16-character lowercase hex string', () => {
+  it("when invoked, should generateLeaseId returns a 16-character lowercase hex string", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const id = generateLeaseId();
     expect(id).toMatch(/^[0-9a-f]{16}$/);
     // Two consecutive IDs differ.
@@ -104,8 +125,11 @@ describe('render — constants and path helpers', () => {
   });
 });
 
-describe('behavior — pure status transitions + helpers', () => {
-  it('finalizeLease sets status=active and consumedBySubAgents=[]', () => {
+describe("Scenario: behavior — pure status transitions + helpers", () => {
+  it("when invoked, should finalizeLease sets status=active and consumedBySubAgents=[]", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = makeDraft();
     const out = finalizeLease(draft);
     expect(out.status).toBe('active');
@@ -115,7 +139,10 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(out.rid).toBe(draft.rid);
   });
 
-  it('markReleased / markExpired / markGc return a NEW lease with the new status', () => {
+  it("when invoked, should markReleased / markExpired / markGc return a NEW lease with the new status", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft());
     const released = markReleased(draft);
     expect(released.status).toBe('released');
@@ -128,14 +155,20 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(gc).not.toBe(expired);
   });
 
-  it('recordConsumption appends a new sub-agent id (returns a new lease)', () => {
+  it("when invoked, should recordConsumption appends a new sub-agent id (returns a new lease)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft());
     const consumed = recordConsumption(draft, 'sub-1');
     expect(consumed.consumedBySubAgents).toEqual(['sub-1']);
     expect(consumed).not.toBe(draft);
   });
 
-  it('recordConsumption is idempotent on a duplicate sub-agent id', () => {
+  it("when invoked, should recordConsumption is idempotent on a duplicate sub-agent id", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft());
     const a = recordConsumption(draft, 'sub-1');
     const b = recordConsumption(a, 'sub-1');
@@ -144,7 +177,10 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(b.consumedBySubAgents).toEqual(['sub-1']);
   });
 
-  it('recordConsumption supports multiple distinct sub-agent ids', () => {
+  it("when invoked, should recordConsumption supports multiple distinct sub-agent ids", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft());
     const a = recordConsumption(draft, 'sub-1');
     const b = recordConsumption(a, 'sub-2');
@@ -152,7 +188,10 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(c.consumedBySubAgents).toEqual(['sub-1', 'sub-2', 'sub-3']);
   });
 
-  it('isLeaseActive: true only when status===active AND expiresAt > now', () => {
+  it("when invoked, should isLeaseActive: true only when status===active AND expiresAt > now", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft({ expiresAt: 1_000 }));
     expect(isLeaseActive(draft, 500)).toBe(true);
     expect(isLeaseActive(draft, 999)).toBe(true);
@@ -160,24 +199,36 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(isLeaseActive(draft, 1_001)).toBe(false);
   });
 
-  it('isLeaseActive: false for any non-active status, regardless of expiry', () => {
+  it("when invoked, should isLeaseActive: false for any non-active status, regardless of expiry", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft({ expiresAt: 1_000_000 }));
     expect(isLeaseActive(markReleased(draft), 500)).toBe(false);
     expect(isLeaseActive(markExpired(draft), 500)).toBe(false);
     expect(isLeaseActive(markGc(draft), 500)).toBe(false);
   });
 
-  it('isLeaseGcEligible: false for status=gc (do not double-gc)', () => {
+  it("when invoked, should isLeaseGcEligible: false for status=gc (do not double-gc)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft({ expiresAt: 0 }));
     expect(isLeaseGcEligible(markGc(draft), 1)).toBe(false);
   });
 
-  it('isLeaseGcEligible: true for status=released at any time', () => {
+  it("when invoked, should isLeaseGcEligible: true for status=released at any time", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = markReleased(finalizeLease(makeDraft()));
     expect(isLeaseGcEligible(draft, 0)).toBe(true);
   });
 
-  it('isLeaseGcEligible: true for status=active when expiresAt <= now', () => {
+  it("when invoked, should isLeaseGcEligible: true for status=active when expiresAt <= now", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft({ expiresAt: 100 }));
     expect(isLeaseGcEligible(draft, 100)).toBe(true);
     expect(isLeaseGcEligible(draft, 101)).toBe(true);
@@ -185,7 +236,10 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(isLeaseGcEligible(draft, 99)).toBe(false);
   });
 
-  it('renewLease returns a new lease with the new expiresAt and preserved other fields', () => {
+  it("when invoked, should renewLease returns a new lease with the new expiresAt and preserved other fields", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft = finalizeLease(makeDraft({ expiresAt: 100 }));
     const renewed = renewLease(draft, 500);
     expect(renewed.expiresAt).toBe(500);
@@ -197,25 +251,37 @@ describe('behavior — pure status transitions + helpers', () => {
     expect(renewed).not.toBe(draft);
   });
 
-  it('ttlForRole returns the documented value for known roles', () => {
+  it("when invoked, should ttlForRole returns the documented value for known roles", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(ttlForRole('rd')).toBe(DEFAULT_TTL_BY_ROLE.rd);
     expect(ttlForRole('qa')).toBe(DEFAULT_TTL_BY_ROLE.qa);
     expect(ttlForRole('ui')).toBe(DEFAULT_TTL_BY_ROLE.ui);
   });
 
-  it('ttlForRole is case-insensitive', () => {
+  it("when invoked, should ttlForRole is case-insensitive", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(ttlForRole('RD')).toBe(DEFAULT_TTL_BY_ROLE.rd);
     expect(ttlForRole('Qa')).toBe(DEFAULT_TTL_BY_ROLE.qa);
   });
 
-  it('ttlForRole falls back to DEFAULT_TTL_MS for unknown roles', () => {
+  it("when invoked, should ttlForRole falls back to DEFAULT_TTL_MS for unknown roles", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(ttlForRole('not-a-real-role')).toBe(DEFAULT_TTL_MS);
     expect(ttlForRole('')).toBe(DEFAULT_TTL_MS);
   });
 });
 
-describe('integration — listLeasesSync over an injected fs', () => {
-  it('returns store-missing when existsSync reports false', () => {
+describe("Scenario: integration — listLeasesSync over an injected fs", () => {
+  it("when invoked, should returns store-missing when existsSync reports false", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = listLeasesSync('/nope', {
       existsSync: () => false,
       readdir: () => [],
@@ -227,7 +293,10 @@ describe('integration — listLeasesSync over an injected fs', () => {
     }
   });
 
-  it('returns ok + empty leases + no errors when dir is empty', () => {
+  it("when invoked, should returns ok + empty leases + no errors when dir is empty", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = listLeasesSync('/r', {
       existsSync: () => true,
       readdir: () => [],
@@ -240,7 +309,10 @@ describe('integration — listLeasesSync over an injected fs', () => {
     }
   });
 
-  it('returns ok + filtered list when dir has only .json files', () => {
+  it("when invoked, should returns ok + filtered list when dir has only .json files", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const draft: WorktreeLease = finalizeLease(makeDraft({ leaseId: 'aaaaaaaa' }));
     const json = JSON.stringify(draft);
     const out = listLeasesSync('/r', {
@@ -259,7 +331,10 @@ describe('integration — listLeasesSync over an injected fs', () => {
     }
   });
 
-  it('surfaces malformed files as LeaseReadError without aborting the rest', () => {
+  it("when invoked, should surfaces malformed files as LeaseReadError without aborting the rest", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const good: WorktreeLease = finalizeLease(makeDraft({ leaseId: 'good0001' }));
     const out = listLeasesSync('/r', {
       existsSync: () => true,
