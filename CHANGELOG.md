@@ -1,5 +1,35 @@
 # Changelog
 
+## 4.0.12 — 2026-08-05 (5-slice optimization bundle)
+
+**publish.yml strict tag gate** (slice 1, commit `f60f7597`):
+- New `gate-strict-tag-format` step inserted after `Checkout` (publish.yml lines 104-130). Runs `git describe --tags --exact-match HEAD` and validates against `^v[0-9]+\.[0-9]+\.[0-9]+$`; rejects `v1` / `v4.0` / `v4.0.11-rc1` / `v4.0.11+sha` shapes with `::error title=strict-tag-format::`.
+- Drift guard: `tests/unit/publish-tag-strict.test.ts` (4 cases).
+
+**PreToolUse:Bash hook JSON output validation** (slice 2, commit `eb13e44c`):
+- Regression fix for the 2026-07-27 root cause. `.claude/settings.json` line 14 + `src/services/skills/hooks-settings-service.ts:86` both now append ` --json` to the `peaks gate enforce` hook command.
+- Drift guard: `tests/unit/hooks/gate-enforce-template-json-flag.test.ts` (3 cases).
+- PRD mis-reference correction noted: the actual hook template owner is `hooks-settings-service.ts`, not `claude-settings-template.ts` (the latter carries `peaks code gate-step-08`, a different hook path).
+
+**Session-overload signal index** (slice 3, commit `6ef12bde`):
+- New `skills/peaks-code/references/session-overload-signal-index.md` (60 lines): 7-signal lookup table (prompt size / auto-compact zone / sub-agent dispatch guard / statusline compact bar / in-flight batch deferral / compact stalled / sub-agent heartbeat) with thresholds + files + LLM actions + decision flowchart.
+- SKILL.md Step N+2 section gets a 1-line "See also" pointer (+141 bytes; under 30000 cap).
+- Codifies red line: LLM MUST NOT re-ask user about cost/length/context (cite `references/job-loop.md:59` red line #2).
+
+**active-skill.json → sid-scoped lease projection** (slice 4, 3 sub-slices):
+- Slice 4-A (`dc350c2c`): `skill-presence-service.ts` write path removed; `presence-marker-detector.ts` deprecated-constant comments added.
+- Slice 4-B (`7699f70f`): `skill-statusline-service.ts` `readPresenceReadOnly` rewritten to canonical-only (drops `legacyPresence: true`, enumerates `listPresenceLeases`, deletes `PRESENCE_FILE` / `PRESENCE_FILE_LEGACY`). Fixes the "new session statusline empty" issue (root cause: outerSessionId drift between session.json and the global single-slot file).
+- Slice 4-C (`1b08a62c`): doctor / sc / migration / hooks / skills / reconcile-command all migrated to canonical lease reads. New `STALE_SINGLE_SLOT_FILES` workspace-layout check surfaces orphan `.peaks/_runtime/active-skill.json` as a "stale single-slot presence" diagnostic (not an error). Drift guard: `tests/unit/workspace/active-skill-json-cleanup.test.ts` (3 cases).
+- Multi-session on one project is now safe (each session writes its own `presence-<callerId>.json` under `.peaks/_runtime/<sid>/presence-index/`; the deprecated single-slot global file no longer races).
+
+**Orchestrator-can-do probe CLI** (slice 5, commit `52736c82`):
+- New `peaks code orchestrator-can-do --slice-spec <text> --json` command (the 2026-08-05 lesson converted into a downstream-inheritable CLI). Evaluates 4 boundary questions (source code? sub-agent available? requires user decision? context sustainable?) and returns `{ canDoInSession, blockers, warnings, suggestions, contextRatio, subAgentAvailable }`.
+- SKILL.md gains a Step 0.51 paragraph pointing at it (LLM must run this probe before deciding to push a slice to the next session).
+- 17 unit tests cover all 4 boundary branches.
+- Anti-fake-green pattern: any future orchestrator capability judgment MUST call this CLI rather than re-derive the 4-question matrix from intuition.
+
+**Lockstep bump.** peaks-loop-shared `0.0.41 → 0.0.42` (CLI_VERSION re-stamped to 4.0.12); peaks-loop-mut `0.1.14 → 0.1.15`; peaks-loop-shared-channel `0.0.18 → 0.0.19`.
+
 ## 4.0.11 — 2026-08-05 (BDD test-style + statusline bugs)
 
 **BDD given-when-then test style** (rid-2026-08-05-bdd-test-style, 5 slice / 19 commit):
