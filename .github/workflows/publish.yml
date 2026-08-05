@@ -101,6 +101,33 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Strict vX.Y.Z tag format gate
+        # 2026-08-05 slice 1: enforce exactly vX.Y.Z (3 numeric segments) and
+        # reject `v1` / `v4.0` / `v4.0.11-rc1` / `v4.0.11+sha` before any
+        # publish work runs. The on.push.tags matcher uses glob semantics
+        # and lets pre-release / 4-segment tags through, so we add a regex
+        # gate here as the second fail-closed point. Runs before the
+        # gate-tag-version step so a malformed tag fails fast with a
+        # clearer error title than the downstream version-mismatch gate.
+        id: gate-strict-tag-format
+        run: |
+          set -euo pipefail
+          if ! exact_tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
+            observed=$(git describe --tags HEAD 2>/dev/null || echo '<no tag>')
+            echo "::error title=strict-tag-format::HEAD has no exact tag (observed=${observed}); expected vX.Y.Z"
+            echo "::error::publish.yml refuses to publish when HEAD is not exactly tagged."
+            echo "::error::Fix: create a vX.Y.Z tag locally (git tag v<root_version>) and re-push."
+            exit 1
+          fi
+          if ! [[ "${exact_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error title=strict-tag-format::tag=${exact_tag} is not vX.Y.Z"
+            echo "::error::publish.yml only accepts exact vX.Y.Z tags."
+            echo "::error::Rejected tag: ${exact_tag}. Allowed pattern: ^v[0-9]+\.[0-9]+\.[0-9]+$"
+            echo "::error::Fix: re-tag as v<major>.<minor>.<patch> (no pre-release / build-metadata suffix)."
+            exit 1
+          fi
+          echo "Strict-tag gate OK: HEAD=${exact_tag} matches vX.Y.Z"
+
       - name: Setup pnpm (corepack, Node 24 self-installer workaround)
         # pnpm/action-setup@v4 + @v6 both fail the self-installer on the
         # Node 24 runner with 'exits with code 1'. corepack is bundled
