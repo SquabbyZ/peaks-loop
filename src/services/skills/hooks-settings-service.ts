@@ -83,7 +83,7 @@ export type HookInstallOptions = {
 export const HOOK_ENFORCE_SENTINEL = 'peaks gate enforce';
 
 /** Default (claude-code) hook command — kept as a stable export for tests. */
-export const HOOK_ENFORCE_COMMAND = `peaks gate enforce --project "\${CLAUDE_PROJECT_DIR}"`;
+export const HOOK_ENFORCE_COMMAND = `peaks gate enforce --project "\${CLAUDE_PROJECT_DIR}" --json`;
 
 /**
  * Resolve the adapter + per-IDE values used to render the settings.json entries.
