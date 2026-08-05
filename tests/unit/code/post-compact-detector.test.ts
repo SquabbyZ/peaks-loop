@@ -102,8 +102,11 @@ declareDimensions(
 //           existing checkpoint file is STILL swallowed (backward-compat:
 //           no-checkpoint-today semantic preserved when the file is
 //           unreadable).
-describe('behavior — safeReadCheckpoint catch narrows to IO errors only', () => {
-  it('Case A: SyntaxError from broken checkpoint JSON surfaces to caller (NOT swallowed)', async () => {
+describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors only", () => {
+  it("when invoked, should Case A: SyntaxError from broken checkpoint JSON surfaces to caller (NOT swallowed)", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Build a tmp project with the canonical checkpoint path containing
     // INVALID JSON. existsSync returns true → statSync + readFileSync run
     // → JSON.parse throws SyntaxError. Post-rid the catch MUST re-throw
@@ -132,7 +135,10 @@ describe('behavior — safeReadCheckpoint catch narrows to IO errors only', () =
     ).rejects.toThrow(SyntaxError);
   });
 
-  it('Case B: IO error from readFileSync against existing checkpoint returns no-checkpoint-today (still swallowed)', async () => {
+  it("when invoked, should Case B: IO error from readFileSync against existing checkpoint returns no-checkpoint-today (still swallowed)", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: the original "checkpoint unreadable" semantic MUST
     // be preserved for genuine IO failures (EACCES on a read-protected
     // checkpoint). We simulate an IO error by handing the hoisted

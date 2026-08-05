@@ -152,8 +152,11 @@ function writeValidJobShapeDecision(tmpDir: string, sessionId: string): void {
 //           existing progress.json is STILL swallowed (backward-compat:
 //           progress-unreadable semantic preserved, gate still returns
 //           allow-job with progress: null).
-describe('behavior — readProgressIfAny catch narrows to IO errors only', () => {
-  it('Case A: SyntaxError from broken progress.json surfaces to caller (NOT swallowed)', () => {
+describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors only", () => {
+  it("when invoked, should Case A: SyntaxError from broken progress.json surfaces to caller (NOT swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Build a tmp project with the canonical progress.json path containing
     // INVALID JSON. existsSync returns true → readFileSync runs →
     // JSON.parse throws SyntaxError. Post-rid the catch MUST re-throw
@@ -191,7 +194,10 @@ describe('behavior — readProgressIfAny catch narrows to IO errors only', () =>
     }
   });
 
-  it('Case B: IO error from readFileSync against existing progress.json returns allow-job with progress: null (still swallowed)', () => {
+  it("when invoked, should Case B: IO error from readFileSync against existing progress.json returns allow-job with progress: null (still swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: the original "progress file unreadable" semantic
     // MUST be preserved for genuine IO failures (EACCES on a read-protected
     // progress.json). We simulate an IO error by handing the hoisted

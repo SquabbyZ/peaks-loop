@@ -75,8 +75,11 @@ const SID = '2026-07-31-mac-transcript-estimate-trigger';
 // anchor the test in the real "Mac user has a 256KB transcript"
 // scenario (mirror of the rid-001-r1 Mac acceptance test in
 // tests/unit/context/auto-compact-reader.test.ts).
-describe('behavior — transcript-estimate source-aware gate', () => {
-  it('Case 1 (NEW): ratio ≥ 0.85 from transcript-estimate source returns shouldCompact: true', () => {
+describe("Scenario: behavior — transcript-estimate source-aware gate", () => {
+  it("when invoked, should Case 1 (NEW): ratio ≥ 0.85 from transcript-estimate source returns shouldCompact: true", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Acceptance: at ratio=0.86 with source='transcript-estimate' the new
     // 1-line gate must fire `shouldCompact: true, reason: 'pre-compact'`.
     // This is the Mac auto-compact closure AC verbatim.
@@ -90,11 +93,14 @@ describe('behavior — transcript-estimate source-aware gate', () => {
   });
 });
 
-describe('regression — P1 / P2 / below-threshold paths unchanged', () => {
+describe("Scenario: regression — P1 / P2 / below-threshold paths unchanged", () => {
   // Behavior preservation: the source-aware gate must NOT downgrade any
   // existing source. The tests below pin the pre-rid verdict for the four
   // sibling branches (env / statusline / user-overridden / below 0.85).
-  it('Case 2: P1 claude-code-env at ≥ 0.85 still wins (no source downgrading)', () => {
+  it("when invoked, should Case 2: P1 claude-code-env at ≥ 0.85 still wins (no source downgrading)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // When source is the higher-priority claude-code-env signal, the existing
     // pre-compact verdict (trigger.kind='pre-compact' → shouldCompact:true)
     // MUST hold exactly as before. The new source-aware gate only matches
@@ -109,7 +115,10 @@ describe('regression — P1 / P2 / below-threshold paths unchanged', () => {
     expect(out.reason).toBe('pre-compact');
   });
 
-  it('Case 3: P2 statusline-poll at ≥ 0.85 still wins (no source downgrading)', () => {
+  it("when invoked, should Case 3: P2 statusline-poll at ≥ 0.85 still wins (no source downgrading)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Same regression contract for statusline-poll — Mac users who ALSO have
     // statusline-poll active (rare) must see identical behaviour.
     const out = evaluateAutoCompactDecision({
@@ -120,7 +129,10 @@ describe('regression — P1 / P2 / below-threshold paths unchanged', () => {
     expect(out.reason).toBe('pre-compact');
   });
 
-  it('Case 4: ratio < 0.85 from any source still returns shouldCompact: false', () => {
+  it("when invoked, should Case 4: ratio < 0.85 from any source still returns shouldCompact: false", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: a Mac user with a small transcript (e.g. 100KB
     // → ratio ≈ 0.39) MUST NOT fire compact; the source-aware gate only
     // matches at ratio ≥ 0.85. Same holds for env / statusline / user-
@@ -147,7 +159,7 @@ describe('regression — P1 / P2 / below-threshold paths unchanged', () => {
 // takes ratio + source directly — but writing the actual bytes to disk
 // mirrors the rid-001-r1 Mac acceptance test and grounds Case 1 in the
 // "Mac user has a real transcript" reality rather than a synthetic ratio.
-describe('integration — real ≥256KB Mac-shaped transcript fixture drives Case 1', () => {
+describe("Scenario: integration — real ≥256KB Mac-shaped transcript fixture drives Case 1", () => {
   let tmpDir = '';
   let projectsDir = '';
 
@@ -162,7 +174,10 @@ describe('integration — real ≥256KB Mac-shaped transcript fixture drives Cas
     projectsDir = '';
   });
 
-  it('a real 256KB transcript on Mac would drive shouldCompact: true through the source-aware gate', () => {
+  it("when invoked, should a real 256KB transcript on Mac would drive shouldCompact: true through the source-aware gate", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Mirror rid-001-r1's Mac acceptance criterion: a real transcript at
     // 222KB → ratio = 222*1024 / (256*1024) ≈ 0.8467 — JUST below 0.85 — so
     // we use 222.5KB which crosses the 0.85 threshold. The point is to
@@ -240,7 +255,7 @@ function envAtRatio(ratio: number): NodeJS.ProcessEnv {
   };
 }
 
-describe('behavior — lifecycle transitions observable from a dispatch attempt', () => {
+describe("Scenario: behavior — lifecycle transitions observable from a dispatch attempt", () => {
   let projectRoot = '';
 
   beforeEach(() => {
@@ -252,7 +267,10 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
     projectRoot = '';
   });
 
-  it('Case 5: records the stages the dispatching process can actually prove, in order', async () => {
+  it("when invoked, should Case 5: records the stages the dispatching process can actually prove, in order", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const seen: string[] = [];
     const result = await runAutoCompact({
       projectRoot,
@@ -267,7 +285,10 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
     expect(result.ok).toBe(true);
   });
 
-  it('Case 6: does NOT claim verifying or completed merely because dispatch returned', async () => {
+  it("when invoked, should Case 6: does NOT claim verifying or completed merely because dispatch returned", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const seen: string[] = [];
     await runAutoCompact({
       projectRoot,
@@ -285,7 +306,10 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
     expect(read.record.stage).toBe('compacting');
   });
 
-  it('Case 7: persists runId, triggerRatio and redLine on the record', async () => {
+  it("when invoked, should Case 7: persists runId, triggerRatio and redLine on the record", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -301,7 +325,10 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
     expect(read.record.afterRatio).toBeUndefined();
   });
 
-  it('Case 8: preserves the same runId across every transition of one attempt', async () => {
+  it("when invoked, should Case 8: preserves the same runId across every transition of one attempt", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const runIds = new Set<string>();
     await runAutoCompact({
       projectRoot,
@@ -312,7 +339,10 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
     expect(runIds.size).toBe(1);
   });
 
-  it('Case 9: writes no lifecycle record at all when the run is below threshold', async () => {
+  it("when invoked, should Case 9: writes no lifecycle record at all when the run is below threshold", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const seen: string[] = [];
     const result = await runAutoCompact({
       projectRoot,
@@ -328,7 +358,7 @@ describe('behavior — lifecycle transitions observable from a dispatch attempt'
   });
 });
 
-describe('behavior — failure transitions carry the last active stage', () => {
+describe("Scenario: behavior — failure transitions carry the last active stage", () => {
   let projectRoot = '';
 
   beforeEach(() => {
@@ -340,7 +370,10 @@ describe('behavior — failure transitions carry the last active stage', () => {
     projectRoot = '';
   });
 
-  it('Case 10: checkpoint/preparation failure records failedAt="preparing"', async () => {
+  it("when invoked, should Case 10: checkpoint/preparation failure records failedAt=\"preparing\"", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const result = await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -361,7 +394,10 @@ describe('behavior — failure transitions carry the last active stage', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('Case 11: dispatch failure records failedAt="compacting"', async () => {
+  it("when invoked, should Case 11: dispatch failure records failedAt=\"compacting\"", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const result = await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -378,7 +414,10 @@ describe('behavior — failure transitions carry the last active stage', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('Case 12: a dispatcher that returns ok:false also records failedAt="compacting"', async () => {
+  it("when invoked, should Case 12: a dispatcher that returns ok:false also records failedAt=\"compacting\"", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // An adapter that opted out of compact returns `ok:false` from the
     // dispatcher WITHOUT throwing. That is still a failed compact, not a
     // success, and must not be left looking like a run still in progress.
@@ -406,7 +445,10 @@ describe('behavior — failure transitions carry the last active stage', () => {
     expect(read.record.failedAt).toBe('compacting');
   });
 
-  it('Case 13: lifecycle write failure never changes the compact return envelope', async () => {
+  it("when invoked, should Case 13: lifecycle write failure never changes the compact return envelope", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Telemetry must not alter threshold or dispatch decisions.
     const withTelemetry = await runAutoCompact({
       projectRoot,
@@ -429,7 +471,7 @@ describe('behavior — failure transitions carry the last active stage', () => {
   });
 });
 
-describe('integration — verifying/completed driven by the real post-compact probe', () => {
+describe("Scenario: integration — verifying/completed driven by the real post-compact probe", () => {
   let projectRoot = '';
 
   beforeEach(() => {
@@ -441,7 +483,10 @@ describe('integration — verifying/completed driven by the real post-compact pr
     projectRoot = '';
   });
 
-  it('Case 14: the next probe measures a dropped ratio and completes the open run', async () => {
+  it("when invoked, should Case 14: the next probe measures a dropped ratio and completes the open run", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Turn 1: the runner is full → dispatch. Record rests at `compacting`.
     await runAutoCompact({
       projectRoot,
@@ -473,7 +518,10 @@ describe('integration — verifying/completed driven by the real post-compact pr
     expect(done.record.triggerRatio).toBeCloseTo(0.88, 5);
   });
 
-  it('Case 15: a probe that still reads high does NOT complete the run', async () => {
+  it("when invoked, should Case 15: a probe that still reads high does NOT complete the run", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -490,7 +538,10 @@ describe('integration — verifying/completed driven by the real post-compact pr
     expect(read.record.stage).not.toBe('completed');
   });
 
-  it('Case 16: an unmeasurable probe leaves the run open rather than faking completion', async () => {
+  it("when invoked, should Case 16: an unmeasurable probe leaves the run open rather than faking completion", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -520,7 +571,7 @@ describe('integration — verifying/completed driven by the real post-compact pr
   });
 });
 
-describe('a11y — lifecycle error summaries stay short and human-readable', () => {
+describe("Scenario: a11y — lifecycle error summaries stay short and human-readable", () => {
   let projectRoot = '';
 
   beforeEach(() => {
@@ -532,7 +583,10 @@ describe('a11y — lifecycle error summaries stay short and human-readable', () 
     projectRoot = '';
   });
 
-  it('Case 17: the recorded error summary is single-line and bounded', async () => {
+  it("when invoked, should Case 17: the recorded error summary is single-line and bounded", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The boolean seam means the orchestrator synthesizes a fixed
     // internal error message — no caller can inject a noisy stack-frame
     // string through the lifecycle seam. The bounded-summary contract
@@ -561,7 +615,7 @@ describe('a11y — lifecycle error summaries stay short and human-readable', () 
   });
 });
 
-describe('a11y — null/undefined thrown errors map to "unknown error"', () => {
+describe("Scenario: a11y — null/undefined thrown errors map to \"unknown error\"", () => {
   // The cleanup adds an explicit guard against `null`/`undefined` thrown
   // values collapsing to the empty string. The orchestrator synthesizes
   // its own Error now, so this can only be exercised directly via the
@@ -569,7 +623,10 @@ describe('a11y — null/undefined thrown errors map to "unknown error"', () => {
   // we know hits `summarizeLifecycleError`, then asserting the
   // record's errorSummary is non-empty. A complementary check is
   // present in `summarizeLifecycleError` below.
-  it('Case 18: a dispatcher failure with no message still produces a non-empty errorSummary', async () => {
+  it("when invoked, should Case 18: a dispatcher failure with no message still produces a non-empty errorSummary", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-lifecycle-t5-nullerr-'));
     try {
       const base = getAdapter('claude-code');
