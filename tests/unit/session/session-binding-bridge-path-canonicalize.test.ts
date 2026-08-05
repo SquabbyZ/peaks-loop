@@ -74,7 +74,7 @@ function writeBinding(bindingHome: string, storedProjectRoot: string): void {
   );
 }
 
-describe('behavior — bridge readSessionFile path spelling', () => {
+describe("Scenario: behavior — bridge readSessionFile path spelling", () => {
   const ws = withTmpWorkspacePerTest('peaks-bridge-canon-');
 
   it.runIf(process.platform === 'win32')(
@@ -114,7 +114,10 @@ describe('behavior — bridge readSessionFile path spelling', () => {
     },
   );
 
-  it('Case 3 (write contract): bridge.writeSessionFile persists stableRealPath form, not the caller-passed spelling', async () => {
+  it("when invoked, should Case 3 (write contract): bridge.writeSessionFile persists stableRealPath form, not the caller-passed spelling", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = ws().path;
     // Pass a form that IS NOT byte-equal to stableRealPath(root). On
     // Windows tmp dirs the host path (e.g. C:\Users\SMALLM~1\...) and
@@ -141,7 +144,10 @@ describe('behavior — bridge readSessionFile path spelling', () => {
     expect(parsed.projectRoot).toBe(expectedCanonical);
   });
 
-  it('Case 4 (regression): a genuinely different project root still returns null', async () => {
+  it("when invoked, should Case 4 (regression): a genuinely different project root still returns null", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = ws().path;
     const projectA = join(root, 'project-a');
     const projectB = join(root, 'project-b');

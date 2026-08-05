@@ -4,40 +4,58 @@ import { describe, expect, it } from 'vitest';
 import { decideFifthDimension } from '~/src/services/final-review/final-review-service';
 import { isStale } from '~/src/services/capability-audit-service/staleness';
 
-describe('decideFifthDimension', () => {
-  it('returns inconclusive when audit is missing', () => {
+describe("Scenario: decideFifthDimension", () => {
+  it("when invoked, should returns inconclusive when audit is missing", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const v = decideFifthDimension({ audit: null, nowMs: Date.parse('2026-08-04T00:00:00.000Z') });
     expect(v.verdict).toBe('inconclusive');
   });
-  it('returns inconclusive when audit is stale', () => {
+  it("when invoked, should returns inconclusive when audit is stale", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const v = decideFifthDimension({
       audit: { auditId: 'a', auditedAt: '2026-08-01T00:00:00.000Z', verdict: 'consistent', dimensions: [], crossCheck: { guardVsAudit: 'agree', karpathyVsAudit: 'agree' }, requiresUserDecision: false },
       nowMs: Date.parse('2026-08-04T00:00:00.000Z')
     });
     expect(v.verdict).toBe('inconclusive');
   });
-  it('returns pass on consistent', () => {
+  it("when invoked, should returns pass on consistent", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const v = decideFifthDimension({
       audit: { auditId: 'a', auditedAt: '2026-08-03T23:00:00.000Z', verdict: 'consistent', dimensions: [], crossCheck: { guardVsAudit: 'agree', karpathyVsAudit: 'agree' }, requiresUserDecision: false },
       nowMs: Date.parse('2026-08-04T00:00:00.000Z')
     });
     expect(v.verdict).toBe('pass');
   });
-  it('returns fail on drifted', () => {
+  it("when invoked, should returns fail on drifted", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const v = decideFifthDimension({
       audit: { auditId: 'a', auditedAt: '2026-08-03T23:00:00.000Z', verdict: 'drifted', dimensions: [], crossCheck: { guardVsAudit: 'agree', karpathyVsAudit: 'agree' }, requiresUserDecision: true },
       nowMs: Date.parse('2026-08-04T00:00:00.000Z')
     });
     expect(v.verdict).toBe('fail');
   });
-  it('returns inconclusive on cross-check diverge', () => {
+  it("when invoked, should returns inconclusive on cross-check diverge", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const v = decideFifthDimension({
       audit: { auditId: 'a', auditedAt: '2026-08-03T23:00:00.000Z', verdict: 'consistent', dimensions: [], crossCheck: { guardVsAudit: 'diverge', karpathyVsAudit: 'agree' }, requiresUserDecision: true },
       nowMs: Date.parse('2026-08-04T00:00:00.000Z')
     });
     expect(v.verdict).toBe('inconclusive');
   });
-  it('isStale is exposed for cross-check', () => {
+  it("when invoked, should isStale is exposed for cross-check", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(isStale('2026-08-02T00:00:00.000Z', Date.parse('2026-08-04T00:00:00.000Z'))).toBe(true);
   });
 });

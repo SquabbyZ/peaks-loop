@@ -29,8 +29,11 @@ declareDimensions(
 
 import { buildDispatchSystemPrompt } from '~/src/services/context/build-dispatch-system-prompt';
 
-describe('behavior — lifecycle-rule injection', () => {
-  it('mentions sub-agent shutdown register for long-lived services', () => {
+describe("Scenario: behavior — lifecycle-rule injection", () => {
+  it("when invoked, should mentions sub-agent shutdown register for long-lived services", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
@@ -39,7 +42,10 @@ describe('behavior — lifecycle-rule injection', () => {
     expect(out).toMatch(/sub-agent shutdown register/i);
   });
 
-  it('forbids the sub-agent from running E2E', () => {
+  it("when invoked, should forbids the sub-agent from running E2E", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
@@ -48,7 +54,10 @@ describe('behavior — lifecycle-rule injection', () => {
     expect(out).toMatch(/do NOT run E2E/i);
   });
 
-  it('forbids the sub-agent from calling git merge / pull / rebase', () => {
+  it("when invoked, should forbids the sub-agent from calling git merge / pull / rebase", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',

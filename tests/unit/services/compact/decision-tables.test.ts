@@ -43,8 +43,11 @@ import {
   type Severity,
 } from '~/src/services/compact/decision-tables';
 
-describe('render — PHASES + isPhase', () => {
-  it('PHASES lists the 5 documented phases in order', () => {
+describe("Scenario: render — PHASES + isPhase", () => {
+  it("when invoked, should PHASES lists the 5 documented phases in order", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(PHASES).toEqual([
       'research',
       'planning',
@@ -54,7 +57,10 @@ describe('render — PHASES + isPhase', () => {
     ]);
   });
 
-  it('isPhase accepts each documented phase and rejects anything else', () => {
+  it("when invoked, should isPhase accepts each documented phase and rejects anything else", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     for (const p of PHASES) {
       expect(isPhase(p)).toBe(true);
     }
@@ -64,12 +70,18 @@ describe('render — PHASES + isPhase', () => {
   });
 });
 
-describe('render — PHASE_TRANSITIONS table shape', () => {
-  it('has exactly 4 documented yes/maybe rows', () => {
+describe("Scenario: render — PHASE_TRANSITIONS table shape", () => {
+  it("when invoked, should has exactly 4 documented yes/maybe rows", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(PHASE_TRANSITIONS).toHaveLength(4);
   });
 
-  it('each row carries from/to/severity/rationale as strings', () => {
+  it("when invoked, should each row carries from/to/severity/rationale as strings", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     for (const row of PHASE_TRANSITIONS) {
       expect(typeof row.from).toBe('string');
       expect(typeof row.to).toBe('string');
@@ -78,7 +90,10 @@ describe('render — PHASE_TRANSITIONS table shape', () => {
     }
   });
 
-  it('research→planning, planning→implementation, debugging→implementation are severity=yes', () => {
+  it("when invoked, should research→planning, planning→implementation, debugging→implementation are severity=yes", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const r2p = PHASE_TRANSITIONS.find((r) => r.from === 'research' && r.to === 'planning');
     const p2i = PHASE_TRANSITIONS.find((r) => r.from === 'planning' && r.to === 'implementation');
     const d2i = PHASE_TRANSITIONS.find((r) => r.from === 'debugging' && r.to === 'implementation');
@@ -87,87 +102,126 @@ describe('render — PHASE_TRANSITIONS table shape', () => {
     expect(d2i?.severity).toBe<Severity>('yes');
   });
 
-  it('implementation→testing is severity=maybe', () => {
+  it("when invoked, should implementation→testing is severity=maybe", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const i2t = PHASE_TRANSITIONS.find((r) => r.from === 'implementation' && r.to === 'testing');
     expect(i2t?.severity).toBe<Severity>('maybe');
   });
 });
 
-describe('render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape', () => {
-  it('PHASE_NO_TRANSITIONS has 2 documented no rows', () => {
+describe("Scenario: render — PHASE_NO_TRANSITIONS + SURVIVAL_TABLE shape", () => {
+  it("when invoked, should PHASE_NO_TRANSITIONS has 2 documented no rows", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(PHASE_NO_TRANSITIONS).toHaveLength(2);
   });
 
-  it('implementation→implementation and debugging→debugging are the only no-rows', () => {
+  it("when invoked, should implementation→implementation and debugging→debugging are the only no-rows", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const pairs = PHASE_NO_TRANSITIONS.map((r) => `${r.from}->${r.to}`);
     expect(pairs.sort()).toEqual(['debugging->debugging', 'implementation->implementation']);
   });
 
-  it('SURVIVAL_TABLE.persists has 5 documented items', () => {
+  it("when invoked, should SURVIVAL_TABLE.persists has 5 documented items", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(SURVIVAL_TABLE.persists).toHaveLength(5);
     expect(SURVIVAL_TABLE.persists).toContain('CLAUDE.md instructions');
     expect(SURVIVAL_TABLE.persists).toContain('TodoWrite task list');
     expect(SURVIVAL_TABLE.persists).toContain('Files on disk');
   });
 
-  it('SURVIVAL_TABLE.lost has 5 documented items', () => {
+  it("when invoked, should SURVIVAL_TABLE.lost has 5 documented items", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(SURVIVAL_TABLE.lost).toHaveLength(5);
     expect(SURVIVAL_TABLE.lost).toContain('Intermediate reasoning and analysis');
     expect(SURVIVAL_TABLE.lost).toContain('Tool call history and counts');
   });
 });
 
-describe('behavior — lookupPhaseTransition', () => {
-  it('direct hit on a yes-row returns severity + rationale + notInTable=false', () => {
+describe("Scenario: behavior — lookupPhaseTransition", () => {
+  it("when invoked, should direct hit on a yes-row returns severity + rationale + notInTable=false", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = lookupPhaseTransition('research', 'planning');
     expect(out.severity).toBe<Severity>('yes');
     expect(out.rationale).toMatch(/Research context is bulky/);
     expect(out.notInTable).toBe(false);
   });
 
-  it('direct hit on a no-row returns severity=no + the no-row rationale + notInTable=false', () => {
+  it("when invoked, should direct hit on a no-row returns severity=no + the no-row rationale + notInTable=false", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = lookupPhaseTransition('implementation', 'implementation');
     expect(out.severity).toBe<Severity>('no');
     expect(out.rationale).toMatch(/Mid-implementation/);
     expect(out.notInTable).toBe(false);
   });
 
-  it('unknown pair returns severity=no + default rationale + notInTable=true', () => {
+  it("when invoked, should unknown pair returns severity=no + default rationale + notInTable=true", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = lookupPhaseTransition('testing', 'implementation');
     expect(out.severity).toBe<Severity>('no');
     expect(out.notInTable).toBe(true);
     expect(out.rationale).toMatch(/No documented transition/);
   });
 
-  it('the default-rationale branch is taken when neither PHASE_TRANSITIONS nor PHASE_NO_TRANSITIONS match', () => {
+  it("when invoked, should the default-rationale branch is taken when neither PHASE_TRANSITIONS nor PHASE_NO_TRANSITIONS match", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Pick a from/to pair that is not in either table.
     const out = lookupPhaseTransition('research', 'testing');
     expect(out.notInTable).toBe(true);
   });
 });
 
-describe('behavior — buildSuggestedCompactMessage', () => {
-  it('severity=yes: imperative /compact Focus on <to>', () => {
+describe("Scenario: behavior — buildSuggestedCompactMessage", () => {
+  it("when invoked, should severity=yes: imperative /compact Focus on <to>", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const msg = buildSuggestedCompactMessage('research', 'planning', 'yes');
     expect(msg).toMatch(/^\/compact Focus on planning:/);
     expect(msg).toMatch(/research context has been distilled/);
   });
 
-  it('severity=maybe: imperative /compact Focus on completing <to>', () => {
+  it("when invoked, should severity=maybe: imperative /compact Focus on completing <to>", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const msg = buildSuggestedCompactMessage('implementation', 'testing', 'maybe');
     expect(msg).toMatch(/^\/compact Focus on completing testing/);
     expect(msg).toMatch(/preserve recent code references/);
   });
 
-  it('severity=no: imperative /compact Preserve context for ongoing <from>', () => {
+  it("when invoked, should severity=no: imperative /compact Preserve context for ongoing <from>", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const msg = buildSuggestedCompactMessage('implementation', 'implementation', 'no');
     expect(msg).toMatch(/^\/compact Preserve context for ongoing implementation/);
     expect(msg).toMatch(/do not abandon in-flight state/);
   });
 });
 
-describe('a11y — message surface', () => {
-  it('every severity produces a single-line, English, imperative message', () => {
+describe("Scenario: a11y — message surface", () => {
+  it("when invoked, should every severity produces a single-line, English, imperative message", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const sevs: Severity[] = ['yes', 'maybe', 'no'];
     for (const s of sevs) {
       const msg = buildSuggestedCompactMessage('research', 'planning', s);
@@ -179,7 +233,10 @@ describe('a11y — message surface', () => {
     }
   });
 
-  it('rationale text in PHASE_TRANSITIONS is human-readable prose (no code-style placeholders)', () => {
+  it("when invoked, should rationale text in PHASE_TRANSITIONS is human-readable prose (no code-style placeholders)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     for (const row of PHASE_TRANSITIONS) {
       // Pin that no row has an unfilled <placeholder> or {{mustache}}.
       expect(row.rationale).not.toMatch(/<[a-z]+>/i);

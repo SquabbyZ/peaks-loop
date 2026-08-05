@@ -41,18 +41,27 @@ import {
   type CallerSkillPresence,
 } from '~/src/services/session/caller-id-types';
 
-describe('render — getSessionDir shape', () => {
-  it('composes <projectRoot>/.peaks/_runtime/<sessionId>', () => {
+describe("Scenario: render — getSessionDir shape", () => {
+  it("when invoked, should composes <projectRoot>/.peaks/_runtime/<sessionId>", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(getSessionDir('/proj', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
   });
 
-  it('handles a project root that already ends with a path separator', () => {
+  it("when invoked, should handles a project root that already ends with a path separator", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // node:path.join collapses redundant separators, so the result is
     // well-formed regardless. The test pins that.
     expect(getSessionDir('/proj/', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
   });
 
-  it('uses only the canonical 3-segment path (no legacy top-level layout)', () => {
+  it("when invoked, should uses only the canonical 3-segment path (no legacy top-level layout)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = getSessionDir('/proj', 'sid');
     // The canonical invariant: .peaks/_runtime/<sid>, NOT any legacy
     // top-level /worktrees /artifacts /etc. under .peaks/<sid>.
@@ -61,14 +70,20 @@ describe('render — getSessionDir shape', () => {
   });
 });
 
-describe('render — caller-id types', () => {
-  it('CALLER_ID_REGEX matches the documented shape (letters/digits/._- ; 1-200 chars)', () => {
+describe("Scenario: render — caller-id types", () => {
+  it("when invoked, should CALLER_ID_REGEX matches the documented shape (letters/digits/._- ; 1-200 chars)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('abc').toMatch(CALLER_ID_REGEX);
     expect('abc-123_xyz.0').toMatch(CALLER_ID_REGEX);
     expect('a'.repeat(200)).toMatch(CALLER_ID_REGEX);
   });
 
-  it('CallerBinding interface includes all 8 documented fields', () => {
+  it("when invoked, should CallerBinding interface includes all 8 documented fields", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The interface itself is erased at runtime; this test pins the
     // documented shape via a structural assignment.
     const sample: CallerBinding = {
@@ -87,7 +102,10 @@ describe('render — caller-id types', () => {
     ]);
   });
 
-  it('CallerSkillPresence interface includes the 5 required + 2 optional fields', () => {
+  it("when invoked, should CallerSkillPresence interface includes the 5 required + 2 optional fields", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const required: CallerSkillPresence = {
       callerId: 'c1',
       skill: 'peaks-code',
@@ -104,35 +122,53 @@ describe('render — caller-id types', () => {
   });
 });
 
-describe('behavior — CALLER_ID_REGEX', () => {
-  it('rejects empty input', () => {
+describe("Scenario: behavior — CALLER_ID_REGEX", () => {
+  it("when invoked, should rejects empty input", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it('rejects strings longer than 200 chars', () => {
+  it("when invoked, should rejects strings longer than 200 chars", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('a'.repeat(201)).not.toMatch(CALLER_ID_REGEX);
   });
 
-  it('rejects path separators (Windows + Unix)', () => {
+  it("when invoked, should rejects path separators (Windows + Unix)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('a/b').not.toMatch(CALLER_ID_REGEX);
     expect('a\\b').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it('rejects whitespace and control chars', () => {
+  it("when invoked, should rejects whitespace and control chars", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('a b').not.toMatch(CALLER_ID_REGEX);
     expect('a\tb').not.toMatch(CALLER_ID_REGEX);
     expect('a\nb').not.toMatch(CALLER_ID_REGEX);
     expect('a\0b').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it('rejects non-ASCII Unicode', () => {
+  it("when invoked, should rejects non-ASCII Unicode", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect('héllo').not.toMatch(CALLER_ID_REGEX);
     expect('日本').not.toMatch(CALLER_ID_REGEX);
   });
 });
 
-describe('behavior — CallerIdError', () => {
-  it('EX_USAGE error: code + source + value + name are all set', () => {
+describe("Scenario: behavior — CallerIdError", () => {
+  it("when invoked, should EX_USAGE error: code + source + value + name are all set", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const err = new CallerIdError('EX_USAGE', 'env', 'no callerId available', undefined);
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe('CallerIdError');
@@ -141,22 +177,31 @@ describe('behavior — CallerIdError', () => {
     expect(err.value).toBeUndefined();
   });
 
-  it('EX_DATAERR error: code + source + value are all set', () => {
+  it("when invoked, should EX_DATAERR error: code + source + value are all set", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const err = new CallerIdError('EX_DATAERR', 'flag', 'bad callerId', 'a/b');
     expect(err.code).toBe('EX_DATAERR');
     expect(err.source).toBe<CallerIdSource>('flag');
     expect(err.value).toBe('a/b');
   });
 
-  it('throws when called without `new` (subclass of Error contract)', () => {
+  it("when invoked, should throws when called without `new` (subclass of Error contract)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // TypeScript prevents direct call at compile time, but the
     // runtime contract still requires `new`. Pin it.
     expect(() => CallerIdError('EX_USAGE', 'none', 'msg')).toThrow(TypeError);
   });
 });
 
-describe('a11y — CallerIdError message surface', () => {
-  it('message text is human-readable and starts with a capital letter (style guide)', () => {
+describe("Scenario: a11y — CallerIdError message surface", () => {
+  it("when invoked, should message text is human-readable and starts with a capital letter (style guide)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const err = new CallerIdError('EX_DATAERR', 'env', 'Caller id must match D1 regex', 'bad/id');
     expect(err.message).toMatch(/^[A-Z]/);
     expect(err.message).not.toMatch(/at .+:\d+/);

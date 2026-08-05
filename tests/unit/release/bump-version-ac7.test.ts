@@ -124,8 +124,11 @@ afterEach(() => {
 
 // ---- render dimension ------------------------------------------------------
 
-describe('(render) — no-op vs bump stdout lines are distinguishable', () => {
-  it('no-op path prints "no-op: <current> already on registry as latest"', () => {
+describe("Scenario: (render) — no-op vs bump stdout lines are distinguishable", () => {
+  it("when invoked, should no-op path prints \"no-op: <current> already on registry as latest\"", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion([]);
     expect(r.status).toBe(0);
@@ -133,7 +136,10 @@ describe('(render) — no-op vs bump stdout lines are distinguishable', () => {
     expect(r.stdout).toContain('skipping bump');
   });
 
-  it('explicit --to prints the lockstep bump log line, not the no-op line', () => {
+  it("when invoked, should explicit --to prints the lockstep bump log line, not the no-op line", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion(['--to', '4.0.4']);
     expect(r.status).toBe(0);
@@ -144,8 +150,11 @@ describe('(render) — no-op vs bump stdout lines are distinguishable', () => {
 
 // ---- behavior dimension ----------------------------------------------------
 
-describe('(behavior) — explicit --to is honored even when registry === current', () => {
-  it('--to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)', () => {
+describe("Scenario: (behavior) — explicit --to is honored even when registry === current", () => {
+  it("when invoked, should --to 4.0.4 + root=4.0.3 + registry=4.0.3 bumps root to 4.0.4 (was the regression)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion(['--to', '4.0.4']);
     expect(r.status).toBe(0);
@@ -153,7 +162,10 @@ describe('(behavior) — explicit --to is honored even when registry === current
     expect(onDisk.version).toBe('4.0.4');
   });
 
-  it('no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)', () => {
+  it("when invoked, should no --to + root=4.0.3 + registry=4.0.3 leaves root at 4.0.3 (AC7 default behavior preserved)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion([]);
     expect(r.status).toBe(0);
@@ -161,7 +173,10 @@ describe('(behavior) — explicit --to is honored even when registry === current
     expect(onDisk.version).toBe('4.0.3');
   });
 
-  it('--to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)', () => {
+  it("when invoked, should --to 5.0.0 + root=4.0.3 + registry=4.0.3 bumps root to 5.0.0 (major escape hatch also honored)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion(['--to', '5.0.0']);
     expect(r.status).toBe(0);
@@ -172,8 +187,11 @@ describe('(behavior) — explicit --to is honored even when registry === current
 
 // ---- integration dimension -------------------------------------------------
 
-describe('(integration) — fake-npm on PATH replaces the real `npm view` call', () => {
-  it('does not require network: harness returns deterministic JSON from a stub binary', () => {
+describe("Scenario: (integration) — fake-npm on PATH replaces the real `npm view` call", () => {
+  it("when invoked, should does not require network: harness returns deterministic JSON from a stub binary", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Sanity check that the fake-npm setup actually replaces the real one.
     // If PATH ordering were wrong, spawnSync would hit registry.npmjs.org
     // and either time out or return a different version string.
@@ -190,14 +208,20 @@ describe('(integration) — fake-npm on PATH replaces the real `npm view` call',
 
 // ---- a11y dimension --------------------------------------------------------
 
-describe('(a11y) — human-visible messages name the version and the operator intent', () => {
-  it('no-op log line names both the current version and the registry match', () => {
+describe("Scenario: (a11y) — human-visible messages name the version and the operator intent", () => {
+  it("when invoked, should no-op log line names both the current version and the registry match", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion([]);
     expect(r.stdout).toMatch(/no-op:\s*4\.0\.3\s*already on registry/);
   });
 
-  it('bump log line shows both source and target versions on a single line', () => {
+  it("when invoked, should bump log line shows both source and target versions on a single line", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     setupHarness('4.0.3', '4.0.3');
     const r = runBumpVersion(['--to', '4.0.4']);
     expect(r.stdout).toMatch(/peaks-loop\s+4\.0\.3\s+->\s+4\.0\.4/);

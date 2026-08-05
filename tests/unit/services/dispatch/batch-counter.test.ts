@@ -45,10 +45,13 @@ const SID = '2026-07-30-test-counter';
 const BATCH = 'batch-001';
 const FIXED_NOW = new Date('2026-07-30T10:00:00Z');
 
-describe('render — counter file shape', () => {
+describe("Scenario: render — counter file shape", () => {
   withTmpWorkspacePerTest();
 
-  it('noteDispatched writes a pretty JSON record with all 4 fields', () => {
+  it("when invoked, should noteDispatched writes a pretty JSON record with all 4 fields", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     const out = noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
     expect(out.count).toBe(1);
@@ -66,22 +69,31 @@ describe('render — counter file shape', () => {
     expect(raw).toContain('\n');
   });
 
-  it('BATCH_LIMIT and BATCH_OVER_LIMIT_CODE are the documented values', () => {
+  it("when invoked, should BATCH_LIMIT and BATCH_OVER_LIMIT_CODE are the documented values", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(BATCH_LIMIT).toBe(6);
     expect(BATCH_OVER_LIMIT_CODE).toBe('BATCH_OVER_LIMIT');
   });
 });
 
-describe('behavior — increment + reset', () => {
+describe("Scenario: behavior — increment + reset", () => {
   withTmpWorkspacePerTest();
 
-  it('first noteDispatched returns count=1, no warning', () => {
+  it("when invoked, should first noteDispatched returns count=1, no warning", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = noteDispatched(process.cwd(), SID, BATCH, () => FIXED_NOW);
     expect(out.count).toBe(1);
     expect(out.warning).toBeNull();
   });
 
-  it('subsequent notes accumulate monotonically', () => {
+  it("when invoked, should subsequent notes accumulate monotonically", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     for (let i = 1; i <= 5; i++) {
       const out = noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
@@ -91,7 +103,10 @@ describe('behavior — increment + reset', () => {
     expect(readBatchCount(ws, SID, BATCH)).toBe(5);
   });
 
-  it('count 6 (== BATCH_LIMIT) is still in-budget (no warning)', () => {
+  it("when invoked, should count 6 (== BATCH_LIMIT) is still in-budget (no warning)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     for (let i = 1; i <= 6; i++) {
       const out = noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
@@ -103,7 +118,10 @@ describe('behavior — increment + reset', () => {
     expect(out.warning?.code).toBe(BATCH_OVER_LIMIT_CODE);
   });
 
-  it('count > 6 emits a BATCH_OVER_LIMIT warning with the right fields', () => {
+  it("when invoked, should count > 6 emits a BATCH_OVER_LIMIT warning with the right fields", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     for (let i = 0; i < 7; i++) {
       noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
@@ -117,7 +135,10 @@ describe('behavior — increment + reset', () => {
     });
   });
 
-  it('resetBatch removes the file and readBatchCount returns 0 again', () => {
+  it("when invoked, should resetBatch removes the file and readBatchCount returns 0 again", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
     expect(readBatchCount(ws, SID, BATCH)).toBe(1);
@@ -125,11 +146,17 @@ describe('behavior — increment + reset', () => {
     expect(readBatchCount(ws, SID, BATCH)).toBe(0);
   });
 
-  it('readBatchCount returns 0 for an unknown batch (no file yet)', () => {
+  it("when invoked, should readBatchCount returns 0 for an unknown batch (no file yet)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(readBatchCount(process.cwd(), SID, 'no-such-batch')).toBe(0);
   });
 
-  it('readBatchCount returns 0 for a corrupt JSON file (defensive default)', () => {
+  it("when invoked, should readBatchCount returns 0 for a corrupt JSON file (defensive default)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     const path = batchCounterPath(ws, SID, 'corrupt');
     const { mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
@@ -138,7 +165,10 @@ describe('behavior — increment + reset', () => {
     expect(readBatchCount(ws, SID, 'corrupt')).toBe(0);
   });
 
-  it('noteDispatched accepts a custom clock injection (deterministic createdAt)', () => {
+  it("when invoked, should noteDispatched accepts a custom clock injection (deterministic createdAt)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     const t1 = new Date('2026-07-30T08:00:00Z');
     const t2 = new Date('2026-07-30T09:00:00Z');
@@ -151,11 +181,14 @@ describe('behavior — increment + reset', () => {
   });
 });
 
-describe('integration — real fs writes under a file lock', () => {
+describe("Scenario: integration — real fs writes under a file lock", () => {
   withTmpWorkspacePerTest();
   withEnv('PEAKS_FORCE_FILE_LOCK', '1');
 
-  it('50 sequential notes produce a final count of 50, never losing updates', () => {
+  it("when invoked, should 50 sequential notes produce a final count of 50, never losing updates", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     for (let i = 0; i < 50; i++) {
       noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
@@ -164,7 +197,10 @@ describe('integration — real fs writes under a file lock', () => {
     expect(final).toBe(50);
   });
 
-  it('parallel noteDispatched calls do not lose updates (file lock)', async () => {
+  it("when invoked, should parallel noteDispatched calls do not lose updates (file lock)", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     const N = 25;
     await Promise.all(
@@ -176,7 +212,10 @@ describe('integration — real fs writes under a file lock', () => {
     expect(readBatchCount(ws, SID, BATCH)).toBe(N);
   });
 
-  it('file lives under .peaks/_sub_agents/<sid>/batch-<id>.counter.json', () => {
+  it("when invoked, should file lives under .peaks/_sub_agents/<sid>/batch-<id>.counter.json", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     noteDispatched(ws, SID, BATCH, () => FIXED_NOW);
     const expected = `${ws}/.peaks/_sub_agents/${SID}/batch-${BATCH}.counter.json`;
@@ -184,10 +223,13 @@ describe('integration — real fs writes under a file lock', () => {
   });
 });
 
-describe('a11y — human-visible warning text', () => {
+describe("Scenario: a11y — human-visible warning text", () => {
   withTmpWorkspacePerTest();
 
-  it('BATCH_OVER_LIMIT message is human-readable, mentions the bound, and is not a stack trace', () => {
+  it("when invoked, should BATCH_OVER_LIMIT message is human-readable, mentions the bound, and is not a stack trace", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const ws = process.cwd();
     for (let i = 0; i < 7; i++) {
       noteDispatched(ws, SID, BATCH, () => FIXED_NOW);

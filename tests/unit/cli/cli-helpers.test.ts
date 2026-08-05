@@ -57,10 +57,13 @@ import {
 } from '~/src/cli/cli-helpers';
 import { fail, ok } from 'peaks-loop-shared/result';
 
-describe('render — printResult shape', () => {
+describe("Scenario: render — printResult shape", () => {
   withTmpWorkspacePerTest();
 
-  it('ok result with asJson=true prints the full envelope as pretty JSON', () => {
+  it("when invoked, should ok result with asJson=true prints the full envelope as pretty JSON", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     printResult(io, ok('demo', { count: 3 }, ['w1'], ['retry']), true);
     const text = captured.text();
@@ -74,7 +77,10 @@ describe('render — printResult shape', () => {
     expect(captured.stderrText()).toBe('');
   });
 
-  it('err result with asJson=true prints the full envelope verbatim', () => {
+  it("when invoked, should err result with asJson=true prints the full envelope verbatim", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     printResult(io, fail('demo', 'CODE', 'msg', null), true);
     const text = captured.text();
@@ -83,7 +89,10 @@ describe('render — printResult shape', () => {
     expect(text).toContain('"message": "msg"');
   });
 
-  it('ok result with asJson=false prints data + warnings + next actions', () => {
+  it("when invoked, should ok result with asJson=false prints data + warnings + next actions", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     printResult(io, ok('demo', { x: 1 }, ['w1'], ['retry']), false);
     const text = captured.text();
@@ -92,7 +101,10 @@ describe('render — printResult shape', () => {
     expect(text).toMatch(/next: retry/);
   });
 
-  it('err result with asJson=false writes code + message + each nextAction to stderr', () => {
+  it("when invoked, should err result with asJson=false writes code + message + each nextAction to stderr", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     printResult(io, fail('demo', 'CODE', 'msg', null, ['restart', 'escalate']), false);
     expect(captured.text()).toBe('');
@@ -103,8 +115,11 @@ describe('render — printResult shape', () => {
   });
 });
 
-describe('render — printSuperCommandCatalog', () => {
-  it('emits the documented 8 super-commands + footer', () => {
+describe("Scenario: render — printSuperCommandCatalog", () => {
+  it("when invoked, should emits the documented 8 super-commands + footer", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     printSuperCommandCatalog(io);
     const text = captured.text();
@@ -116,8 +131,11 @@ describe('render — printSuperCommandCatalog', () => {
   });
 });
 
-describe('render — printErrorEnvelope', () => {
-  it('writes a pretty fail() envelope to stderr and sets process.exitCode = 1', () => {
+describe("Scenario: render — printErrorEnvelope", () => {
+  it("when invoked, should writes a pretty fail() envelope to stderr and sets process.exitCode = 1", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -132,7 +150,10 @@ describe('render — printErrorEnvelope', () => {
     process.exitCode = exitBefore;
   });
 
-  it('redacts Bearer / API-key strings inside the message BEFORE printing', () => {
+  it("when invoked, should redacts Bearer / API-key strings inside the message BEFORE printing", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -144,8 +165,11 @@ describe('render — printErrorEnvelope', () => {
   });
 });
 
-describe('render — printCliEnvelope', () => {
-  it('ok: writes { ok: true, data } to stdout and does not change exitCode', () => {
+describe("Scenario: render — printCliEnvelope", () => {
+  it("when invoked, should ok: writes { ok: true, data } to stdout and does not change exitCode", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -157,7 +181,10 @@ describe('render — printCliEnvelope', () => {
     process.exitCode = exitBefore;
   });
 
-  it('err: writes { ok: false, error } to stdout and sets exitCode = 1', () => {
+  it("when invoked, should err: writes { ok: false, error } to stdout and sets exitCode = 1", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -169,8 +196,11 @@ describe('render — printCliEnvelope', () => {
   });
 });
 
-describe('render — printInvalidConfigLayer', () => {
-  it('writes the INVALID_CONFIG_LAYER envelope and sets exitCode = 1', () => {
+describe("Scenario: render — printInvalidConfigLayer", () => {
+  it("when invoked, should writes the INVALID_CONFIG_LAYER envelope and sets exitCode = 1", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -183,8 +213,11 @@ describe('render — printInvalidConfigLayer', () => {
   });
 });
 
-describe('render — addJsonOption', () => {
-  it('attaches a --json boolean option to a Commander command', () => {
+describe("Scenario: render — addJsonOption", () => {
+  it("when invoked, should attaches a --json boolean option to a Commander command", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const cmd = new Command('demo');
     addJsonOption(cmd);
     cmd.option('--foo <foo>');
@@ -194,8 +227,11 @@ describe('render — addJsonOption', () => {
   });
 });
 
-describe('behavior — predicates + parsers', () => {
-  it('isRecommendationWorkflow accepts the 3 documented values', () => {
+describe("Scenario: behavior — predicates + parsers", () => {
+  it("when invoked, should isRecommendationWorkflow accepts the 3 documented values", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(isRecommendationWorkflow('code-refactor')).toBe(true);
     expect(isRecommendationWorkflow('product-refactor')).toBe(true);
     expect(isRecommendationWorkflow('frontend-design')).toBe(true);
@@ -203,13 +239,19 @@ describe('behavior — predicates + parsers', () => {
     expect(isRecommendationWorkflow('')).toBe(false);
   });
 
-  it('isArtifactProvider accepts the 2 documented providers', () => {
+  it("when invoked, should isArtifactProvider accepts the 2 documented providers", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(isArtifactProvider('github')).toBe(true);
     expect(isArtifactProvider('gitlab')).toBe(true);
     expect(isArtifactProvider('bitbucket')).toBe(false);
   });
 
-  it('isArtifactSetupStep accepts detect/configure/validate/complete', () => {
+  it("when invoked, should isArtifactSetupStep accepts detect/configure/validate/complete", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(isArtifactSetupStep('detect')).toBe(true);
     expect(isArtifactSetupStep('configure')).toBe(true);
     expect(isArtifactSetupStep('validate')).toBe(true);
@@ -217,7 +259,10 @@ describe('behavior — predicates + parsers', () => {
     expect(isArtifactSetupStep('nope')).toBe(false);
   });
 
-  it('isArtifactRepoSegment accepts well-formed names and rejects path-traversal / empty', () => {
+  it("when invoked, should isArtifactRepoSegment accepts well-formed names and rejects path-traversal / empty", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(isArtifactRepoSegment('repo')).toBe(true);
     expect(isArtifactRepoSegment('a.b-c_d')).toBe(true);
     expect(isArtifactRepoSegment('a..b')).toBe(false); // contains ..
@@ -226,22 +271,31 @@ describe('behavior — predicates + parsers', () => {
     expect(isArtifactRepoSegment('')).toBe(false);
   });
 
-  it('parseConfigLayer returns undefined for missing, the layer for user/project, null for anything else', () => {
+  it("when invoked, should parseConfigLayer returns undefined for missing, the layer for user/project, null for anything else", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(parseConfigLayer(undefined)).toBe(undefined);
     expect(parseConfigLayer('user')).toBe('user');
     expect(parseConfigLayer('project')).toBe('project');
     expect(parseConfigLayer('global')).toBe(null);
   });
 
-  it('multipleOption appends to the accumulated list and tolerates a missing previous', () => {
+  it("when invoked, should multipleOption appends to the accumulated list and tolerates a missing previous", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(multipleOption('a', undefined as unknown as string[])).toEqual(['a']);
     expect(multipleOption('b', ['a'])).toEqual(['a', 'b']);
     expect(multipleOption('c', ['a', 'b'])).toEqual(['a', 'b', 'c']);
   });
 });
 
-describe('a11y — error envelope hygiene', () => {
-  it('printErrorEnvelope never tells the user to type a CLI verb in nextActions', () => {
+describe("Scenario: a11y — error envelope hygiene", () => {
+  it("when invoked, should printErrorEnvelope never tells the user to type a CLI verb in nextActions", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();
@@ -255,7 +309,10 @@ describe('a11y — error envelope hygiene', () => {
     process.exitCode = exitBefore;
   });
 
-  it('printErrorEnvelope preserves the original errorId across multi-line messages', () => {
+  it("when invoked, should printErrorEnvelope preserves the original errorId across multi-line messages", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const exitBefore = process.exitCode;
     process.exitCode = 0;
     const { io, captured } = makeCapturedIo();

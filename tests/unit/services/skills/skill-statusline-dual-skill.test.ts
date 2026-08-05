@@ -167,8 +167,11 @@ function writeActiveDispatchIndex(
   );
 }
 
-describe('behavior — single session, no active leaf (Case 1)', () => {
-  it('renders `peaks-code [full-auto]` when the active-dispatch index is empty', () => {
+describe("Scenario: behavior — single session, no active leaf (Case 1)", () => {
+  it("when invoked, should renders `peaks-code [full-auto]` when the active-dispatch index is empty", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID_A);
     writePresenceLease(projectRoot, SID_A, CALLER_A, 'wf-001', 'peaks-code', 'full-auto');
@@ -192,8 +195,11 @@ describe('behavior — single session, no active leaf (Case 1)', () => {
   });
 });
 
-describe('behavior — single session, 1 active leaf (Case 2)', () => {
-  it('renders `${leaf} | ${orchestrator} [${mode}]` for a single in-flight peaks-rd', () => {
+describe("Scenario: behavior — single session, 1 active leaf (Case 2)", () => {
+  it("when invoked, should renders `${leaf} | ${orchestrator} [${mode}]` for a single in-flight peaks-rd", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID_A);
     writePresenceLease(projectRoot, SID_A, CALLER_A, 'wf-001', 'peaks-code', 'full-auto');
@@ -221,8 +227,11 @@ describe('behavior — single session, 1 active leaf (Case 2)', () => {
   });
 });
 
-describe('behavior — single session, 3 active leaves (Case 3)', () => {
-  it('renders `${leaf} (+2) | ${orchestrator} [${mode}]` and sorts by createdAt desc', () => {
+describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () => {
+  it("when invoked, should renders `${leaf} (+2) | ${orchestrator} [${mode}]` and sorts by createdAt desc", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID_A);
     writePresenceLease(projectRoot, SID_A, CALLER_A, 'wf-001', 'peaks-code', 'full-auto');
@@ -267,8 +276,11 @@ describe('behavior — single session, 3 active leaves (Case 3)', () => {
   });
 });
 
-describe('behavior — cross-session isolation (Case 4)', () => {
-  it('two callers in the same project see their own lease, not the other callers (no project-level single-file fallback)', () => {
+describe("Scenario: behavior — cross-session isolation (Case 4)", () => {
+  it("when invoked, should two callers in the same project see their own lease, not the other callers (no project-level single-file fallback)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = makeProjectRoot();
     // Pin the canonical session to SID_A. Both callers will resolve
     // through the same project-level session; isolation comes from
@@ -310,8 +322,11 @@ describe('behavior — cross-session isolation (Case 4)', () => {
   });
 });
 
-describe('behavior — mixed terminal+in-flight (Case 5)', () => {
-  it('renders only the in-flight leaf; terminal entries are filtered out', () => {
+describe("Scenario: behavior — mixed terminal+in-flight (Case 5)", () => {
+  it("when invoked, should renders only the in-flight leaf; terminal entries are filtered out", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID_A);
     writePresenceLease(projectRoot, SID_A, CALLER_A, 'wf-001', 'peaks-code', 'full-auto');
@@ -347,8 +362,11 @@ describe('behavior — mixed terminal+in-flight (Case 5)', () => {
   });
 });
 
-describe('mutation check (documented in spec; run by the orchestrator at Step 8)', () => {
-  it('reference shape: when readPresenceReadOnly is reverted to project-level single-file, Case 2 fails', () => {
+describe("Scenario: mutation check (documented in spec; run by the orchestrator at Step 8)", () => {
+  it("when invoked, should reference shape: when readPresenceReadOnly is reverted to project-level single-file, Case 2 fails", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // This test is a documentation anchor. The actual revert+rerun
     // happens in the orchestrator's Step 8 mutation check. The
     // expected failure under revert:

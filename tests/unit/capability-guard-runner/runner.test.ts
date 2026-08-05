@@ -21,23 +21,35 @@ const failContract: GuardContract = {
   })
 };
 
-describe('capability-guard-runner/runner', () => {
-  it('runGuard returns pass on a green contract', async () => {
+describe("Scenario: capability-guard-runner/runner", () => {
+  it("when invoked, should runGuard returns pass on a green contract", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const r = await runGuard(okContract, { projectRoot: '/', sessionId: 's', contract: okContract, baselineInvariant: 'inv-1' });
     expect(r.status).toBe('pass');
   });
-  it('runGuard returns fail on a red contract', async () => {
+  it("when invoked, should runGuard returns fail on a red contract", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const r = await runGuard(failContract, { projectRoot: '/', sessionId: 's', contract: failContract, baselineInvariant: 'inv-1' });
     expect(r.status).toBe('fail');
     expect(r.diff?.reason).toBe('inv-1 broken');
   });
-  it('runAllGuards aggregates pass / fail / skipped counts', async () => {
+  it("when invoked, should runAllGuards aggregates pass / fail / skipped counts", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const summary = await runAllGuards([okContract, failContract], { projectRoot: '/', sessionId: 's', contract: okContract, baselineInvariant: 'inv-1' });
     expect(summary.pass).toBe(1);
     expect(summary.fail).toBe(1);
     expect(summary.total).toBe(2);
   });
-  it('refuses a contract without a baseline reference', async () => {
+  it("when invoked, should refuses a contract without a baseline reference", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const bad: GuardContract = { ...okContract, source: { baselineRow: 'J01' as any, invariant: '' as any } };
     await expect(runGuard(bad, { projectRoot: '/', sessionId: 's', contract: bad, baselineInvariant: '' })).rejects.toThrow(/GUARD_CONTRACT_MISSING_BASELINE_REF/);
   });

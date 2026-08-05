@@ -65,16 +65,25 @@ const NO_COST: KarpathyReviewEnvelope = {
   // no evaluationCost, no costRatio
 };
 
-describe('render — constants + decision shape', () => {
-  it('downgrade threshold is the documented 10', () => {
+describe("Scenario: render — constants + decision shape", () => {
+  it("when invoked, should downgrade threshold is the documented 10", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(KARPATHY_COST_DOWNGRADE_THRESHOLD).toBe(10);
   });
 
-  it('report threshold is the documented 50', () => {
+  it("when invoked, should report threshold is the documented 50", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(KARPATHY_COST_REPORT_THRESHOLD).toBe(50);
   });
 
-  it('every decision includes a `kind` discriminator', () => {
+  it("when invoked, should every decision includes a `kind` discriminator", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(ENVELOPE_BLOCK),
       is24hModeActive: () => false,
@@ -83,7 +92,10 @@ describe('render — constants + decision shape', () => {
     expect(typeof (out.decision as { kind: string }).kind).toBe('string');
   });
 
-  it('reasonLine is a non-empty single line', () => {
+  it("when invoked, should reasonLine is a non-empty single line", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(ENVELOPE_PASS),
       is24hModeActive: () => false,
@@ -93,8 +105,11 @@ describe('render — constants + decision shape', () => {
   });
 });
 
-describe('behavior — costRatio boundaries', () => {
-  it('costRatio == downgrade threshold (10) does NOT downgrade (strict >)', () => {
+describe("Scenario: behavior — costRatio boundaries", () => {
+  it("when invoked, should costRatio == downgrade threshold (10) does NOT downgrade (strict >)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const envelope: KarpathyReviewEnvelope = {
       ...ENVELOPE_BLOCK,
       evaluationCost: { ...COST, sliceCodeSize: COST.wallMs / 10 }, // ratio exactly 10
@@ -107,7 +122,10 @@ describe('behavior — costRatio boundaries', () => {
     expect(out.decision.kind).toBe('unchanged');
   });
 
-  it('costRatio slightly above 10 downgrades block -> warn', () => {
+  it("when invoked, should costRatio slightly above 10 downgrades block -> warn", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // costRatio = wallMs / sliceCodeSize. wallMs=5000, sliceCodeSize=400
     // -> ratio = 12.5 (just above 10).
     const envelope: KarpathyReviewEnvelope = {
@@ -126,7 +144,10 @@ describe('behavior — costRatio boundaries', () => {
     }
   });
 
-  it('costRatio > 50 with block reports (kind=downgraded) — block still downgraded', () => {
+  it("when invoked, should costRatio > 50 with block reports (kind=downgraded) — block still downgraded", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const envelope: KarpathyReviewEnvelope = {
       ...ENVELOPE_BLOCK,
       evaluationCost: { ...COST, sliceCodeSize: 10 }, // ratio = 500
@@ -141,7 +162,10 @@ describe('behavior — costRatio boundaries', () => {
     expect(out.decision.kind).toBe('downgraded');
   });
 
-  it('costRatio > 50 with pass gate is `reported` (sediment-line kind)', () => {
+  it("when invoked, should costRatio > 50 with pass gate is `reported` (sediment-line kind)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const envelope: KarpathyReviewEnvelope = {
       gateAction: 'pass',
       passed: true,
@@ -156,7 +180,10 @@ describe('behavior — costRatio boundaries', () => {
     expect(out.decision.kind).toBe('reported');
   });
 
-  it('costRatio <= 10 with any gate is `unchanged`', () => {
+  it("when invoked, should costRatio <= 10 with any gate is `unchanged`", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const envelope: KarpathyReviewEnvelope = {
       gateAction: 'block',
       passed: false,
@@ -172,8 +199,11 @@ describe('behavior — costRatio boundaries', () => {
   });
 });
 
-describe('behavior — 24h-mode override', () => {
-  it('24h-mode active returns `24h-mode-active` regardless of envelope contents', () => {
+describe("Scenario: behavior — 24h-mode override", () => {
+  it("when invoked, should 24h-mode active returns `24h-mode-active` regardless of envelope contents", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(ENVELOPE_BLOCK),
       is24hModeActive: () => true,
@@ -181,7 +211,10 @@ describe('behavior — 24h-mode override', () => {
     expect(out.decision.kind).toBe('24h-mode-active');
   });
 
-  it('24h-mode override is the OUTER check (envelope contents are NOT parsed)', () => {
+  it("when invoked, should 24h-mode override is the OUTER check (envelope contents are NOT parsed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The override is decided BEFORE JSON.parse — the CLI does not
     // need to load the envelope when 24h-mode is active.
     const out = decideKarpathyCostCheck({
@@ -191,7 +224,10 @@ describe('behavior — 24h-mode override', () => {
     expect(out.decision.kind).toBe('24h-mode-active');
   });
 
-  it('24h-mode inactive falls through to envelope-based decision', () => {
+  it("when invoked, should 24h-mode inactive falls through to envelope-based decision", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(ENVELOPE_BLOCK),
       is24hModeActive: () => false,
@@ -200,8 +236,11 @@ describe('behavior — 24h-mode override', () => {
   });
 });
 
-describe('behavior — missing cost data', () => {
-  it('envelope without evaluationCost returns `no-cost-data`', () => {
+describe("Scenario: behavior — missing cost data", () => {
+  it("when invoked, should envelope without evaluationCost returns `no-cost-data`", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(NO_COST),
       is24hModeActive: () => false,
@@ -212,7 +251,10 @@ describe('behavior — missing cost data', () => {
     }
   });
 
-  it('envelope with evaluationCost but missing costRatio returns `no-cost-data`', () => {
+  it("when invoked, should envelope with evaluationCost but missing costRatio returns `no-cost-data`", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const envelope = { ...COST, gateAction: 'block' } as unknown as KarpathyReviewEnvelope;
     const out = decideKarpathyCostCheck({
       reviewFileContent: JSON.stringify(envelope),
@@ -221,7 +263,10 @@ describe('behavior — missing cost data', () => {
     expect(out.decision.kind).toBe('no-cost-data');
   });
 
-  it('non-JSON content returns `no-cost-data` with reason=envelope-not-json', () => {
+  it("when invoked, should non-JSON content returns `no-cost-data` with reason=envelope-not-json", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = decideKarpathyCostCheck({
       reviewFileContent: 'not even JSON {',
       is24hModeActive: () => false,
@@ -233,12 +278,15 @@ describe('behavior — missing cost data', () => {
   });
 });
 
-describe('integration — runKarpathyCostCheck over real fs', () => {
+describe("Scenario: integration — runKarpathyCostCheck over real fs", () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
 
-  it('reads a real envelope from disk and returns `downgraded`', () => {
+  it("when invoked, should reads a real envelope from disk and returns `downgraded`", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const p = join(process.cwd(), 'karpathy-review.json');
     writeFileSync(p, JSON.stringify(ENVELOPE_BLOCK), 'utf8');
     const out = runKarpathyCostCheck({
@@ -248,7 +296,10 @@ describe('integration — runKarpathyCostCheck over real fs', () => {
     expect(out.decision.kind).toBe('downgraded');
   });
 
-  it('returns `no-cost-data` with reason=file-missing when the file does not exist', () => {
+  it("when invoked, should returns `no-cost-data` with reason=file-missing when the file does not exist", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = runKarpathyCostCheck({
       reviewFilePath: join(process.cwd(), 'no-such-file.json'),
       is24hModeActive: () => false,
@@ -259,7 +310,10 @@ describe('integration — runKarpathyCostCheck over real fs', () => {
     }
   });
 
-  it('reads a real `unchanged` envelope (costRatio <= 10)', () => {
+  it("when invoked, should reads a real `unchanged` envelope (costRatio <= 10)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const p = join(process.cwd(), 'cheap-review.json');
     const envelope: KarpathyReviewEnvelope = {
       gateAction: 'pass',
@@ -276,7 +330,10 @@ describe('integration — runKarpathyCostCheck over real fs', () => {
     expect(out.decision.kind).toBe('unchanged');
   });
 
-  it('passes through the 24h-mode flag without touching the file', () => {
+  it("when invoked, should passes through the 24h-mode flag without touching the file", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const p = join(process.cwd(), 'would-not-be-read.json');
     writeFileSync(p, JSON.stringify(ENVELOPE_BLOCK), 'utf8');
     const out = runKarpathyCostCheck({
@@ -286,7 +343,10 @@ describe('integration — runKarpathyCostCheck over real fs', () => {
     expect(out.decision.kind).toBe('24h-mode-active');
   });
 
-  it('reads a directory as a "file" — fs read fails → no-cost-data', () => {
+  it("when invoked, should reads a directory as a \"file\" — fs read fails → no-cost-data", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     mkdirSync(join(process.cwd(), 'a-dir'), { recursive: true });
     const out = runKarpathyCostCheck({
       reviewFilePath: join(process.cwd(), 'a-dir'),
@@ -296,8 +356,11 @@ describe('integration — runKarpathyCostCheck over real fs', () => {
   });
 });
 
-describe('a11y — reason-line hygiene', () => {
-  it('every reason line is single-line, English, imperative, no CLI verbs to type', () => {
+describe("Scenario: a11y — reason-line hygiene", () => {
+  it("when invoked, should every reason line is single-line, English, imperative, no CLI verbs to type", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const cases = [
       JSON.stringify(ENVELOPE_BLOCK),
       JSON.stringify(ENVELOPE_PASS),

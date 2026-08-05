@@ -32,8 +32,11 @@ declareDimensions(
 
 import type { DispatchRecord } from '~/src/services/dispatch/dispatch-record-writer';
 
-describe('behavior — v3.2 schema additions', () => {
-  it('type-level: DispatchRecord requires serviceKill and mergeBackAttempts in v3.2', () => {
+describe("Scenario: behavior — v3.2 schema additions", () => {
+  it("when invoked, should type-level: DispatchRecord requires serviceKill and mergeBackAttempts in v3.2", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The contract is encoded in the type. A v3.2 record MUST have
     // both fields present. We construct a typed stub and verify the
     // shape at the type level via a sample-defaults assertion.
@@ -45,7 +48,10 @@ describe('behavior — v3.2 schema additions', () => {
     expect(sample.mergeBackAttempts).toBe(1);
   });
 
-  it('type-level: DispatchRecord requires version: "3.2" once the schema bumps', () => {
+  it("when invoked, should type-level: DispatchRecord requires version: \"3.2\" once the schema bumps", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The version literal is the source of truth for which fields
     // the record carries. v3.1 records have no serviceKill /
     // mergeBackAttempts; v3.2 records do. We assert the literal
@@ -79,7 +85,10 @@ describe('behavior — v3.2 schema additions', () => {
     expect(sample.mergeBackAttempts).toBe(0);
   });
 
-  it('upgrade defaults: empty serviceKill and zero mergeBackAttempts are the safe defaults', () => {
+  it("when invoked, should upgrade defaults: empty serviceKill and zero mergeBackAttempts are the safe defaults", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // The legacy v3.1 record does not have these fields. The writer's
     // upgradeRecord helper (see src/services/dispatch/dispatch-record-writer.ts)
     // backfills them to [] and 0. This test documents the contract.
@@ -92,8 +101,11 @@ describe('behavior — v3.2 schema additions', () => {
   });
 });
 
-describe('integration — on-disk round-trip', () => {
-  it('legacy v3.1 record JSON written to disk parses without the v3.2 fields (upgrade contract)', () => {
+describe("Scenario: integration — on-disk round-trip", () => {
+  it("when invoked, should legacy v3.1 record JSON written to disk parses without the v3.2 fields (upgrade contract)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = mkdtempSync(join(tmpdir(), 'peaks-dispatch-v32-'));
     const file = join(dir, 'dispatch-rid-legacy.json');
     const legacyRecord = {
