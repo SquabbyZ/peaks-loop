@@ -29,13 +29,19 @@ declareDimensions(
 
 import { readE2EPlan } from '~/src/services/dispatch/e2e-fixtures';
 
-describe('behavior — plan shape', () => {
-  it('returns empty for a missing directory', () => {
+describe("Scenario: behavior — plan shape", () => {
+  it("when invoked, should returns empty for a missing directory", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(tmpdir(), 'peaks-e2e-missing-' + Date.now());
     expect(readE2EPlan({ dir }).kind).toBe('empty');
   });
 
-  it('returns disabled when disabled file is present', () => {
+  it("when invoked, should returns disabled when disabled file is present", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(tmpdir(), 'peaks-e2e-disabled-' + Date.now());
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'disabled'), '');
@@ -43,8 +49,11 @@ describe('behavior — plan shape', () => {
   });
 });
 
-describe('integration — parsed fixtures', () => {
-  it('returns fixtures with parsed url and matchers', () => {
+describe("Scenario: integration — parsed fixtures", () => {
+  it("when invoked, should returns fixtures with parsed url and matchers", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(tmpdir(), 'peaks-e2e-fixtures-' + Date.now());
     mkdirSync(join(dir, 'login'), { recursive: true });
     writeFileSync(

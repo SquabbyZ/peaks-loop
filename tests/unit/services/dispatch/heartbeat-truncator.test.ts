@@ -42,8 +42,11 @@ function hb(seq: number): Heartbeat {
   };
 }
 
-describe('behavior — truncation boundary', () => {
-  it('returns a copy of the input unchanged when length <= LIMIT', () => {
+describe("Scenario: behavior — truncation boundary", () => {
+  it("when invoked, should returns a copy of the input unchanged when length <= LIMIT", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const input: Heartbeat[] = Array.from({ length: 50 }, (_, i) => hb(i));
     const out = truncateHeartbeats(input);
     expect(out.truncated).toBe(false);
@@ -53,7 +56,10 @@ describe('behavior — truncation boundary', () => {
     expect(out.heartbeats[49]?.seq).toBe(49);
   });
 
-  it('returns the input unchanged when length equals LIMIT exactly', () => {
+  it("when invoked, should returns the input unchanged when length equals LIMIT exactly", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const input: Heartbeat[] = Array.from({ length: HEARTBEAT_TRUNCATE_LIMIT }, (_, i) => hb(i));
     const out = truncateHeartbeats(input);
     expect(out.truncated).toBe(false);
@@ -61,7 +67,10 @@ describe('behavior — truncation boundary', () => {
     expect(out.heartbeats).toHaveLength(HEARTBEAT_TRUNCATE_LIMIT);
   });
 
-  it('keeps the most recent LIMIT entries when length > LIMIT', () => {
+  it("when invoked, should keeps the most recent LIMIT entries when length > LIMIT", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const total = HEARTBEAT_TRUNCATE_LIMIT + 5;
     const input: Heartbeat[] = Array.from({ length: total }, (_, i) => hb(i));
     const out = truncateHeartbeats(input);
@@ -74,7 +83,10 @@ describe('behavior — truncation boundary', () => {
     expect(out.heartbeats[HEARTBEAT_TRUNCATE_LIMIT - 1]?.seq).toBe(total - 1);
   });
 
-  it('drops the oldest half when input is 2x the limit', () => {
+  it("when invoked, should drops the oldest half when input is 2x the limit", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const total = HEARTBEAT_TRUNCATE_LIMIT * 2;
     const input: Heartbeat[] = Array.from({ length: total }, (_, i) => hb(i));
     const out = truncateHeartbeats(input);
@@ -83,21 +95,30 @@ describe('behavior — truncation boundary', () => {
     expect(out.heartbeats[0]?.seq).toBe(HEARTBEAT_TRUNCATE_LIMIT);
   });
 
-  it('handles a single-entry array (no-op)', () => {
+  it("when invoked, should handles a single-entry array (no-op)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = truncateHeartbeats([hb(1)]);
     expect(out.truncated).toBe(false);
     expect(out.dropped).toBe(0);
     expect(out.heartbeats).toEqual([hb(1)]);
   });
 
-  it('handles an empty array (no-op)', () => {
+  it("when invoked, should handles an empty array (no-op)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = truncateHeartbeats([]);
     expect(out.truncated).toBe(false);
     expect(out.dropped).toBe(0);
     expect(out.heartbeats).toEqual([]);
   });
 
-  it('returns a NEW array, never aliases the input', () => {
+  it("when invoked, should returns a NEW array, never aliases the input", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const input: Heartbeat[] = [hb(1), hb(2)];
     const out = truncateHeartbeats(input);
     expect(out.heartbeats).not.toBe(input);
@@ -106,15 +127,21 @@ describe('behavior — truncation boundary', () => {
     expect(input).toHaveLength(2);
   });
 
-  it('preserves entry order (most-recent at the end)', () => {
+  it("when invoked, should preserves entry order (most-recent at the end)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const input: Heartbeat[] = [hb(1), hb(2), hb(3)];
     const out = truncateHeartbeats(input);
     expect(out.heartbeats.map((h) => h.seq)).toEqual([1, 2, 3]);
   });
 });
 
-describe('behavior — LIMIT constant sanity', () => {
-  it('HEARTBEAT_TRUNCATE_LIMIT is the documented value (100)', () => {
+describe("Scenario: behavior — LIMIT constant sanity", () => {
+  it("when invoked, should HEARTBEAT_TRUNCATE_LIMIT is the documented value (100)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(HEARTBEAT_TRUNCATE_LIMIT).toBe(100);
   });
 });

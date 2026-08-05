@@ -29,12 +29,18 @@ declareDimensions(
 
 import { killRegisteredServices } from '~/src/services/dispatch/service-shutdown';
 
-describe('behavior — kill shape', () => {
-  it('returns an empty array for an empty registration list', () => {
+describe("Scenario: behavior — kill shape", () => {
+  it("when invoked, should returns an empty array for an empty registration list", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(killRegisteredServices({ registrations: [] })).toEqual([]);
   });
 
-  it('returns skipped: not-running when a pid that does not exist is given on win32', () => {
+  it("when invoked, should returns skipped: not-running when a pid that does not exist is given on win32", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = killRegisteredServices({
       registrations: [{ pid: 99999, name: 'mock' }],
       platform: 'win32',
@@ -42,7 +48,10 @@ describe('behavior — kill shape', () => {
     expect(out).toEqual([{ pid: 99999, name: 'mock', skipped: true, reason: 'not-running' }]);
   });
 
-  it('treats pid 0 as not-running without invoking kill', () => {
+  it("when invoked, should treats pid 0 as not-running without invoking kill", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = killRegisteredServices({
       registrations: [{ pid: 0, name: 'self' }],
       platform: 'linux',
@@ -50,7 +59,10 @@ describe('behavior — kill shape', () => {
     expect(out[0]).toEqual({ pid: 0, name: 'self', skipped: true, reason: 'not-running' });
   });
 
-  it('preserves the order of registrations', () => {
+  it("when invoked, should preserves the order of registrations", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = killRegisteredServices({
       registrations: [
         { pid: 99998, name: 'a' },

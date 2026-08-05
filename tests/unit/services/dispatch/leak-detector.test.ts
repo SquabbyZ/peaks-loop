@@ -59,15 +59,21 @@ const baseRecord = (overrides: Record<string, unknown> = {}): Record<string, unk
   ...overrides,
 });
 
-describe('behavior — threshold + filter', () => {
+describe("Scenario: behavior — threshold + filter", () => {
   withTmpWorkspacePerTest();
 
-  it('returns an empty list when the .peaks/_sub_agents/<sid>/ dir does not exist', () => {
+  it("when invoked, should returns an empty list when the .peaks/_sub_agents/<sid>/ dir does not exist", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = findLeakedDispatchRecords(process.cwd(), SID, { now: () => FIXED_NOW });
     expect(out).toEqual([]);
   });
 
-  it('returns an empty list when no dispatch-*.json files are present', () => {
+  it("when invoked, should returns an empty list when no dispatch-*.json files are present", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_sub_agents', SID);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'unrelated.txt'), 'noise', 'utf8');
@@ -75,13 +81,19 @@ describe('behavior — threshold + filter', () => {
     expect(out).toEqual([]);
   });
 
-  it('returns an empty list when the only record is disposed=true', () => {
+  it("when invoked, should returns an empty list when the only record is disposed=true", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-1.json', baseRecord({ disposed: true }));
     const out = findLeakedDispatchRecords(process.cwd(), SID, { now: () => FIXED_NOW });
     expect(out).toEqual([]);
   });
 
-  it('returns an empty list when the only record is younger than the threshold', () => {
+  it("when invoked, should returns an empty list when the only record is younger than the threshold", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // 30min old — under the 1h default threshold
     writeDispatch(process.cwd(), 'dispatch-1.json', baseRecord({
       createdAt: new Date(FIXED_NOW.getTime() - 30 * 60 * 1000).toISOString(),
@@ -90,7 +102,10 @@ describe('behavior — threshold + filter', () => {
     expect(out).toEqual([]);
   });
 
-  it('flags a record that is older than the threshold and not disposed', () => {
+  it("when invoked, should flags a record that is older than the threshold and not disposed", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-1.json', baseRecord());
     const out = findLeakedDispatchRecords(process.cwd(), SID, { now: () => FIXED_NOW });
     expect(out).toHaveLength(1);
@@ -100,11 +115,17 @@ describe('behavior — threshold + filter', () => {
     expect(rec.ageMs).toBe(60 * 60 * 1000); // exactly 1h
   });
 
-  it('default threshold is 1h', () => {
+  it("when invoked, should default threshold is 1h", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(DEFAULT_LEAK_THRESHOLD_MS).toBe(60 * 60 * 1000);
   });
 
-  it('custom thresholdMs shortens the window', () => {
+  it("when invoked, should custom thresholdMs shortens the window", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-1.json', baseRecord());
     // 10-minute threshold: the 1h-old record is way past it.
     const out = findLeakedDispatchRecords(process.cwd(), SID, {
@@ -114,7 +135,10 @@ describe('behavior — threshold + filter', () => {
     expect(out).toHaveLength(1);
   });
 
-  it('custom thresholdMs expands the window (no leaks)', () => {
+  it("when invoked, should custom thresholdMs expands the window (no leaks)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-1.json', baseRecord());
     // 2h threshold: the 1h-old record is in budget.
     const out = findLeakedDispatchRecords(process.cwd(), SID, {
@@ -124,7 +148,10 @@ describe('behavior — threshold + filter', () => {
     expect(out).toEqual([]);
   });
 
-  it('a record exactly at the threshold is NOT flagged (< not <=)', () => {
+  it("when invoked, should a record exactly at the threshold is NOT flagged (< not <=)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // age = threshold -> age < threshold is false -> not flagged
     // Wait: the source is `if (ageMs < thresholdMs) continue;` so
     // age == threshold is flagged. Pin that.
@@ -136,13 +163,19 @@ describe('behavior — threshold + filter', () => {
     expect(out).toHaveLength(1);
   });
 
-  it('skips files that do not match the isRecordShape (missing required field)', () => {
+  it("when invoked, should skips files that do not match the isRecordShape (missing required field)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-bad.json', { createdAt: '2026-07-30T11:00:00Z' });
     const out = findLeakedDispatchRecords(process.cwd(), SID, { now: () => FIXED_NOW });
     expect(out).toEqual([]);
   });
 
-  it('skips files with non-parseable JSON', () => {
+  it("when invoked, should skips files with non-parseable JSON", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_sub_agents', SID);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'dispatch-bad.json'), 'not valid json {', 'utf8');
@@ -150,13 +183,19 @@ describe('behavior — threshold + filter', () => {
     expect(out).toEqual([]);
   });
 
-  it('skips files with a non-parseable createdAt', () => {
+  it("when invoked, should skips files with a non-parseable createdAt", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     writeDispatch(process.cwd(), 'dispatch-bad.json', baseRecord({ createdAt: 'tomorrow' }));
     const out = findLeakedDispatchRecords(process.cwd(), SID, { now: () => FIXED_NOW });
     expect(out).toEqual([]);
   });
 
-  it('skips files that do not start with dispatch- or do not end with .json', () => {
+  it("when invoked, should skips files that do not start with dispatch- or do not end with .json", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_sub_agents', SID);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'counter-1.json'), JSON.stringify(baseRecord()), 'utf8');
@@ -166,10 +205,13 @@ describe('behavior — threshold + filter', () => {
   });
 });
 
-describe('integration — multi-record scenarios under real fs', () => {
+describe("Scenario: integration — multi-record scenarios under real fs", () => {
   withTmpWorkspacePerTest();
 
-  it('returns only the leaked records when several are present', () => {
+  it("when invoked, should returns only the leaked records when several are present", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_sub_agents', SID);
     mkdirSync(dir, { recursive: true });
     // 1h old, not disposed -> LEAK
@@ -193,7 +235,10 @@ describe('integration — multi-record scenarios under real fs', () => {
     expect(ids).toEqual(['a', 'd']);
   });
 
-  it('per-session isolation: records from other sids are never read', () => {
+  it("when invoked, should per-session isolation: records from other sids are never read", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const otherDir = join(process.cwd(), '.peaks', '_sub_agents', 'other-sid');
     mkdirSync(otherDir, { recursive: true });
     writeFileSync(join(otherDir, 'dispatch-1.json'), JSON.stringify(baseRecord()), 'utf8');

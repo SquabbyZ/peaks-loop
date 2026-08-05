@@ -29,8 +29,11 @@ declareDimensions(
 
 import { buildConflictReplay } from '~/src/services/dispatch/conflict-replay';
 
-describe('behavior — envelope shape', () => {
-  it('embeds the original prompt, transcript, and conflict diff', () => {
+describe("Scenario: behavior — envelope shape", () => {
+  it("when invoked, should embeds the original prompt, transcript, and conflict diff", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildConflictReplay({
       originalPrompt: 'implement login',
       mergeAttemptTranscript: ['git merge --no-ff feat/login'],
@@ -43,7 +46,10 @@ describe('behavior — envelope shape', () => {
     expect(out.instructions.length).toBeGreaterThan(0);
   });
 
-  it('instructs the agent to not introduce new functionality', () => {
+  it("when invoked, should instructs the agent to not introduce new functionality", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildConflictReplay({
       originalPrompt: 'x',
       mergeAttemptTranscript: [],
@@ -53,7 +59,10 @@ describe('behavior — envelope shape', () => {
     expect(out.instructions.join(' ')).toMatch(/new functionality/i);
   });
 
-  it('preserves the caller branch name in the prompt header', () => {
+  it("when invoked, should preserves the caller branch name in the prompt header", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const out = buildConflictReplay({
       originalPrompt: 'x',
       mergeAttemptTranscript: [],
