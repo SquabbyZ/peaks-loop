@@ -400,8 +400,11 @@ function runStatuslineCompact(
 // Suite-level guards (rejection #5: build before subprocess tests)
 // ---------------------------------------------------------------------------
 
-describe('suite guards', () => {
-  it('dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)', () => {
+describe("Scenario: suite guards", () => {
+  it("when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     expect(existsSync(DIST_ENTRY)).toBe(true);
   });
 });
@@ -410,7 +413,7 @@ describe('suite guards', () => {
 // render — primary `peaks statusline` with stdin for the 6 documented states
 // ---------------------------------------------------------------------------
 
-describe('render — primary `peaks statusline` with stdin renders the documented full line per state', () => {
+describe("Scenario: render — primary `peaks statusline` with stdin renders the documented full line per state", () => {
   beforeEach(() => {
     if (!active) return;
     writeSessionFile(active);
@@ -429,7 +432,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     rmSync(join(sessionDir, 'txt', 'auto-compact-pending.json'), { force: true });
   });
 
-  it('normal C1 (no lifecycle): "Peaks ● peaks-rd › <basename>"', () => {
+  it("when invoked, should normal C1 (no lifecycle): \"Peaks ● peaks-rd › <basename>\"", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -446,7 +452,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 
-  it('queued lifecycle: primary line carries the queued compact segment', () => {
+  it("when invoked, should queued lifecycle: primary line carries the queued compact segment", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -457,7 +466,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     expect(stripped(r.stdout)).toContain('[░░░░░░░░]');
   });
 
-  it('compacting lifecycle: primary line carries the 4-cell compact segment', () => {
+  it("when invoked, should compacting lifecycle: primary line carries the 4-cell compact segment", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -468,7 +480,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     expect(stripped(r.stdout)).toContain('compacting');
   });
 
-  it('completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio', () => {
+  it("when invoked, should completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -484,7 +499,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     expect(stripped(r.stdout)).toContain('42%');
   });
 
-  it('failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)', () => {
+  it("when invoked, should failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -505,7 +523,10 @@ describe('render — primary `peaks statusline` with stdin renders the documente
     expect(stripped(r.stdout)).toContain('compacting');
   });
 
-  it('back to normal (lifecycle removed): primary line returns to the C1 baseline', () => {
+  it("when invoked, should back to normal (lifecycle removed): primary line returns to the C1 baseline", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -524,8 +545,11 @@ describe('render — primary `peaks statusline` with stdin renders the documente
 // behavior — 10-second completed expiry
 // ---------------------------------------------------------------------------
 
-describe('behavior — completed lifecycle EXPIRES after 10s in the primary state (rejection design requirement)', () => {
-  it('completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)', () => {
+describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the primary state (rejection design requirement)", () => {
+  it("when invoked, should completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -547,7 +571,10 @@ describe('behavior — completed lifecycle EXPIRES after 10s in the primary stat
     expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
   });
 
-  it('completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)', () => {
+  it("when invoked, should completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -570,8 +597,11 @@ describe('behavior — completed lifecycle EXPIRES after 10s in the primary stat
 // behavior — PEAKS_STATUSLINE_ASCII=1 adapter-internal env override
 // ---------------------------------------------------------------------------
 
-describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer to the ASCII palette (rejection #2)', () => {
-  it('primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)', () => {
+describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer to the ASCII palette (rejection #2)", () => {
+  it("when invoked, should primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -587,7 +617,10 @@ describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer 
     expect(r.stdout).not.toContain('░');
   });
 
-  it('NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII="": default unicode, no ANSI', () => {
+  it("when invoked, should NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII=\"\": default unicode, no ANSI", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -602,7 +635,10 @@ describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer 
     expect(r.stdout).not.toContain('\x1b[');
   });
 
-  it('PEAKS_STATUSLINE_ASCII=0 is treated as "unset" (does not force ASCII)', () => {
+  it("when invoked, should PEAKS_STATUSLINE_ASCII=0 is treated as \"unset\" (does not force ASCII)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
@@ -616,8 +652,11 @@ describe('behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer 
 // behavior — compact subcommand --json envelope (rejection #3)
 // ---------------------------------------------------------------------------
 
-describe('behavior — `peaks statusline compact --json` emits the documented envelope (rejection #3 fix)', () => {
-  it('compact --json: returns the {ok: true, command: "statusline.compact", data: {label, state}} envelope', () => {
+describe("Scenario: behavior — `peaks statusline compact --json` emits the documented envelope (rejection #3 fix)", () => {
+  it("when invoked, should compact --json: returns the {ok: true, command: \"statusline.compact\", data: {label, state}} envelope", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
     const r = runStatuslineCompact(active, ['--json']);
@@ -631,7 +670,10 @@ describe('behavior — `peaks statusline compact --json` emits the documented en
     expect(env.data.state.filledCells).toBe(4);
   });
 
-  it('compact --json without --project: still emits the envelope (auto-detect from cwd)', () => {
+  it("when invoked, should compact --json without --project: still emits the envelope (auto-detect from cwd)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
     const r = spawnCli(
@@ -644,7 +686,10 @@ describe('behavior — `peaks statusline compact --json` emits the documented en
     expect(env.data.label).toBe('compact [░░░░░░░░]');
   });
 
-  it('compact WITHOUT --json: emits the plain label only (no JSON envelope braces)', () => {
+  it("when invoked, should compact WITHOUT --json: emits the plain label only (no JSON envelope braces)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
     const r = runStatuslineCompact(active);
@@ -660,8 +705,11 @@ describe('behavior — `peaks statusline compact --json` emits the documented en
 // integration — real subprocess + real fs lifecycle record
 // ---------------------------------------------------------------------------
 
-describe('integration — the CLI reads the lifecycle + presence from the spawned cwd (no global state)', () => {
-  it('changing the lifecycle record between runs changes the rendered output', () => {
+describe("Scenario: integration — the CLI reads the lifecycle + presence from the spawned cwd (no global state)", () => {
+  it("when invoked, should changing the lifecycle record between runs changes the rendered output", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
     const first = runStatuslineCompact(active);
@@ -672,7 +720,10 @@ describe('integration — the CLI reads the lifecycle + presence from the spawne
     expect(second.stdout).toBe('compact [████████] → 0.50\n');
   });
 
-  it('invalid lifecycle JSON surfaces the honest "status unreadable" label, not a fake progress bar', () => {
+  it("when invoked, should invalid lifecycle JSON surfaces the honest \"status unreadable\" label, not a fake progress bar", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     mkdirSync(dirname(active.lifecyclePath), { recursive: true });
     writeFileSync(active.lifecyclePath, '{not valid json', 'utf8');
@@ -682,7 +733,10 @@ describe('integration — the CLI reads the lifecycle + presence from the spawne
     expect(r.stdout).toContain('status unreadable');
   });
 
-  it('primary `peaks statusline` with stdin honors the active-skill presence + root label', () => {
+  it("when invoked, should primary `peaks statusline` with stdin honors the active-skill presence + root label", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
@@ -698,7 +752,7 @@ describe('integration — the CLI reads the lifecycle + presence from the spawne
 // a11y — rendered label hygiene
 // ---------------------------------------------------------------------------
 
-describe('a11y — rendered labels stay single-line English, no `?`, no CLI verb', () => {
+describe("Scenario: a11y — rendered labels stay single-line English, no `?`, no CLI verb", () => {
   const STAGES: ReadonlyArray<CompactLifecycleRecord['stage']> = [
     'queued',
     'preparing',
@@ -710,6 +764,9 @@ describe('a11y — rendered labels stay single-line English, no `?`, no CLI verb
 
   for (const stage of STAGES) {
     it(`${stage}: compact output is single-line, no '?', no 'peaks <verb>'`, () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
       if (!active) throw new Error('harness not active');
       const overrides: Partial<CompactLifecycleRecord> = stage === 'failed'
         ? { failedAt: 'compacting', errorSummary: 'integration-test failure', updatedAt: new Date().toISOString() }

@@ -30,7 +30,7 @@ declareDimensions(
 import { createProgram, __resetBootstrapForTests } from '~/src/cli/program';
 import { CLI_VERSION } from 'peaks-loop-shared/version';
 
-describe('render — stdout/stderr shape', () => {
+describe("Scenario: render — stdout/stderr shape", () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -40,7 +40,10 @@ describe('render — stdout/stderr shape', () => {
     __resetBootstrapForTests();
   });
 
-  it('bare `peaks` (no args) prints the super-command catalog', async () => {
+  it("when invoked, should bare `peaks` (no args) prints the super-command catalog", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks']);
@@ -57,7 +60,10 @@ describe('render — stdout/stderr shape', () => {
     expect(text).toMatch(/^status\b/m);
   });
 
-  it('--version prints CLI_VERSION verbatim (no decoration, no envelope)', async () => {
+  it("when invoked, should --version prints CLI_VERSION verbatim (no decoration, no envelope)", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', '--version']);
@@ -66,7 +72,10 @@ describe('render — stdout/stderr shape', () => {
     expect(process.exitCode === undefined || process.exitCode === 0).toBe(true);
   });
 
-  it('-V (short) prints the same version', async () => {
+  it("when invoked, should -V (short) prints the same version", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', '-V']);
@@ -74,7 +83,10 @@ describe('render — stdout/stderr shape', () => {
     expect(captured.text()).toBe(CLI_VERSION);
   });
 
-  it('help text advertises a quickstart and the most common commands', async () => {
+  it("when invoked, should help text advertises a quickstart and the most common commands", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     try {
@@ -89,7 +101,7 @@ describe('render — stdout/stderr shape', () => {
   });
 });
 
-describe('behavior — routing', () => {
+describe("Scenario: behavior — routing", () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -104,7 +116,10 @@ describe('behavior — routing', () => {
     process.exitCode = 0;
   });
 
-  it('unknown command: emits COMMAND_NOT_FOUND envelope, sets exitCode = 1', async () => {
+  it("when invoked, should unknown command: emits COMMAND_NOT_FOUND envelope, sets exitCode = 1", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'totally-not-a-real-command']);
@@ -119,7 +134,10 @@ describe('behavior — routing', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('unknown command envelope argv reflects the first non-option token, not later flags', async () => {
+  it("when invoked, should unknown command envelope argv reflects the first non-option token, not later flags", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // NOTE: this case is intentionally narrow. Commander's `unknownOption`
     // fires for tokens that look like options BEFORE the parser ever routes
     // to the root .action() (which is what mints our COMMAND_NOT_FOUND
@@ -139,7 +157,10 @@ describe('behavior — routing', () => {
     expect(parsed.data.argv).toBe('mystery');
   });
 
-  it('bootstrapRan guard: parsing twice in the same process only writes the start log line once', async () => {
+  it("when invoked, should bootstrapRan guard: parsing twice in the same process only writes the start log line once", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // bootstrapLogger writes a JSONL line to ~/.peaks/logs/. To verify the
     // guard we do not inspect the log file (the logger is integration
     // surface) — we verify the second parse is silent w.r.t. the bootstrap
@@ -159,7 +180,7 @@ describe('behavior — routing', () => {
   });
 });
 
-describe('a11y — human-visible error surface', () => {
+describe("Scenario: a11y — human-visible error surface", () => {
   withTmpWorkspacePerTest();
   withEnv('USERPROFILE', process.cwd());
   withEnv('HOME', process.cwd());
@@ -174,7 +195,10 @@ describe('a11y — human-visible error surface', () => {
     process.exitCode = 0;
   });
 
-  it('unknown-command message text is a single sentence, English, mentions the bad token', async () => {
+  it("when invoked, should unknown-command message text is a single sentence, English, mentions the bad token", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery-token-xyz']);
@@ -184,7 +208,10 @@ describe('a11y — human-visible error surface', () => {
     expect(parsed.message).not.toMatch(/at .+:\d+/); // no stack trace
   });
 
-  it('unknown-command nextActions do NOT tell the user to type a CLI verb', async () => {
+  it("when invoked, should unknown-command nextActions do NOT tell the user to type a CLI verb", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io, captured } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery-token-xyz']);
@@ -197,7 +224,10 @@ describe('a11y — human-visible error surface', () => {
     }
   });
 
-  it('exit code is 1 on unknown command (machine-readable signal for CI / LLM judge)', async () => {
+  it("when invoked, should exit code is 1 on unknown command (machine-readable signal for CI / LLM judge)", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const { io } = makeCapturedIo();
     const program = createProgram(io);
     await program.parseAsync(['node', 'peaks', 'mystery-token-xyz']);
