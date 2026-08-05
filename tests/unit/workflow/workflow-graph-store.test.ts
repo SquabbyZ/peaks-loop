@@ -64,8 +64,11 @@ afterEach(async () => {
   for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true });
 });
 
-describe('behavior — graph invariants fail closed', () => {
-  it('TC-SM-11: invalid JSON and cycles produce PEAKS_GRAPH_CORRUPTED with no active projection. RD §3. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED").', async () => {
+describe("Scenario: behavior — graph invariants fail closed", () => {
+  it("when invoked, should TC-SM-11: invalid JSON and cycles produce PEAKS_GRAPH_CORRUPTED with no active projection. RD §3. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\").", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = await project();
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
@@ -81,7 +84,10 @@ describe('behavior — graph invariants fail closed', () => {
     );
   });
 
-  it('TC-SM-09: malformed canonical graph is surfaced even when a legacy marker is valid. RD §3. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED") and assert.equal(error.legacyFallback, false).', async () => {
+  it("when invoked, should TC-SM-09: malformed canonical graph is surfaced even when a legacy marker is valid. RD §3. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\") and assert.equal(error.legacyFallback, false).", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = await project();
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
@@ -98,8 +104,11 @@ describe('behavior — graph invariants fail closed', () => {
   });
 });
 
-describe('integration — production ESM graph parsing', () => {
-  it('TC-AG-02: canonical corruption escapes instead of falling through to legacy. RD §7. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED").', async () => {
+describe("Scenario: integration — production ESM graph parsing", () => {
+  it("when invoked, should TC-AG-02: canonical corruption escapes instead of falling through to legacy. RD §7. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\").", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = await project();
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
@@ -109,7 +118,10 @@ describe('integration — production ESM graph parsing', () => {
     await expectCode(() => api.readGraph({ projectRoot: root, graphPath, legacyMarkerPath: join(root, 'legacy-marker.json') }), 'PEAKS_GRAPH_CORRUPTED');
   });
 
-  it('TC-AG-03: syntactically invalid graph JSON escapes PEAKS_GRAPH_CORRUPTED. RD §7. Pass criterion: assert.equal(error.code, "PEAKS_GRAPH_CORRUPTED") and assert.equal(readsActive, false).', async () => {
+  it("when invoked, should TC-AG-03: syntactically invalid graph JSON escapes PEAKS_GRAPH_CORRUPTED. RD §7. Pass criterion: assert.equal(error.code, \"PEAKS_GRAPH_CORRUPTED\") and assert.equal(readsActive, false).", async () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = await project();
     const graphPath = join(root, 'graphs', 'workflow-graph-test.json');
     await mkdir(join(root, 'graphs'), { recursive: true });
