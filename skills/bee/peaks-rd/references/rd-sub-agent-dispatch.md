@@ -148,3 +148,23 @@ Define success criteria. Loop until verified. "Add validation" → write tests f
 ```
 
 Sub-agents MUST NOT silently drop this block. The regression test `tests/unit/skills/karpathy-prompt-injection.test.ts` asserts this block is present. The canonical skill id for the full guidelines text is `andrej-karpathy-skills:karpathy-guidelines`.
+
+## BDD Test Style Contract (effective rid-2026-08-05-bdd-test-style, v4.0.11+)
+
+When you (the LLM sub-agent) write new or modified unit tests in `tests/unit/**`, every `it()` / `test()` block MUST follow the given-when-then contract:
+
+1. The first string-literal argument of `it()` / `test()` MUST describe business behavior in the form `when X, should Y` — must include either the word "when" (state / pre-condition) or "should" (observable outcome).
+2. The body callback (the second argument) MUST start with exactly 3 leading comments:
+   ```typescript
+   // given: <precondition — system / user state>
+   // when: <action — what is invoked>
+   // then: <expected outcome — what is asserted>
+   ```
+3. Legacy `// arrange:` / `// act:` / `// assert:` AAA markers MUST NOT appear in tests you write.
+
+Run `node scripts/migrate-to-bdd.mjs --dry-run <file>` before writing new tests to inspect the contract, or use the Slice B verifier's rule directly:
+
+- description: must contain `/(\bwhen\b|\bshould\b)/`
+- first 3 body comments: must match `/^\s*\/\/\s*given\s*:/`, `/^\s*\/\/\s*when\s*:/`, `/^\s*\/\/\s*then\s*:/`
+
+If your tests fail peaks-qa's `bdd-test-style-verifier` (see Slice B), the slice will be returned-to-rd. Fix the violations, do NOT bypass the check.
