@@ -83,6 +83,7 @@
     "agents/**",
     "schemas/*.json",
     ".claude-plugin/**",
+    "config/eslint/.peaks-rules.cjs",
     "README.md",
     "README-en.md",
     "CHANGELOG.md",
