@@ -7,6 +7,7 @@ import type {
 import type {
   CompactStatuslineState,
 } from '../compact-statusline/compact-statusline-service.js';
+import { getSessionIdCanonical } from '../session/session-manager.js';
 
 /**
  * Pure formatting layer for the Peaks statusLine. Takes the read-only status
@@ -257,6 +258,22 @@ function formatAge(ageMs: number | null): string {
 function rootLabel(projectRoot: string | null): string {
   if (!projectRoot) return '';
   return basename(projectRoot);
+}
+
+/**
+ * Format a session id as a short, terminal-friendly tag.
+ *
+ * Returns the last kebab-segment of `sessionId` (e.g.
+ * `2026-08-04-session-3fe1be` → `3fe1be`), or the empty string when
+ * the input is empty. Pure; safe for ASCII rendering across
+ * PowerShell, Git Bash, and zsh (AC7).
+ *
+ * Slice 2026-08-05-statusline-empty-render-and-short-sid-suffix.
+ */
+export function formatShortSid(sessionId: string): string {
+  if (sessionId.length === 0) return '';
+  const last = sessionId.split('-').pop();
+  return last ?? sessionId;
 }
 
 /**
@@ -693,7 +710,27 @@ export function renderStatusLine(
   const noColor = env !== undefined ? isNoColor(env) : false;
   const palette = paletteFor(capability, noColor);
   const root = rootLabel(model.projectRoot);
-  const rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
+  // short-sid suffix (slice 2026-08-05-statusline-empty-render-and-short-sid-suffix):
+  // shown only when presence is `active` AND we have a resolvable project root
+  // to source the canonical session id from. AC3 — empty / idle / stale /
+  // invalid-presence never carry `[short-sid]`. AC6 — compact + active carries
+  // it. Pure ASCII (no narrow space / smart quotes), so Windows PowerShell +
+  // Git Bash + zsh render byte-identical (AC7).
+  let rootSuffix = root ? `${palette.trailSeparator}${root}` : '';
+  if (model.state === 'active' && model.presence !== null && model.projectRoot !== null) {
+    let sidForShort: string | null = null;
+    try {
+      sidForShort = getSessionIdCanonical(model.projectRoot);
+    } catch {
+      sidForShort = null;
+    }
+    if (sidForShort !== null) {
+      const short = formatShortSid(sidForShort);
+      if (short.length > 0) {
+        rootSuffix = `${rootSuffix} [${short}]`;
+      }
+    }
+  }
   const brand = brandText(capability, noColor);
   // Breathing pulse: key off a single wall-clock read at the start of
   // render so the output is deterministic for a given invocation. The

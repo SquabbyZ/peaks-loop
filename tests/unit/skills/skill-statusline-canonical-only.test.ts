@@ -208,12 +208,25 @@ describe("Scenario: behavior — no leases present (Case B)", () => {
   });
 });
 
-describe("Scenario: behavior — callerId with no matching lease (Case C)", () => {
-  it("when invoked, should returns idle when the caller's callerId does not match any lease", () => {
-    // given: one lease under CALLER_A, but stdin carries CALLER_NONE
+describe("Scenario: behavior — callerId with no matching lease (Case C — G1 fallback)", () => {
+  it("when invoked, should falls back to the session's most-recent in-flight lease when callerId matches none", () => {
+    // given: one lease under CALLER_A; stdin carries CALLER_NONE — the
+    //        resolver's callerId-filtered walk returns nothing, so the
+    //        G1 fallback (slice 2026-08-05-statusline-empty-render-and-short-sid-suffix)
+    //        retries with `callerId: null` and surfaces the session's
+    //        most-recent in-flight lease (PRD AC2).
     // when:  buildStatusLineModel is called with caller_id='unknown-caller'
-    // then:  model.state='idle', model.presence=null — the resolver
-    //        filtered out the lease because the callerId didn't match.
+    // then:  model.state='active', model.presence.skill='peaks-code' —
+    //        the fallback fired and returned the lease. This replaces
+    //        the prior `state: 'idle'` assertion (the pre-slice
+    //        behavior; the production bug was that the harness's
+    //        `CLAUDE_CODE_SESSION_ID` did not match the lease's
+    //        callerId and statusline collapsed to `empty`).
+    //        Note: the AC4 multi-tenant invariant is NOT violated by
+    //        this fallback — when callerId A DOES match a lease, the
+    //        first (non-fallback) call returns A's lease immediately;
+    //        the fallback only fires when callerId A has NO matching
+    //        lease, in which case surfacing B's lease is intentional.
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
     writePresenceLease(projectRoot, SID, CALLER_A, 'wf-a', 'peaks-code', 'full-auto');
@@ -223,8 +236,10 @@ describe("Scenario: behavior — callerId with no matching lease (Case C)", () =
       caller_id: 'unknown-caller',
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
-    expect(model.state).toBe('idle');
-    expect(model.presence).toBeNull();
+    expect(model.state).toBe('active');
+    expect(model.presence).not.toBeNull();
+    expect(model.presence?.skill).toBe('peaks-code');
+    expect(model.presence?.mode).toBe('full-auto');
   });
 });
 

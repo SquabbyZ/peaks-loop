@@ -189,9 +189,10 @@ describe("Scenario: behavior — single session, no active leaf (Case 1)", () =>
       renderStatusLine(model, { capability: 'ascii' }),
     );
     // Render includes a trailing project-root label (basename of the
-    // tmp project root). We match it via a regex so the assertion is
-    // independent of the mkdtemp random suffix.
-    expect(out).toMatch(/^Peaks \* peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+$/);
+    // tmp project root) followed by the short-sid suffix
+    // (slice 2026-08-05-statusline-empty-render-and-short-sid-suffix:
+    // `${root} [aaaa]` since SID_A = `2026-08-04-session-aaaa`).
+    expect(out).toMatch(/^Peaks \* peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
@@ -223,7 +224,7 @@ describe("Scenario: behavior — single session, 1 active leaf (Case 2)", () => 
     const out = withPinnedClock(NOW_MS, () =>
       renderStatusLine(model, { capability: 'ascii' }),
     );
-    expect(out).toMatch(/^Peaks \* peaks-rd \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+$/);
+    expect(out).toMatch(/^Peaks \* peaks-rd \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
@@ -272,7 +273,7 @@ describe("Scenario: behavior — single session, 3 active leaves (Case 3)", () =
     const out = withPinnedClock(NOW_MS, () =>
       renderStatusLine(model, { capability: 'ascii' }),
     );
-    expect(out).toMatch(/^Peaks \* peaks-rd \(\+2\) \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+$/);
+    expect(out).toMatch(/^Peaks \* peaks-rd \(\+2\) \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 
@@ -358,7 +359,7 @@ describe("Scenario: behavior — mixed terminal+in-flight (Case 5)", () => {
     const out = withPinnedClock(NOW_MS, () =>
       renderStatusLine(model, { capability: 'ascii' }),
     );
-    expect(out).toMatch(/^Peaks \* peaks-qa \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+$/);
+    expect(out).toMatch(/^Peaks \* peaks-qa \| peaks-code \[full-auto\] -> peaks-statusline-dual-[A-Za-z0-9]+ \[aaaa\]$/);
   });
 });
 

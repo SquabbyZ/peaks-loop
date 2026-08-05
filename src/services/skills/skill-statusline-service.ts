@@ -156,7 +156,13 @@ function readActiveLeaf(
  * Both branches now route through the canonical sid-scoped lease projection
  * (slice 2026-08-05-statusline-sid-scoped-lease-B):
  *   - `callerId !== null` → `resolveActiveSkillForCaller` with the canonical
- *     (non-legacy) lease projection, filtered to this callerId.
+ *     (non-legacy) lease projection, filtered to this callerId. When the
+ *     callerId-filtered resolution returns `source: 'none'` (no lease under
+ *     this callerId), retry once with `callerId: null` so the read falls back
+ *     to the session's most-recent in-flight lease. AC4 multi-tenant isolation
+ *     is preserved: when callerId A DOES have a lease, the first call returns
+ *     it and the fallback never fires — callerId B's lease is never surfaced
+ *     to callerId A. (Slice 2026-08-05-statusline-empty-render-and-short-sid-suffix.)
  *   - `callerId === null` → enumerate `listPresenceLeases` for the
  *     canonical session and pick the most recent in-flight lease. Back-compat
  *     for non-IDE callers (e.g. legacy CLI invocations) that have no callerId.
@@ -171,21 +177,27 @@ function readPresenceReadOnly(
   callerId: string | null,
 ): { presence: StatusLinePresence | null; invalid: boolean } {
   if (callerId !== null) {
+    let firstResolution: ReturnType<typeof resolveActiveSkillForCaller> | null = null;
     try {
-      const resolution = resolveActiveSkillForCaller(projectRoot, { callerId });
-      if (resolution.source === 'none' || resolution.skill === null) {
-        return { presence: null, invalid: false };
-      }
-      return {
-        presence: {
-          skill: resolution.skill,
-          ...(resolution.mode !== null ? { mode: resolution.mode } : {}),
-        },
-        invalid: false,
-      };
+      firstResolution = resolveActiveSkillForCaller(projectRoot, { callerId });
     } catch {
       return { presence: null, invalid: true };
     }
+    if (firstResolution.source !== 'none' && firstResolution.skill !== null) {
+      return {
+        presence: {
+          skill: firstResolution.skill,
+          ...(firstResolution.mode !== null ? { mode: firstResolution.mode } : {}),
+        },
+        invalid: false,
+      };
+    }
+    // callerId didn't match any lease — fall back to the session's most
+    // recent in-flight lease (the callerId === null branch below). This
+    // rescues the case where the harness pipes a `CLAUDE_CODE_SESSION_ID`
+    // that differs from the active lease's callerId (peaks-code sessions
+    // started from a different outer session id, etc.).
+    return readPresenceReadOnly(projectRoot, null);
   }
   // callerId === null branch: enumerate the canonical session dir's leases
   // and pick the most recent in-flight lease. This is the back-compat path
