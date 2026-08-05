@@ -12,8 +12,11 @@ const FORBIDDEN_PATTERN =
 const ROOTS = ['src', 'tests', '.peaks/standards', 'docs/superpowers/specs', 'docs/superpowers/plans'];
 const SELF_PATH = 'tests/unit/standards/capability-glossary.test.ts';
 
-describe('capability-glossary', () => {
-  it('does not use any forbidden alias anywhere under the project (excluding test self)', () => {
+describe("Scenario: capability-glossary", () => {
+  it("when invoked, should does not use any forbidden alias anywhere under the project (excluding test self)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Use pathspec exclusion `:!<path>` so the test file (which contains the literal
     // aliases as a string constant) is NOT scanned by `git grep`. This is the
     // cleanest form — we still scan every other repo surface.
