@@ -108,8 +108,11 @@ const SAMPLE_MESSAGE_WITH_MARKER = [
 //   Case B: IO error (EACCES-style) raised by readFileSync against an
 //           existing marker file is STILL swallowed (backward-compat:
 //           presence-not-found semantic preserved when the file is unreadable).
-describe('behavior — readPresenceFile catch narrows to IO errors only', () => {
-  it('Case A: SyntaxError from broken active-skill.json surfaces to caller (NOT swallowed)', () => {
+describe("Scenario: behavior — readPresenceFile catch narrows to IO errors only", () => {
+  it("when invoked, should Case A: SyntaxError from broken active-skill.json surfaces to caller (NOT swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Build a tmp project with the canonical presence marker path containing
     // INVALID JSON. existsSync returns true → readFileSync runs → JSON.parse
     // throws SyntaxError. Post-rid the catch MUST re-throw instead of
@@ -135,7 +138,10 @@ describe('behavior — readPresenceFile catch narrows to IO errors only', () => 
     }
   });
 
-  it('Case B: IO error from readFileSync against existing marker file returns active=false (still swallowed)', () => {
+  it("when invoked, should Case B: IO error from readFileSync against existing marker file returns active=false (still swallowed)", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     // Backward-compat: the original "presence not found" semantic MUST be
     // preserved for genuine IO failures (EACCES on a read-protected marker
     // file). We simulate an IO error by handing the hoisted `__fsMocks`

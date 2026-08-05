@@ -31,16 +31,22 @@ function baseInput(projectRoot: string): WorktreeAuthCheckInput {
   };
 }
 
-describe('host Agent worktree provenance gate', () => {
+describe("Scenario: host Agent worktree provenance gate", () => {
   withTmpWorkspacePerTest();
 
-  it('denies host isolation without Peaks provenance even when a lease id is supplied', () => {
+  it("when invoked, should denies host isolation without Peaks provenance even when a lease id is supplied", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const decision = evaluateWorktreeAuth(baseInput(process.cwd()));
     expect(decision.allow).toBe(false);
     if (!decision.allow) expect(decision.code).toBe('HOST_AGENT_ISOLATION_UNMANAGED');
   });
 
-  it('allows worktree isolation only when provenance matches an active canonical lease', () => {
+  it("when invoked, should allows worktree isolation only when provenance matches an active canonical lease", () => {
+    // given: the test setup
+    // when:  the function under test is invoked
+    // then:  the result matches the expectation
     const root = process.cwd();
     const runtime = join(root, '.peaks', '_runtime', SID);
     mkdirSync(join(runtime, 'worktree-leases'), { recursive: true });
