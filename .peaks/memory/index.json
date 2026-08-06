@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-01T02:51:39.632Z",
+  "updatedAt": "2026-08-06T04:32:24.356Z",
   "hot": {
     "feedback": [
       {
@@ -42,6 +42,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-commander-12-hidden-api-drift.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-24"
+      },
+      {
+        "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+        "kind": "feedback",
+        "description": "2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**错误地把\"orchestrator 不能直接 Edit/Write source c...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-code-orchestrator-capability-misjudgment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
       },
       {
         "name": "active-skill-cli-routing",
@@ -1178,6 +1186,70 @@
         "updatedAt": "2026-07-29"
       },
       {
+        "name": "2026-08-04-cross-platform-path-utility-rule",
+        "kind": "project",
+        "description": "peaks-loop 跨平台路径比较硬规则（2026-08-04 锁版） **触发场景**：任何切片修改了 session binding 读取、artifact 路径比较、dispatch 记录路径、lease 路径、worktre...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-04-cross-platform-path-utility-rule.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-04"
+      },
+      {
+        "name": "2026-08-04-publish-4-0-10",
+        "kind": "project",
+        "description": "peaks-loop 4.0.10 publish closure (2026-08-04) 触发场景 **用户原始反馈**：\"现在在 4.0.9 状态下，statusline 永远显示 \" + 追问\"我开发另外的项目效果好很多，当前...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-04-publish-4-0-10.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "2026-08-04-statusline-empty-rootcause-sediment",
+        "kind": "project",
+        "description": "Statusline  根因 sediment(2026-08-04) 1.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-04-statusline-empty-rootcause-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-03"
+      },
+      {
+        "name": "2026-08-05-four-optimizations-prd-sediment",
+        "kind": "project",
+        "description": "2026-08-05 four optimizations — PRD sediment **PRD file**:  **Decided**: 2026-08-05 by AskUserQuestion (all 4 options...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-four-optimizations-prd-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "2026-08-05-peaks-loop-4-0-12-publish-closure",
+        "kind": "project",
+        "description": "peaks-loop 4.0.12 publish closure — 2026-08-05 **Published**: tag  pushed, registry  +  confirmed.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-loop-4-0-12-publish-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "2026-08-05-peaks-loop-4-0-13-publish-closure",
+        "kind": "project",
+        "description": "2026-08-05 peaks-loop 4.0.13 publish closure **Session:** 2026-08-04-session-3fe1be (peaks-code, full-auto, IDLE post...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-loop-4-0-13-publish-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "2026-08-05-statusline-empty-render-short-sid-suffix-sid-only-marker-and-multi-binary-drift-guard",
+        "kind": "project",
+        "description": "2026-08-05 statusline empty-render + short-sid suffix + sid-only marker + multi-binary drift guard **Session:** 2026-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "2026-08-06-session-outer-cache-and-meta-coverage-sediment",
+        "kind": "project",
+        "description": "2026-08-06 session-outer-cache-and-meta-coverage slice sediment **Session:** 2026-08-04-session-3fe1be (peaks-code, f...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-06-session-outer-cache-and-meta-coverage-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-06"
+      },
+      {
         "name": "24h-loop-audit-2026-07-28",
         "kind": "project",
         "description": "peaks-loop 24h 长任务代码审计（2026-07-28） > **状态**：报告-only，未实施、未派 sub-agent、未改代码。 > **触发**：用户 2026-07-28 显式要求\"审视 + 不改代码\"。 > ...",
@@ -1248,6 +1320,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\4x-sediment-pool-reserves-desktop-client-entry-points.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-05"
+      },
+      {
+        "name": "capability-baseline-4-0-8-freeze",
+        "kind": "project",
+        "description": "**What happened**: Task 6 of 5-slice plan wrote the candidate input (commit d92d8c5, 452-line JSON, 15 rows).",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-04-4.0.8-freeze-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-03"
+      },
+      {
+        "name": "capability-baseline-guard-audit-fully-shipped",
+        "kind": "project",
+        "description": "**What happened**: 5-slice plan executed end-to-end.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-04-capability-baseline-design-plan-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-03"
       },
       {
         "name": "cli-cleanup-on-demand-ecc-design-2026-07-16",
@@ -1330,12 +1418,52 @@
         "updatedAt": "2026-07-01"
       },
       {
+        "name": "peaks-loop-2026-08-05-b1-b2-full-sweep-sediment",
+        "kind": "project",
+        "description": "2026-08-05 b1+b2 全 session sweep sediment Why 本会话一次性处理掉 166 个 request 中的所有非终态 rid(共 63 个:5 个 4.0.10 配套 + 1 rid-009 + ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-b1-b2-sweep-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "peaks-loop-2026-08-05-bdd-test-style-rid-sediment",
+        "kind": "project",
+        "description": "rid-2026-08-05-bdd-test-style sediment Why peaks-loop 当前 ~49 个 unit test 文件(不是 ~250,我估算错误),AAA 风格纯结构不表达业务。本 rid 把所有现有...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-bdd-test-style-rid-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
+        "name": "peaks-loop-2026-08-05-peaks-loop-4-0-11-publish-closure-sediment",
+        "kind": "project",
+        "description": "peaks-loop 4.0.11 publish closure sediment Why 2026-08-05 一次性 ship  — 包含 rid-2026-08-05-bdd-test-style 完整 5 slice + 3...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-loop-4-0-11-publish-closure-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-05"
+      },
+      {
         "name": "peaks-loop-24h-ai-programmer-positioning",
         "kind": "project",
         "description": "peaks-loop 24h AI 程序员定位 > 适用: 当 LLM 在解释 Code 编排 / 退化路径 / mode 选择时,避免误读为\"通用 AI 工具\"或\"前端代码工具\"。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-24h-ai-programmer-positioning.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "peaks-loop-24h-mode-59-rid-closure-pass",
+        "kind": "project",
+        "description": "24h mode — 59 closure-pass rids cleared (2026-08-01) What happened User asked: \"把 A-E 全部都处理完,采用 24h 模式吧\" — a 24h mode...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-01-24h-mode-59-rid-closure-pass.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-01"
+      },
+      {
+        "name": "peaks-loop-408-presence-lease-graph-shipped",
+        "kind": "project",
+        "description": "4.0.8 ship day — presence-lease + workflow-graph 日期 2026-08-03 切片 id 001-2026-08-03-presence-lease-graph-design Sessi...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-03-presence-lease-graph-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-03"
       },
       {
         "name": "peaks-loop-fast-iteration-quality-loop",
@@ -1392,6 +1520,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-31-mac-auto-compact-no-env-injection.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-31"
+      },
+      {
+        "name": "peaks-loop-mac-auto-compact-transcript-estimate-trigger",
+        "kind": "project",
+        "description": "Mac auto-compact trigger closure (commit 43561ffe — 2026-08-01) Symptom On Mac Claude Code, even after peaks-loop 4.0...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-01-mac-auto-compact-transcript-estimate-trigger.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-01"
       },
       {
         "name": "peaks-loop-prd-template-design",

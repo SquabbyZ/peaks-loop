@@ -1,5 +1,26 @@
 # Changelog
 
+## 4.0.15 — 2026-08-06 (rotation guards tightening + caller-derived workflowId + caller-binding primary source + atomic write hygiene)
+
+**Tightens rotation guards with 4th same-process re-resolve short-circuit** (slice `2026-08-06-rotation-guards-and-caller-binding`, commit `f38a796f`):
+- `src/services/session/session-binding-bridge.ts` introduces a module-scoped `lastResolvedOuter: { value: string | undefined; resolvedAt: number } | null` populated on every non-throw `getCurrentOuterSessionId` call (env hit / cache hit / undefined fallback). `ensureSessionWithRotation` now short-circuits on a 4th additive guard: when `lastResolvedOuter.value === currentOuterSessionId === boundOuter`, the rotation path is skipped. The 3 legacy guards (currentOuterSessionId === undefined / boundOuter empty / boundOuter === currentOuter) are preserved verbatim per PRD PB3. Test seam `_resetLastResolvedOuterForTest()` exported.
+- Tests: `tests/unit/session/rotation-guards-tightening.test.ts` (11 cases: 3 legacy-guard regressions + 4th-guard flip A→B same-process + per-process isolation + writeAtomic fallback + skipRotate + module-state integrity).
+
+**Caller-derived workflowId in legacy compat shim** (slice same, commit `2f6322a3`):
+- `src/services/skills/skill-presence-service.ts:391` switches the legacy compat shim's `workflowId` from `wf-${sessionId}-compat` to `wf-${projection.callerId.slice(0, 189)}-compat`. The slice(0, 189) protects against `WORKFLOW_ID_REGEX` overflow (3 + 200 callerId + 7 = 210 chars > 200 regex cap). `presence-lease-service.ts` and the sub-agent graph workflowId generators at `workflow-presence-lifecycle.ts:95` + `workflow-lifecycle-commands.ts:125` are untouched (per-invocation `wf-${Date.now().toString(36)}`, NOT legacy compat shims).
+- No migration of legacy `wf-<sid>-compat` leases from 4.0.14 installs; they become orphans and are reaped by the 24h30m stale-started GC at `presence-lease-service.ts:42`.
+- Tests: `tests/unit/services/skills/workflow-id-caller-derivation.test.ts` (8 cases: short / long / 200-char callerId boundary / graphRef D4a validation / 2-caller key isolation / legacy back-compat read / slice loss-free regression).
+
+**Caller-binding becomes primary binding source + atomic write hygiene** (slice same, commit `97caa66b`):
+- `src/services/session/session-binding-bridge.ts:184-310` `ensureSession` now uses a 3-tier read order: **`callers/<callerId>.json` (if `resolveCallerProjection` succeeds)** → `session.json` (fallback) → fresh-generate. Write path: BOTH files written on first bind or rotation, with `callers/<callerId>.json` FIRST (source of truth) + `session.json` SECOND (denormalized cache for legacy consumers). The lazy `resolveCallerProjection` import is wrapped in try/catch so `PEAKS_CALLER_NOT_RESOLVED` falls through to `session.json` (preserves legacy behavior).
+- `src/services/session/session-manager.ts` adds internal helper `getSessionIdFromCallerBinding` (NOT exported; called from `getSessionId` and `getSessionIdCanonical` BEFORE `readSessionFile` / `readSessionFileCanonical`). Public signatures unchanged — all 14 `getSessionId(` consumers continue to compile and run without modification.
+- `src/services/session/caller-binding-service.ts:113-133` `setCallerBinding` swaps non-atomic `writeFileSync` for `atomicWriteJson` (single-line, plus import + removal of the now-redundant `mkdirSync` block — atomicWriteJson does its own `mkdirSync(dir, { recursive: true })`).
+- `src/cli/commands/outer-cache-commands.ts:125` `peaks outer-cache write` swaps non-atomic `writeFileSync` for `atomicWriteJson` (carry-forward bug from 4.0.14 QA issue #1: a power-loss mid-write left the cache in "permanent bad state" until the next SessionStart).
+- Tests: `tests/unit/session/caller-binding-primary-source.test.ts` (11 cases: 3-tier read order / dual-write ordering / callerId-unresolved fallback / malformed file graceful fallback / `getSessionId` preservation / `skipRotate` honored / 14-consumer regression / `setCallerBinding` atomic / temp-file cleanup) + `tests/unit/cli/outer-cache-atomic-write.test.ts` (4 cases: writeFileSync residue check / atomicWriteJson call / 4.0.14 AC1-AC7 regression / simulated write failure).
+- All 5 modified files stay under the 800 LOC cap: `session-binding-bridge.ts` 527 / `skill-presence-service.ts` 695 / `session-manager.ts` 618 / `caller-binding-service.ts` 204 / `outer-cache-commands.ts` 201. Regression sweep: 229/230 PASS / 1 SKIP (pre-existing Win-only conditional). `tsc -p tsconfig.json --noEmit` clean for slice files.
+
+**Lockstep bump.** peaks-loop-shared `0.0.44 → 0.0.45` (CLI_VERSION re-stamped to 4.0.15); peaks-loop-mut `0.1.17 → 0.1.18`; peaks-loop-shared-channel `0.0.21 → 0.0.22`.
+
 ## 4.0.14 — 2026-08-06 (outer-session cache + ensureSession meta over-coverage)
 
 **Fixes the "5 terminals / 5 sessions stuck on 3fe1be" bug** (slice `2026-08-06-session-outer-cache-and-meta-coverage`, commit `f02a9b45`):
