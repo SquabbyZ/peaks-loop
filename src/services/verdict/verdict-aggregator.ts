@@ -27,8 +27,7 @@
  *     SecurityAuditEnvelope / PerfAuditEnvelope type re-exports.
  *   - hard precedence; no scoring, no weighting, no RFC voting.
  */
-import type { SecurityAuditEnvelope } from '../audit-independent/index.js';
-import type { PerfAuditEnvelope } from '../audit-independent/index.js';
+import type { PerfAuditEnvelope, SecurityAuditEnvelope } from '../audit-independent/index.js';
 import type { ThresholdViolation } from 'peaks-loop-mut';
 
 // v2.13.1 — karpathy / mut / qa envelope types are defined locally

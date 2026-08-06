@@ -23,8 +23,7 @@
 
 import type { Command } from 'commander';
 
-import type { ProgramIO } from '../cli-helpers.js';
-import { addJsonOption, printResult } from '../cli-helpers.js';
+import { type ProgramIO, addJsonOption, printResult } from '../cli-helpers.js';
 import { decideGateAction, extractFilePath, type GateInput } from '../../services/hooks/pre-tool-code-gate.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

@@ -19,9 +19,8 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveWorkflow, planWorkflow, planWorkflowRun } from '../../services/workflow/workflow-loader.js';
-import { lintWorkflowSpec, type WorkflowSpec } from '../../services/workflow/workflow-spec.js';
+import { lintWorkflowSpec, type EvaluatorKind, type WorkflowSpec } from '../../services/workflow/workflow-spec.js';
 import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from '../../services/loop/evaluator-dispatcher.js';
-import type { EvaluatorKind } from '../../services/workflow/workflow-spec.js';
 import { DEFAULT_MONOTONIC_THRESHOLD } from '../../services/loop/monotonic-guard.js';
 import {
   runMonotonicCheck,

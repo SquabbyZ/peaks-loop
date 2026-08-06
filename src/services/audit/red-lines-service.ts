@@ -15,7 +15,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { classifyFiles } from './classifier.js';
+import { classifyFiles, type ClassifyFileInput } from './classifier.js';
 import { classifyBackingBatch } from './backing-detector.js';
 import { scanSkillsTree } from './scanners/skills-tree-scanner.js';
 import { scanRulesTree } from './scanners/rules-tree-scanner.js';
@@ -89,7 +89,6 @@ import {
   lintRuntimeBudget,
   readCatalogHistory,
 } from './enforcers/lint-audit-regression.js';
-import type { ClassifyFileInput } from './classifier.js';
 import type { EnforcerFinding, RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
 
 export interface RedLinesServiceInput {

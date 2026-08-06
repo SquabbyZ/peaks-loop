@@ -54,7 +54,7 @@ import type {
 import { decomposeSlices } from './slice-decompose-service.js';
 import { resetArbitratorBudget } from './llm-arbitrator.js';
 import { shouldSubdivide } from './granularity-decider.js';
-import { merge } from './cross-pass-edge-merger.js';
+import { merge, type LlmCallTrace } from './cross-pass-edge-merger.js';
 import type {
   CrossPassEdge,
   DecompositionResultV2,
@@ -64,7 +64,6 @@ import type {
   SliceGranularity,
   SliceV2
 } from './slice-topology-types.js';
-import type { LlmCallTrace } from './cross-pass-edge-merger.js';
 
 export type Granularity = 'service' | 'file' | 'both' | 'auto';
 

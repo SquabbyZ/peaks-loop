@@ -25,8 +25,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getSkillPresence } from '../skills/skill-presence-service.js';
-import type { SkillPresenceMode } from '../skills/skill-presence-service.js';
+import { getSkillPresence, type SkillPresenceMode } from '../skills/skill-presence-service.js';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 

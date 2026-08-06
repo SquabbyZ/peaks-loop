@@ -73,6 +73,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -167,8 +168,6 @@ const DIST_ENTRY = resolveDistEntry();
 //   dist freshness check — they run against TS source via vitest's
 //   transpile path and never spawn the CLI. This is the smallest correct
 //   fix: scoped to the one suite that consumes dist/.
-
-import { statSync } from 'node:fs';
 
 const REPO_ROOT = dirname(dirname(dirname(DIST_ENTRY))); // dist/cli/index.js → 3 levels up
 

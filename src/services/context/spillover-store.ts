@@ -11,8 +11,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative } from 'node:path';
 
-import { SPILL_TTL_MS } from './spillover-types.js';
-import type { SpillId, SpillOptions, SpillRecord, SpillState } from './spillover-types.js';
+import { SPILL_TTL_MS, type SpillId, type SpillOptions, type SpillRecord, type SpillState } from './spillover-types.js';
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
 

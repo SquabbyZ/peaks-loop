@@ -1,6 +1,5 @@
 import { symlinkSync as nodeSymlinkSync, readlinkSync } from 'node:fs';
-import type { Platform } from './platform.js';
-import { platform } from './platform.js';
+import { platform, type Platform } from './platform.js';
 
 export function getDirectoryLinkType(targetPlatform: Platform = platform): 'junction' | 'dir' {
   return targetPlatform === 'win32' ? 'junction' : 'dir';

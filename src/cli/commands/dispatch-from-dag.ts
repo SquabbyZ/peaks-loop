@@ -27,8 +27,7 @@
  * the CLI envelope is filtered to level-1 toolCalls (see `firstLevelIds`).
  */
 import { randomUUID } from 'node:crypto';
-import type { ProgramIO } from '../cli-helpers.js';
-import { printResult } from '../cli-helpers.js';
+import { type ProgramIO, printResult } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';

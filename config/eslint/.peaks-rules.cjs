@@ -13,7 +13,7 @@
  * dogfood because (a) npm 10.9.4 + npx silently fails the fourth
  * `--package` flag on Windows and (b) eslint-plugin-import@2.32.0
  * peer-rejects eslint 10. Duplicate-import warnings are re-expressed
- * through `@typescript-eslint/no-duplicate-imports` below.
+ * through ESLint built-in `no-duplicate-imports` below (PRD-002b 2026-08-07).
  *
  * Framework-specific rules (eslint-plugin-react, eslint-plugin-vue,
  * eslint-plugin-svelte, eslint-plugin-nestjs, etc.) are LAYER 3 and
@@ -104,9 +104,11 @@ module.exports = {
       }
     ],
 
-    // L2 (typescript-eslint only) — boundary hygiene that previously
-    // lived under eslint-plugin-import.
-    '@typescript-eslint/no-duplicate-imports': 'warn'
+    // L2 (boundary hygiene that previously lived under eslint-plugin-import).
+    // Use ESLint built-in `no-duplicate-imports` — `@typescript-eslint/no-duplicate-imports`
+    // does NOT exist in @typescript-eslint/eslint-plugin@8.66.0 (broken ruleId, all 820
+    // phantom entries were `Definition for rule ... was not found`). PRD-002b 2026-08-07.
+    'no-duplicate-imports': 'warn'
   },
   overrides: [
     {

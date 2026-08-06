@@ -17,7 +17,7 @@ import {
   shouldPauseAtGate,
   formatAutoProceedLogLine
 } from '../../services/code/mode-gate.js';
-import { checkStalePresence } from '../../services/skills/skill-presence-service.js';
+import { checkStalePresence, getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { emitObservabilityEvent } from '../../services/observability/observability-service.js';
 import { buildCodePlan } from './code-commands.js';
@@ -262,9 +262,8 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
 
 // Local helper (was `readActiveSid` in code-commands.ts before rid-024 split).
 // The mode-gate stale-presence check needs the active sid for the
-// observability event; we re-import getSkillPresence here to avoid the
-// cross-file helper import.
-import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+// observability event; `getSkillPresence` is imported at the top of the file
+// alongside `checkStalePresence` to keep imports deduplicated.
 function readActiveSidForModeGate(projectRoot: string): string | null {
   try {
     const presence = getSkillPresence(projectRoot);

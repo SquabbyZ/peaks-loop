@@ -17,8 +17,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 import type { RedLineAudit } from '../../services/audit/types.js';
-import type { AuditDecisionRecord } from '../../services/audit/decision-writer.js';
-import { writeAuditDecision } from '../../services/audit/decision-writer.js';
+import { type AuditDecisionRecord, writeAuditDecision } from '../../services/audit/decision-writer.js';
 import { computeProseRatio, type ProseRatioResult } from '../../services/audit/prose-ratio-calculator.js';
 import {
   writeDecision,

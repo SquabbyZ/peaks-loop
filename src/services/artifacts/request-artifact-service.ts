@@ -28,8 +28,7 @@ export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestT
 // `import type` is required so the type is in scope as a bare identifier
 // within this file (the value re-export alone does not bring types into
 // the local namespace under `isolatedModules`).
-import type { RequestArtifactRole } from './artifact-templates.js';
-import { renderTemplate } from './artifact-templates.js';
+import { type RequestArtifactRole, renderTemplate } from './artifact-templates.js';
 export type { RequestArtifactRole } from './artifact-templates.js';
 export { formatHandoffPath, formatCommitBoundaryPath, formatSkillUsageLessonsPath } from './artifact-templates.js';
 
@@ -485,9 +484,9 @@ import {
   LintGateError,
   PrerequisitesNotSatisfiedError,
   TypeSanityViolationError,
-  updateStatusBlock
+  updateStatusBlock,
+  type RequestArtifactState,
 } from './request-artifact-state-helpers.js';
-import type { RequestArtifactState } from './request-artifact-state-helpers.js';
 export {
   allowedStatesForRole,
   FileSizeViolationError,

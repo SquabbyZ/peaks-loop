@@ -14,8 +14,7 @@
  * File budget: ≤ 400 lines (rid-006 split).
  */
 
-import type { RequestType } from '../artifacts/artifact-prerequisites.js';
-import { isRequestType } from '../artifacts/artifact-prerequisites.js';
+import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
 import { readSkipState } from './workflow-state-store.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';

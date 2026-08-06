@@ -20,8 +20,7 @@
 
 import type { Command } from 'commander';
 
-import type { ProgramIO } from '../cli-helpers.js';
-import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult } from '../cli-helpers.js';
+import { type ProgramIO, addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { mapServiceError } from './_cli-error-envelope.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';

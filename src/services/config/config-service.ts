@@ -1,13 +1,10 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, ModelPreference, ModelProviderConfig, PeaksConfig, ProviderModelConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
-import { DEFAULT_CONFIG } from './config-types.js';
+import { DEFAULT_CONFIG, isConfigV2, type ConfigGetOptions, type ConfigLayer, type ConfigSetOptions, type ConfigV2, type ModelPreference, type ModelProviderConfig, type PeaksConfig, type ProviderModelConfig, type ProxyConfig, type TokenConfig, type TokenRef, type WorkspaceConfig } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
 import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
 import { globalConfigPath, CONFIG_SCHEMA_VERSION_V2 } from './config-migration.js';
-import { isConfigV2 } from './config-types.js';
-import { providersConfigPath, proxyConfigPath, readSidecarJson, sidecarExists, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
-import { SIDECAR_SCHEMA_VERSION } from './sidecar-store.js';
+import { SIDECAR_SCHEMA_VERSION, providersConfigPath, proxyConfigPath, readSidecarJson, sidecarExists, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
 
 // Re-export resolveProjectRootForConfig and resolveCanonicalProjectRoot for external consumers
 export { resolveProjectRootForConfig, resolveCanonicalProjectRoot } from './config-safety.js';

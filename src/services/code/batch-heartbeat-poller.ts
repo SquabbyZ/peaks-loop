@@ -24,8 +24,7 @@
  * by a real OS-level watcher in a future slice without changing the
  * callback contract.
  */
-import type { DispatchRecord, HeartbeatStatus } from '../dispatch/dispatch-record-writer.js';
-import { readRecords } from '../dispatch/dispatch-record-writer.js';
+import { type DispatchRecord, type HeartbeatStatus, readRecords } from '../dispatch/dispatch-record-writer.js';
 import { renderStatusLine, summarize, viewSubAgent, type SubAgentLiveView } from './status-line-renderer.js';
 
 export const DEFAULT_POLL_INTERVAL_MS = 10_000;

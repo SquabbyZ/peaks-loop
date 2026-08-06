@@ -24,8 +24,7 @@
  *   - It returns `undefined` when detection is unavailable; callers
  *     must fall back to the configured / hardcoded model.
  */
-import { getAdapter } from './ide-registry.js';
-import { listAdapterIds } from './ide-registry.js';
+import { getAdapter, listAdapterIds } from './ide-registry.js';
 
 /**
  * Probe every registered IDE adapter for its currently-active model

@@ -18,8 +18,7 @@
  * with the zod schema and either re-migrate or rebuild empty.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { copyFileSync, openSync, closeSync, constants as fsConstants } from 'node:fs';
+import { constants as fsConstants, copyFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
