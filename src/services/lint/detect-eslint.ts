@@ -45,7 +45,10 @@ function probeNpx(): boolean {
 function probePackage(key: keyof typeof ESLINT_PACKAGE_PINS): boolean {
   const pkg = packageNameFor(key);
   const pin = ESLINT_PACKAGE_PINS[key];
-  const result = spawnSync('npm', ['view', `${pkg}@${pin}`, 'version'], { encoding: 'utf8' });
+  // shell:true required on Windows because `npm` (like npx) is a `.cmd`
+  // shim; Node 22 refuses to invoke it without shell wrapper.
+  // 2026-08-06 lint-dogfood cycle-2 follow-up.
+  const result = spawnSync('npm', ['view', `${pkg}@${pin}`, 'version'], { encoding: 'utf8', shell: true });
   return result.status === 0;
 }
 

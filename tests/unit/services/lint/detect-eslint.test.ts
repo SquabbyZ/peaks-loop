@@ -44,4 +44,25 @@ describe('detectEslint', () => {
     expect(result.state).toBe('npx-failed');
     expect(result.npxAvailable).toBe(false);
   });
+
+  it('when probing the npm registry, should invoke `npm view` through a Windows shell wrapper', () => {
+    // given: npx probe succeeds; each package probe returns status 0
+    spawnSyncMock
+      .mockReturnValueOnce({ status: 0, stdout: '10.9.4' } as ReturnType<typeof spawnSync>)
+      .mockReturnValue({ status: 0, stdout: '8.57.1' } as ReturnType<typeof spawnSync>);
+
+    // when: ESLint availability is detected
+    const result = detectEslint();
+
+    // then: every `npm view` call sets shell:true so the Windows .cmd shim resolves
+    const packageCalls = spawnSyncMock.mock.calls.slice(1) as Array<[string, string[], Record<string, unknown>]>;
+    expect(packageCalls.length).toBeGreaterThan(0);
+    for (const call of packageCalls) {
+      expect(call[0]).toBe('npm');
+      expect(call[1][0]).toBe('view');
+      expect(call[2]).toMatchObject({ shell: true, encoding: 'utf8' });
+    }
+    expect(result.state).toBe('ready');
+    expect(result.warnings).toEqual([]);
+  });
 });
