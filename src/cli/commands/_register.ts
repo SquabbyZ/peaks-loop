@@ -42,6 +42,7 @@ import { registerWorkflowEvalCommands } from './loop-eval-commands.js';
 import { registerMutCommands } from './mut-commands.js';
 import { registerObservabilityCommands } from './observability-commands.js';
 import { registerOpenSpecCommands } from './openspec-commands.js';
+import { registerOuterCacheCommands } from './outer-cache-commands.js';
 import { registerPerfAuditCommands } from './perf-audit-commands.js';
 import { registerPerfCommands } from './perf-commands.js';
 import { registerPlaywrightCommands } from './playwright-commands.js';
@@ -144,6 +145,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['adapter-commands-s2a', registerAdapterS2ACommands], ['polyrepo-commands', registerPolyrepoCommands],
   ['worktree-auth-commands', registerWorktreeAuthCommand],
   ['session-spill-demo', registerSpillDemoCommand],
+  ['outer-cache-commands', registerOuterCacheCommands],
 ];
 
 function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO): void {

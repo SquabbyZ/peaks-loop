@@ -6,6 +6,7 @@ import { atomicWriteJson, readJsonObjectFile } from '../ide/shared/atomic-json.j
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 import type { HookScope } from '../ide/shared/safe-path.js';
+import { HOOK_OUTER_CACHE_COMMAND, HOOK_OUTER_CACHE_EVENT, HOOK_OUTER_CACHE_SENTINEL } from './outer-cache-hook-constants.js';
 
 /**
  * Install (and remove) the Peaks-managed hooks in an IDE's settings.json.
@@ -302,12 +303,25 @@ export type PeaksHookEntry = {
  * entry's sentinel is included in the legacy sentinel set so uninstall
  * can find + remove any stale progress-start entry that an older
  * `peaks hooks install` may have written before this slice.
+ *
+ * Slice 2026-08-06-session-outer-cache: a SessionStart outer-cache primer
+ * entry is appended for Claude Code only (SessionStart is a Claude-Code-
+ * specific event key today).
  */
 function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
-  return [
+  const entries: PeaksHookEntry[] = [
     { sentinel: spec.hookEnforceSentinel, matcher: spec.hookEnforceMatcher, command: spec.hookEnforceCommand, event: spec.hookEnforceEvent }
   ];
+  if (ide === 'claude-code') {
+    entries.push({
+      sentinel: HOOK_OUTER_CACHE_SENTINEL,
+      matcher: '',
+      command: HOOK_OUTER_CACHE_COMMAND,
+      event: HOOK_OUTER_CACHE_EVENT
+    });
+  }
+  return entries;
 }
 
 /**
@@ -321,7 +335,13 @@ function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  if (ide === 'trae') {
  return ['peaks hook handle', LEGACY_PROGRESS_START_SENTINEL];
  }
- return [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL];
+ // Slice 2026-08-06-session-outer-cache: include the SessionStart outer-cache
+ // sentinel so uninstall strips it alongside the gate-enforce entry.
+ const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL];
+ if (ide === 'claude-code') {
+   return [...base, HOOK_OUTER_CACHE_SENTINEL];
+ }
+ return base;
 }
 
 // --- Slice 2026-07-29-worktree-layer3-deny -----------------------------------

@@ -28,7 +28,8 @@ import {
   getSessionId,
   getSessionIdCanonical,
   getSessionMeta,
-  rotateSessionBinding
+  rotateSessionBinding,
+  setSessionMeta
 } from './session-manager.js';
 
 // --- Lower-level helpers the bridge needs (moved verbatim) ---
@@ -36,6 +37,13 @@ import {
 const SESSION_FILE = join('_runtime', 'session.json');
 const LEGACY_SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
+// Slice 2026-08-06-session-outer-cache: per-project file cache for the
+// outer (Claude Code / Trae / IDE) session id. Written by the
+// SessionStart hook via `peaks outer-cache write` so that peaks CLI
+// sub-processes (which do NOT inherit CLAUDE_CODE_SESSION_ID) can still
+// resolve the current outer session. Lives under the gitignored
+// `.peaks/_runtime/` tree, so no .gitignore change is required.
+const OUTER_SESSION_CACHE_FILE = join('_runtime', '.outer-session-cache.json');
 
 function getLegacySessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', LEGACY_SESSION_FILE);
@@ -149,11 +157,38 @@ function writeSessionMeta(
   writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
 }
 
-function getCurrentOuterSessionId(): string | undefined {
+function getCurrentOuterSessionId(projectRoot?: string): string | undefined {
   const peaks = process.env.PEAKS_OUTER_SESSION_ID;
   if (typeof peaks === 'string' && peaks.length > 0) return peaks;
   const claude = process.env.CLAUDE_CODE_SESSION_ID;
   if (typeof claude === 'string' && claude.length > 0) return claude;
+  // Slice 2026-08-06-session-outer-cache (G1): when the peaks CLI runs
+  // as a sub-process of Claude Code (or any IDE that does not export
+  // CLAUDE_CODE_SESSION_ID into the child env), the env vars above are
+  // undefined. Fall back to the per-project file cache written by the
+  // SessionStart hook via `peaks outer-cache write`. The file lives
+  // under `.peaks/_runtime/` (gitignored) so no .gitignore change is
+  // required. Any IO error or non-string `outerSessionId` field is
+  // treated as a cache miss — never throw.
+  if (projectRoot !== undefined) {
+    const cachePath = join(projectRoot, '.peaks', OUTER_SESSION_CACHE_FILE);
+    if (existsSync(cachePath)) {
+      try {
+        const raw = readFileSync(cachePath, 'utf8');
+        const parsed: unknown = JSON.parse(raw);
+        if (
+          parsed !== null &&
+          typeof parsed === 'object' &&
+          typeof (parsed as { outerSessionId?: unknown }).outerSessionId === 'string' &&
+          ((parsed as { outerSessionId: string }).outerSessionId).length > 0
+        ) {
+          return (parsed as { outerSessionId: string }).outerSessionId;
+        }
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+        // fall through — file missing / malformed JSON / IO error → undefined
+      }
+    }
+  }
   return undefined;
 }
 
@@ -184,6 +219,20 @@ export type EnsureSessionResult = {
 export async function ensureSession(projectRoot: string): Promise<string> {
   const existing = readSessionFile(projectRoot);
   if (existing) {
+    // Slice 2026-08-06-session-outer-cache (G3 / AC8-AC11): on every
+    // already-bound invocation, stamp the current outer-session-id
+    // onto the bound session's meta so the on-disk
+    // `.peaks/_runtime/<sid>/session.json` always reflects the latest
+    // outer signal — not a stale value captured at session creation
+    // time. `setSessionMeta` is read-modify-write: every other field
+    // (title / skill / mode / gate / createdAt / lastActivity) is
+    // preserved. `getCurrentOuterSessionId(projectRoot)` reads env
+    // → file-cache → undefined; an undefined value is NOT written,
+    // so the previously-stamped outer (if any) survives.
+    const outerSessionId = getCurrentOuterSessionId(projectRoot);
+    if (outerSessionId !== undefined) {
+      setSessionMeta(projectRoot, existing.sessionId, { outerSessionId });
+    }
     return existing.sessionId;
   }
 
@@ -218,8 +267,11 @@ export async function ensureSession(projectRoot: string): Promise<string> {
 
   await initWorkspace({ projectRoot, sessionId });
 
-  // Initialize session metadata inside the session directory
-  const outerSessionId = getCurrentOuterSessionId();
+  // Initialize session metadata inside the session directory.
+  // Slice 2026-08-06-session-outer-cache (G1): pass `projectRoot` so
+  // the env → file-cache → undefined resolution chain also reads the
+  // SessionStart-written cache on first bind.
+  const outerSessionId = getCurrentOuterSessionId(projectRoot);
   writeSessionMeta(projectRoot, sessionId, {
     sessionId,
     projectRoot,
@@ -269,7 +321,10 @@ export async function ensureSessionWithRotation(
   options?: EnsureSessionOptions
 ): Promise<EnsureSessionResult> {
   const skipRotate = options?.skipRotateOnOuterMismatch === true;
-  const currentOuterSessionId = getCurrentOuterSessionId();
+  // Slice 2026-08-06-session-outer-cache (G1): pass `projectRoot` so
+  // the rotation-decision comparison sees the SessionStart cache
+  // when the env vars are unset (sub-process / nested invocation).
+  const currentOuterSessionId = getCurrentOuterSessionId(projectRoot);
 
   // Compute the rotation decision up front. We only rotate when ALL
   // three pre-conditions hold: (a) the current outer session id is
