@@ -37,7 +37,10 @@ module.exports = {
     ecmaVersion: 2022,
     sourceType: 'module',
     project: ['./tsconfig.json', './tsconfig.build.json'],
-    tsconfigRootDir: __dirname + '/..'
+    // 2026-08-06 lint-dogfood cycle-3 follow-up: the runner now uses
+    // `node node_modules/eslint/bin/eslint.js` from the repo root, so
+    // tsconfigRootDir must be the repo root (one level above config/).
+    tsconfigRootDir: __dirname + '/../..'
   },
   env: {
     node: true,

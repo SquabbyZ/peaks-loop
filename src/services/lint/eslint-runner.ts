@@ -287,15 +287,19 @@ export function buildEslintArgs(options: EslintRunOptions): string[] {
       code: 'LINT_FIX_FORBIDDEN'
     });
   }
-  const args = [
-    '--package', `eslint@${ESLINT_PACKAGE_PINS.eslint}`,
-    '--package', `@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`,
-    '--package', `@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`,
-    '--', 'eslint', '--format', 'json'
-  ];
-  if (options.configPath !== undefined) {
-    args.push('--config', options.configPath);
-  }
+  // The runner now uses the locally-installed eslint binary
+  // (`./node_modules/eslint/bin/eslint.js`) instead of the npx
+  // --package wrapper, which is broken on Windows (npm 10.9.4 chdirs
+  // the child to its own cache bin, breaking config auto-discovery).
+  // The pin constants are kept for detect-eslint's npm-registry
+  // probe + for the npx-resolver fallback path.
+  const args: string[] = ['--format', 'json'];
+  // Always pass the legacy .peaks-rules.cjs path; ESLint 8
+  // auto-discovers only `.eslintrc.*` files and our config lives at
+  // `config/eslint/.peaks-rules.cjs`. Callers may override via
+  // `options.configPath`.
+  const effectiveConfigPath = options.configPath ?? join('config', 'eslint', '.peaks-rules.cjs');
+  args.push('--config', effectiveConfigPath);
   args.push(...(options.scope !== undefined && options.scope.length > 0 ? [options.scope] : ['.']));
   return args;
 }
@@ -309,17 +313,41 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
     return emptyResult('execution-failed', start, error instanceof Error ? error.message : String(error));
   }
 
+  const projectRoot = resolveProjectRoot(options.cwd);
+  // Invoke eslint via `node <node_modules/eslint/bin/eslint.js>` to bypass
+  // the Windows .cmd shim entirely (Node 22 spawnSync cannot run .cmd
+  // shims without shell:true, and shell:true mangles quoted args).
+  const localEslintJs = join(projectRoot, 'node_modules', 'eslint', 'bin', 'eslint.js');
+  const useLocal = existsSync(localEslintJs);
+
   const spawnOptions: SpawnSyncOptions = {
-    cwd: resolveProjectRoot(options.cwd),
+    cwd: projectRoot,
     encoding: 'utf8',
     timeout: options.timeoutMs ?? 60_000,
     maxBuffer: 32 * 1024 * 1024
   };
 
-  // Resolve `npx` through the user's bundled npm install to bypass the
-  // Windows .cmd shim + shell-quoting issues.
-  const { command, args: npxArgs, baseEnv } = resolveNpxInvocation(args);
-  const result = spawnSync(command, npxArgs, { ...spawnOptions, env: baseEnv });
+  let command: string;
+  let invocationArgs: readonly string[];
+  let baseEnv: NodeJS.ProcessEnv;
+  if (useLocal) {
+    command = process.execPath;
+    invocationArgs = [localEslintJs, ...args];
+    baseEnv = process.env;
+  } else {
+    // Fallback: resolve `npx` through the user's bundled npm install to
+    // bypass the Windows .cmd shim + shell-quoting issues.
+    const resolved = resolveNpxInvocation([
+      '--package', `eslint@${ESLINT_PACKAGE_PINS.eslint}`,
+      '--package', `@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`,
+      '--package', `@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`,
+      '--', 'eslint', ...args
+    ]);
+    command = resolved.command;
+    invocationArgs = resolved.args;
+    baseEnv = resolved.baseEnv;
+  }
+  const result = spawnSync(command, invocationArgs, { ...spawnOptions, env: baseEnv });
 
   if (result.error !== undefined && result.error !== null) {
     const message = result.error.message;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildEslintArgs, ESLINT_PACKAGE_PINS, runEslint } from '../../../../src/services/lint/eslint-runner.js';
+import { buildEslintArgs, runEslint } from '../../../../src/services/lint/eslint-runner.js';
 
 type SpawnResult = {
   status: number | null;
@@ -270,31 +270,33 @@ describe('runEslint', () => {
 });
 
 describe('buildEslintArgs', () => {
-  it('when --scope is supplied, should pin three compatible packages and omit eslint-plugin-import', () => {
+  it('when --scope is supplied, should include --format json + --config + the scope path, no plugin pin args', () => {
     // given: a scope value
     // when: buildEslintArgs is called
     const args = buildEslintArgs({ cwd: process.cwd(), scope: 'src/' });
 
-    // then: the args pin the compatible three-package toolchain and include the format flag
-    expect(args).toContain(`eslint@${ESLINT_PACKAGE_PINS.eslint}`);
-    expect(args).toContain(`@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`);
-    expect(args).toContain(`@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`);
-    expect(args.some((arg) => arg.includes('eslint-plugin-import'))).toBe(false);
+    // then: the args are local-binary friendly (format + config + scope, no npx --package wrappers)
     expect(args).toContain('--format');
     expect(args).toContain('json');
+    expect(args).toContain('--config');
+    expect(args).toContain(join('config', 'eslint', '.peaks-rules.cjs'));
+    expect(args.some((arg) => arg.startsWith('--package'))).toBe(false);
+    expect(args.some((arg) => arg.includes('eslint-plugin-import'))).toBe(false);
     expect(args[args.length - 1]).toBe('src/');
   });
 
-  it('when eslint runs, should invoke npx through the cross-platform resolver', () => {
-    // given: eslint returns an empty result
+  it('when eslint runs, should invoke the local eslint.js via node when present', () => {
+    // given: eslint returns an empty result and the project root has node_modules/eslint/bin/eslint.js
     queueSpawnSequence([{ status: 0, stdout: '[]' }]);
 
-    // when: runEslint executes the pinned toolchain
+    // when: runEslint executes the local toolchain
     runEslint({ cwd: process.cwd(), diffOnly: false });
 
-    // then: spawnSync receives a non-`npx` command resolved for the host platform
+    // then: spawnSync invokes `node <eslint.js>` (not `npx` and not a .cmd shim)
     const call = childMock.spawnSync.mock.calls[0] as [string, string[], Record<string, unknown>];
     expect(call[0]).not.toBe('npx');
+    expect(call[0]).toMatch(/node(\.exe)?$/);
+    expect(call[1][0]).toMatch(/eslint\.js$/);
     expect(call[1]).toEqual(expect.arrayContaining(['--format', 'json']));
     expect(call[2]).toMatchObject({ encoding: 'utf8' });
   });
