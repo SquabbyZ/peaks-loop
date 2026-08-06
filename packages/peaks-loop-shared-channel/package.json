@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-shared-channel",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "Dispatcher-mediated shared channel and its filesystem safety primitives for peaks-loop.",
   "keywords": [
     "peaks-loop",

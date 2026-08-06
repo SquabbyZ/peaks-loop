@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.0.14 — 2026-08-06 (outer-session cache + ensureSession meta over-coverage)
+
+**Fixes the "5 terminals / 5 sessions stuck on 3fe1be" bug** (slice `2026-08-06-session-outer-cache-and-meta-coverage`, commit `f02a9b45`):
+- `src/services/session/session-binding-bridge.ts` `getCurrentOuterSessionId(projectRoot)` now resolves `PEAKS_OUTER_SESSION_ID` → `CLAUDE_CODE_SESSION_ID` → file-cache at `.peaks/_runtime/.outer-session-cache.json` → `undefined`. Any IO error or non-string `outerSessionId` is a cache-miss (no throw). The cache file lives under the existing `.peaks/_runtime/` gitignore parent rule — no `.gitignore` modification.
+- Same file: `ensureSession` early-return path now calls `setSessionMeta(projectRoot, existing.sessionId, { outerSessionId })` BEFORE returning. The on-disk `.peaks/_runtime/<sid>/session.json` always reflects the latest outerSessionId (not a stale value captured at first-bind time). All other meta fields (title / skill / mode / gate / createdAt) preserved via read-modify-write; `lastActivity` bumped to `now`.
+- `src/services/skills/hooks-settings-service.ts` `resolveHookEntries('claude-code')` now appends a SessionStart entry that runs `peaks outer-cache write --project ...` to keep the cache in sync with the active Claude Code session. Uninstall strips the entry alongside the gate-enforce entry. Multi-binary drift guard (slice 2026-08-05) still fires correctly because the SessionStart entry uses the same `peaks` binary.
+- New CLI: `peaks outer-cache write` (no flags) + `peaks outer-cache read` (returns `{ missing: true }` envelope on absent / malformed / IO error). Write exits 1 with `OUTER_CACHE_NO_ENV` when neither `PEAKS_OUTER_SESSION_ID` nor `CLAUDE_CODE_SESSION_ID` is set.
+- Tests: `tests/unit/session/get-current-outer-session-id.test.ts` (10 cases pinning env > cache > undefined ordering, cache-miss / malformed JSON / IO error tolerance) + `tests/unit/session/ensure-session-meta-coverage.test.ts` (7 cases pinning AC8-AC11 over-coverage). Regression sweep: 179/179 PASS / 1 SKIP (pre-existing Win-only conditional).
+- A.3 / A.4 / A.5 (workflowId by callerId + `session.json` migration + cross-outer rotation cases) explicitly reserved for a future session per PRD NG1-NG4.
+
+**Lockstep bump.** peaks-loop-shared `0.0.43 → 0.0.44` (CLI_VERSION re-stamped to 4.0.14); peaks-loop-mut `0.1.16 → 0.1.17`; peaks-loop-shared-channel `0.0.20 → 0.0.21`.
+
 ## 4.0.13 — 2026-08-06 (statusline empty-render fix + sid-only marker + multi-binary drift guard)
 
 **Statusline callerId fallback + active `[short-sid]` suffix** (slice `2026-08-05-statusline-empty-render-and-short-sid-suffix`, commit `4be37d08`):
