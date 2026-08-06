@@ -174,13 +174,13 @@ export function runOcr18(options: Ocr18RunOptions): Ocr18RunResult {
 
   const bySeverity: Record<'error' | 'warn' | 'info', number> = { error: 0, warn: 0, info: 0 };
   for (const f of findings) bySeverity[f.severity]++;
-  const byLanguage = emptyByLanguage();
-  byLanguage[options.language] = findings.length;
+  const byLanguageMut: Record<Ocr18Language, number> = { ...emptyByLanguage() };
+  byLanguageMut[options.language] = findings.length;
 
   return {
     state: 'ok',
     findings,
-    summary: { total: findings.length, bySeverity, byLanguage },
+    summary: { total: findings.length, bySeverity, byLanguage: byLanguageMut },
     durationMs: Date.now() - start,
     rawOutput: stdout
   };

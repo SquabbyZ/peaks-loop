@@ -79,9 +79,53 @@ peaks-rd records a TXT note `code-review-ocr18-degraded-to-inline`.
   `peaks code-review run-ocr-18 --language <lang>`.
 - Mixed monorepo: per-language routing, findings merged.
 
+## Section 7 — Why per-language routing matters
+
+OCR 1.8.x is the multi-language reviewer in the peaks-rd Gate B3
+router; ECC bridge stays the JS/TS path. The split is intentional and
+informed by AACR-bench (Alibaba's multi-language review benchmark):
+
+- **Precision vs. recall trade-off.** ECC bridge is tuned for JS/TS
+  idioms and ships tighter precision for that surface; on Python or
+  Java codebases it under-recalls (false-negative on async/lifetime
+  bugs). OCR 1.8.x is the inverse: broad language coverage with
+  per-language rule packs.
+- **Enterprise-class checks per language.** OCR 1.8.x's Java pack
+  reports NPE / SQL injection / XSS / thread-safety patterns that
+  have no analogue in the JS/TS ECC skill set. Routing a Java
+  project through ECC would silently drop these findings.
+- **Layered output normalization.** Each language's OCR output is
+  flattened into the peaks-loop `Ocr18Finding` envelope (filePath,
+  line, ruleId, severity, message) so downstream Gate B3 merge
+  works uniformly across all 8 languages.
+- **Failure isolation.** When OCR 1.8.x is missing for one language
+  on a given host, only that language degrades to inline review;
+  other languages still get the full Gate B3 path.
+
+A Python project therefore routes to OCR 1.8.x (not ECC) because
+(a) the Python rule pack has the broadest coverage in 1.8.9, and
+(b) routing it through ECC would mask Python-specific findings.
+
+For monorepos, the router scans the changed file extensions to pick
+a per-language reviewer. A commit that touches `.py` and `.ts`
+sources gets a parallel ECC + OCR-1.8 invocation; the resulting
+finding arrays are merged at Gate B3 with severity sort and
+duplicate suppression (same `filePath:line:ruleId` collapses to a
+single entry).
+
+When Delegation Mode is enabled, the host agent receives a JSON
+spec listing files and candidate rules, applies the user's own LLM
+key, and returns structured findings that the wrapper normalises
+back into the same `Ocr18Finding` envelope — so downstream Gate B3
+merge code does not need a separate code path for the delegation
+flow.
+
 ## Cross-references
 
 - PRD: `.peaks/_runtime/2026-08-06-session-cacde8/prd/requests/002-2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild.md`
+- Sediment: `.peaks/memory/2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md`
+- Skills: `skills/bee/peaks-rd/SKILL.md` Gate B3 paragraph
+- Skills: `skills/peaks-code/SKILL.md` Quality-gate commands cheat sheet
 - Runner: `src/services/lint/ocr-multilang-adapter.ts`
 - Detect: `src/services/lint/detect-ocr-18.ts`
 - CLI: `src/cli/commands/code-review-commands.ts`

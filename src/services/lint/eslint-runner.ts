@@ -131,7 +131,7 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       findings: [],
       summary: { error: 0, warn: 0, info: 0 },
       durationMs: Date.now() - start,
-      rawOutput: result.stdout ?? ''
+      rawOutput: typeof result.stdout === 'string' ? result.stdout : ''
     };
   }
 
@@ -141,7 +141,7 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       findings: [],
       summary: { error: 0, warn: 0, info: 0 },
       durationMs: Date.now() - start,
-      rawOutput: result.stdout ?? ''
+      rawOutput: typeof result.stdout === 'string' ? result.stdout : ''
     };
   }
 
@@ -184,7 +184,7 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
       findings: [],
       summary: { error: 0, warn: 0, info: 0 },
       durationMs: Date.now() - start,
-      rawOutput: result.stderr ?? stdout
+      rawOutput: typeof result.stderr === 'string' ? result.stderr : stdout
     };
   }
 

@@ -76,10 +76,52 @@ peaks code lint is a verifier, not a formatter.
 - The unified verdict is the worst of the two lint families (ESLint
   warn never escalates to block).
 
+## Section 6 — Configuration precedence
+
+`config/eslint/.peaks-rules.cjs` composes its rule set by extending
+four upstream configs in this order (last-wins on rule overrides):
+
+1. `eslint:recommended` — base ES syntax + best practices.
+2. `plugin:@typescript-eslint/recommended-type-checked` — TS rules
+   that require type info. Requires `@typescript-eslint/parser` to
+   resolve with `project: true`.
+3. `plugin:import/recommended` — module-boundary / import-resolution
+   rules. Reports unresolved imports as errors.
+4. `plugin:import/typescript` — TypeScript-aware import resolver
+   layered on top of `import/recommended`.
+
+User-level `.eslintrc.cjs` (or `--config <path>`) overrides extend in
+priority order: the closer the config is to the source file, the
+higher its precedence. `peaks code lint` honours the `--config` flag
+so projects that carry a non-default config can point the runner at
+it without copying into the peaks-loop repo.
+
+The `import/recommended` and `import/typescript` layers in particular
+make the wrapper sensitive to the project's `tsconfig.json` `paths`
+config. A monorepo with `baseUrl` + `paths` aliases must keep its
+tsconfig in scope; otherwise `import/no-unresolved` reports
+spurious errors that downgrade Gate B5 to a noisy warn.
+
+`recommended-type-checked` likewise depends on a resolvable
+`tsconfig.json`; projects that ship a non-default config must pass
+it via `--config` so ESLint can locate the program files for type
+introspection. Without a reachable tsconfig the type-aware rules
+silently no-op, which the runner reports as zero type-checked
+findings (not as an error).
+
+The L3 framework plugins (react / vue / svelte / nestjs) are NOT
+included in the four pinned packages. `peaks code lint` will not
+auto-resolve them; the project's own devDependencies must list the
+plugin and the local `.peaks-rules.cjs` must extend its config.
+This keeps the peaks-loop devDeps surface flat while still letting
+per-project opt-in.
+
 ## Cross-references
 
 - PRD: `.peaks/_runtime/2026-08-06-session-cacde8/prd/requests/002-2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild.md`
+- Sediment: `.peaks/memory/2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md`
 - Skills: `skills/bee/peaks-rd/SKILL.md` Gate B5 paragraph
+- Skills: `skills/peaks-code/SKILL.md` Quality-gate commands cheat sheet
 - Config: `config/eslint/.peaks-rules.cjs`
 - Runner: `src/services/lint/eslint-runner.ts`
 - Detect: `src/services/lint/detect-eslint.ts`
