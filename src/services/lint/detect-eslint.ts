@@ -4,6 +4,7 @@
  * unified Gate B5 verdict.
  */
 import { spawnSync } from 'node:child_process';
+import { resolveNpxInvocation } from './npx-resolver.js';
 import { ESLINT_PACKAGE_PINS } from './eslint-runner.js';
 
 export type EslintDetectState =
@@ -24,8 +25,7 @@ export type EslintDetectResult = {
 const PACKAGES_TO_PROBE: ReadonlyArray<keyof typeof ESLINT_PACKAGE_PINS> = [
   'eslint',
   'typescriptEslintParser',
-  'typescriptEslintPlugin',
-  'importPlugin'
+  'typescriptEslintPlugin'
 ];
 
 function packageNameFor(key: keyof typeof ESLINT_PACKAGE_PINS): string {
@@ -33,12 +33,12 @@ function packageNameFor(key: keyof typeof ESLINT_PACKAGE_PINS): string {
     case 'eslint': return 'eslint';
     case 'typescriptEslintParser': return '@typescript-eslint/parser';
     case 'typescriptEslintPlugin': return '@typescript-eslint/eslint-plugin';
-    case 'importPlugin': return 'eslint-plugin-import';
   }
 }
 
 function probeNpx(): boolean {
-  const probe = spawnSync('npx', ['--version'], { encoding: 'utf8' });
+  const { command, args, baseEnv } = resolveNpxInvocation(['--version']);
+  const probe = spawnSync(command, args, { encoding: 'utf8', env: baseEnv });
   return probe.status === 0;
 }
 

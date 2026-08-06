@@ -116,8 +116,8 @@ describe('runEslint', () => {
 
     // then: the npx argv must include the scope path
     const call = childMock.spawnSync.mock.calls[0] as [string, string[]];
-    expect(call[0]).toBe('npx');
-    expect(call[1]).toContain('--no-warn-ignored');
+    expect(call[0]).not.toBe('npx');
+    expect(call[1]).toContain('--format');
     expect(call[1][call[1].length - 1]).toBe('src/services/');
   });
 
@@ -270,17 +270,32 @@ describe('runEslint', () => {
 });
 
 describe('buildEslintArgs', () => {
-  it('when --scope is supplied, should pin the four packages and pass --no-warn-ignored', () => {
+  it('when --scope is supplied, should pin three compatible packages and omit eslint-plugin-import', () => {
     // given: a scope value
     // when: buildEslintArgs is called
     const args = buildEslintArgs({ cwd: process.cwd(), scope: 'src/' });
 
-    // then: the args pin all 4 packages and include the read-only flag
+    // then: the args pin the compatible three-package toolchain and include the format flag
     expect(args).toContain(`eslint@${ESLINT_PACKAGE_PINS.eslint}`);
     expect(args).toContain(`@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`);
     expect(args).toContain(`@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`);
-    expect(args).toContain(`eslint-plugin-import@${ESLINT_PACKAGE_PINS.importPlugin}`);
-    expect(args).toContain('--no-warn-ignored');
+    expect(args.some((arg) => arg.includes('eslint-plugin-import'))).toBe(false);
+    expect(args).toContain('--format');
+    expect(args).toContain('json');
     expect(args[args.length - 1]).toBe('src/');
+  });
+
+  it('when eslint runs, should invoke npx through the cross-platform resolver', () => {
+    // given: eslint returns an empty result
+    queueSpawnSequence([{ status: 0, stdout: '[]' }]);
+
+    // when: runEslint executes the pinned toolchain
+    runEslint({ cwd: process.cwd(), diffOnly: false });
+
+    // then: spawnSync receives a non-`npx` command resolved for the host platform
+    const call = childMock.spawnSync.mock.calls[0] as [string, string[], Record<string, unknown>];
+    expect(call[0]).not.toBe('npx');
+    expect(call[1]).toEqual(expect.arrayContaining(['--format', 'json']));
+    expect(call[2]).toMatchObject({ encoding: 'utf8' });
   });
 });

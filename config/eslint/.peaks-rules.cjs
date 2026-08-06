@@ -8,8 +8,12 @@
  *
  *   - eslint:recommended
  *   - plugin:@typescript-eslint/recommended-type-checked
- *   - plugin:import/recommended
- *   - plugin:import/typescript
+ *
+ * Note: plugin:import/* extends were removed during the 4.0.16 lint
+ * dogfood because (a) npm 10.9.4 + npx silently fails the fourth
+ * `--package` flag on Windows and (b) eslint-plugin-import@2.32.0
+ * peer-rejects eslint 10. Duplicate-import warnings are re-expressed
+ * through `@typescript-eslint/no-duplicate-imports` below.
  *
  * Framework-specific rules (eslint-plugin-react, eslint-plugin-vue,
  * eslint-plugin-svelte, eslint-plugin-nestjs, etc.) are LAYER 3 and
@@ -39,24 +43,12 @@ module.exports = {
     node: true,
     es2022: true
   },
-  plugins: ['@typescript-eslint', 'import'],
+  plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/recommended-type-checked',
-    'plugin:import/recommended',
-    'plugin:import/typescript'
+    'plugin:@typescript-eslint/recommended-type-checked'
   ],
-  settings: {
-    'import/resolver': {
-      typescript: {
-        alwaysTryTypes: true,
-        project: ['./tsconfig.json', './tsconfig.build.json']
-      },
-      node: {
-        extensions: ['.js', '.ts', '.tsx', '.jsx']
-      }
-    }
-  },
+  settings: {},
   ignorePatterns: [
     'node_modules/',
     'dist/',
@@ -109,12 +101,9 @@ module.exports = {
       }
     ],
 
-    // L2 (eslint-plugin-import) — boundary hygiene.
-    'import/no-duplicates': 'warn',
-    'import/no-unresolved': 'off',
-    'import/named': 'off',
-    'import/default': 'off',
-    'import/namespace': 'off'
+    // L2 (typescript-eslint only) — boundary hygiene that previously
+    // lived under eslint-plugin-import.
+    '@typescript-eslint/no-duplicate-imports': 'warn'
   },
   overrides: [
     {

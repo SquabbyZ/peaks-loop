@@ -18,14 +18,14 @@
  *     red-line. Enforces D6 + supplementary S2.
  */
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { resolveNpxInvocation } from './npx-resolver.js';
 
 export const ESLINT_PACKAGE_PINS = {
-  eslint: '10.8.0',
+  eslint: '8.57.1',
   typescriptEslintParser: '8.66.0',
-  typescriptEslintPlugin: '8.66.0',
-  importPlugin: '2.32.0'
+  typescriptEslintPlugin: '8.66.0'
 } as const;
 
 export type RedLineMode = 'none' | 'baseline-aware';
@@ -122,6 +122,22 @@ type DiffRange = { readonly file: string; readonly lines: readonly number[] };
  * touched line number. Falls back to [] on any parse error so the
  * caller treats all findings as out-of-diff (no silent zero-result).
  */
+function resolveProjectRoot(cwd: string): string {
+  // ESLint 8 auto-discovers `.eslintrc.*` from cwd upward. When the
+  // CLI is launched via `node bin/peaks.js`, cwd is the bin/ dir and
+  // ESLint fails to find the config. Walk up until we see
+  // `config/eslint/.peaks-rules.cjs` and use that as the project root.
+  const marker = join('config', 'eslint', '.peaks-rules.cjs');
+  let current = cwd;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (existsSync(join(current, marker))) return current;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return cwd;
+}
+
 function loadDiffRanges(cwd: string): readonly DiffRange[] {
   const ranges: DiffRange[] = [];
   try {
@@ -275,8 +291,7 @@ export function buildEslintArgs(options: EslintRunOptions): string[] {
     '--package', `eslint@${ESLINT_PACKAGE_PINS.eslint}`,
     '--package', `@typescript-eslint/parser@${ESLINT_PACKAGE_PINS.typescriptEslintParser}`,
     '--package', `@typescript-eslint/eslint-plugin@${ESLINT_PACKAGE_PINS.typescriptEslintPlugin}`,
-    '--package', `eslint-plugin-import@${ESLINT_PACKAGE_PINS.importPlugin}`,
-    '--', 'eslint', '--no-warn-ignored', '--format', 'json'
+    '--', 'eslint', '--format', 'json'
   ];
   if (options.configPath !== undefined) {
     args.push('--config', options.configPath);
@@ -295,13 +310,16 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   }
 
   const spawnOptions: SpawnSyncOptions = {
-    cwd: options.cwd,
+    cwd: resolveProjectRoot(options.cwd),
     encoding: 'utf8',
     timeout: options.timeoutMs ?? 60_000,
     maxBuffer: 32 * 1024 * 1024
   };
 
-  const result = spawnSync('npx', args, spawnOptions);
+  // Resolve `npx` through the user's bundled npm install to bypass the
+  // Windows .cmd shim + shell-quoting issues.
+  const { command, args: npxArgs, baseEnv } = resolveNpxInvocation(args);
+  const result = spawnSync(command, npxArgs, { ...spawnOptions, env: baseEnv });
 
   if (result.error !== undefined && result.error !== null) {
     const message = result.error.message;
