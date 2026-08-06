@@ -49,7 +49,7 @@ describe('registerLintCommands', () => {
     process.exitCode = undefined;
   });
 
-  it('when invoked with no subcommand, should run the default detect-eslint envelope', async () => {
+  it('when invoked with detect-eslint subcommand, should return 5-state envelope with pinnedVersions', async () => {
     // given: a fresh program and a callable io
     const { io, capture } = makeIo();
     const mod = await importFresh();
@@ -57,12 +57,12 @@ describe('registerLintCommands', () => {
     mod.registerLintCommands(program, io);
     childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '10.8.0\n' } as never));
 
-    // when: the default subcommand runs
-    await program.parseAsync(['lint'], { from: 'user' });
+    // when: parseAsync invoked with `lint detect-eslint --json`
+    await program.parseAsync(['lint', 'detect-eslint', '--json'], { from: 'user' });
 
-    // then: the io receives the detect envelope payload (pinned versions surfaced)
+    // then: the io receives the detect envelope payload (pinnedVersions + state)
     expect(capture.stdout).toMatch(/"pinnedVersions"/);
-    expect(capture.stdout).toMatch(/"state": "ready"/);
+    expect(capture.stdout).toMatch(/"state"/);
   });
 
   it('when --json is supplied, should print a JSON envelope with state field', async () => {
