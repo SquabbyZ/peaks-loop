@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { buildEslintArgs, ESLINT_PACKAGE_PINS, runEslint } from '../../../../src/services/lint/eslint-runner.js';
 
 type SpawnResult = {
@@ -66,7 +69,7 @@ describe('runEslint', () => {
   });
 
   it('when eslint reports 3 errors and 2 warnings, should summarize severity buckets', () => {
-    // given: eslint emits JSON with five messages
+    // given: eslint emits JSON with five messages; git diff covers src/a.ts lines 1-5
     const payload = [
       {
         filePath: 'src/a.ts', messages: [
@@ -78,7 +81,10 @@ describe('runEslint', () => {
         ]
       }
     ];
-    queueSpawnSequence([{ status: 1, stdout: JSON.stringify(payload) }]);
+    queueSpawnSequence([
+      { status: 1, stdout: JSON.stringify(payload) },
+      { status: 0, stdout: 'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,5 +1,5 @@\n+line1\n+line2\n+line3\n+line4\n+line5\n' }
+    ]);
 
     // when: runEslint is invoked
     const result = runEslint({ cwd: process.cwd() });
@@ -124,6 +130,142 @@ describe('runEslint', () => {
     // then: the wrapper must refuse without spawning npx
     expect(result.state).toBe('execution-failed');
     expect(childMock.spawnSync).not.toHaveBeenCalled();
+  });
+
+  // PRD-002b slice — diffOnly / baselineFile / redLineMode / max-lines-error.
+
+  it('when diffOnly true and finding is outside diff hunks, should skip silently (D4/D5 invariant)', () => {
+    // given: a tmp cwd; spawnSync returns (1) npx eslint finding + (2) empty git diff
+    const tmp = mkdtempSync(join(tmpdir(), 'peaks-rd-prd002b-'));
+    try {
+      const payload = [
+        {
+          filePath: 'src/stock.ts',
+          messages: [{ ruleId: 'max-lines', severity: 2, message: 'too long', line: 42, column: 1 }]
+        }
+      ];
+      queueSpawnSequence([
+        { status: 1, stdout: JSON.stringify(payload) }, // npx eslint first
+        { status: 0, stdout: '' } // git diff: no hunks → finding is filtered out
+      ]);
+
+      // when: runEslint is invoked with diffOnly=true (default)
+      const result = runEslint({ cwd: tmp });
+
+      // then: the stock finding is filtered out; envelope carries empty active findings
+      expect(result.state).toBe('ok');
+      expect(result.findings).toEqual([]);
+      expect(result.summary).toEqual({ error: 0, warn: 0, info: 0 });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('when baselineFile provided and finding matches baseline, should waive into baselineWaived', () => {
+    // given: a tmp cwd + baseline.json containing the same finding + eslint emits the same finding
+    const tmp = mkdtempSync(join(tmpdir(), 'peaks-rd-prd002b-'));
+    try {
+      mkdirSync(join(tmp, '.peaks/lint'), { recursive: true });
+      writeFileSync(
+        join(tmp, '.peaks/lint/baseline.json'),
+        JSON.stringify({
+          version: 1,
+          generatedAt: '2026-08-06T00:00:00.000Z',
+          toolVersion: 'peaks-loop-4.0.16+',
+          violations: [
+            { ruleId: 'no-magic-numbers', file: 'src/foo.ts', line: 42, severity: 'error', message: 'magic 7' }
+          ]
+        }),
+        'utf8'
+      );
+      const payload = [
+        {
+          filePath: 'src/foo.ts',
+          messages: [{ ruleId: 'no-magic-numbers', severity: 2, message: 'magic 7', line: 42, column: 1 }]
+        }
+      ];
+      queueSpawnSequence([
+        { status: 1, stdout: JSON.stringify(payload) }, // npx eslint: finding emitted
+        { status: 0, stdout: '' } // git diff: no hunks — finding filtered, then no baseline match possible
+      ]);
+
+      // when: runEslint is invoked with diffOnly=false (so diff filter doesn't drop the finding)
+      const result = runEslint({ cwd: tmp, diffOnly: false });
+
+      // then: the matched finding is waived; active findings empty; baselineWaived populated
+      expect(result.findings).toEqual([]);
+      expect(result.baselineWaived.length).toBe(1);
+      expect(result.baselineWaived[0]?.ruleId).toBe('no-magic-numbers');
+      expect(result.baselineWaived[0]?.line).toBe(42);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('when redLineMode baseline-aware and 5 same-ruleId findings in baseline, should include redLine envelope section', () => {
+    // given: baseline.json contains 5 violations of no-magic-numbers across 3 files
+    const tmp = mkdtempSync(join(tmpdir(), 'peaks-rd-prd002b-'));
+    try {
+      mkdirSync(join(tmp, '.peaks/lint'), { recursive: true });
+      const violations = [
+        { ruleId: 'no-magic-numbers', file: 'src/a.ts', line: 1, severity: 'error', message: 'x' },
+        { ruleId: 'no-magic-numbers', file: 'src/a.ts', line: 2, severity: 'error', message: 'x' },
+        { ruleId: 'no-magic-numbers', file: 'src/b.ts', line: 1, severity: 'error', message: 'x' },
+        { ruleId: 'no-magic-numbers', file: 'src/c.ts', line: 1, severity: 'error', message: 'x' },
+        { ruleId: 'no-magic-numbers', file: 'src/c.ts', line: 2, severity: 'error', message: 'x' }
+      ];
+      writeFileSync(
+        join(tmp, '.peaks/lint/baseline.json'),
+        JSON.stringify({ version: 1, generatedAt: 'x', toolVersion: 'x', violations }),
+        'utf8'
+      );
+      queueSpawnSequence([
+        { status: 0, stdout: '[]' }, // npx eslint: clean
+        { status: 0, stdout: '' } // git diff: empty (no extra calls expected, queue exhausted)
+      ]);
+
+      // when: runEslint is invoked
+      const result = runEslint({ cwd: tmp });
+
+      // then: redLine contains one entry aggregating the 5 occurrences, sorted by count desc
+      expect(result.redLine.length).toBe(1);
+      expect(result.redLine[0]?.ruleId).toBe('no-magic-numbers');
+      expect(result.redLine[0]?.count).toBe(5);
+      expect(result.redLine[0]?.topFiles[0]?.count).toBeGreaterThanOrEqual(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('when max-lines rule fires on new 1000-line file in diff, should escalate severity to error', () => {
+    // given: a max-lines severity=2 finding (already error in upstream rule, but verifying the severity round-trip)
+    const tmp = mkdtempSync(join(tmpdir(), 'peaks-rd-prd002b-'));
+    try {
+      const payload = [
+        {
+          filePath: 'src/big.ts',
+          messages: [
+            { ruleId: 'max-lines', severity: 2, message: 'file has 1000 lines, maximum is 400', line: 401, column: 1 }
+          ]
+        }
+      ];
+      queueSpawnSequence([
+        { status: 1, stdout: JSON.stringify(payload) }, // npx eslint first
+        { status: 0, stdout: '' } // git diff: file absent from diff → finding filtered out
+      ]);
+
+      // when: runEslint is invoked with diffOnly=false (so the finding survives)
+      const result = runEslint({ cwd: tmp, diffOnly: false });
+
+      // then: the max-lines error is reported as severity 'error' (not warn)
+      expect(result.state).toBe('ok');
+      const maxLines = result.findings.find((f) => f.ruleId === 'max-lines');
+      expect(maxLines).toBeDefined();
+      expect(maxLines?.severity).toBe('error');
+      expect(result.summary.error).toBeGreaterThanOrEqual(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
 
