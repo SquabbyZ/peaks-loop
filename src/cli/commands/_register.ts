@@ -11,6 +11,7 @@ import { registerBeeCommands } from './bee-commands.js';
 import { registerCapabilityCommands } from './capability-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './capability-worker-config-sc-commands.js';
 import { registerCodeCommands } from './code-commands.js';
+import { registerCodeGateCommand } from './code-gate-command.js';
 import { registerDashboardCommands } from './dashboard-commands.js';
 import { registerCodeReviewCommands } from './code-review-commands.js';
 import { registerCodegraphCommands } from './codegraph-commands.js';
@@ -137,7 +138,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['security-audit-commands', registerSecurityAuditCommands], ['perf-audit-commands', registerPerfAuditCommands],
   ['verdict-aggregate-command', registerVerdictAggregateCommands], ['log-commands', registerLogCommands],
   ['qa-commands', registerQaCommands], ['test-commands', registerTestCommands],
-  ['playwright-commands', registerPlaywrightCommands], ['code-commands', registerCodeCommands], ['dashboard-commands', registerDashboardCommands],
+  ['playwright-commands', registerPlaywrightCommands], ['code-commands', registerCodeCommands], ['code-gate-command', registerCodeGateCommand], ['dashboard-commands', registerDashboardCommands],
   ['mut-commands', registerMutCommands], ['fixture-commands', registerFixtureCommands],
   ['reviewer-commands', registerReviewerCommands], ['ide-commands', registerIdeCommands],
   ['observability-commands', registerObservabilityCommands], ['compact-command', registerCompactCommands],

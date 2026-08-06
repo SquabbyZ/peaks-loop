@@ -308,6 +308,19 @@ export type PeaksHookEntry = {
  * entry is appended for Claude Code only (SessionStart is a Claude-Code-
  * specific event key today).
  */
+/**
+ * Slice 2026-08-06-codegate-vendor-neutral — code-gate hook entry.
+ * Vendor-neutral command (`peaks code-gate --json`); the CLI adapter
+ * lives in `src/cli/commands/code-gate-command.ts` and the decision
+ * logic lives in `src/services/hooks/pre-tool-code-gate.ts`. The
+ * shell-script sibling (`src/services/hooks/pre-tool-code-gate.sh`)
+ * encodes the same logic for non-Node harnesses.
+ */
+export const HOOK_CODE_GATE_SENTINEL = 'peaks code-gate';
+export const HOOK_CODE_GATE_MATCHER = 'Edit|Write|MultiEdit';
+export const HOOK_CODE_GATE_EVENT = 'PreToolUse';
+export const HOOK_CODE_GATE_COMMAND = `peaks code-gate --json`;
+
 function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
   const entries: PeaksHookEntry[] = [
@@ -319,6 +332,17 @@ function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[]
       matcher: '',
       command: HOOK_OUTER_CACHE_COMMAND,
       event: HOOK_OUTER_CACHE_EVENT
+    });
+    // Slice 2026-08-06-codegate-vendor-neutral: code-gate entry on
+    // Edit|Write|MultiEdit matcher. Vendor-neutral command
+    // (`peaks code-gate --json`); the CLI adapter lives in
+    // `src/cli/commands/code-gate-command.ts` and the underlying
+    // decision logic is in `src/services/hooks/pre-tool-code-gate.ts`.
+    entries.push({
+      sentinel: HOOK_CODE_GATE_SENTINEL,
+      matcher: HOOK_CODE_GATE_MATCHER,
+      command: HOOK_CODE_GATE_COMMAND,
+      event: HOOK_CODE_GATE_EVENT
     });
   }
   return entries;
@@ -337,7 +361,10 @@ function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  }
  // Slice 2026-08-06-session-outer-cache: include the SessionStart outer-cache
  // sentinel so uninstall strips it alongside the gate-enforce entry.
- const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL];
+ // Slice 2026-08-06-codegate-vendor-neutral: also include the code-gate
+ // sentinel so uninstall strips the Edit|Write|MultiEdit entry alongside
+ // the rest of the peaks-managed entries.
+ const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL, HOOK_CODE_GATE_SENTINEL];
  if (ide === 'claude-code') {
    return [...base, HOOK_OUTER_CACHE_SENTINEL];
  }

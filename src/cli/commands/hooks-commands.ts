@@ -60,7 +60,16 @@ function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyA
   if (ide === 'trae') {
     return [{ matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' }];
   }
-  return [{ matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' }];
+  // Slice 2026-08-06-codegate-vendor-neutral: Claude Code install
+  // also emits the Edit|Write|MultiEdit code-gate entry. The summary
+  // mirrors the install shape, NOT a hardcoded expected list. The
+  // hook source of truth is `src/services/hooks/pre-tool-code-gate.sh`
+  // (vendor-neutral); the runtime adapter is `peaks code-gate --json`
+  // registered as a PreToolUse entry.
+  return [
+    { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
+    { matcher: 'Edit|Write|MultiEdit', sentinel: 'peaks code-gate' }
+  ];
 }
 
 /**
@@ -116,6 +125,27 @@ function copyBridgeHookIfPresent(userHome: string): { copied: boolean; source: s
   return { copied: true, source, target };
 }
 
+/**
+ * Slice 2026-08-06-codegate-vendor-neutral: copy the code-gate hook
+ * source (`src/services/hooks/pre-tool-code-gate.sh`) into the user-
+ * global peaks-code hooks dir, mirroring the bridge-hook copy. The
+ * hook itself is vendor-neutral (no `claude` / `anthropic` strings in
+ * the script) — this installer is the vendor adapter that decides
+ * where the file lands. The CLI command `peaks code-gate` is the
+ * runtime entry; the shell script is the canonical artifact distributed
+ * alongside the bridge hook.
+ */
+function copyCodeGateHookIfPresent(userHome: string): { copied: boolean; source: string; target: string } {
+  const source = resolve(__dirname, '..', '..', 'services', 'hooks', 'pre-tool-code-gate.sh');
+  const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-code-gate.sh');
+  if (!existsSync(source)) {
+    return { copied: false, source, target };
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
+  return { copied: true, source, target };
+}
+
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
@@ -146,6 +176,14 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         const bridgeCopy = scope === 'global'
           ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
           : { copied: false, source: '', target: '' };
+        // Slice 2026-08-06-codegate-vendor-neutral: also copy the
+        // code-gate hook script. The runtime gate lives at
+        // `peaks code-gate --json` (registered as a PreToolUse entry
+        // in the install output); the script is the build artifact
+        // distributed alongside the bridge hook.
+        const codeGateCopy = scope === 'global'
+          ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          : { copied: false, source: '', target: '' };
         printResult(
           io,
           ok(
@@ -158,6 +196,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               skipProgress,
               entries: dryRunEntries,
               bridgeHookCopy: bridgeCopy,
+              codeGateHookCopy: codeGateCopy,
               // Slice 2026-07-29-worktree-layer3-deny: surface the
               // Layer 3 deny entries the install WOULD write. The
               // dry-run branch never actually invokes
@@ -172,7 +211,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               `would write ${listSuperpowersDenyEntries().length} permissions.deny entries (Layer 3 worktree governance)`,
               bridgeCopy.copied
                 ? `would copy bridge hook from ${bridgeCopy.source} to ${bridgeCopy.target}`
-                : 'would not copy bridge hook (source missing or non-global scope)'
+                : 'would not copy bridge hook (source missing or non-global scope)',
+              codeGateCopy.copied
+                ? `would copy code-gate hook from ${codeGateCopy.source} to ${codeGateCopy.target}`
+                : 'would not copy code-gate hook (source missing or non-global scope)'
             ]
           ),
           options.json
@@ -195,6 +237,14 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       const bridgeCopy = scope === 'global'
         ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
         : { copied: false, source: '', target: '' };
+      // Slice 2026-08-06-codegate-vendor-neutral: also copy the
+      // code-gate hook script. The runtime gate lives at
+      // `peaks code-gate --json` (registered as a PreToolUse entry
+      // in the install output); the script is the build artifact
+      // distributed alongside the bridge hook.
+      const codeGateCopy = scope === 'global'
+        ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+        : { copied: false, source: '', target: '' };
       const nextActions = result.applied
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
@@ -204,7 +254,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             `Layer 3 deny: wrote ${listSuperpowersDenyEntries().length} permissions.deny entries (worktree governance)`,
             bridgeCopy.copied
               ? `Copied bridge hook: ${bridgeCopy.target}`
-              : 'Bridge hook not copied (source missing or non-global scope)'
+              : 'Bridge hook not copied (source missing or non-global scope)',
+            codeGateCopy.copied
+              ? `Copied code-gate hook: ${codeGateCopy.target}`
+              : 'Code-gate hook not copied (source missing or non-global scope)'
           ]
         : (bridgeCopy.copied
             ? [`Bridge hook copied: ${bridgeCopy.target}`]
@@ -227,6 +280,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             skipProgress,
             entries: installedEntries.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel })),
             bridgeHookCopy: bridgeCopy,
+            codeGateHookCopy: codeGateCopy,
             permissionsDenyApplied: result.applied,
             permissionsDenyEntries: denyEntries
           },
