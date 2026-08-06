@@ -36,6 +36,7 @@ import { registerIdeCommands } from './ide-commands.js';
 import { registerImpactCommands } from './impact-commands.js';
 import { registerJobCommands } from './job-commands.js';
 import { registerLegacyCommands } from './legacy-commands.js';
+import { registerLintCommands } from './lint-commands.js';
 import { registerLogCommands } from './log-commands.js';
 import { registerLoopCommands } from './loop-commands.js';
 import { registerWorkflowEvalCommands } from './loop-eval-commands.js';
@@ -116,7 +117,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['prd-blocks-commands', registerPrdBlocksCommands], ['user-touchpoint-commands', registerUserTouchpointCommands],
   ['slice-review-commands', registerSliceReviewCommands], ['qa-business-review-commands', registerQaBusinessReviewCommands],
   ['slice-integrate-commands', registerSliceIntegrateCommands], ['doc-commands', registerDocCommands],
-  ['legacy-commands', registerLegacyCommands], ['role-commands', registerRoleCommands],
+  ['legacy-commands', registerLegacyCommands], ['lint-commands', registerLintCommands], ['role-commands', registerRoleCommands],
   ['complexity-commands', registerComplexityCommands], ['sub-agent-commands', registerSubAgentCommands],
   ['sub-agent-shutdown-commands', registerSubAgentShutdownCommands], ['e2e-verify', registerE2EVerifyCommand],
   ['governance-classify-contract-commands', registerContractCommands],
