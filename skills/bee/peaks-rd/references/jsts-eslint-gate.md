@@ -9,7 +9,7 @@ status: shipped-4.0.16
 
 ## Section 1 — what the runner does
 
-`peaks code lint` is a read-only ESLint verifier for the peaks-rd Gate B5
+`peaks lint` is a read-only ESLint verifier for the peaks-rd Gate B5
 surface. It calls `npx` with four pinned packages (no `devDependencies`
 added to peaks-loop) and parses the JSON envelope emitted by
 `--format json`.
@@ -53,7 +53,7 @@ either:
 
 - run `npm i -D eslint-plugin-react` and update
   `config/eslint/.peaks-rules.cjs` to extend the relevant config, or
-- call `peaks code lint --scope src/` after pre-installing the plugin
+- call `peaks lint --scope src/` after pre-installing the plugin
   in their environment.
 
 ## Section 4 — soft-fail table
@@ -66,11 +66,11 @@ either:
 | `execution-failed` | warn — user must inspect the toolchain |
 
 peaks-rd never blocks a slice on lint; per the G-lint-2 red line,
-peaks code lint is a verifier, not a formatter.
+peaks lint is a verifier, not a formatter.
 
 ## Section 5 — Gate B5 transitions
 
-- `rd:qa-handoff` reads the lint envelope. A missing `peaks code lint`
+- `rd:qa-handoff` reads the lint envelope. A missing `peaks lint`
   run is acceptable if the project is non-JS/TS (Gate B5 is per-language).
 - peaks-rd's own 4-dim lint (placeholder hunt) runs alongside ESLint.
 - The unified verdict is the worst of the two lint families (ESLint
@@ -92,7 +92,7 @@ four upstream configs in this order (last-wins on rule overrides):
 
 User-level `.eslintrc.cjs` (or `--config <path>`) overrides extend in
 priority order: the closer the config is to the source file, the
-higher its precedence. `peaks code lint` honours the `--config` flag
+higher its precedence. `peaks lint` honours the `--config` flag
 so projects that carry a non-default config can point the runner at
 it without copying into the peaks-loop repo.
 
@@ -110,7 +110,7 @@ silently no-op, which the runner reports as zero type-checked
 findings (not as an error).
 
 The L3 framework plugins (react / vue / svelte / nestjs) are NOT
-included in the four pinned packages. `peaks code lint` will not
+included in the four pinned packages. `peaks lint` will not
 auto-resolve them; the project's own devDependencies must list the
 plugin and the local `.peaks-rules.cjs` must extend its config.
 This keeps the peaks-loop devDeps surface flat while still letting

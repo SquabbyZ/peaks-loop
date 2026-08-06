@@ -1,0 +1,10 @@
+{
+  "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/2026-08-05-peaks-code-orchestrator-capability-misjudgment.md"
+  ],
+  "promotedAt": "2026-08-06T08:41:12.250Z",
+  "promotedBy": "peaks-code-main-loop@2026-08-06-session-cacde8"
+}

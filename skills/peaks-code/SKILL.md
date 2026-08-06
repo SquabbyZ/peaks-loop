@@ -208,7 +208,7 @@ Read `references/refactor-mode.md` first. Default MVP: `peaks-code refactor`. Re
 
 ## Peaks-Loop Quality-gate commands (CLI cheat sheet)
 
-Five CLI commands harden the workflow against silent skips: `peaks request lint`, `peaks request repair-status`, `peaks scan request-type-sanity`, `peaks scan libraries`, `peaks slice check` (plus `peaks request transition`). For JS/TS project lint enforcement (Gate B5 expansion), use `peaks code lint [--scope <path>] [--format json]` (ESLint read-only verifier; layer-3 dynamic loading via `npx --package`; soft-fail when ESLint is missing — does not block the slice). See `references/quality-gate-cheatsheet.md`.
+Five CLI commands harden the workflow against silent skips: `peaks request lint`, `peaks request repair-status`, `peaks scan request-type-sanity`, `peaks scan libraries`, `peaks slice check` (plus `peaks request transition`). For JS/TS project lint enforcement (Gate B5 expansion), use `peaks lint [--scope <path>] [--format json]` (ESLint read-only verifier; layer-3 dynamic loading via `npx --package`; soft-fail when ESLint is missing — does not block the slice). See `references/quality-gate-cheatsheet.md`.
 
 ## Peaks-Loop Completion handoff
 

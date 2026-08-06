@@ -4,6 +4,7 @@ description: 2026-08-05 peaks-code 编排器能力边界误判 — orchestrator 
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # 2026-08-05 peaks-code 编排器能力边界误判
 

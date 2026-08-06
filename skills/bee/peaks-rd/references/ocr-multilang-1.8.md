@@ -74,7 +74,7 @@ peaks-rd records a TXT note `code-review-ocr18-degraded-to-inline`.
 
 ## Section 6 — Gate B3 routing
 
-- JS/TS / TSX / JSX: `peaks code lint` + ECC bridge.
+- JS/TS / TSX / JSX: `peaks lint` + ECC bridge.
 - Python / Go / Java / Rust / C++ / C# / Ruby / PHP:
   `peaks code-review run-ocr-18 --language <lang>`.
 - Mixed monorepo: per-language routing, findings merged.
