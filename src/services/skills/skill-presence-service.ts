@@ -388,7 +388,19 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
           import('./presence-lease-service.js'),
         ]);
         const projection = resolveCallerProjection({ projectRoot, env: process.env });
-        const workflowId = `wf-${sessionId}-compat`;
+        // Slice 2026-08-06-session-cacde8-A.4: derive the legacy compat
+        // shim's workflowId from `projection.callerId` (caller-keyed,
+        // matching the 4.0.8 caller-binding direction) instead of
+        // `sessionId` (sid-keyed, pre-4.0.8). `slice(0, 189)` caps the
+        // callerId to 189 chars so the resulting workflowId
+        // (`wf-` + callerId + `-compat`) stays under the 200-char
+        // `WORKFLOW_ID_REGEX = /^[a-zA-Z0-9._-]{1,200}$/` cap. The
+        // truncation is loss-free for regex purposes — callerId is
+        // already regex-conformant before the slice. Existing 4.0.14
+        // leases with `wf-<sid>-compat` become orphans and are GC'd
+        // by the 24h30m stale-started GC at
+        // presence-lease-service.ts:42.
+        const workflowId = `wf-${projection.callerId.slice(0, 189)}-compat`;
         const result: SetPresenceLeaseResult = leaseMod.setPresenceLease({
           projectRoot,
           sessionId,
