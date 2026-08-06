@@ -99,7 +99,7 @@ function writeRedLineSummary(cwd: string, result: EslintRunResult): { path: stri
 
 export function registerLintCommands(program: Command, io: ProgramIO): void {
   const lint = program
-    .command('lint', { hidden: true })
+    .command('lint')
     .description('Read-only ESLint verifier (peaks-rd Gate B5). Soft-fails when the toolchain is missing.');
 
   addJsonOption(lint
