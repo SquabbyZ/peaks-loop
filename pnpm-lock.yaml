@@ -13,6 +13,9 @@ importers:
 
   .:
     dependencies:
+      '@alibaba-group/open-code-review':
+        specifier: ^1.8.9
+        version: 1.8.9
       '@colbymchenry/codegraph':
         specifier: 0.7.10
         version: 0.7.10
@@ -105,6 +108,41 @@ importers:
         version: 4.1.10(patch_hash=8345f65f3461f834377a05e49a9728f673f2f66a7dc6d8c8043e969bbbbe66b2)(@types/node@22.19.19)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))(vite@6.4.3(@types/node@22.19.19)(tsx@4.22.0)(yaml@2.9.0))
 
 packages:
+
+  '@alibaba-group/ocr-darwin-arm64@1.8.9':
+    resolution: {integrity: sha512-r7pILOUCayCCADlMjx4q5HP2HjUkXL5mWibKZ/FZajsHC/feUxsp4cFeWrnbNu8M3ruRTvwQCxJvjXRDz+OvrA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@alibaba-group/ocr-darwin-x64@1.8.9':
+    resolution: {integrity: sha512-P1S3K3i+iesLTJmTz0z5gDMLGn+Vmw3k/2PveeGneccCZsZUIwGi9cGb07RbISeBBidmP5HgI5TvYsCReF4+nw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@alibaba-group/ocr-linux-arm64@1.8.9':
+    resolution: {integrity: sha512-VZAcCBcW+rhGCFYsk3ImTYuV2J6P6F7O8WHj9J6iZ89thwmFc/TvhmKtDvScTA+r40ykGPuF/hSrcoxHRfCHnw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@alibaba-group/ocr-linux-x64@1.8.9':
+    resolution: {integrity: sha512-mK/PogaQwJ3Zwv9uZ4FlKJeW6KtgHzM/qdtobmdNfw4PwM6EmaqpmeyWy4c4FHGBgtuHNptPFQPH24qbQJbozg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@alibaba-group/ocr-win32-arm64@1.8.9':
+    resolution: {integrity: sha512-yezJQpMlIQFXzrxy9/G7uUptoQorStdDvj4RXSrI52tUSX1dMt+smJ2APkRrhHrfTyAl5u0uB6SHoVrokEk4Ng==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@alibaba-group/ocr-win32-x64@1.8.9':
+    resolution: {integrity: sha512-QfPD7Y+0LfdyBZRxqnaNBV5JQ55eq4BtnFLAXvb/Bnm0fj6l6ouXowu9gXfdRpUMmBTBugp+UedIbNGIdRRFjw==}
+    cpu: [x64]
+    os: [win32]
+
+  '@alibaba-group/open-code-review@1.8.9':
+    resolution: {integrity: sha512-LjP1cberYc58J3xXO9/o9LRLNDaaWTNzp4OVhoy7vN+gk0Hj4JUPGO+rEraSJq5KIS7b8+aACNWMdwaEg/Pd8A==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -2396,6 +2434,33 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
+
+  '@alibaba-group/ocr-darwin-arm64@1.8.9':
+    optional: true
+
+  '@alibaba-group/ocr-darwin-x64@1.8.9':
+    optional: true
+
+  '@alibaba-group/ocr-linux-arm64@1.8.9':
+    optional: true
+
+  '@alibaba-group/ocr-linux-x64@1.8.9':
+    optional: true
+
+  '@alibaba-group/ocr-win32-arm64@1.8.9':
+    optional: true
+
+  '@alibaba-group/ocr-win32-x64@1.8.9':
+    optional: true
+
+  '@alibaba-group/open-code-review@1.8.9':
+    optionalDependencies:
+      '@alibaba-group/ocr-darwin-arm64': 1.8.9
+      '@alibaba-group/ocr-darwin-x64': 1.8.9
+      '@alibaba-group/ocr-linux-arm64': 1.8.9
+      '@alibaba-group/ocr-linux-x64': 1.8.9
+      '@alibaba-group/ocr-win32-arm64': 1.8.9
+      '@alibaba-group/ocr-win32-x64': 1.8.9
 
   '@ampproject/remapping@2.3.0':
     dependencies:

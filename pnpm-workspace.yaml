@@ -3,3 +3,7 @@ packages:
   - ./packages/*
 patchedDependencies:
   vitest@4.1.10: patches/vitest@4.1.10.patch
+onlyBuiltDependencies:
+  - "@alibaba-group/open-code-review"
+  - better-sqlite3
+
