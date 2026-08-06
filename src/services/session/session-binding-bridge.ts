@@ -157,39 +157,69 @@ function writeSessionMeta(
   writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
 }
 
+// Slice 2026-08-06-session-cacde8-A.3: module-scoped state populated on
+// every non-throw `getCurrentOuterSessionId` call. The 4th rotation
+// guard in `ensureSessionWithRotation` short-circuits when both
+// `currentOuterSessionId` and `boundOuter` equal the last-resolved
+// value in this process — a common case for long-running presence-
+// lease writers that re-resolve the outer session id within the same
+// process. Each CLI invocation is a fresh process, so this guard is
+// per-invocation and cannot leak across processes.
+let lastResolvedOuter: { value: string | undefined; resolvedAt: number } | null = null;
+
 function getCurrentOuterSessionId(projectRoot?: string): string | undefined {
+  let resolved: string | undefined;
   const peaks = process.env.PEAKS_OUTER_SESSION_ID;
-  if (typeof peaks === 'string' && peaks.length > 0) return peaks;
-  const claude = process.env.CLAUDE_CODE_SESSION_ID;
-  if (typeof claude === 'string' && claude.length > 0) return claude;
-  // Slice 2026-08-06-session-outer-cache (G1): when the peaks CLI runs
-  // as a sub-process of Claude Code (or any IDE that does not export
-  // CLAUDE_CODE_SESSION_ID into the child env), the env vars above are
-  // undefined. Fall back to the per-project file cache written by the
-  // SessionStart hook via `peaks outer-cache write`. The file lives
-  // under `.peaks/_runtime/` (gitignored) so no .gitignore change is
-  // required. Any IO error or non-string `outerSessionId` field is
-  // treated as a cache miss — never throw.
-  if (projectRoot !== undefined) {
-    const cachePath = join(projectRoot, '.peaks', OUTER_SESSION_CACHE_FILE);
-    if (existsSync(cachePath)) {
-      try {
-        const raw = readFileSync(cachePath, 'utf8');
-        const parsed: unknown = JSON.parse(raw);
-        if (
-          parsed !== null &&
-          typeof parsed === 'object' &&
-          typeof (parsed as { outerSessionId?: unknown }).outerSessionId === 'string' &&
-          ((parsed as { outerSessionId: string }).outerSessionId).length > 0
-        ) {
-          return (parsed as { outerSessionId: string }).outerSessionId;
+  if (typeof peaks === 'string' && peaks.length > 0) {
+    resolved = peaks;
+  } else {
+    const claude = process.env.CLAUDE_CODE_SESSION_ID;
+    if (typeof claude === 'string' && claude.length > 0) {
+      resolved = claude;
+    } else {
+      // Slice 2026-08-06-session-outer-cache (G1): when the peaks CLI runs
+      // as a sub-process of Claude Code (or any IDE that does not export
+      // CLAUDE_CODE_SESSION_ID into the child env), the env vars above are
+      // undefined. Fall back to the per-project file cache written by the
+      // SessionStart hook via `peaks outer-cache write`. The file lives
+      // under `.peaks/_runtime/` (gitignored) so no .gitignore change is
+      // required. Any IO error or non-string `outerSessionId` field is
+      // treated as a cache miss — never throw.
+      if (projectRoot !== undefined) {
+        const cachePath = join(projectRoot, '.peaks', OUTER_SESSION_CACHE_FILE);
+        if (existsSync(cachePath)) {
+          try {
+            const raw = readFileSync(cachePath, 'utf8');
+            const parsed: unknown = JSON.parse(raw);
+            if (
+              parsed !== null &&
+              typeof parsed === 'object' &&
+              typeof (parsed as { outerSessionId?: unknown }).outerSessionId === 'string' &&
+              ((parsed as { outerSessionId: string }).outerSessionId).length > 0
+            ) {
+              resolved = (parsed as { outerSessionId: string }).outerSessionId;
+            }
+          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+            // fall through — file missing / malformed JSON / IO error → undefined
+          }
         }
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // fall through — file missing / malformed JSON / IO error → undefined
       }
     }
   }
-  return undefined;
+  // Record the resolved value on every non-throw call (env hit,
+  // cache hit, or undefined fallback). The 4th rotation guard reads
+  // this field to short-circuit same-process re-resolves.
+  lastResolvedOuter = { value: resolved, resolvedAt: Date.now() };
+  return resolved;
+}
+
+/**
+ * Test-only seam: reset the module-scoped `lastResolvedOuter` so
+ * individual tests start with a clean slate. NOT exported as part
+ * of the public API; marked TODO(g2) for the v2.14.0 grace window.
+ */
+export function _resetLastResolvedOuterForTest(): void {
+  lastResolvedOuter = null;
 }
 
 // --- Public types and functions (moved verbatim) ---
@@ -295,7 +325,7 @@ export async function ensureSession(projectRoot: string): Promise<string> {
  * binding changes — and the rotation is surfaced in the return value
  * so the CLI can include it in the JSON envelope.
  *
- * Rotation is suppressed in three cases (all false-positive guards):
+ * Rotation is suppressed in four cases (all false-positive guards):
  *
  *   1. The current outer session id is undefined (no env var set) —
  *      there is no signal to compare against, defaulting to "do not
@@ -306,6 +336,16 @@ export async function ensureSession(projectRoot: string): Promise<string> {
  *   3. The bound session's recorded outer session id matches the
  *      current one (reconnect within the same Claude session) — this
  *      is the common case, not a swap.
+ *   4. Slice 2026-08-06-session-cacde8-A.3: same-process re-resolve —
+ *      `lastResolvedOuter.value` was already set to `currentOuterSessionId`
+ *      in this process and `boundOuter` equals that same value. Long-
+ *      running presence-lease writers that re-resolve within a single
+ *      process must not rotate on every CLI heartbeat. The module-scoped
+ *      state is per-process; each fresh CLI invocation starts with
+ *      `lastResolvedOuter === null`, so this guard cannot leak across
+ *      processes. The 4th guard ONLY fires when `lastResolvedOuter.value`
+ *      is a defined string (an undefined last-resolved value still
+ *      falls through to the legacy comparison path).
  *
  * When `options.skipRotateOnOuterMismatch === true`, the rotation
  * check is short-circuited and the binding is preserved (opt-out for
@@ -338,6 +378,28 @@ export async function ensureSessionWithRotation(
   if (boundSessionId !== null && currentOuterSessionId !== undefined) {
     const boundMeta = getSessionMeta(projectRoot, boundSessionId);
     const boundOuter = boundMeta?.outerSessionId;
+    // Slice 2026-08-06-session-cacde8-A.3: 4th guard — same-process
+    // re-resolve. When `lastResolvedOuter` was already set to the
+    // current outer AND the bound session's recorded outer equals
+    // the same value, the rotation decision was already evaluated
+    // in this process. Without this short-circuit, a long-running
+    // presence-lease writer would rotate on every heartbeat within
+    // the same process. Skipping only fires when `lastResolvedOuter`
+    // is a defined string (undefined last-resolved values fall
+    // through to the legacy comparison path so the first-ever
+    // resolve still works).
+    if (
+      lastResolvedOuter?.value !== undefined &&
+      lastResolvedOuter.value === currentOuterSessionId &&
+      lastResolvedOuter.value === boundOuter
+    ) {
+      const sessionId = await ensureSession(projectRoot);
+      return {
+        sessionId,
+        previousSessionId: null,
+        rotationReason: null
+      };
+    }
     if (
       typeof boundOuter === 'string' &&
       boundOuter.length > 0 &&
