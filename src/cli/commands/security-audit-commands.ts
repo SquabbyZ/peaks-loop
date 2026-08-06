@@ -7,7 +7,7 @@
  *   - `peaks security-audit detect` — JSON envelope describing the
  *     5-state security-audit runtime (ready / handoff-missing /
  *     template-missing / dispatch-failed / envelope-malformed).
- *     Mirrors `peaks code-review detect-ocr` semantics.
+ *     Mirrors the ECC bridge detect semantics.
  *   - `peaks security-audit run` — runs the full pipeline:
  *     detect → read handoff + template → write audit artifact to
  *     `.peaks/_runtime/<sid>/audit/security-<rid>.md`. Reads the

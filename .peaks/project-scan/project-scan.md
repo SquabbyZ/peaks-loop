@@ -26,7 +26,7 @@ libraryVersions:
   "@stryker-mutator/core": "^8.7.1"
   "@stryker-mutator/vitest-runner": "^9.6.1"
   "@colbymchenry/codegraph": "0.7.10"
-  "@alibaba-group/open-code-review": "1.3.1 (optional peer)"
+  "@alibaba-group/open-code-review": "Removed in 4.0.16 (slice PRD-002); see .peaks/memory/2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md"
 architecture: |
   peaks-loop is a TypeScript Node CLI for AI-coding workflow orchestration.
   Architecture:
@@ -87,7 +87,7 @@ karpathySelfCheck:
 | `@stryker-mutator/core` | `^8.7.1` | mutation testing (slice-only) |
 | `@stryker-mutator/vitest-runner` | `^9.6.1` | stryker↔vitest bridge |
 | `@colbymchenry/codegraph` | `0.7.10` | optional project analysis (untrusted, supporting evidence only) |
-| `@alibaba-group/open-code-review` | `1.3.1` | optional peer (ECC code-review bridge — Group D) |
+| `@alibaba-group/open-code-review` | Removed in 4.0.16 (slice PRD-002) | See `.peaks/memory/2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md` |
 
 ## Architecture (one-paragraph)
 

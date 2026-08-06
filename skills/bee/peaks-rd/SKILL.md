@@ -84,7 +84,7 @@ See `references/rd-runbook.md` for the full 9-step runbook (steps #0–#8) with 
 
 You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. CLI enforcement: the gates are ALSO enforced by `peaks request transition`, which fails with `code: PREREQUISITES_MISSING` if any are absent.
 
-Gate index: A (project-scan), A2 (tech-doc path verification), A3 (CLAUDE.md + .claude/rules), B (tech-doc + request artifact), B2 (unit tests on changed surface), B3 (code-review.md), B4 (security-review.md), B5 (lint — no unfilled placeholders), B6 (request-type-sanity), B7 (repair-status — 3-cycle cap), B8 (diff-vs-scope), B9 (perf-baseline).
+Gate index: A (project-scan), A2 (tech-doc path verification), A3 (CLAUDE.md + .claude/rules), B (tech-doc + request artifact), B2 (unit tests on changed surface), B3 (code-review.md), B4 (security-review.md), B5 (lint — no unfilled placeholders + JS/TS ESLint 卡控 via `peaks code lint`), B6 (request-type-sanity), B7 (repair-status — 3-cycle cap), B8 (diff-vs-scope), B9 (perf-baseline).
 
 → see `references/rd-transition-gates.md` for the per-gate contract + `ls` / `grep` shell snippets.
 

@@ -5,10 +5,7 @@
  * `rd/code-review.md` markdown format that `peaks request transition`
  * Gate B3 already reads (`mustContain: ['## Findings', 'CRITICAL']`).
  *
- * Companion to `ocr-service.ts`: ECC is the in-skill agent option
- * (uses peaks-loop's own Agent tool surface), ocr is the external
- * subprocess option. Both produce a second-opinion code review that
- * the parent RD loop aggregates alongside its own inline review.
+ * ECC is the in-skill agent option and the production Gate B3 path.
  *
  * === Why a bridge (not a direct swap) ===
  *
@@ -68,9 +65,7 @@ export interface EccEnvelope {
 }
 
 /**
- * 5-state detect result — mirrors `ocr-service.ts` `OcrDetectState`
- * (ready / package-missing / binary-missing / config-missing /
- * detection-failed). ECC's analogue:
+ * 5-state ECC detection result:
  *   - `ready`               — ECC plugin is installed and reachable
  *   - `plugin-missing`      — `everything-claude-code` not in skill list
  *   - `agent-missing`       — plugin present but `code-review` agent absent
