@@ -70,9 +70,16 @@ module.exports = {
   ],
   rules: {
     // L1 (eslint built-in) — always on, no plugin package required.
+    // PRD-002b slice: max-lines + max-lines-per-function promoted warn → error.
+    // D5 no-touch-stockcode invariant:存量违规通过 .peaks/lint/baseline.json 豁免
+    // (see src/services/lint/eslint-runner.ts baselineFile option).
+    'max-lines': [
+      'error',
+      { max: 400, skipBlankLines: true, skipComments: true }
+    ],
     complexity: ['warn', { max: 10 }],
     'max-lines-per-function': [
-      'warn',
+      'error',
       { max: 50, skipComments: true, skipBlankLines: true }
     ],
     'max-params': ['warn', { max: 4 }],
