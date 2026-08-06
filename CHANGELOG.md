@@ -1,5 +1,46 @@
 # Changelog
 
+## 4.0.16 — 2026-08-06 (ESLint JS/TS Gate + OCR 1.8.x multi-language reviewer + lint strictification)
+
+**8 NEW CLI capabilities** (PRD-002 + PRD-002b; 11 commits on main, 26 files, +1509/-960 LOC):
+
+- `peaks lint` (parent, un-hidden) — JS/TS ESLint verifier for peaks-rd Gate B5. Calls `npx --package eslint@10.8.0 --package @typescript-eslint/parser@8.66.0 --package @typescript-eslint/eslint-plugin@8.66.0 --package eslint-plugin-import@2.32.0 -- eslint`. Soft-fail (npx missing / errors never block a slice).
+- `peaks lint check` (default) — diffOnly=true + baselineFile waiver + redLineMode='baseline-aware'. Envelope has `state` + `findings` + `summary` + `baselineWaived` + `redLine` + `durationMs`.
+- `peaks lint baseline` — one-shot full-repo scan; writes `.peaks/lint/baseline.json` (project-level, gitignored by default; peak-loop ships its own as a TS CLI reference fixture).
+- `peaks lint --red-line` (or `peaks lint check --red-line`) — generates `.peaks/memory/lint-redline-summary.md` so the next LLM invocation reads prior sibling-violation context before writing new code.
+- `peaks code-review detect-ocr-18` — 5-state probe for OCR 1.8.x install + LLM config readiness.
+- `peaks code-review run-ocr-18 --language <py|go|java|rust|cpp|csharp|ruby|php>` — 8-language multi-language reviewer (AACR-bench coverage).
+- `peaks code-review ocr-18-delegate-preview` — Delegation Mode entry; no LLM key required (host agent's key suffices).
+
+**3 NEW runner options** on `src/services/lint/eslint-runner.ts`:
+- `diffOnly` (default `true`): filter ESLint findings to `git diff HEAD` hunks; 存量违规 silently skipped (no-touch-stockcode invariant).
+- `baselineFile` (default `.peaks/lint/baseline.json`): waiver matching on ruleId + file + line; baseline-violations never counted in `summary`.
+- `redLineMode` (default `'baseline-aware'`): aggregate baseline violations by ruleId; output `## Red-line` section for LLM.
+
+**Rule severity promotion** (`config/eslint/.peaks-rules.cjs`):
+- `max-lines: ['error', { max: 400, ... }]` (NEW, was implicit `eslint:recommended` only).
+- `max-lines-per-function`: `['warn', 50]` → `['error', 50]`.
+- `complexity: ['warn', 10]` unchanged (soft guidance, not hard limit).
+
+**OCR 1.8.9 surface clear-zero** (PRD-002 S2):
+- `@alibaba-group/open-code-review` 1.3.1 peer → 1.8.9 required dep (1.8.x per-platform `optionalDependencies` structurally removes the 2.0.3-era postinstall HTTPS problem).
+- Deleted: `src/services/code-review/ocr-service.ts` (463 lines) + 4 config types + 4 functions + skill ref `ocr-integration.md` (229 lines).
+- 8 languages now supported: Python / Go / Java / Rust / C++ / C# / Ruby / PHP.
+
+**7 binding decisions** (PRD-002b):
+- D1 with 4.0.16 release; D2 cost-unbounded single slice; D3 lint for LLM consumption; D4 incremental-first (diffOnly); D5 no-touch-stockcode (baseline waiver); D6 project-aware baseline (downstream MUST regenerate); D7 no downstream-migration slice (`npm update peaks-loop` propagates).
+
+**Quality gates**: `pnpm build` exit 0; 19 new BDD tests (8 eslint-runner + 2 lint-commands + 9 ocr-multilang-adapter); cycle-1 stdout narrowing regression preserved at `src/services/lint/eslint-runner.ts:134/144/187`; verify-pipeline 10/10 gates PASS.
+
+**5 pre-existing test timeouts** (NOT introduced by this slice; out of scope for 4.0.16; future slice `2026-08-06-fix-pre-existing-test-timeouts`):
+- `tests/unit/services/auto-compact-orchestrator.test.ts:270`
+- `tests/unit/services/skills/presence-lease-service.test.ts:163`
+- `tests/unit/services/session-binding-bridge-path-canonicalize.test.ts:117`
+- `tests/unit/cli/statusline-cli-integration.test.ts:895`
+- (1 more, full-suite-only)
+
+**Lockstep bump.** peaks-loop-shared `0.0.45 → 0.0.46` (CLI_VERSION re-stamped to 4.0.16).
+
 ## 4.0.15 — 2026-08-06 (rotation guards tightening + caller-derived workflowId + caller-binding primary source + atomic write hygiene)
 
 **Tightens rotation guards with 4th same-process re-resolve short-circuit** (slice `2026-08-06-rotation-guards-and-caller-binding`, commit `f38a796f`):
