@@ -60,6 +60,27 @@ export const SOURCE_CODE_KEYWORDS: readonly string[] = [
   '.rs',
 ] as const;
 
+/**
+ * Slice 2026-08-06-codegate-vendor-neutral — hard-blocked path families.
+ * When ANY of these substrings appears in the slice-spec, the orchestrator
+ * MUST NOT Edit/Write directly; the probe returns `canDoInSession: false`
+ * with `blockers: ["requires-sub-agent-dispatch"]` to force
+ * `peaks sub-agent dispatch rd`. The hook (`pre-tool-code-gate.sh`)
+ * enforces the same deny at the PreToolUse layer.
+ *
+ * The allow-list (.peaks/**, .peaks/_runtime/**, skill files, docs/**)
+ * is checked by the hook, NOT by this probe — the probe is content-side
+ * (slice-spec text) and the hook is file-side (resolved path on Edit/Write).
+ */
+export const HARD_BLOCKED_PATH_FAMILIES: readonly string[] = [
+  'src/',
+  'tests/unit/',
+  'tests/integration/',
+  'config/',
+  'bin/',
+  'scripts/',
+] as const;
+
 /** Decision-marker keywords that signal "needs user AskUserQuestion". */
 export const DECISION_KEYWORDS: readonly string[] = [
   'design',
@@ -101,6 +122,8 @@ export interface OrchestratorCanDoResult {
   readonly subAgentAvailable: boolean;
   /** Diagnostic — which of the 4 boundary questions fired. */
   readonly q1SourceCodeTouched: boolean;
+  /** Slice 2026-08-06-codegate-vendor-neutral: did the slice-spec mention a hard-blocked path family (src/, tests/unit/, ...)? When true the probe refuses direct execution. */
+  readonly q1HardBlockedPath: boolean;
   readonly q2SubAgentAvailable: boolean;
   readonly q3RequiresUserDecision: boolean;
   readonly q4ContextRatio: number;
@@ -123,6 +146,18 @@ export class OrchestratorCanDoError extends Error {
 export function detectSourceCodeTouched(sliceSpec: string): boolean {
   const lower = sliceSpec.toLowerCase();
   return SOURCE_CODE_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
+}
+
+/**
+ * Slice 2026-08-06-codegate-vendor-neutral — does the slice-spec mention
+ * any hard-blocked path family? Pure substring match. When true, the
+ * probe returns `canDoInSession: false` with `requires-sub-agent-dispatch`.
+ * This is the LLM-side complement to the `pre-tool-code-gate.sh` hook
+ * (which checks the actual Edit/Write/MultiEdit target path).
+ */
+export function detectHardBlockedPath(sliceSpec: string): boolean {
+  const lower = sliceSpec.toLowerCase();
+  return HARD_BLOCKED_PATH_FAMILIES.some((fam) => lower.includes(fam.toLowerCase()));
 }
 
 /**
@@ -183,6 +218,7 @@ export async function probeContextRatio(
  */
 export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, signals: {
   q1SourceCodeTouched: boolean;
+  q1HardBlockedPath: boolean;
   q2SubAgentAvailable: boolean;
   q3RequiresUserDecision: boolean;
   q4ContextRatio: number;
@@ -190,6 +226,20 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
   const blockers: string[] = [];
   const warnings: string[] = [];
   const suggestions: string[] = [];
+
+  // Slice 2026-08-06-codegate-vendor-neutral — Q1 HARD BLOCKER. When
+  // the slice-spec mentions any hard-blocked path family
+  // (src/, tests/unit/, tests/integration/, config/, bin/, scripts/),
+  // the orchestrator MUST refuse direct execution and force sub-agent
+  // dispatch. This is the LLM-side complement to the
+  // `pre-tool-code-gate.sh` PreToolUse hook.
+  if (signals.q1HardBlockedPath) {
+    blockers.push(
+      'requires-sub-agent-dispatch: slice-spec mentions a hard-blocked path family ' +
+        '(src/, tests/unit/, tests/integration/, config/, bin/, scripts/); ' +
+        'orchestrator MUST NOT Edit/Write these directly. Use peaks sub-agent dispatch rd.'
+    );
+  }
 
   // Q2 — sub-agent availability is a hard precondition.
   if (!signals.q2SubAgentAvailable) {
@@ -216,8 +266,9 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
     warnings.push('slice-spec contains decision keywords; AskUserQuestion before proceeding');
   }
 
-  // Q1 — source-code touched is NOT a blocker. The orchestrator
-  // delegates via sub-agent dispatch.
+  // Q1 (soft) — source-code touched is a sub-agent-dispatch hint. When
+  // not already hard-blocked (above), surface the dispatch verb. When
+  // already hard-blocked the blocker line carries the same instruction.
   if (signals.q1SourceCodeTouched && signals.q2SubAgentAvailable) {
     const batchId = randomUUID();
     const rid = 'rid-' + Date.now().toString(36);
@@ -241,6 +292,7 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
     contextRatio: signals.q4ContextRatio,
     subAgentAvailable: signals.q2SubAgentAvailable,
     q1SourceCodeTouched: signals.q1SourceCodeTouched,
+    q1HardBlockedPath: signals.q1HardBlockedPath,
     q2SubAgentAvailable: signals.q2SubAgentAvailable,
     q3RequiresUserDecision: signals.q3RequiresUserDecision,
     q4ContextRatio: signals.q4ContextRatio,
@@ -257,6 +309,7 @@ export async function evaluateOrchestratorCanDo(input: OrchestratorCanDoInput): 
   }
 
   const q1SourceCodeTouched = detectSourceCodeTouched(input.sliceSpec);
+  const q1HardBlockedPath = detectHardBlockedPath(input.sliceSpec);
   const q3RequiresUserDecision = detectRequiresUserDecision(input.sliceSpec);
 
   const probeSubAgent =
@@ -271,6 +324,7 @@ export async function evaluateOrchestratorCanDo(input: OrchestratorCanDoInput): 
 
   return buildOrchestratorCanDoResult(input, {
     q1SourceCodeTouched,
+    q1HardBlockedPath,
     q2SubAgentAvailable: subAgentAvailable,
     q3RequiresUserDecision,
     q4ContextRatio: ctxProbe.ratio,

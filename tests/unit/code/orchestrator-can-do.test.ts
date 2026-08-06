@@ -11,10 +11,20 @@
 // source-code changes via sub-agent dispatch. The verdict is
 // canDoInSession === (blockers.length === 0).
 //
+// Slice 2026-08-06-codegate-vendor-neutral elevates the Q1 signal:
+// when the slice-spec mentions any of the hard-blocked path families
+// (src/, tests/unit/, tests/integration/, config/, bin/, scripts/),
+// the probe MUST return canDoInSession=false with reason
+// "requires-sub-agent-dispatch" — the orchestrator is forbidden from
+// direct Edit/Write on those families. The companion hook
+// (pre-tool-code-gate.sh) enforces the same deny at the PreToolUse
+// layer.
+//
 // Dimensions covered:
 //   - render:     result envelope shape + CLI envelope shape
-//   - behavior:   4 Q signals + decision rule + threshold semantics
-//                 (≥0.85 pre-compact / ≥0.95 red-line)
+//   - behavior:   5 Q signals (incl. q1HardBlockedPath) + decision
+//                 rule + threshold semantics (≥0.85 pre-compact /
+//                 ≥0.95 red-line)
 //   - integration: real subprocess probes with pexec mocking pattern
 //                 (vi.hoisted + vi.mock for node:child_process)
 //   - a11y:       envelope `nextActions` carries concrete CLI verbs
@@ -26,9 +36,11 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import {
   buildOrchestratorCanDoResult,
+  detectHardBlockedPath,
   detectRequiresUserDecision,
   detectSourceCodeTouched,
   evaluateOrchestratorCanDo,
+  HARD_BLOCKED_PATH_FAMILIES,
   OrchestratorCanDoError,
   ORCHESTRATOR_PRECOMPACT_RATIO,
   ORCHESTRATOR_REDLINE_RATIO,
@@ -82,11 +94,44 @@ describe('Scenario: render — Q3 decision-keyword scan', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Slice 2026-08-06-codegate-vendor-neutral — hard-blocked path family scan
+// ---------------------------------------------------------------------------
+
+describe('Scenario: render — Q1 hard-blocked-path family scan (slice 2026-08-06-codegate)', () => {
+  it('when invoked, should detect src/, tests/unit/, tests/integration/, config/, bin/, scripts/ as hard-blocked families', () => {
+    expect(detectHardBlockedPath('modify src/services/foo.ts')).toBe(true);
+    expect(detectHardBlockedPath('add tests/unit/services/foo.test.ts')).toBe(true);
+    expect(detectHardBlockedPath('add tests/integration/foo.test.ts')).toBe(true);
+    expect(detectHardBlockedPath('update config/peaks.json')).toBe(true);
+    expect(detectHardBlockedPath('rewrite bin/peaks.js')).toBe(true);
+    expect(detectHardBlockedPath('update scripts/release.sh')).toBe(true);
+  });
+
+  it('when invoked, should NOT flag allow-listed paths (.peaks/, skills/, docs/)', () => {
+    expect(detectHardBlockedPath('add entry to .peaks/memory/foo.md')).toBe(false);
+    expect(detectHardBlockedPath('update skills/peaks-code/SKILL.md')).toBe(false);
+    expect(detectHardBlockedPath('add section to docs/spec.md')).toBe(false);
+    expect(detectHardBlockedPath('update CHANGELOG.md')).toBe(false);
+  });
+
+  it('HARD_BLOCKED_PATH_FAMILIES constant pins to the 6 deny families', () => {
+    expect(HARD_BLOCKED_PATH_FAMILIES).toEqual([
+      'src/',
+      'tests/unit/',
+      'tests/integration/',
+      'config/',
+      'bin/',
+      'scripts/',
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // buildOrchestratorCanDoResult — pure over 4 Q signals
 // ---------------------------------------------------------------------------
 
 describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', () => {
-  it('Case 1 (NEW): src/ change + sub-agent available → canDoInSession=true, suggestion includes dispatch rd', () => {
+  it('Case 1 (NEW): src/ change + sub-agent available → canDoInSession=false (hard-blocked), suggestion includes dispatch rd', () => {
     const result = buildOrchestratorCanDoResult(
       {
         sliceSpec: 'modify src/services/foo.ts',
@@ -94,17 +139,19 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
       },
       {
         q1SourceCodeTouched: true,
+        q1HardBlockedPath: true,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.5,
       }
     );
-    expect(result.canDoInSession).toBe(true);
-    expect(result.blockers).toEqual([]);
+    expect(result.canDoInSession).toBe(false);
+    expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
     expect(result.warnings).toEqual([]);
     expect(result.subAgentAvailable).toBe(true);
     expect(result.contextRatio).toBe(0.5);
     expect(result.q1SourceCodeTouched).toBe(true);
+    expect(result.q1HardBlockedPath).toBe(true);
     const dispatch = result.suggestions.find((s) => s.startsWith('peaks sub-agent dispatch rd'));
     expect(dispatch).toBeDefined();
     expect(dispatch).toContain('--project .');
@@ -119,6 +166,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
       },
       {
         q1SourceCodeTouched: false,
+        q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.5,
@@ -147,6 +195,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
       { sliceSpec: 'modify src/services/foo.ts', projectRoot: '.' },
       {
         q1SourceCodeTouched: true,
+        q1HardBlockedPath: true,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.97,
@@ -163,6 +212,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
       { sliceSpec: 'modify src/services/foo.ts', projectRoot: '.' },
       {
         q1SourceCodeTouched: true,
+        q1HardBlockedPath: true,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.88,
@@ -178,20 +228,25 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
       { sliceSpec: 'modify src/services/foo.ts', projectRoot: '.' },
       {
         q1SourceCodeTouched: true,
+        q1HardBlockedPath: true,
         q2SubAgentAvailable: false,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.5,
       }
     );
     expect(result.canDoInSession).toBe(false);
+    // Hard-blocked path fires FIRST in the blocker list; sub-agent
+    // unavailability is also a blocker.
+    expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
     expect(result.blockers.some((b) => b.includes('sub-agent dispatch unavailable'))).toBe(true);
   });
 
-  it('Case 7 (NEW): slice-spec contains "design" → warnings include AskUserQuestion, NOT a blocker', () => {
+  it('Case 7 (NEW): slice-spec contains "design" → warnings include AskUserQuestion, NOT a blocker (when no hard-blocked path)', () => {
     const result = buildOrchestratorCanDoResult(
       { sliceSpec: 'redesign the public API', projectRoot: '.' },
       {
         q1SourceCodeTouched: true,
+        q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: true,
         q4ContextRatio: 0.5,
@@ -213,23 +268,36 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
 // ---------------------------------------------------------------------------
 
 describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mocked probes', () => {
-  it('when sub-agent + clean context, should return canDoInSession=true with dispatch suggestion', async () => {
+  it('when sub-agent + clean context + non-source slice, should return canDoInSession=true', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'update docs/spec.md',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(true);
+    expect(result.q1SourceCodeTouched).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(false);
+    expect(result.q2SubAgentAvailable).toBe(true);
+    expect(result.q3RequiresUserDecision).toBe(false);
+    expect(result.q4ContextRatio).toBe(0.42);
+    expect(result.contextRatio).toBe(0.42);
+  });
+
+  it('when src/ slice + clean context, should return canDoInSession=false (hard-blocked path)', async () => {
     const result = await evaluateOrchestratorCanDo({
       sliceSpec: 'modify src/services/foo.ts',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
       probeContextRatio: async () => ({ ratio: 0.42, source: 'claude-code-env' }),
     });
-    expect(result.canDoInSession).toBe(true);
-    expect(result.q1SourceCodeTouched).toBe(true);
-    expect(result.q2SubAgentAvailable).toBe(true);
-    expect(result.q3RequiresUserDecision).toBe(false);
-    expect(result.q4ContextRatio).toBe(0.42);
-    expect(result.contextRatio).toBe(0.42);
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+    expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
     expect(result.suggestions.some((s) => s.includes('peaks sub-agent dispatch rd'))).toBe(true);
   });
 
-  it('when sub-agent unavailable + clean context, should return canDoInSession=false', async () => {
+  it('when sub-agent unavailable + hard-blocked path, should return canDoInSession=false with BOTH blockers', async () => {
     const result = await evaluateOrchestratorCanDo({
       sliceSpec: 'modify src/services/foo.ts',
       projectRoot: '.',
@@ -239,6 +307,7 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
     expect(result.canDoInSession).toBe(false);
     expect(result.subAgentAvailable).toBe(false);
     expect(result.blockers.some((b) => b.includes('sub-agent dispatch unavailable'))).toBe(true);
+    expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
   });
 
   it('when context near limit, should return canDoInSession=false regardless of other signals', async () => {
@@ -251,6 +320,104 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
     expect(result.canDoInSession).toBe(false);
     expect(result.contextRatio).toBe(0.91);
     expect(result.blockers.some((b) => b.includes('near limit'))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slice 2026-08-06-codegate-vendor-neutral — end-to-end BDD probes
+// ---------------------------------------------------------------------------
+
+describe('Scenario: behavior — orchestrator-can-do end-to-end BDD for slice 2026-08-06-codegate', () => {
+  it('given slice-spec mentioning src/, when probe runs, then canDoInSession=false with requires-sub-agent-dispatch', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'modify src/services/foo.ts',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+    expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
+  });
+
+  it('given slice-spec mentioning tests/unit/, when probe runs, then canDoInSession=false', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'add tests/unit/services/foo.test.ts',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+  });
+
+  it('given slice-spec mentioning tests/integration/, when probe runs, then canDoInSession=false', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'add tests/integration/foo.test.ts',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+  });
+
+  it('given slice-spec mentioning config/, when probe runs, then canDoInSession=false', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'update config/peaks.json',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+  });
+
+  it('given slice-spec mentioning bin/, when probe runs, then canDoInSession=false', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'rewrite bin/peaks.js',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+  });
+
+  it('given slice-spec mentioning scripts/, when probe runs, then canDoInSession=false', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'update scripts/release.sh',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(false);
+    expect(result.q1HardBlockedPath).toBe(true);
+  });
+
+  it('given slice-spec mentioning only .peaks/, when probe runs, then canDoInSession=true (allow-listed)', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'sediment lesson to .peaks/memory/2026-08-06-codegate.md',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(true);
+    expect(result.q1HardBlockedPath).toBe(false);
+    expect(result.q1SourceCodeTouched).toBe(false);
+    expect(result.blockers).toEqual([]);
+  });
+
+  it('given slice-spec mentioning only skills/, when probe runs, then canDoInSession=true', async () => {
+    const result = await evaluateOrchestratorCanDo({
+      sliceSpec: 'update skills/peaks-code/SKILL.md',
+      projectRoot: '.',
+      probeSubAgentAvailable: async () => true,
+      probeContextRatio: async () => ({ ratio: 0.4, source: 'claude-code-env' }),
+    });
+    expect(result.canDoInSession).toBe(true);
+    expect(result.q1HardBlockedPath).toBe(false);
+    expect(result.blockers).toEqual([]);
   });
 });
 

@@ -88,11 +88,12 @@ export function registerCodeOrchestratorCanDoCommand(code: Command, io: ProgramI
   );
 }
 
-function summaryLines(result: { canDoInSession: boolean; q1SourceCodeTouched: boolean; q2SubAgentAvailable: boolean; q3RequiresUserDecision: boolean; contextRatio: number }): string[] {
+function summaryLines(result: { canDoInSession: boolean; q1SourceCodeTouched: boolean; q1HardBlockedPath: boolean; q2SubAgentAvailable: boolean; q3RequiresUserDecision: boolean; contextRatio: number }): string[] {
   const lines: string[] = [];
   lines.push(
     `verdict: ${result.canDoInSession ? 'canDoInSession=true' : 'canDoInSession=false (blockers present)'}; ` +
-      `q1=src[${result.q1SourceCodeTouched ? 'Y' : 'N'}] q2=subagent[${result.q2SubAgentAvailable ? 'Y' : 'N'}] ` +
+      `q1=src[${result.q1SourceCodeTouched ? 'Y' : 'N'}] q1=hard-block[${result.q1HardBlockedPath ? 'Y' : 'N'}] ` +
+      `q2=subagent[${result.q2SubAgentAvailable ? 'Y' : 'N'}] ` +
       `q3=user-decision[${result.q3RequiresUserDecision ? 'Y' : 'N'}] q4=ratio=${result.contextRatio.toFixed(2)} ` +
       `(red-line ${ORCHESTRATOR_REDLINE_RATIO} / pre-compact ${ORCHESTRATOR_PRECOMPACT_RATIO})`
   );

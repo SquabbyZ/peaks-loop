@@ -44,6 +44,52 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 **Peaks-Loop Code is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-code → RD → QA → verdict`. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
 
+### Hard-blocked path families (the orchestrator may NOT directly Edit/Write these)
+
+| Family | Examples |
+|---|---|
+| `src/` | `src/services/foo.ts`, `src/cli/commands/x.ts` |
+| `tests/unit/` | `tests/unit/services/foo.test.ts` |
+| `tests/integration/` | `tests/integration/x.test.ts` |
+| `config/` | `config/peaks.json`, `tsconfig.json` |
+| `bin/` | `bin/peaks.js` |
+| `scripts/` | `scripts/release.sh` |
+
+ANY direct `Edit` / `Write` / `MultiEdit` of these paths from the orchestrator context is a **hard error**. The orchestrator's role is ONLY to dispatch sub-agents; it never owns a code-change tool call against these families.
+
+### Allowed path families (orchestrator may touch freely)
+
+- `.peaks/**` (memory sediment, project metadata, audit logs)
+- `.peaks/_runtime/**` (session-bound reviewable artifacts, gitignored)
+- `skills/**/SKILL.md` and other skill manifest files (orchestrator self-documents)
+- `docs/**` (governance / spec / plan docs)
+
+These families are non-source-code; the orchestrator may `Edit`/`Write` them directly (memory sediment, SKILL.md prose updates, doc snapshots). The PreToolUse hook + the `orchestrator-can-do` probe do NOT block these.
+
+### Code-Gate (slice 2026-08-06-codegate-vendor-neutral)
+
+Two-layer enforcement — do NOT try to bypass either:
+
+1. **LLM-level guard — `peaks code orchestrator-can-do`** (Step 0.51). Before any Edit/Write/MultiEdit tool call, run:
+   ```bash
+   peaks code orchestrator-can-do --slice-spec '<your task>' --json
+   ```
+   For source-code changes (mentioning `src/`, `tests/unit/`, `tests/integration/`, `config/`, `bin/`, `scripts/`) the probe MUST return `canDoInSession: false` with `blockers: ["requires-sub-agent-dispatch"]`. The probe does NOT block non-source slices (memory sediment, docs, SKILL.md updates).
+
+2. **Tool-level guard — `pre-tool-code-gate.sh`** (PreToolUse hook). When the orchestrator reaches for `Edit`/`Write`/`MultiEdit` against a hard-blocked path family, the hook exits 2 with stderr `PEAKS_CODE_PROHIBITED_DIRECT_EDIT: <file>... use 'peaks sub-agent dispatch rd'`. The hook is vendor-neutral — it inspects only the standard `{tool, input}` JSON contract, never env vars.
+
+### If you catch yourself reaching for Edit/Write on `src/**`
+
+STOP. Run:
+
+```bash
+peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid> --json
+```
+
+The RD sub-agent owns the actual `Edit`/`Write`/`MultiEdit` tool calls against source code. The orchestrator only emits the dispatch request.
+
+**Anti-pattern:** directly calling `Edit`/`Write`/`MultiEdit` on `src/**` from the orchestrator session because "the change is tiny" / "it's just one line" / "the dispatch overhead is too high" / "the LLM feels confident". None of these override the Code-Gate; the probe + the hook both fail-closed.
+
 ## 24h mode (orchestrator flag, NOT a new skill)
 
 24h mode is a *flag* the orchestrator flips, not a sibling skill. See `.peaks/memory/2026-07-28-peaks-code-loop-skill-proposal.md` for the RL-8 tension analysis. State machine via `peaks session 24h-mode {state,transition,attempts,reset}`; snapshot at `.peaks/_runtime/<sessionId>/24h-state.json` (read-only for peaks-code).
