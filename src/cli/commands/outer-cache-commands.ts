@@ -25,11 +25,12 @@
  * Both subcommands accept `--project <path>` (defaults to cwd / git
  * root) and `--json` (default in TTY-less invocations).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
+import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 
@@ -121,9 +122,16 @@ export function registerOuterCacheCommands(program: Command, io: ProgramIO): voi
     const capturedAt = new Date().toISOString();
     const payload = { outerSessionId, capturedAt };
     try {
-      const dir = dirname(cachePath);
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      writeFileSync(cachePath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+      // Slice 2026-08-06-session-cacde8-A.5c: atomic write (temp +
+      // rename) so a power-loss mid-write cannot leave the cache file
+      // truncated. `atomicWriteJson` owns its own
+      // `mkdirSync(dir, { recursive: true })` so the inline mkdir
+      // block is removed. The previous `writeFileSync` path was the
+      // 4.0.14 carry-forward QA issue #1; the bridge's cache-miss
+      // fallback treated the truncated state as a miss (safe) but
+      // the file was stuck in "permanent bad state" until the next
+      // SessionStart fired.
+      atomicWriteJson(cachePath, payload);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       printResult(

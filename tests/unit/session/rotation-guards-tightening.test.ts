@@ -71,9 +71,7 @@ function seedBinding(): void {
   mkdirSync(runtimeDir, { recursive: true });
   writeFileSync(
     join(runtimeDir, 'session.json'),
-    JSON.stringify({ sessionId: SID, createdAt: '2026-08-06T00:00:00.000Z', projectRoot: workspace }),
-    null,
-    2,
+    JSON.stringify({ sessionId: SID, createdAt: '2026-08-06T00:00:00.000Z', projectRoot: workspace }, null, 2),
     'utf8'
   );
 }
@@ -83,9 +81,7 @@ function writeCacheFile(outerSessionId: string): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(workspace, CACHE_REL),
-    JSON.stringify({ outerSessionId, capturedAt: '2026-08-06T00:00:00.000Z' }),
-    null,
-    2,
+    JSON.stringify({ outerSessionId, capturedAt: '2026-08-06T00:00:00.000Z' }, null, 2),
     'utf8'
   );
 }

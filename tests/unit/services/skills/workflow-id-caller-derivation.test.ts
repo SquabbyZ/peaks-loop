@@ -16,7 +16,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declareDimensions } from '../../_setup/4dim-template.js';
-import { WORKFLOW_ID_REGEX } from '~/src/services/workflow/workflow-graph-types.js';
+import { WORKFLOW_ID_REGEX } from '../../../../src/services/workflow/workflow-graph-types.js';
 
 declareDimensions(
   'tests/unit/services/skills/workflow-id-caller-derivation.test.ts',

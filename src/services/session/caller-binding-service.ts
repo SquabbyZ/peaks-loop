@@ -17,9 +17,10 @@
  * for the freeze-in contract.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
+import { atomicWriteJson } from '../ide/shared/atomic-json.js';
 import { CALLER_ID_REGEX, type CallerBinding } from './caller-id-types.js';
 import { getSessionDir } from './getSessionDir.js';
 
@@ -109,6 +110,13 @@ export function getCallerBinding(projectRoot: string, callerId: string): CallerB
  * for the binding object (callerId must match the file stem, peakSessionId
  * must be a valid session id, projectRoot is canonicalized). Idempotent:
  * re-writing the same callerId overwrites the file.
+ *
+ * Slice 2026-08-06-session-cacde8-A.5b: writes via `atomicWriteJson`
+ * (temp-file-then-rename) so a power-loss mid-write cannot leave the
+ * caller-binding file in a half-truncated state. `atomicWriteJson`
+ * owns its own `mkdirSync(dir, { recursive: true })`, so the inline
+ * mkdir block is removed. The previous `writeFileSync` path was a
+ * documented 4.0.14 carry-forward micro-fix from QA's issue #1.
  */
 export function setCallerBinding(
   projectRoot: string,
@@ -121,15 +129,11 @@ export function setCallerBinding(
     );
   }
   const bindingPath = getCallerBindingFile(projectRoot, callerId);
-  const dir = dirname(bindingPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
   const payload: CallerBinding = {
     ...binding,
     projectRoot: resolve(binding.projectRoot)
   };
-  writeFileSync(bindingPath, JSON.stringify(payload, null, 2), 'utf8');
+  atomicWriteJson(bindingPath, payload);
 }
 
 /**

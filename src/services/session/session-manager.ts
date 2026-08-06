@@ -16,6 +16,8 @@ import {
   stableRealPath
 } from '../../shared/path-utils.js';
 import { ensureSession } from './session-binding-bridge.js';
+import { getCallerBinding } from './caller-binding-service.js';
+import { resolveCallerProjection } from './resolve-caller-id.js';
 
 export type SessionInfo = {
   sessionId: string;
@@ -452,6 +454,17 @@ export {
  * @returns Session ID or null
  */
 export function getSessionId(projectRoot: string): string | null {
+  // Slice 2026-08-06-session-cacde8-A.5a: caller-binding becomes
+  // primary source. Read order is (1) `getCallerBinding` if
+  // `resolveCallerProjection` succeeds, (2) `readSessionFile`
+  // (the legacy session.json), (3) null (no binding). The legacy
+  // session.json is preserved as a fallback so a project without
+  // a caller-id resolution still resolves its binding (e.g. CLI
+  // run from a stock shell with no IDE adapter). `PEAKS_CALLER_NOT_RESOLVED`
+  // falls through to the session.json path; no caller-facing exit
+  // change.
+  const fromCallerBinding = getSessionIdFromCallerBinding(projectRoot);
+  if (fromCallerBinding !== null) return fromCallerBinding;
   const info = readSessionFile(projectRoot);
   return info?.sessionId ?? null;
 }
@@ -484,8 +497,30 @@ export function getSessionId(projectRoot: string): string | null {
  * so this variant is opt-in.
  */
 export function getSessionIdCanonical(projectRoot: string): string | null {
+  // Slice 2026-08-06-session-cacde8-A.5a: same caller-binding primary
+  // lookup as `getSessionId`; fall back to the canonical-fallback
+  // `readSessionFileCanonical` if caller-binding is absent / unresolved.
+  const fromCallerBinding = getSessionIdFromCallerBinding(projectRoot);
+  if (fromCallerBinding !== null) return fromCallerBinding;
   const info = readSessionFileCanonical(projectRoot);
   return info?.sessionId ?? null;
+}
+
+/**
+ * Internal helper: read the caller-binding primary source.
+ * Returns `null` when caller-id resolution fails
+ * (`PEAKS_CALLER_NOT_RESOLVED`), when no per-caller file exists,
+ * or when the file is malformed. NOT exported; the public surface
+ * is still `getSessionId` / `getSessionIdCanonical`.
+ */
+function getSessionIdFromCallerBinding(projectRoot: string): string | null {
+  try {
+    const projection = resolveCallerProjection({ projectRoot, env: process.env });
+    const binding = getCallerBinding(projectRoot, projection.callerId);
+    return binding?.peakSessionId ?? null;
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return null;
+  }
 }
 
 /**

@@ -25,6 +25,12 @@ import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import {
+  getCallerBinding,
+  setCallerBinding,
+} from './caller-binding-service.js';
+import type { CallerBinding } from './caller-id-types.js';
+import { resolveCallerProjection } from './resolve-caller-id.js';
+import {
   getSessionId,
   getSessionIdCanonical,
   getSessionMeta,
@@ -246,7 +252,71 @@ export type EnsureSessionResult = {
   rotationReason: 'outer-session-mismatch' | null;
 };
 
+/**
+ * Slice 2026-08-06-session-cacde8-A.5a: resolve the current callerId
+ * (if any) and look up the per-caller binding. Returns the bound
+ * sessionId + creation timestamp, or `null` when caller-id
+ * resolution fails (`PEAKS_CALLER_NOT_RESOLVED`) or no per-caller
+ * file exists. The per-caller file is the 4.0.8 source of truth;
+ * `ensureSession` consults it BEFORE `readSessionFile` so a binding
+ * written by a previous call from the same caller is preferred over
+ * a stale `session.json` (the legacy single-file binding).
+ */
+function resolveCallerBindingForEnsure(
+  projectRoot: string
+): { sessionId: string; createdAt: string; callerId: string } | null {
+  let projection;
+  try {
+    projection = resolveCallerProjection({ projectRoot, env: process.env });
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return null;
+  }
+  try {
+    const binding = getCallerBinding(projectRoot, projection.callerId);
+    if (binding === null) return null;
+    return {
+      sessionId: binding.peakSessionId,
+      createdAt: binding.createdAt,
+      callerId: projection.callerId
+    };
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return null;
+  }
+}
+
 export async function ensureSession(projectRoot: string): Promise<string> {
+  // Slice 2026-08-06-session-cacde8-A.5a: 3-tier read order —
+  // (1) per-caller binding (caller-keyed, primary), (2) legacy
+  // `session.json`, (3) fresh-generate. The per-caller lookup is
+  // preferred when `resolveCallerProjection` succeeds AND the
+  // per-caller file exists. When `resolveCallerProjection` throws
+  // `PEAKS_CALLER_NOT_RESOLVED` we fall through to the session.json
+  // path; the legacy fallback preserves existing CLI behaviour for
+  // projects without an active IDE adapter.
+  const callerBinding = resolveCallerBindingForEnsure(projectRoot);
+  if (callerBinding !== null) {
+    // Already-bound path via caller-binding (primary). Stamp the
+    // current outer-session-id onto the bound session's meta (G3).
+    const outerSessionId = getCurrentOuterSessionId(projectRoot);
+    if (outerSessionId !== undefined) {
+      setSessionMeta(projectRoot, callerBinding.sessionId, { outerSessionId });
+    }
+    // Slice 2026-08-06-session-cacde8-A.5a: dual-write — also write
+    // the legacy `session.json` (denormalized cache) when missing,
+    // so legacy consumers (e.g. `getSessionId` callers without a
+    // resolved callerId) still find the binding. The per-caller
+    // file is the source of truth; `session.json` is regenerated
+    // here for back-compat.
+    if (readSessionFile(projectRoot) === null) {
+      writeSessionFile(projectRoot, {
+        sessionId: callerBinding.sessionId,
+        createdAt: callerBinding.createdAt,
+        projectRoot
+      });
+    }
+    return callerBinding.sessionId;
+  }
+
   const existing = readSessionFile(projectRoot);
   if (existing) {
     // Slice 2026-08-06-session-outer-cache (G3 / AC8-AC11): on every
@@ -292,6 +362,38 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     createdAt: now,
     projectRoot
   };
+
+  // Slice 2026-08-06-session-cacde8-A.5a: dual-write on fresh-generate.
+  // The per-caller file is the 4.0.8 source of truth; the legacy
+  // `session.json` is a denormalized cache for consumers that have
+  // not migrated to `getCallerBinding`. Per-caller file is written
+  // FIRST; on partial-write failure of either file, the next
+  // `ensureSession` will re-derive `session.json` from the
+  // per-caller file via the tier-1 read path above.
+  const newCallerId = (() => {
+    try {
+      return resolveCallerProjection({ projectRoot, env: process.env }).callerId;
+    } catch {
+      return null;
+    }
+  })();
+  if (newCallerId !== null) {
+    const payload: CallerBinding = {
+      callerId: newCallerId,
+      peakSessionId: sessionId,
+      projectRoot,
+      createdAt: now,
+      lastActivityAt: now,
+      skill: 'peaks-code',
+      mode: 'unknown',
+      gate: 'startup'
+    };
+    try {
+      setCallerBinding(projectRoot, newCallerId, payload);
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      // best effort; session.json write below is the legacy fallback
+    }
+  }
 
   writeSessionFile(projectRoot, info);
 
