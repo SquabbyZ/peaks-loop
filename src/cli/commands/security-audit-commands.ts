@@ -89,7 +89,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
     securityAudit
       .command('detect')
       .description(
-        'Read-only probe: returns the 5-state security-audit runtime as a JSON envelope (ready / handoff-missing / template-missing / dispatch-failed / envelope-malformed). The peaks-security-audit skill calls this first to decide whether to invoke `run`. Mirrors `peaks code-review detect-ocr` semantics.'
+        'Read-only probe: returns the 5-state security-audit runtime as a JSON envelope (ready / handoff-missing / template-missing / dispatch-failed / envelope-malformed). The peaks-security-audit skill calls this first to decide whether to invoke `run`. Mirrors the ECC bridge detect semantics.'
       )
       .option('--rid <rid>', 'request id (e.g. 2026-06-27-v2-12-...)')
       .option('--sid <sid>', 'session id (e.g. 2026-06-27-session-...)')
