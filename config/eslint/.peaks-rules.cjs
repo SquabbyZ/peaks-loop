@@ -95,7 +95,13 @@ module.exports = {
         ignoreDefaultValues: true
       }
     ],
-    'no-explicit-any': 'warn',
+    // PRD-002b slice 5 pilot — switch phantom ruleId `no-explicit-any`
+    // (bare built-in name, fires "Definition for rule ... was not found"
+    // against plugin:@typescript-eslint/recommended-type-checked) to the
+    // canonical `@typescript-eslint/no-explicit-any`. Drops ~667 phantom
+    // entries from `peaks lint check` output and exposes only real
+    // explicit `any` annotations. Severity stays `warn` (D5).
+    '@typescript-eslint/no-explicit-any': 'warn',
     'prefer-const': 'warn',
     'no-var': 'error',
     eqeqeq: ['warn', 'always', { null: 'ignore' }],

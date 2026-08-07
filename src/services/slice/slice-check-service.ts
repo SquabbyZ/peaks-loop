@@ -98,14 +98,18 @@ function runCommand(command: string, args: string[], cwd: string, timeoutMs: num
       exitCode: 0,
       durationMs: Date.now() - start
     };
-  } catch (error: any) {
-    const stdout = (error?.stdout ?? '').toString('utf8');
-    const stderr = (error?.stderr ?? '').toString('utf8');
+  } catch (error: unknown) {
+    // execFileSync throws `Error & { stdout, stderr, status }` on
+    // non-zero exit (Node child_process typings). We narrow inline to
+    // preserve the existing optional-chain fallback for non-Error throws.
+    const e = error as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
+    const stdout = (e.stdout ?? '').toString('utf8');
+    const stderr = (e.stderr ?? '').toString('utf8');
     return {
       status: 'fail',
       stdout,
       stderr,
-      exitCode: typeof error?.status === 'number' ? error.status : 1,
+      exitCode: typeof e.status === 'number' ? e.status : 1,
       durationMs: Date.now() - start
     };
   }
@@ -321,13 +325,13 @@ async function runGateVerifyPipeline(
         nextActions: result.nextActions
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'gate-verify-pipeline',
       description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
       status: 'fail',
       durationMs: Date.now() - start,
-      detail: error?.message ?? 'verify-pipeline threw',
+      detail: error instanceof Error ? error.message : 'verify-pipeline threw',
       data: {}
     };
   }
@@ -470,13 +474,13 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
       durationMs,
       detail: `catalog: ${result.audit.totalRedLines} entries (${result.audit.cliBacked} cli-backed, ${result.audit.proseOnly} prose-only); audit ran in ${durationMs}ms`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'audit-regression',
       description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
       status: 'fail',
       durationMs: Date.now() - start,
-      detail: 'audit-regression failed: ' + (error?.message ?? String(error)),
+      detail: 'audit-regression failed: ' + (error instanceof Error ? error.message : String(error)),
     };
   }
 }
