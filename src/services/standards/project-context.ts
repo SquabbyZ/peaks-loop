@@ -252,30 +252,39 @@ function sampleSourceFiles(root: string, limit: number): string[] {
   const queue: string[] = [root];
   while (queue.length > 0 && out.length < limit) {
     const dir = queue.shift()!;
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      continue;
-    }
+    const entries = readDirOrEmpty(dir);
     for (const entry of entries) {
-      if (entry.startsWith('.') || entry === 'node_modules' || entry === 'dist' || entry === 'build') continue;
+      if (isIgnoredEntry(entry)) continue;
       const full = join(dir, entry);
-      let s;
-      try {
-        s = statSync(full);
-      } catch {
-        continue;
-      }
+      const s = statOrNull(full);
+      if (s === null || s === undefined) continue;
       if (s.isDirectory()) {
         queue.push(full);
-      } else if (/\.(tsx|jsx)$/.test(entry)) {
+      } else if (isJsxFile(entry)) {
         out.push(full);
         if (out.length >= limit) break;
       }
     }
   }
   return out;
+}
+
+function readDirOrEmpty(dir: string): string[] {
+  try { return readdirSync(dir); } catch { return []; }
+}
+
+function statOrNull(path: string): ReturnType<typeof statSync> | null {
+  try { return statSync(path); } catch { return null; }
+}
+
+function isIgnoredEntry(entry: string): boolean {
+  if (entry.startsWith('.')) return true;
+  if (entry === 'node_modules' || entry === 'dist' || entry === 'build') return true;
+  return false;
+}
+
+function isJsxFile(entry: string): boolean {
+  return /\.(tsx|jsx)$/.test(entry);
 }
 
 function notableDepsList(deps: Record<string, string>): string[] {
