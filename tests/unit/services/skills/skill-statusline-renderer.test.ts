@@ -691,11 +691,13 @@ describe("Scenario: render — compact precedence (exact strings)", () => {
       detail: 'compact-lifecycle: triggerRatio out of range',
     });
     const out = renderStatusLine(model, { capability: 'unicode' });
-    expect(out).toContain('Peaks');
     // The marquee highlight splits the diagnostic phrase across an
-    // SGR reset boundary; assert on the visible text after stripping
-    // ANSI so the band sweep never breaks the contract.
+    // SGR reset boundary when the band sweeps mid-word; assert on the
+    // visible text after stripping ANSI so the band sweep never breaks
+    // the contract. The 'no "?"' check still runs on raw `out` so the
+    // ANSI-strip can never accidentally mask a stray question mark.
     const visible = out.replace(/\x1b\[[0-9;]*m/g, '');
+    expect(visible).toContain('Peaks');
     expect(visible).toContain('compact-lifecycle: triggerRatio out of range');
     expect(visible).toContain('→ peaks-loop');
     expect(out).not.toContain('?');
