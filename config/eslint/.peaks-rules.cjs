@@ -78,9 +78,22 @@ module.exports = {
       { max: 50, skipComments: true, skipBlankLines: true }
     ],
     'max-params': ['warn', { max: 4 }],
+    // PRD-002b slice 2 — config tune for no-magic-numbers (commit A).
+    // --fix is a no-op: node_modules/eslint/lib/rules/no-magic-numbers.js
+    // has no `fixable` field on its meta (verified 2026-08-07). Severity
+    // stays `warn` per D5 no-touch-stockcode invariant.
+    // eslint 8.57.1 schema (verified): accept only `ignore`, `ignoreArrayIndexes`,
+    // `ignoreDefaultValues`, `detectObjects`, `enforceConst`,
+    // `ignoreClassFieldInitialValues`. The newer options (`ignoreEnums`,
+    // `ignoreNumericLiterals`, `ignoreReadonlyClassProperties`) are eslint 9.x
+    // only — schema rejects them with `additionalProperties: false`.
     'no-magic-numbers': [
       'warn',
-      { ignore: [0, 1, -1, 100, 1000] }
+      {
+        ignore: [-1, 0, 1, 2, 100, 1000],
+        ignoreArrayIndexes: true,
+        ignoreDefaultValues: true
+      }
     ],
     'no-explicit-any': 'warn',
     'prefer-const': 'warn',

@@ -22,6 +22,19 @@ const BACKEND_DEP_NAMES = [
 
 const BACKEND_DIR_CANDIDATES = ['server', 'backend', 'api', 'apps/server', 'apps/api', 'packages/server', 'packages/api'];
 const MONOREPO_CONFIG_FILES = ['pnpm-workspace.yaml', 'lerna.json', 'turbo.json', 'nx.json', 'rush.json'];
+
+/**
+ * PRD-002b slice 2 — extract archetype-detection thresholds. Names
+ * describe the meaning; values are bytewise-identical to the original
+ * literals (signaled in commit message).
+ */
+// eslint-disable-next-line no-magic-numbers -- canonical ms-per-day math (1000 * 60s * 60min * 24h)
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const GREENFIELD_MAX_SRC_FILES = 20;
+const LEGACY_MIN_SRC_FILES = 20;
+const LOCKFILE_STALE_DAYS = 180;
+const GREENFIELD_MAX_LOCKFILE_DAYS = 30;
+const HIGH_CONFIDENCE_SIGNAL_COUNT = 3;
 const SWAGGER_CANDIDATE_PATHS = [
   'swagger.json',
   'swagger.yaml',
@@ -143,7 +156,7 @@ async function lockfileAgeDays(projectRoot: string): Promise<number | null> {
     if (await pathExists(full)) {
       const stats = await stat(full);
       const ageMs = Date.now() - stats.mtimeMs;
-      return Math.floor(ageMs / (1000 * 60 * 60 * 24));
+      return Math.floor(ageMs / MS_PER_DAY);
     }
   }
   return null;
@@ -183,13 +196,13 @@ function decideArchetype(
 
   signals.push({
     name: 'src-size',
-    matched: detected.srcFileCount >= 20,
+    matched: detected.srcFileCount >= GREENFIELD_MAX_SRC_FILES,
     detail: `${detected.srcFileCount} source files in src/`
   });
 
   signals.push({
     name: 'lockfile-age',
-    matched: detected.lockfileAgeDays !== null && detected.lockfileAgeDays > 180,
+    matched: detected.lockfileAgeDays !== null && detected.lockfileAgeDays > LOCKFILE_STALE_DAYS,
     detail: detected.lockfileAgeDays === null ? 'no lockfile' : `${detected.lockfileAgeDays} days`
   });
 
@@ -213,29 +226,29 @@ function decideArchetype(
     };
   }
 
-  if (hasBackend && detected.srcFileCount >= 20) {
+  if (hasBackend && detected.srcFileCount >= LEGACY_MIN_SRC_FILES) {
     return { archetype: 'legacy-fullstack', confidence: 'high', signals };
   }
 
   const greenfieldSignals = [
-    detected.srcFileCount < 20,
-    detected.lockfileAgeDays === null || detected.lockfileAgeDays <= 30,
+    detected.srcFileCount < GREENFIELD_MAX_SRC_FILES,
+    detected.lockfileAgeDays === null || detected.lockfileAgeDays <= GREENFIELD_MAX_LOCKFILE_DAYS,
     !detected.hasSwaggerOrProto
   ];
   const greenfieldSignalCount = greenfieldSignals.filter(Boolean).length;
   // Greenfield must show both a small src AND a fresh/missing lockfile — otherwise an empty-src legacy stub still looks like greenfield.
   if (!hasBackend && greenfieldSignals[0] === true && greenfieldSignals[1] === true) {
-    return { archetype: 'greenfield', confidence: greenfieldSignalCount === 3 ? 'high' : 'medium', signals };
+    return { archetype: 'greenfield', confidence: greenfieldSignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium', signals };
   }
 
   const legacySignalCount = [
     !hasBackend,
     !detected.hasSwaggerOrProto,
-    (detected.lockfileAgeDays !== null && detected.lockfileAgeDays > 180) || detected.srcFileCount >= 20
+    (detected.lockfileAgeDays !== null && detected.lockfileAgeDays > LOCKFILE_STALE_DAYS) || detected.srcFileCount >= LEGACY_MIN_SRC_FILES
   ].filter(Boolean).length;
 
   if (!hasBackend && legacySignalCount >= 2) {
-    return { archetype: 'legacy-frontend', confidence: legacySignalCount === 3 ? 'high' : 'medium', signals };
+    return { archetype: 'legacy-frontend', confidence: legacySignalCount === HIGH_CONFIDENCE_SIGNAL_COUNT ? 'high' : 'medium', signals };
   }
 
   if (hasBackend) {

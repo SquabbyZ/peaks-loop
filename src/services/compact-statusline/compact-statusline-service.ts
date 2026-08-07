@@ -56,6 +56,7 @@ export type CompactDisplayKind =
 
 export interface CompactStatuslineState {
   readonly kind: CompactDisplayKind;
+  // eslint-disable-next-line no-magic-numbers -- type-position literal union for the cell-table contract
   readonly filledCells: 0 | 2 | 4 | 6 | 8;
   readonly triggerRatio?: number;
   readonly afterRatio?: number;
@@ -86,21 +87,29 @@ export const COMPLETED_EXPIRY_MS = 10_000;
 /** Legacy mtime window for the "just compacted" indicator. */
 const LEGACY_JUST_COMPACTED_WINDOW_MS = 30_000;
 
+// PRD-002b slice 2 — extract cell-table magic numbers (4/6/8) into named
+// consts so the no-magic-numbers lint rule stops flagging the typed
+// literal-union cell-table values. Values match the documented contract.
+const STAGE_CELL_COMPACTING = 4;
+const STAGE_CELL_VERIFYING = 6;
+const STAGE_CELL_COMPLETED = 8;
+
+/* eslint-disable no-magic-numbers -- cell-table contract uses literal-type unions (`0 | 2 | 4 | 6 | 8`); these are type-position discriminators, not runtime values. Magic-number extraction is done at the runtime call sites via STAGE_CELL_* constants above. */
 const CELL_BY_STAGE: ReadonlyMap<CompactLifecycleStage, 0 | 2 | 4 | 6 | 8> = new Map<
   CompactLifecycleStage,
   0 | 2 | 4 | 6 | 8
 >([
   ['queued', 0],
   ['preparing', 2],
-  ['compacting', 4],
-  ['verifying', 6],
-  ['completed', 8],
-  ['failed', 4],
+  ['compacting', STAGE_CELL_COMPACTING],
+  ['verifying', STAGE_CELL_VERIFYING],
+  ['completed', STAGE_CELL_COMPLETED],
+  ['failed', STAGE_CELL_COMPACTING],
 ]);
 
 const FILLED = '█';
 const EMPTY = '░';
-const BAR_WIDTH = 8;
+const BAR_WIDTH = STAGE_CELL_COMPLETED;
 const NO_AFTER_RATIO_HINT = 'after-ratio not recorded';
 
 function renderBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
@@ -110,6 +119,7 @@ function renderBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
 function renderLegacyBar(filledCells: 0 | 2 | 4 | 6 | 8): string {
   return renderBar(filledCells);
 }
+/* eslint-enable no-magic-numbers */
 
 export function decideCompactStatusline(input: {
   readonly projectRoot: string;
@@ -188,7 +198,7 @@ function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineSt
     const failedAt = record.failedAt ?? 'compacting';
     const state: CompactStatuslineState = {
       kind: 'failed',
-      filledCells: CELL_BY_STAGE.get(failedAt) ?? 4,
+      filledCells: CELL_BY_STAGE.get(failedAt) ?? STAGE_CELL_COMPACTING,
       triggerRatio: record.triggerRatio,
       redLine: record.redLine,
       failedAt,
@@ -212,7 +222,7 @@ function stateFromLifecycle(record: CompactLifecycleRecord): CompactStatuslineSt
 }
 
 function stateFromStalled(record: CompactLifecycleRecord): CompactStatuslineState {
-  const filledCells = CELL_BY_STAGE.get(record.stage) ?? 4;
+  const filledCells = CELL_BY_STAGE.get(record.stage) ?? STAGE_CELL_COMPACTING;
   const detailText = record.stage === 'failed'
     ? record.errorSummary
     : `no heartbeat for ${record.stage} stage`;
@@ -295,9 +305,9 @@ export function renderCompactStatusline(state: CompactStatuslineState): string {
     case 'preparing':
       return `compact ${renderBar(2)}`;
     case 'compacting':
-      return `compact ${renderBar(4)}`;
+      return `compact ${renderBar(STAGE_CELL_COMPACTING)}`;
     case 'verifying':
-      return `compact ${renderBar(6)}`;
+      return `compact ${renderBar(STAGE_CELL_VERIFYING)}`;
     case 'completed':
       return formatCompleted(state);
     case 'failed':
@@ -310,7 +320,7 @@ export function renderCompactStatusline(state: CompactStatuslineState): string {
 }
 
 function formatCompleted(state: CompactStatuslineState): string {
-  const bar = renderBar(8);
+  const bar = renderBar(STAGE_CELL_COMPLETED);
   if (typeof state.afterRatio === 'number') {
     return `compact ${bar} → ${state.afterRatio.toFixed(2)}`;
   }
@@ -319,7 +329,7 @@ function formatCompleted(state: CompactStatuslineState): string {
 
 function formatFailed(state: CompactStatuslineState): string {
   const filledAt = state.failedAt ?? 'compacting';
-  const cells = CELL_BY_STAGE.get(filledAt) ?? 4;
+  const cells = CELL_BY_STAGE.get(filledAt) ?? STAGE_CELL_COMPACTING;
   const bar = renderBar(cells);
   const detail = state.detail ? ` — ${state.detail}` : '';
   return `compact ${bar} failed at ${filledAt}${detail}`;

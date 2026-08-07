@@ -13,6 +13,18 @@ import { fail, ok } from 'peaks-loop-shared/result';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
 
+/**
+ * PRD-002b slice 2 — extract CLI listing-pagination + table-format
+ * constants. Values are bytewise-identical to the original literals.
+ */
+const SLICE_LIST_DEFAULT_LIMIT = 50;
+const SLICE_LIST_MAX_LIMIT = 500;
+const SLICE_LIST_RID_COL_WIDTH = 34;
+const SLICE_LIST_MTIME_COL_WIDTH = 22;
+const SLICE_LIST_SIZE_COL_WIDTH = 8;
+const SLICE_LIST_PICKED_COL_WIDTH = 6;
+const SLICE_LIST_SEPARATOR_WIDTH = 76;
+
 export function registerSliceCommands(program: Command, io: ProgramIO): void {
   const slice = program.command('slice').description(
     'Slice lifecycle: check (boundary), decompose (PRD -> 6-stage algorithm), ' +
@@ -82,13 +94,13 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
           '--limit <n> to cap. To remove stale entries, use `peaks slice cleanup` (separate slice).'
       )
       .option('--project <path>', 'target project root', '.')
-      .option('--limit <n>', 'cap result count (default 50, max 500)', (v) => parseInt(v, 10), 50)
+      .option('--limit <n>', 'cap result count (default 50, max 500)', (v) => parseInt(v, 10), SLICE_LIST_DEFAULT_LIMIT)
       .option('--stale-only', 'only include rids older than the stale threshold', false)
       .option('--rid <substring>', 'case-insensitive substring filter on rid', '')
   ).action((options: { project: string; limit?: number; staleOnly?: boolean; rid?: string; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
-      const limit = Math.max(1, Math.min(500, options.limit ?? 50));
+      const limit = Math.max(1, Math.min(SLICE_LIST_MAX_LIMIT, options.limit ?? SLICE_LIST_DEFAULT_LIMIT));
       const all = listDecompositions(projectRoot);
       let filtered = all;
       const ridSub = (options.rid ?? '').toLowerCase();
@@ -115,14 +127,14 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
 
       // Plaintext mode: header + table
       const lines: string[] = [];
-      lines.push('RID'.padEnd(34) + 'MTIME'.padEnd(22) + 'SIZE'.padEnd(8) + 'PICKED'.padEnd(6) + 'STALE');
-      lines.push('-'.repeat(76));
+      lines.push('RID'.padEnd(SLICE_LIST_RID_COL_WIDTH) + 'MTIME'.padEnd(SLICE_LIST_MTIME_COL_WIDTH) + 'SIZE'.padEnd(SLICE_LIST_SIZE_COL_WIDTH) + 'PICKED'.padEnd(SLICE_LIST_PICKED_COL_WIDTH) + 'STALE');
+      lines.push('-'.repeat(SLICE_LIST_SEPARATOR_WIDTH));
       for (const r of page) {
         lines.push(
-          r.rid.padEnd(34) +
-          r.mtime.padEnd(22) +
-          String(r.sizeBytes).padEnd(8) +
-          (r.pickedPath ? 'yes' : 'no').padEnd(6) +
+          r.rid.padEnd(SLICE_LIST_RID_COL_WIDTH) +
+          r.mtime.padEnd(SLICE_LIST_MTIME_COL_WIDTH) +
+          String(r.sizeBytes).padEnd(SLICE_LIST_SIZE_COL_WIDTH) +
+          (r.pickedPath ? 'yes' : 'no').padEnd(SLICE_LIST_PICKED_COL_WIDTH) +
           (r.isStale ? 'yes' : 'no')
         );
       }
@@ -438,6 +450,7 @@ function writeDecompositionFile(rid: string, result: DecompositionResult, projec
  * recorded in .peaks/memory/ for follow-up). If that slice ships with a
  * different default, both must update here.
  */
+// eslint-disable-next-line no-magic-numbers -- canonical 30-day-in-ms math
 const STALE_THRESHOLD_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface SliceListingRow {

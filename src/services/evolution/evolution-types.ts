@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+/* ---------------------------------------------------------------------- */
+/* PRD-002b slice 2 — schema-limit constants extracted from inline         */
+/* `.max(N)` calls so the no-magic-numbers rule stops flagging the        */
+/* constraint values. Names describe the field, not just the number.     */
+/* ---------------------------------------------------------------------- */
+const EVO_TARGET_RELEASE_ID_MAX = 256;
+const EVO_OPTIMIZATION_DIMENSION_MAX = 200;
+const EVO_AUTHOR_ID_MAX = 200;
+const EVO_RISK_TAG_MAX = 200;
+const EVO_RED_LINE_MAX = 2000;
+const EVO_SOURCE_TRACE_MAX = 256;
+const EVO_EVAL_ID_MAX = 128;
+const EVO_DIMENSION_ITEM_MAX = 200;
+const EVO_SCORING_SCALE_MAX = 10;
+const EVO_REFUTE_PARAGRAPH_MAX = 8000;
+const EVO_SKEPTIC_RISK_MAX = 2000;
+const EVO_POINTER_MAX = 512;
+
 /**
  * EvolutionEvaluation — spec §4.4 / §6.
  *
@@ -73,7 +91,7 @@ export const EVOLUTION_VERDICTS: readonly EvolutionVerdict[] = [
  * target_kind; we keep this as a non-empty string and let the
  * service layer validate per target_kind.
  */
-const TargetReleaseIdSchema = z.string().min(1).max(256);
+const TargetReleaseIdSchema = z.string().min(1).max(EVO_TARGET_RELEASE_ID_MAX);
 
 /**
  * EvolutionProposal — the create payload.
@@ -98,7 +116,7 @@ export const EvolutionProposalInputSchema = z.object({
     .string()
     .trim()
     .min(1, "optimization_dimension is required (single dimension per round)")
-    .max(200),
+    .max(EVO_OPTIMIZATION_DIMENSION_MAX),
   before_snapshot: z.record(z.unknown()).default({}),
   after_snapshot: z.record(z.unknown()).default({}),
   diff: z.record(z.unknown()).default({}),
@@ -106,12 +124,12 @@ export const EvolutionProposalInputSchema = z.object({
     .number()
     .finite("before_score must be a finite number")
     .min(0, "before_score must be >= 0")
-    .max(10, "before_score must be <= 10"),
+    .max(EVO_SCORING_SCALE_MAX, "before_score must be <= 10"),
   after_score: z
     .number()
     .finite("after_score must be a finite number")
     .min(0, "after_score must be >= 0")
-    .max(10, "after_score must be <= 10"),
+    .max(EVO_SCORING_SCALE_MAX, "after_score must be <= 10"),
   score_delta_min: z
     .number()
     .finite("score_delta_min must be a finite number")
@@ -121,7 +139,7 @@ export const EvolutionProposalInputSchema = z.object({
     .string()
     .trim()
     .min(1, "author_id is required")
-    .max(200),
+    .max(EVO_AUTHOR_ID_MAX),
   /**
    * The LLM-side marker that this proposal targets a SINGLE object
    * (AC-8). Multi-object proposals must be split into multiple
@@ -146,8 +164,8 @@ export const EvolutionProposalInputSchema = z.object({
     }),
   }),
   rubric: z.record(z.unknown()).default({}),
-  red_lines: z.array(z.string().min(1).max(2000)).default([]),
-  source_traces: z.array(z.string().min(1).max(256)).default([]),
+  red_lines: z.array(z.string().min(1).max(EVO_RED_LINE_MAX)).default([]),
+  source_traces: z.array(z.string().min(1).max(EVO_SOURCE_TRACE_MAX)).default([]),
 });
 export type EvolutionProposalInput = z.input<typeof EvolutionProposalInputSchema>;
 
@@ -161,13 +179,13 @@ export const EvolutionProposalSchema = EvolutionProposalInputSchema.extend({
   id: z
     .string()
     .min(1)
-    .max(128)
+    .max(EVO_EVAL_ID_MAX)
     .regex(/^eval-[0-9a-f-]{8,}$/, {
       message:
         "id must start with 'eval-' followed by a hex/UUID-ish suffix",
     }),
   dimensions: z
-    .array(z.string().min(1).max(200))
+    .array(z.string().min(1).max(EVO_DIMENSION_ITEM_MAX))
     .length(1, "dimensions must be exactly length 1 (AC-8)"),
   target_count: z.literal(1),
   schema_version: z
@@ -191,13 +209,13 @@ export const IndependentEvaluatorResultSchema = z.object({
     .number()
     .finite()
     .min(0, "evaluator score must be >= 0")
-    .max(10, "evaluator score must be <= 10"),
-  riskTags: z.array(z.string().min(1).max(200)).default([]),
+    .max(EVO_SCORING_SCALE_MAX, "evaluator score must be <= 10"),
+  riskTags: z.array(z.string().min(1).max(EVO_RISK_TAG_MAX)).default([]),
   refuteParagraph: z
     .string()
     .trim()
     .min(1, "refuteParagraph is required (one paragraph of independent-context rebuttal)")
-    .max(8000),
+    .max(EVO_REFUTE_PARAGRAPH_MAX),
 });
 export type IndependentEvaluatorResult = z.infer<
   typeof IndependentEvaluatorResultSchema
@@ -208,10 +226,10 @@ export type IndependentEvaluatorResult = z.infer<
  * that attempts to refute the proposal.
  */
 export const RegressionSkepticResultSchema = z.object({
-  driftRisks: z.array(z.string().min(1).max(2000)).default([]),
-  overfitRisks: z.array(z.string().min(1).max(2000)).default([]),
-  safetyRegressionRisks: z.array(z.string().min(1).max(2000)).default([]),
-  blocker: z.string().trim().min(1).max(2000).optional(),
+  driftRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
+  overfitRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
+  safetyRegressionRisks: z.array(z.string().min(1).max(EVO_SKEPTIC_RISK_MAX)).default([]),
+  blocker: z.string().trim().min(1).max(EVO_SKEPTIC_RISK_MAX).optional(),
 });
 export type RegressionSkepticResult = z.infer<
   typeof RegressionSkepticResultSchema
@@ -235,7 +253,7 @@ export const EvolutionEvaluationInputSchema = z.object({
   id: z
     .string()
     .min(1)
-    .max(128)
+    .max(EVO_EVAL_ID_MAX)
     .regex(/^eval-[0-9a-f-]{8,}$/, {
       message:
         "id must start with 'eval-' followed by a hex/UUID-ish suffix",
@@ -245,12 +263,12 @@ export const EvolutionEvaluationInputSchema = z.object({
     .string()
     .trim()
     .min(1, "evaluator_id is required (independent scorer; AC-12)")
-    .max(200),
+    .max(EVO_AUTHOR_ID_MAX),
   skeptic_id: z
     .string()
     .trim()
     .min(1, "skeptic_id is required (regression skeptic; AC-14)")
-    .max(200),
+    .max(EVO_AUTHOR_ID_MAX),
   evaluator_result: IndependentEvaluatorResultSchema,
   skeptic_result: RegressionSkepticResultSchema,
   verdict: EvolutionVerdictSchema,
@@ -258,13 +276,13 @@ export const EvolutionEvaluationInputSchema = z.object({
     .string()
     .trim()
     .min(1, "user_confirmation_pointer is required (AC-15)")
-    .max(512)
+    .max(EVO_POINTER_MAX)
     .optional(),
   brief_pointer: z
     .string()
     .trim()
     .min(1, "brief_pointer is required (spec §4.4)")
-    .max(512)
+    .max(EVO_POINTER_MAX)
     .optional(),
   schema_version: z
     .literal("peaks.evolution/1")

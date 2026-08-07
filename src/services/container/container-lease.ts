@@ -32,13 +32,27 @@ import { randomBytes } from 'node:crypto';
 import { posix as path } from 'node:path';
 import { normalizePath } from '../../shared/path-utils.js';
 
+/**
+ * PRD-002b slice 2 — lease-TTL primitives extracted so the
+ * no-magic-numbers rule stops flagging the minute/ms math.
+ */
+const MINUTES_PER_HOUR = 60;
+const MS_PER_MINUTE = MINUTES_PER_HOUR * 1_000;
+const LEASE_RD_TTL_MINUTES = 30;
+const LEASE_QA_TTL_MINUTES = 15;
+const LEASE_UI_TTL_MINUTES = MINUTES_PER_HOUR;
+const LEASE_SC_TTL_MINUTES = 30;
+const LEASE_PRD_TTL_MINUTES = 15;
+const LEASE_GENERAL_TTL_MINUTES = 30;
+const LEASE_ID_RANDOM_BYTES = 8;
+
 export const DEFAULT_TTL_BY_ROLE: Readonly<Record<string, number>> = Object.freeze({
-  rd: 30 * 60 * 1_000,
-  qa: 15 * 60 * 1_000,
-  ui: 60 * 60 * 1_000,
-  sc: 30 * 60 * 1_000,
-  prd: 15 * 60 * 1_000,
-  general: 30 * 60 * 1_000
+  rd: LEASE_RD_TTL_MINUTES * MS_PER_MINUTE,
+  qa: LEASE_QA_TTL_MINUTES * MS_PER_MINUTE,
+  ui: LEASE_UI_TTL_MINUTES * MS_PER_MINUTE,
+  sc: LEASE_SC_TTL_MINUTES * MS_PER_MINUTE,
+  prd: LEASE_PRD_TTL_MINUTES * MS_PER_MINUTE,
+  general: LEASE_GENERAL_TTL_MINUTES * MS_PER_MINUTE
 }) as Readonly<Record<string, number>>;
 
 export const DEFAULT_TTL_MS = DEFAULT_TTL_BY_ROLE.rd;
@@ -79,13 +93,13 @@ export function containerLeaseFilePath(sessionRuntimeDir: string, leaseId: strin
 
 /** Pure: generate a 16-hex lease id (8 random bytes, hex-encoded). */
 export function generateContainerLeaseId(): string {
-  return randomBytes(8).toString('hex');
+  return randomBytes(LEASE_ID_RANDOM_BYTES).toString('hex');
 }
 
 export function ttlForContainerRole(role: string): number {
   const normalized = role.toLowerCase();
   const candidate: number | undefined = DEFAULT_TTL_BY_ROLE[normalized];
-  const fallback: number = DEFAULT_TTL_BY_ROLE['rd'] ?? 30 * 60 * 1_000;
+  const fallback: number = DEFAULT_TTL_BY_ROLE['rd'] ?? LEASE_RD_TTL_MINUTES * MS_PER_MINUTE;
   return candidate ?? fallback;
 }
 

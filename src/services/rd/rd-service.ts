@@ -8,6 +8,20 @@ import type { WorkspaceConfig } from '../config/config-types.js';
 import { getConfiguredExecutionModelId, getStrongestModelId } from '../config/model-routing.js';
 
 /**
+ * PRD-002b slice 2 — extract wave-boundary magic numbers so the
+ * no-magic-numbers rule stops flagging the swarm-plan slicing math.
+ * `8` = wave-size for discovery/planning/unit-test/reducer tail;
+ * `16` = start of implementation-candidates band;
+ * `5` = quality-gate band size;
+ * `3` = padding width for the impl-N task-id.
+ */
+const RD_DISCOVERY_PLANNING_WAVE_SIZE = 8;
+const RD_IMPLEMENTATION_BAND_START = 16;
+const RD_FIXED_TASK_BOUNDARY = RD_IMPLEMENTATION_BAND_START;
+const RD_QUALITY_GATE_BAND_SIZE = 5;
+const RD_TASK_ID_PAD_WIDTH = 3;
+
+/**
  * 2.0.1-bug1: the slim 2.0 `~/.peaks/config.json` no longer carries a
  * `providers` block (legacy model config lives in
  * `.peaks/preferences.json` per spec §10.4). `buildPlan` is a pure
@@ -214,8 +228,8 @@ function buildTaskIds(workerTarget: number): string[] {
   ];
 
   const implementationCount = Math.max(workerTarget - fixed.length, 1);
-  const implementation = Array.from({ length: implementationCount }, (_, index) => `rd-impl-${String(index + 1).padStart(3, '0')}`);
-  return [...fixed.slice(0, 16), ...implementation, ...fixed.slice(16)];
+  const implementation = Array.from({ length: implementationCount }, (_, index) => `rd-impl-${String(index + 1).padStart(RD_TASK_ID_PAD_WIDTH, '0')}`);
+  return [...fixed.slice(0, RD_FIXED_TASK_BOUNDARY), ...implementation, ...fixed.slice(RD_FIXED_TASK_BOUNDARY)];
 }
 
 function isInsidePath(childPath: string, parentPath: string): boolean {
@@ -492,11 +506,11 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   const taskIds = buildTaskIds(workerTarget);
   const concreteTargetAreas = getConcreteTargetAreas(request, artifactWorkspacePath, techStatus.status === 'approved');
-  const discoveryTaskIds = taskIds.slice(0, 8);
-  const planningTaskIds = taskIds.slice(8, 16);
-  const implementationTaskIds = taskIds.slice(16, taskIds.length - 8);
-  const unitTestTaskIds = taskIds.slice(taskIds.length - 8, taskIds.length - 5);
-  const qualityTaskIds = taskIds.slice(taskIds.length - 5, taskIds.length - 1);
+  const discoveryTaskIds = taskIds.slice(0, RD_DISCOVERY_PLANNING_WAVE_SIZE);
+  const planningTaskIds = taskIds.slice(RD_DISCOVERY_PLANNING_WAVE_SIZE, RD_IMPLEMENTATION_BAND_START);
+  const implementationTaskIds = taskIds.slice(RD_IMPLEMENTATION_BAND_START, taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE);
+  const unitTestTaskIds = taskIds.slice(taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE, taskIds.length - RD_QUALITY_GATE_BAND_SIZE);
+  const qualityTaskIds = taskIds.slice(taskIds.length - RD_QUALITY_GATE_BAND_SIZE, taskIds.length - 1);
   const reducerTaskIds = taskIds.slice(taskIds.length - 1);
 
   const waves: RdWave[] = [
@@ -518,9 +532,9 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
   };
 
   const tasks: RdTask[] = taskIds.map((taskId, index): RdTask => {
-    const wave: RdWaveName = index < 8 ? 'discovery' : index < 16 ? 'planning' : index < taskIds.length - 8 ? 'implementation candidates' : index < taskIds.length - 5 ? 'unit-test execution' : index < taskIds.length - 1 ? 'quality gates' : 'reducer';
+    const wave: RdWaveName = index < RD_DISCOVERY_PLANNING_WAVE_SIZE ? 'discovery' : index < RD_IMPLEMENTATION_BAND_START ? 'planning' : index < taskIds.length - RD_DISCOVERY_PLANNING_WAVE_SIZE ? 'implementation candidates' : index < taskIds.length - RD_QUALITY_GATE_BAND_SIZE ? 'unit-test execution' : index < taskIds.length - 1 ? 'quality gates' : 'reducer';
     const briefPath = `rd/swarm/workers/${taskId}/brief.md`;
-    const implementationIndex = index - 16;
+    const implementationIndex = index - RD_IMPLEMENTATION_BAND_START;
     const targetArea = wave === 'implementation candidates' && hasConcreteTargetAreas(concreteTargetAreas)
       ? selectConcreteTargetArea(concreteTargetAreas, implementationIndex)
       : `area-${wave}`;

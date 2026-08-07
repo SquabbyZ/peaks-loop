@@ -267,6 +267,38 @@ describe('runEslint', () => {
       rmSync(tmp, { recursive: true, force: true });
     }
   });
+
+  // PRD-002b slice 2 (commit A) — config-tune wire confirmation.
+  // Loads the live .peaks-rules.cjs, asserts the parsed no-magic-numbers
+  // config has the schema-valid options that eslint 8.57.1 accepts:
+  //   ignore: [-1, 0, 1, 2, 100, 1000]
+  //   ignoreArrayIndexes: true
+  //   ignoreDefaultValues: true
+  // (ignoreEnums / ignoreReadonlyClassProperties / ignoreNumericLiterals
+  // are eslint 9.x only and rejected by 8.57.1 schema with
+  // additionalProperties:false, so they are intentionally absent here.)
+  it('when no-magic-numbers config is loaded, should contain the slice-2 ignore/option set', () => {
+    // given: the live config file at config/eslint/.peaks-rules.cjs
+    const configPath = join(process.cwd(), 'config', 'eslint', '.peaks-rules.cjs');
+    // Clear require cache to avoid stale config between test runs
+    delete require.cache[require.resolve(configPath)];
+    const cfg = require(configPath) as { rules: Record<string, unknown> };
+
+    // when: the no-magic-numbers rule is read
+    const ruleEntry = cfg.rules['no-magic-numbers'] as [string, Record<string, unknown>] | undefined;
+
+    // then: severity is 'warn' (D5 no-touch-stockcode) and options are the slice-2 set
+    expect(ruleEntry).toBeDefined();
+    expect(ruleEntry?.[0]).toBe('warn');
+    const opts = ruleEntry?.[1] ?? {};
+    const ignore = opts['ignore'] as number[];
+    expect(Array.isArray(ignore)).toBe(true);
+    for (const v of [-1, 0, 1, 2, 100, 1000]) {
+      expect(ignore).toContain(v);
+    }
+    expect(opts['ignoreArrayIndexes']).toBe(true);
+    expect(opts['ignoreDefaultValues']).toBe(true);
+  });
 });
 
 describe('buildEslintArgs', () => {

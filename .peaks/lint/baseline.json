@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-06T16:36:23.103Z",
+  "generatedAt": "2026-08-07T01:21:51.880Z",
   "toolVersion": "peaks-loop-4.0.16+",
   "violations": [
     {
@@ -228,32 +228,11 @@
       "message": "All imports in the declaration are only used as types. Use `import type`."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\cli-helpers.ts",
-      "line": 15,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\cli-helpers.ts",
-      "line": 27,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-params",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\cli-helpers.ts",
       "line": 110,
       "severity": "warn",
       "message": "Function 'printErrorEnvelope' has too many parameters (6). Maximum allowed is 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\cli-helpers.ts",
-      "line": 119,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -662,34 +641,6 @@
       "message": "Async arrow function has no 'await' expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\audit-commands.ts",
-      "line": 335,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\audit-commands.ts",
-      "line": 335,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\audit-commands.ts",
-      "line": 336,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\audit-commands.ts",
-      "line": 336,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/require-await",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\audit-commands.ts",
       "line": 365,
@@ -1019,13 +970,6 @@
       "message": "Async arrow function has a complexity of 11. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\code-gate-command.ts",
-      "line": 85,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/restrict-plus-operands",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\code-gate-command.ts",
       "line": 95,
@@ -1166,13 +1110,6 @@
       "message": "Function 'registerCodeOrchestratorCanDoCommand' has too many lines (62). Maximum allowed is 50."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\code-orchestrator-can-do.ts",
-      "line": 97,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\code-review-commands.ts",
       "line": 1,
@@ -1227,13 +1164,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\code-run-command.ts",
-      "line": 16,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -1642,13 +1572,6 @@
       "message": "Unsafe assignment of an `any` value."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-builder-commands.ts",
-      "line": 63,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-builder-commands.ts",
       "line": 72,
@@ -1719,13 +1642,6 @@
       "message": "Unsafe member access .renderer on an `any` value."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-builder-commands.ts",
-      "line": 101,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-commands.ts",
       "line": 1,
@@ -1779,13 +1695,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-commands.ts",
       "line": 109,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-commands.ts",
-      "line": 109,
-      "severity": "warn",
       "message": "No magic number: 400."
     },
     {
@@ -1801,13 +1710,6 @@
       "line": 131,
       "severity": "error",
       "message": "Async function 'fetchL3' has no 'await' expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\context-commands.ts",
-      "line": 141,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -2281,13 +2183,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
-      "line": 124,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\cron-commands.ts",
       "line": 166,
       "severity": "warn",
       "message": "No magic number: 5."
@@ -2435,13 +2330,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
-      "line": 20,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
       "line": 21,
       "severity": "warn",
       "message": "No magic number: 86_400_000."
@@ -2466,13 +2354,6 @@
       "line": 42,
       "severity": "warn",
       "message": "Function 'boundaryLabel' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
-      "line": 49,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -2524,13 +2405,6 @@
       "message": "No magic number: 60_000."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-long-run.ts",
-      "line": 114,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-summary.ts",
       "line": 1,
@@ -2571,13 +2445,6 @@
       "line": 40,
       "severity": "error",
       "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\dashboard-summary.ts",
-      "line": 61,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -3467,13 +3334,6 @@
       "line": 227,
       "severity": "warn",
       "message": "No magic number: 1024."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\governance-classify-contract-commands.ts",
-      "line": 243,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -5009,13 +4869,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\lint-commands.ts",
-      "line": 64,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\lint-commands.ts",
       "line": 100,
@@ -5380,20 +5233,6 @@
       "message": "Async arrow function has no 'await' expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\migrate-1-4-1-command.ts",
-      "line": 35,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\migrate-1-4-1-command.ts",
-      "line": 38,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\migrate-v2-10-to-v2-11-command.ts",
       "line": 1,
@@ -5420,20 +5259,6 @@
       "line": 46,
       "severity": "error",
       "message": "Async arrow function has no 'await' expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\migrate-v2-10-to-v2-11-command.ts",
-      "line": 54,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\migrate-v2-10-to-v2-11-command.ts",
-      "line": 61,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -5737,13 +5562,6 @@
       "message": "`import()` type annotations are forbidden."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\playwright-commands.ts",
-      "line": 149,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\playwright-commands.ts",
       "line": 183,
@@ -5961,46 +5779,11 @@
       "message": "Function 'registerPreferencesCommands' has too many lines (155). Maximum allowed is 50."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
-      "line": 115,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
       "line": 140,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
-      "line": 150,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
-      "line": 198,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
-      "line": 232,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\preferences-commands.ts",
-      "line": 248,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -6162,34 +5945,6 @@
       "line": 138,
       "severity": "warn",
       "message": "Function 'runQaSlice' has a complexity of 15. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\qa-commands.ts",
-      "line": 248,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\qa-commands.ts",
-      "line": 248,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\qa-commands.ts",
-      "line": 253,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\qa-commands.ts",
-      "line": 253,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -6752,13 +6507,6 @@
       "message": "Async arrow function has a complexity of 14. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\scan-commands.ts",
-      "line": 372,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\scan-commands.ts",
       "line": 391,
@@ -6780,25 +6528,11 @@
       "message": "Async arrow function has a complexity of 11. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\scan-commands.ts",
-      "line": 457,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\scan-commands.ts",
       "line": 504,
       "severity": "warn",
       "message": "Async arrow function has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\scan-commands.ts",
-      "line": 524,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -6899,20 +6633,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sediment-commands.ts",
-      "line": 144,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sediment-commands.ts",
-      "line": 151,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sediment-commands.ts",
       "line": 156,
@@ -6925,13 +6645,6 @@
       "line": 158,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sediment-commands.ts",
-      "line": 159,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -7009,13 +6722,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\session-24h-mode.ts",
-      "line": 64,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -7107,13 +6813,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\session-migrate-skill-name.ts",
-      "line": 51,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -7410,13 +7109,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\skill-visibility.ts",
-      "line": 71,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
       "line": 1,
@@ -7443,188 +7135,6 @@
       "line": 1,
       "severity": "warn",
       "message": "All imports in the declaration are only used as types. Use `import type`."
-    },
-    {
-      "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 16,
-      "severity": "error",
-      "message": "Function 'registerSliceCommands' has too many lines (334). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 85,
-      "severity": "warn",
-      "message": "No magic number: 50."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 88,
-      "severity": "warn",
-      "message": "Arrow function has a complexity of 15. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 500."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 50."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 118,
-      "severity": "warn",
-      "message": "No magic number: 34."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 118,
-      "severity": "warn",
-      "message": "No magic number: 22."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 118,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 118,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 119,
-      "severity": "warn",
-      "message": "No magic number: 76."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 122,
-      "severity": "warn",
-      "message": "No magic number: 34."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 123,
-      "severity": "warn",
-      "message": "No magic number: 22."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 124,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 125,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 160,
-      "severity": "error",
-      "message": "Async arrow function has too many lines (99). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 160,
-      "severity": "warn",
-      "message": "Async arrow function has a complexity of 21. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 329,
-      "severity": "error",
-      "message": "Async arrow function has no 'await' expression."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 343,
-      "severity": "warn",
-      "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 431,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 441,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 441,
-      "severity": "warn",
-      "message": "No magic number: 24."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 441,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 441,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 443,
-      "severity": "error",
-      "message": "File has too many lines (510). Maximum allowed is 400."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 518,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-commands.ts",
-      "line": 582,
-      "severity": "error",
-      "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
     },
     {
       "ruleId": "no-explicit-any",
@@ -7660,13 +7170,6 @@
       "line": 52,
       "severity": "warn",
       "message": "Arrow function has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\slice-integrate-commands.ts",
-      "line": 56,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -7872,13 +7375,6 @@
       "message": "Invalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `NonSharedBuffer`."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\statusline-commands.ts",
-      "line": 110,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\statusline-commands.ts",
       "line": 116,
@@ -7954,13 +7450,6 @@
       "line": 59,
       "severity": "warn",
       "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sub-agent-dispatch-guard.ts",
-      "line": 94,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -8059,13 +7548,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\sub-agent-shutdown-commands.ts",
-      "line": 66,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -8255,13 +7737,6 @@
       "line": 43,
       "severity": "error",
       "message": "Function 'registerUnderstandCommands' has too many lines (155). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\understand-commands.ts",
-      "line": 186,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -8579,13 +8054,6 @@
       "message": "No magic number: 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\workflow-commands.ts",
-      "line": 652,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\workflow-lifecycle-commands.ts",
       "line": 1,
@@ -8752,13 +8220,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\commands\\workspace\\helpers.ts",
-      "line": 58,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -9083,13 +8544,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\index.ts",
-      "line": 32,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\program.ts",
       "line": 1,
@@ -9151,13 +8605,6 @@
       "line": 98,
       "severity": "error",
       "message": "Function 'createProgram' has too many lines (71). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\cli\\program.ts",
-      "line": 180,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -9426,13 +8873,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\24h-mode\\store.ts",
-      "line": 131,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\adapter\\adapter-registry.ts",
       "line": 1,
@@ -9459,13 +8899,6 @@
       "line": 67,
       "severity": "error",
       "message": "Async method 'detect' has no 'await' expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\adapter\\adapter-registry.ts",
-      "line": 164,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -10168,13 +9601,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit-independent\\perf-audit-service.ts",
-      "line": 143,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit-independent\\perf-audit-service.ts",
       "line": 149,
@@ -10278,13 +9704,6 @@
       "line": 150,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit-independent\\security-audit-service.ts",
-      "line": 150,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -10697,13 +10116,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-cli-back.ts",
       "line": 32,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-cli-back.ts",
-      "line": 32,
-      "severity": "warn",
       "message": "No magic number: 3."
     },
     {
@@ -10945,25 +10357,11 @@
       "message": "Function 'hit' has too many parameters (5). Maximum allowed is 4."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
-      "line": 113,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
       "line": 150,
       "severity": "warn",
       "message": "Function 'lintNoOrphanLink' has a complexity of 12. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
-      "line": 160,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -10999,13 +10397,6 @@
       "line": 233,
       "severity": "warn",
       "message": "No magic number: 20."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\audit\\enforcers\\lint-reference-shape.ts",
-      "line": 368,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -11736,13 +11127,6 @@
       "message": "Function 'planCapabilityReuse' has a complexity of 12. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\autonomous-swarm\\autonomous-swarm-service.ts",
-      "line": 368,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\autonomous-swarm\\autonomous-swarm-service.ts",
       "line": 410,
@@ -11845,21 +11229,7 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-audit-service\\runner.ts",
       "line": 43,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-audit-service\\runner.ts",
-      "line": 43,
-      "severity": "warn",
       "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-audit-service\\runner.ts",
-      "line": 55,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -11944,27 +11314,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-baseline\\store.ts",
-      "line": 50,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-baseline\\store.ts",
-      "line": 57,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-baseline\\store.ts",
-      "line": 100,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -12520,13 +11869,6 @@
       "message": "Async function 'runJ14Contract' has no 'await' expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-guard-runner\\contracts\\J14.ts",
-      "line": 31,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\capability-guard-runner\\contracts\\J14.ts",
       "line": 37,
@@ -12716,13 +12058,6 @@
       "message": "'order' is assigned a value but never used."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\classify\\classify-service.ts",
-      "line": 109,
-      "severity": "warn",
-      "message": "No magic number: 10."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\classify\\classify-types.ts",
       "line": 1,
@@ -12872,30 +12207,9 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
-      "line": 390,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
-      "line": 427,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
       "line": 454,
       "severity": "warn",
       "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\auto-compact-orchestrator.ts",
-      "line": 454,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -13150,13 +12464,6 @@
       "message": "No magic number: 16."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\job-shape-decision.ts",
-      "line": 194,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\mode-gate.ts",
       "line": 1,
@@ -13204,20 +12511,6 @@
       "line": 219,
       "severity": "error",
       "message": "Function 'buildOrchestratorCanDoResult' has too many lines (60). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\orchestrator-can-do.ts",
-      "line": 253,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\code\\orchestrator-can-do.ts",
-      "line": 258,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -13591,13 +12884,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-lifecycle-store.ts",
-      "line": 194,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
       "line": 1,
@@ -13617,244 +12903,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 59,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 59,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 59,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 59,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 89,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 89,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 89,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 89,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 94,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 95,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 96,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 97,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 98,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 106,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 106,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 106,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 106,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 110,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 110,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 110,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 110,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 191,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 215,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 289,
-      "severity": "warn",
-      "message": "Function 'renderCompactStatusline' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 296,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 298,
-      "severity": "warn",
-      "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 300,
-      "severity": "warn",
-      "message": "No magic number: 6."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 313,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 315,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\compact-statusline\\compact-statusline-service.ts",
-      "line": 322,
-      "severity": "warn",
-      "message": "No magic number: 4."
     },
     {
       "ruleId": "no-explicit-any",
@@ -14081,13 +13129,6 @@
       "message": "Function 'executeMigration' has a complexity of 17. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-migration.ts",
-      "line": 126,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-migration.ts",
       "line": 150,
@@ -14109,13 +13150,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-migration.ts",
-      "line": 194,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-restore.ts",
       "line": 1,
@@ -14135,13 +13169,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-restore.ts",
-      "line": 58,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -14177,13 +13204,6 @@
       "line": 3,
       "severity": "error",
       "message": "'join' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-rollback.ts",
-      "line": 39,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -14340,13 +13360,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 97,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unused-vars",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
       "line": 190,
@@ -14389,13 +13402,6 @@
       "message": "Function 'toPeaksConfig' has a complexity of 11. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 492,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
       "line": 495,
@@ -14417,20 +13423,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 534,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 542,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unused-vars",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
       "line": 549,
@@ -14450,20 +13442,6 @@
       "line": 567,
       "severity": "warn",
       "message": "Function 'setConfig' has a complexity of 19. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 602,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\config-service.ts",
-      "line": 636,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
@@ -14564,13 +13542,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\sidecar-store.ts",
-      "line": 61,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\config\\workspace-state-service.ts",
       "line": 1,
@@ -14611,132 +13582,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 35,
-      "severity": "error",
-      "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 36,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 36,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 37,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 37,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 38,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 38,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 39,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 39,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 40,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 40,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 41,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 41,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 82,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 88,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 88,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 122,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\container\\container-lease.ts",
-      "line": 125,
-      "severity": "warn",
-      "message": "Function 'deserializeContainerLease' has a complexity of 14. Maximum allowed is 10."
     },
     {
       "ruleId": "no-explicit-any",
@@ -15082,13 +13927,6 @@
       "message": "This assertion is unnecessary since it does not change the type of the expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\context\\context-builder.ts",
-      "line": 82,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\context\\context-guard.ts",
       "line": 1,
@@ -15390,13 +14228,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\context\\main-session-monitor.ts",
-      "line": 172,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\context\\memory-index-reader.ts",
       "line": 1,
@@ -15598,13 +14429,6 @@
       "line": 67,
       "severity": "warn",
       "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\context\\spillover-store.ts",
-      "line": 72,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -15968,13 +14792,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
       "line": 177,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
-      "line": 177,
-      "severity": "warn",
       "message": "No magic number: 31."
     },
     {
@@ -16032,13 +14849,6 @@
       "line": 307,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\crystallization-types.ts",
-      "line": 346,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -16130,13 +14940,6 @@
       "line": 199,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\crystallization\\evidence-brief-builder.ts",
-      "line": 285,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -16265,13 +15068,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\batch-counter.ts",
-      "line": 95,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-require-imports",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\batch-counter.ts",
       "line": 120,
@@ -16379,13 +15175,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\contract-store.ts",
-      "line": 147,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\contract-store.ts",
       "line": 193,
       "severity": "warn",
       "message": "No magic number: 12."
@@ -16440,13 +15229,6 @@
       "message": "Function 'writeInitialDispatchRecord' has a complexity of 14. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
-      "line": 451,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
       "line": 455,
@@ -16466,13 +15248,6 @@
       "line": 478,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
-      "line": 493,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -16580,13 +15355,6 @@
       "message": "No magic number: 3."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
-      "line": 943,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
       "line": 961,
@@ -16606,13 +15374,6 @@
       "line": 967,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\dispatch-record-writer.ts",
-      "line": 1113,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -16741,32 +15502,11 @@
       "message": "Async function 'runMergeBack' has a complexity of 12. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\merge-back-runner.ts",
-      "line": 47,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\merge-back-runner.ts",
-      "line": 62,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unused-vars",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\merge-back-runner.ts",
       "line": 70,
       "severity": "error",
       "message": "'error' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\dispatch\\merge-back-runner.ts",
-      "line": 77,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -17343,13 +16083,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\doc\\doc-generator.ts",
-      "line": 105,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\doctor\\doctor-service.ts",
       "line": 1,
@@ -17551,13 +16284,6 @@
       "line": 75,
       "severity": "warn",
       "message": "Function 'inspectMultiBinaryDrift' has a complexity of 12. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\doctor\\doctor-service\\checks\\multi-binary-drift.ts",
-      "line": 127,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -17910,13 +16636,6 @@
       "message": "`import()` type annotations are forbidden."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\doctor\\doctor-service\\index.ts",
-      "line": 179,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\doctor\\doctor-service\\index.ts",
       "line": 202,
@@ -18239,174 +16958,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 76,
-      "severity": "warn",
-      "message": "No magic number: 256."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 101,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 109,
-      "severity": "warn",
-      "message": "No magic number: 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 114,
-      "severity": "warn",
-      "message": "No magic number: 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 124,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 149,
-      "severity": "warn",
-      "message": "No magic number: 2000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 150,
-      "severity": "warn",
-      "message": "No magic number: 256."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 164,
-      "severity": "warn",
-      "message": "No magic number: 128."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 170,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 194,
-      "severity": "warn",
-      "message": "No magic number: 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 195,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 200,
-      "severity": "warn",
-      "message": "No magic number: 8000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 211,
-      "severity": "warn",
-      "message": "No magic number: 2000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 212,
-      "severity": "warn",
-      "message": "No magic number: 2000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 213,
-      "severity": "warn",
-      "message": "No magic number: 2000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 214,
-      "severity": "warn",
-      "message": "No magic number: 2000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 238,
-      "severity": "warn",
-      "message": "No magic number: 128."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 248,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 253,
-      "severity": "warn",
-      "message": "No magic number: 200."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 261,
-      "severity": "warn",
-      "message": "No magic number: 512."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 267,
-      "severity": "warn",
-      "message": "No magic number: 512."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 297,
-      "severity": "error",
-      "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 311,
-      "severity": "error",
-      "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\evolution-types.ts",
-      "line": 326,
-      "severity": "error",
-      "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\independent-evaluator-runner.ts",
       "line": 1,
@@ -18458,20 +17009,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\independent-evaluator-runner.ts",
-      "line": 156,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\independent-evaluator-runner.ts",
-      "line": 156,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\independent-evaluator-runner.ts",
       "line": 178,
       "severity": "warn",
       "message": "No magic number: 10."
@@ -18496,13 +17033,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\evolution\\regression-skeptic-runner.ts",
-      "line": 67,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -18610,20 +17140,6 @@
       "message": "No magic number: 4."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
-      "line": 339,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\feedback\\feedback-promotion-service.ts",
-      "line": 355,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\final-review\\final-review-service.ts",
       "line": 1,
@@ -18715,13 +17231,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
-      "line": 277,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-irregular-whitespace",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
       "line": 304,
@@ -18764,13 +17273,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
-      "line": 340,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-irregular-whitespace",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
       "line": 350,
@@ -18792,13 +17294,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
-      "line": 355,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-irregular-whitespace",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
       "line": 360,
@@ -18806,25 +17301,11 @@
       "message": "Irregular whitespace not allowed."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
-      "line": 369,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
       "line": 388,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fixture\\fixture-capture-service.ts",
-      "line": 388,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -18951,13 +17432,6 @@
       "line": 16,
       "severity": "error",
       "message": "'join' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fork\\fork-sync-state.ts",
-      "line": 89,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -19156,13 +17630,6 @@
       "message": "No magic number: 130."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fuzzy-matching\\fzf-pick-service.ts",
-      "line": 195,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\fuzzy-matching\\types.ts",
       "line": 1,
@@ -19287,13 +17754,6 @@
       "line": 101,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\hooks\\auto-compact-hook-install.ts",
-      "line": 115,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -19455,13 +17915,6 @@
       "line": 577,
       "severity": "error",
       "message": "File has too many lines (463). Maximum allowed is 400."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\hooks\\worktree-authorization-gate.ts",
-      "line": 596,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -19898,13 +18351,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\ide\\shared\\atomic-json.ts",
-      "line": 43,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\ide\\shared\\safe-path.ts",
       "line": 1,
@@ -19945,13 +18391,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\impact\\impact-scan-service.ts",
-      "line": 100,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -20213,13 +18652,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\job\\job-progress-store.ts",
-      "line": 67,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\job\\job-rotation.ts",
       "line": 1,
@@ -20274,13 +18706,6 @@
       "line": 39,
       "severity": "warn",
       "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\job\\job-state-store.ts",
-      "line": 61,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -20399,13 +18824,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\job\\subagent-job-wrapper.ts",
       "line": 28,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\job\\subagent-job-wrapper.ts",
-      "line": 28,
-      "severity": "warn",
       "message": "No magic number: 8."
     },
     {
@@ -20465,27 +18883,6 @@
       "message": "Function 'decideKarpathyCostCheck' has a complexity of 11. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\karpathy-cost\\karpathy-cost-check-service.ts",
-      "line": 141,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\karpathy-cost\\karpathy-cost-check-service.ts",
-      "line": 148,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\karpathy-cost\\karpathy-cost-check-service.ts",
-      "line": 154,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\legacy\\legacy-detector.ts",
       "line": 1,
@@ -20526,13 +18923,6 @@
       "line": 67,
       "severity": "warn",
       "message": "No magic number: 120."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\legacy\\legacy-detector.ts",
-      "line": 78,
-      "severity": "warn",
-      "message": "No magic number: 8."
     },
     {
       "ruleId": "complexity",
@@ -20635,13 +19025,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
-      "line": 101,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
       "line": 132,
       "severity": "warn",
       "message": "No magic number: 8."
@@ -20680,13 +19063,6 @@
       "line": 156,
       "severity": "warn",
       "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\eslint-runner.ts",
-      "line": 157,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-unsafe-member-access",
@@ -20878,13 +19254,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\ocr-multilang-adapter.ts",
-      "line": 67,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\lint\\ocr-multilang-adapter.ts",
       "line": 103,
@@ -20995,20 +19364,6 @@
       "line": 71,
       "severity": "warn",
       "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\log\\logger.ts",
-      "line": 72,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\log\\logger.ts",
-      "line": 73,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -21366,13 +19721,6 @@
       "line": 61,
       "severity": "warn",
       "message": "No magic number: 64."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\loop-bee-relation-types.ts",
-      "line": 70,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -22005,13 +20353,6 @@
       "message": "Unnecessary escape character: \\/."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\spec-service.ts",
-      "line": 209,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\spec-service.ts",
       "line": 250,
@@ -22038,13 +20379,6 @@
       "line": 351,
       "severity": "warn",
       "message": "Function 'parseArrayBlock' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\loop\\spec-service.ts",
-      "line": 362,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -22192,13 +20526,6 @@
       "line": 45,
       "severity": "error",
       "message": "Unsafe member access .name on an `any` value."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\memory\\project-context-service.ts",
-      "line": 51,
-      "severity": "warn",
-      "message": "No magic number: 3."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -22425,13 +20752,6 @@
       "message": "No magic number: 0o644."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\memory\\project-memory-service\\index\\ranking.ts",
-      "line": 107,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\memory\\project-memory-service\\index\\search.ts",
       "line": 1,
@@ -22458,13 +20778,6 @@
       "line": 37,
       "severity": "warn",
       "message": "Function 'listMarkdownFiles' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\memory\\project-memory-service\\index\\search.ts",
-      "line": 104,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -22761,13 +21074,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\mode\\bypass-tracker.ts",
-      "line": 32,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\mode\\mode-enforcement.ts",
       "line": 1,
@@ -22971,20 +21277,6 @@
       "message": "Async function 'readC8Summary' has a complexity of 13. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\coverage-evidence-reader.ts",
-      "line": 289,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\coverage-evidence-reader.ts",
-      "line": 292,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/consistent-type-imports",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\coverage-evidence-reader.ts",
       "line": 337,
@@ -23051,20 +21343,6 @@
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\openspec-archive-service.ts",
       "line": 188,
-      "severity": "warn",
-      "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\openspec-archive-service.ts",
-      "line": 191,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\openspec\\openspec-archive-service.ts",
-      "line": 192,
       "severity": "warn",
       "message": "No magic number: 3."
     },
@@ -23335,13 +21613,6 @@
       "message": "Function 'dispatchArtifact' has too many lines (53). Maximum allowed is 50."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\polyrepo\\polyrepo-dispatcher.ts",
-      "line": 153,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\polyrepo\\polyrepo-scanner.ts",
       "line": 1,
@@ -23468,13 +21739,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\handoff-service.ts",
-      "line": 140,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\handoff-service.ts",
       "line": 156,
@@ -23535,13 +21799,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\prd-blocks-checker.ts",
       "line": 23,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\prd-blocks-checker.ts",
-      "line": 23,
-      "severity": "warn",
       "message": "No magic number: 3."
     },
     {
@@ -23550,13 +21807,6 @@
       "line": 23,
       "severity": "warn",
       "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\prd-blocks-checker.ts",
-      "line": 49,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -23592,13 +21842,6 @@
       "line": 119,
       "severity": "warn",
       "message": "No magic number: 4."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\prd-blocks-checker.ts",
-      "line": 137,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -23657,13 +21900,6 @@
       "message": "Async function 'buildExistingProjectScan' has no 'await' expression."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-bootstrap-service.ts",
-      "line": 331,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-reader.ts",
       "line": 1,
@@ -23694,30 +21930,9 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-reader.ts",
-      "line": 132,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-reader.ts",
-      "line": 137,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-reader.ts",
       "line": 144,
       "severity": "warn",
       "message": "No magic number: 5."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-reader.ts",
-      "line": 157,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -23748,13 +21963,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-sediment.ts",
-      "line": 383,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-sediment.ts",
       "line": 393,
@@ -23767,13 +21975,6 @@
       "line": 428,
       "severity": "warn",
       "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\prd\\project-scan-sediment.ts",
-      "line": 432,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -23851,13 +22052,6 @@
       "line": 76,
       "severity": "error",
       "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\preferences\\preferences-service.ts",
-      "line": 107,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -23963,27 +22157,6 @@
       "line": 162,
       "severity": "warn",
       "message": "Function 'writeSubAgentProgress' has a complexity of 12. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\progress\\progress-service.ts",
-      "line": 183,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\progress\\progress-service.ts",
-      "line": 206,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\progress\\progress-service.ts",
-      "line": 233,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -24161,13 +22334,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\qa\\qa-business-review-state.ts",
-      "line": 83,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-params",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\qa\\qa-business-review-state.ts",
       "line": 86,
@@ -24180,13 +22346,6 @@
       "line": 107,
       "severity": "warn",
       "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\qa\\qa-business-review-state.ts",
-      "line": 108,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -24343,13 +22502,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\ast-gate.ts",
-      "line": 48,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\ast-gate.ts",
       "line": 50,
@@ -24392,13 +22544,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\impl.ts",
-      "line": 65,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
       "line": 1,
@@ -24425,202 +22570,6 @@
       "line": 1,
       "severity": "error",
       "message": "'realpathSync' is defined but never used."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 27,
-      "severity": "error",
-      "message": "'buildRdStandardsGateList' is defined but never used."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unused-vars",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 28,
-      "severity": "error",
-      "message": "'detectMissingProjectStandards' is defined but never used."
-    },
-    {
-      "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 132,
-      "severity": "warn",
-      "message": "`import()` type annotations are forbidden."
-    },
-    {
-      "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 162,
-      "severity": "warn",
-      "message": "`import()` type annotations are forbidden."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 217,
-      "severity": "warn",
-      "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 218,
-      "severity": "warn",
-      "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 218,
-      "severity": "warn",
-      "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 237,
-      "severity": "warn",
-      "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-non-null-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 238,
-      "severity": "warn",
-      "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 277,
-      "severity": "warn",
-      "message": "Function 'readArtifactFile' has a complexity of 19. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "@typescript-eslint/consistent-type-imports",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 368,
-      "severity": "warn",
-      "message": "`import()` type annotations are forbidden."
-    },
-    {
-      "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 396,
-      "severity": "error",
-      "message": "Function 'buildPlan' has too many lines (174). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 396,
-      "severity": "warn",
-      "message": "Function 'buildPlan' has a complexity of 14. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 495,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 496,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 496,
-      "severity": "warn",
-      "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 497,
-      "severity": "warn",
-      "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 497,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 498,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 498,
-      "severity": "warn",
-      "message": "No magic number: 5."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 499,
-      "severity": "warn",
-      "message": "No magic number: 5."
-    },
-    {
-      "ruleId": "max-lines",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 516,
-      "severity": "error",
-      "message": "File has too many lines (511). Maximum allowed is 400."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 520,
-      "severity": "warn",
-      "message": "Arrow function has a complexity of 12. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 521,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 521,
-      "severity": "warn",
-      "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 521,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 521,
-      "severity": "warn",
-      "message": "No magic number: 5."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\rd\\rd-service.ts",
-      "line": 523,
-      "severity": "warn",
-      "message": "No magic number: 16."
     },
     {
       "ruleId": "no-explicit-any",
@@ -24994,13 +22943,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\release\\release-state.ts",
-      "line": 82,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\release\\release-state.ts",
       "line": 168,
@@ -25309,20 +23251,6 @@
       "message": "Function 'loadReviewerConfig' has a complexity of 24. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\reviewer\\reviewer-config.ts",
-      "line": 79,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\reviewer\\reviewer-config.ts",
-      "line": 98,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\reviewer\\reviewer-config.ts",
       "line": 114,
@@ -25524,13 +23452,6 @@
       "line": 15,
       "severity": "error",
       "message": "'join' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\role\\role-registry.ts",
-      "line": 55,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -25845,13 +23766,6 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\api-surface-service.ts",
       "line": 166,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\api-surface-service.ts",
-      "line": 166,
-      "severity": "warn",
       "message": "No magic number: 120."
     },
     {
@@ -25897,132 +23811,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "@typescript-eslint/require-await",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 63,
-      "severity": "error",
-      "message": "Async function 'detectBackendFrameworks' has no 'await' expression."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 114,
-      "severity": "warn",
-      "message": "Async function 'countSrcFiles' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 114,
-      "severity": "warn",
-      "message": "No magic number: 500."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 146,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 146,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 146,
-      "severity": "warn",
-      "message": "No magic number: 24."
-    },
-    {
-      "ruleId": "max-lines-per-function",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 152,
-      "severity": "error",
-      "message": "Function 'decideArchetype' has too many lines (73). Maximum allowed is 50."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 152,
-      "severity": "warn",
-      "message": "Function 'decideArchetype' has a complexity of 27. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 186,
-      "severity": "warn",
-      "message": "No magic number: 20."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 192,
-      "severity": "warn",
-      "message": "No magic number: 180."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 216,
-      "severity": "warn",
-      "message": "No magic number: 20."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 221,
-      "severity": "warn",
-      "message": "No magic number: 20."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 222,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 228,
-      "severity": "warn",
-      "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 234,
-      "severity": "warn",
-      "message": "No magic number: 180."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 234,
-      "severity": "warn",
-      "message": "No magic number: 20."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 237,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\archetype-service.ts",
-      "line": 238,
-      "severity": "warn",
-      "message": "No magic number: 3."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\diff-scope-service.ts",
       "line": 1,
@@ -26042,13 +23830,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\diff-scope-service.ts",
-      "line": 81,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -26212,20 +23993,6 @@
       "message": "Function 'parsePnpmWorkspaceYaml' has a complexity of 13. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\libraries-service.ts",
-      "line": 144,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\libraries-service.ts",
-      "line": 145,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\libraries-service.ts",
       "line": 172,
@@ -26338,25 +24105,11 @@
       "message": "`import()` type annotations are forbidden."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\orphan-service.ts",
-      "line": 249,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\orphan-service.ts",
       "line": 295,
       "severity": "warn",
       "message": "Function 'diffVsHead' has a complexity of 14. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\scan\\orphan-service.ts",
-      "line": 345,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -26660,13 +24413,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sediment\\pool-rebuild-index.ts",
-      "line": 27,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sediment\\pool-write.ts",
       "line": 1,
@@ -26686,13 +24432,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sediment\\pool-write.ts",
-      "line": 25,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -26793,13 +24532,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
-      "line": 198,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
       "line": 215,
@@ -26816,30 +24548,9 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
-      "line": 397,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
-      "line": 398,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
       "line": 399,
       "severity": "warn",
       "message": "No magic number: 36."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
-      "line": 399,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -26861,13 +24572,6 @@
       "line": 478,
       "severity": "warn",
       "message": "Function 'rebuildBindingFromLegacy' has a complexity of 11. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\binding-store.ts",
-      "line": 544,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -27040,20 +24744,6 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
-      "line": 61,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
-      "line": 62,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
       "line": 64,
       "severity": "warn",
       "message": "No magic number: 3."
@@ -27136,13 +24826,6 @@
       "message": "Unsafe member access .projectRoot on an `any` value."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
-      "line": 127,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unused-vars",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
       "line": 134,
@@ -27169,13 +24852,6 @@
       "line": 144,
       "severity": "error",
       "message": "Unsafe member access .sessionId on an `any` value."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-binding-bridge.ts",
-      "line": 163,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -27213,13 +24889,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-checkpoint-service.ts",
-      "line": 161,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
       "line": 1,
@@ -27253,20 +24922,6 @@
       "line": 112,
       "severity": "error",
       "message": "'generateSessionId' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
-      "line": 115,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
-      "line": 116,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -27353,13 +25008,6 @@
       "message": "Unsafe argument of type `any` assigned to a parameter of type `string`."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
-      "line": 234,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unsafe-assignment",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
       "line": 315,
@@ -27379,13 +25027,6 @@
       "line": 316,
       "severity": "error",
       "message": "Unsafe member access .sessionId on an `any` value."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\session\\session-manager.ts",
-      "line": 333,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-unused-vars",
@@ -27533,13 +25174,6 @@
       "line": 164,
       "severity": "warn",
       "message": "Function 'readBundle' has a complexity of 15. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-reader.ts",
-      "line": 210,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -28027,44 +25661,9 @@
     {
       "ruleId": "no-magic-numbers",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
-      "line": 512,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
       "line": 517,
       "severity": "warn",
       "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
-      "line": 517,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
-      "line": 521,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
-      "line": 532,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\share\\bundle-writer.ts",
-      "line": 542,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -28158,13 +25757,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\signal\\cancel-handler.ts",
-      "line": 63,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skill\\resume-detector.ts",
       "line": 1,
@@ -28212,13 +25804,6 @@
       "line": 240,
       "severity": "warn",
       "message": "Function 'classifyTerminalGates' has a complexity of 19. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skill\\resume-detector.ts",
-      "line": 413,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -28347,20 +25932,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-export.ts",
-      "line": 38,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-export.ts",
-      "line": 43,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-gc-blobs.ts",
       "line": 1,
@@ -28410,13 +25981,6 @@
       "message": "Function 'importRelease' has too many lines (85). Maximum allowed is 50."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-import.ts",
-      "line": 47,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-retain.ts",
       "line": 1,
@@ -28436,20 +26000,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-retain.ts",
-      "line": 16,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\skillhub\\release-retain.ts",
-      "line": 20,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -28683,13 +26233,6 @@
       "message": "Async function 'merge' has a complexity of 11. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\cross-pass-edge-merger.ts",
-      "line": 108,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\cross-pass-edge-merger.ts",
       "line": 114,
@@ -28877,13 +26420,6 @@
       "line": 66,
       "severity": "error",
       "message": "'schemaVersion' may use Object's default stringification format ('[object Object]') when stringified."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\schema-router.ts",
-      "line": 75,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -30020,13 +27556,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-pick-service.ts",
-      "line": 39,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-review-state.ts",
       "line": 1,
@@ -30046,13 +27575,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-review-state.ts",
-      "line": 90,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-params",
@@ -30069,13 +27591,6 @@
       "message": "No magic number: 3."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-review-state.ts",
-      "line": 122,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-topology-types.ts",
       "line": 1,
@@ -30095,13 +27610,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\slice\\slice-topology-types.ts",
-      "line": 33,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -30137,13 +27645,6 @@
       "line": 14,
       "severity": "error",
       "message": "'join' is defined but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\smoke\\smoke-paths-state.ts",
-      "line": 73,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-magic-numbers",
@@ -30188,13 +27689,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\gate-enforce-service.ts",
-      "line": 69,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\gate-enforce-service.ts",
       "line": 128,
@@ -30235,13 +27729,6 @@
       "line": 135,
       "severity": "warn",
       "message": "Async function 'advanceSop' has a complexity of 12. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\sop-advance-service.ts",
-      "line": 185,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -30335,13 +27822,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\sop-registry-service.ts",
-      "line": 131,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\sop-service.ts",
       "line": 1,
@@ -30382,13 +27862,6 @@
       "line": 144,
       "severity": "warn",
       "message": "Forbidden non-null assertion."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\sop\\sop-service.ts",
-      "line": 168,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-params",
@@ -30501,13 +27974,6 @@
       "line": 77,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\standards\\loop-engineering-lint.ts",
-      "line": 96,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -30769,13 +28235,6 @@
       "message": "Function 'detectCssFrameworks' has a complexity of 12. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\standards\\project-context.ts",
-      "line": 170,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\standards\\project-context.ts",
       "line": 208,
@@ -30998,13 +28457,6 @@
       "line": 59,
       "severity": "warn",
       "message": "No magic number: 16."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\test-cache\\test-cache-service.ts",
-      "line": 90,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -31238,13 +28690,6 @@
       "message": "Function 'runStep' has too many parameters (5). Maximum allowed is 4."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\upgrade\\upgrade-service.ts",
-      "line": 266,
-      "severity": "warn",
-      "message": "No magic number: 60_000."
-    },
-    {
       "ruleId": "max-lines-per-function",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\upgrade\\upgrade-service.ts",
       "line": 303,
@@ -31364,13 +28809,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\verdict\\envelopes.ts",
-      "line": 266,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\verdict\\envelopes.ts",
       "line": 323,
@@ -31418,13 +28856,6 @@
       "line": 124,
       "severity": "warn",
       "message": "No magic number: 3."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\verdict\\verdict-aggregator.ts",
-      "line": 125,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
@@ -31497,132 +28928,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 30,
-      "severity": "error",
-      "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 31,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 31,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 32,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 32,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 33,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 33,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 34,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 34,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 35,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 35,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 36,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 36,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 77,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 83,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 83,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 113,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\vm\\vm-lease.ts",
-      "line": 116,
-      "severity": "warn",
-      "message": "Function 'deserializeVmLease' has a complexity of 17. Maximum allowed is 10."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\artifact-paths.ts",
       "line": 1,
@@ -31663,27 +28968,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\autonomous-resume-writer.ts",
-      "line": 52,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\autonomous-resume-writer.ts",
-      "line": 63,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\autonomous-resume-writer.ts",
-      "line": 75,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -32057,20 +29341,6 @@
       "message": "Function 'readResumeArtifact' has a complexity of 19. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-autonomous-resume-helpers.ts",
-      "line": 222,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-autonomous-resume-helpers.ts",
-      "line": 252,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-autonomous-service.ts",
       "line": 1,
@@ -32236,35 +29506,7 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
       "line": 85,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
-      "line": 85,
-      "severity": "warn",
       "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
-      "line": 91,
-      "severity": "warn",
-      "message": "No magic number: 30_000."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
-      "line": 120,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
-      "line": 128,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "max-lines-per-function",
@@ -32419,13 +29661,6 @@
       "line": 204,
       "severity": "warn",
       "message": "Function 'readGraph' has a complexity of 16. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-graph-store.ts",
-      "line": 264,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -32596,13 +29831,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-loader.ts",
-      "line": 109,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-node-lifecycle.ts",
       "line": 1,
@@ -32657,20 +29885,6 @@
       "line": 138,
       "severity": "warn",
       "message": "Function 'transitionNode' has a complexity of 30. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-node-lifecycle.ts",
-      "line": 238,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-node-lifecycle.ts",
-      "line": 243,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -32918,13 +30132,6 @@
       "message": "Function 'lintWorkflowSpec' has a complexity of 26. Maximum allowed is 10."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec-lint.ts",
-      "line": 62,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec-types.ts",
       "line": 1,
@@ -33016,20 +30223,6 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
-      "line": 106,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
-      "line": 107,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-non-null-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
       "line": 115,
@@ -33037,25 +30230,11 @@
       "message": "Forbidden non-null assertion."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
-      "line": 140,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
       "line": 152,
       "severity": "error",
       "message": "This assertion is unnecessary since it does not change the type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-spec.ts",
-      "line": 200,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -33084,13 +30263,6 @@
       "line": 34,
       "severity": "error",
       "message": "'STATE_FILE_NAME' is assigned a value but never used."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workflow\\workflow-state-store.ts",
-      "line": 74,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "complexity",
@@ -33412,30 +30584,9 @@
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\reconcile-service.ts",
       "line": 832,
       "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\reconcile-service.ts",
-      "line": 832,
-      "severity": "warn",
       "message": "No magic number: 8."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\reconcile-service.ts",
-      "line": 833,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\reconcile-service.ts",
-      "line": 850,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\reconcile-types.ts",
       "line": 1,
@@ -33518,13 +30669,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\workspace\\workspace-claude-settings-materializer.ts",
-      "line": 84,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
@@ -33688,13 +30832,6 @@
       "message": "No magic number: 32."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\dispatch-provenance.ts",
-      "line": 44,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\dispatch-provenance.ts",
       "line": 48,
@@ -33772,13 +30909,6 @@
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\long-path-cleanup.ts",
-      "line": 14,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "no-explicit-any",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\playwright-profile.ts",
       "line": 1,
@@ -33847,132 +30977,6 @@
       "line": 1,
       "severity": "error",
       "message": "Definition for rule '@typescript-eslint/no-restricted-syntax' was not found."
-    },
-    {
-      "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 42,
-      "severity": "error",
-      "message": "This assertion is unnecessary since the receiver accepts the original type of the expression."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 43,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 43,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 44,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 44,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 45,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 45,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 46,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 46,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 47,
-      "severity": "warn",
-      "message": "No magic number: 15."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 47,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 48,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 48,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 114,
-      "severity": "warn",
-      "message": "No magic number: 8."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 125,
-      "severity": "warn",
-      "message": "No magic number: 30."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 125,
-      "severity": "warn",
-      "message": "No magic number: 60."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 250,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
-      "ruleId": "complexity",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\services\\worktree\\worktree-lease.ts",
-      "line": 258,
-      "severity": "warn",
-      "message": "Function 'deserializeLease' has a complexity of 13. Maximum allowed is 10."
     },
     {
       "ruleId": "no-explicit-any",
@@ -34087,25 +31091,11 @@
       "message": "'listItemsAtParent' is never reassigned. Use 'const' instead."
     },
     {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\shared\\frontmatter.ts",
-      "line": 90,
-      "severity": "warn",
-      "message": "No magic number: 2."
-    },
-    {
       "ruleId": "complexity",
       "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\shared\\frontmatter.ts",
       "line": 118,
       "severity": "warn",
       "message": "Function 'parseFrontmatter' has a complexity of 15. Maximum allowed is 10."
-    },
-    {
-      "ruleId": "no-magic-numbers",
-      "file": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\src\\shared\\frontmatter.ts",
-      "line": 164,
-      "severity": "warn",
-      "message": "No magic number: 2."
     },
     {
       "ruleId": "no-explicit-any",
