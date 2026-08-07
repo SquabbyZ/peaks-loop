@@ -336,13 +336,29 @@ function resolveRelativeImport(projectRoot: string, sourceFile: string, evidence
 // =====================================================================
 
 function findSCCs(nodeIds: readonly string[], edges: readonly DependencyEdge[]): SccAnalysis {
+  const adj = buildAdjacencyList(nodeIds, edges);
+  const sccs = runTarjan(nodeIds, adj);
+  return summariseSccs(sccs, edges);
+}
+
+/** Build a forward adjacency map: nodeId → list of distinct neighbours. */
+function buildAdjacencyList(nodeIds: readonly string[], edges: readonly DependencyEdge[]): Map<string, string[]> {
   const adj = new Map<string, string[]>();
   for (const id of nodeIds) adj.set(id, []);
   for (const e of edges) {
     const list = adj.get(e.from);
     if (list && !list.includes(e.to)) list.push(e.to);
   }
+  return adj;
+}
 
+/** Run Tarjan's SCC algorithm; returns the list of components in
+ *  discovery order. The recursive `strongconnect` closure is kept
+ *  inline because pulling it out would require leaking its mutable
+ *  counters through parameters. Extracted on 2026-08-07
+ *  (PRD-002b slice 3 B) only for the parts that don't recurse:
+ *  the adjacency build + the post-run summary. */
+function runTarjan(nodeIds: readonly string[], adj: ReadonlyMap<string, readonly string[]>): string[][] {
   let index = 0;
   const idx = new Map<string, number>();
   const lowlink = new Map<string, number>();
@@ -381,7 +397,10 @@ function findSCCs(nodeIds: readonly string[], edges: readonly DependencyEdge[]):
   for (const id of nodeIds) {
     if (!idx.has(id)) strongconnect(id);
   }
+  return sccs;
+}
 
+function summariseSccs(sccs: readonly string[][], edges: readonly DependencyEdge[]): SccAnalysis {
   const trivial: string[] = [];
   const nonTrivial: string[] = [];
   for (const scc of sccs) {
@@ -549,60 +568,87 @@ function partitionIntoBatches(
   edges: readonly DependencyEdge[],
   _criticalPath: { nodes: readonly string[] }
 ): ParallelBatch[] {
+  if (wus.length === 0) return [];
+  const upstream = computeUpstream(wus, edges);
+  return runBatchScheduler(wus, upstream);
+}
+
+/** Build reverse adjacency: id → list of upstream wu ids that depend on it. */
+function computeUpstream(
+  wus: readonly WorkUnit[],
+  edges: readonly DependencyEdge[]
+): Map<string, string[]> {
   const upstream = new Map<string, string[]>();
   for (const wu of wus) upstream.set(wu.id, []);
   for (const e of edges) {
     const list = upstream.get(e.to);
     if (list && !list.includes(e.from)) list.push(e.from);
   }
+  return upstream;
+}
 
+/** Iterate Kahn-style batches until every wu is placed. The seed
+ *  batch contains all wus with no upstream; subsequent batches pick
+ *  the wus whose upstream is fully placed. */
+function runBatchScheduler(
+  wus: readonly WorkUnit[],
+  upstream: ReadonlyMap<string, readonly string[]>
+): ParallelBatch[] {
   const placed = new Set<string>();
   const batches: ParallelBatch[] = [];
 
-  if (wus.length === 0) return batches;
-
-  let currentBatch: string[] = [];
-  for (const wu of wus) {
-    if ((upstream.get(wu.id) ?? []).length === 0) {
-      currentBatch.push(wu.id);
-    }
-  }
-  batches.push({
-    batch: 1,
-    dependsOn: [],
-    slices: currentBatch.map((id) => wuToSlice(wus.find((w) => w.id === id)!)),
-    parallelizableWithinBatch: currentBatch.length > 1
-  });
-  for (const id of currentBatch) placed.add(id);
+  const seedIds = wus
+    .filter((wu) => (upstream.get(wu.id) ?? []).length === 0)
+    .map((wu) => wu.id);
+  batches.push(materialiseBatch(1, [], seedIds, wus));
+  for (const id of seedIds) placed.add(id);
 
   let batchNum = 2;
   let prevBatchNums: number[] = [1];
   while (placed.size < wus.length) {
-    currentBatch = [];
-    for (const wu of wus) {
-      if (placed.has(wu.id)) continue;
-      const ups = upstream.get(wu.id) ?? [];
-      if (ups.every((u) => placed.has(u))) {
-        currentBatch.push(wu.id);
-      }
-    }
-    if (currentBatch.length === 0) {
-      for (const wu of wus) {
-        if (!placed.has(wu.id)) currentBatch.push(wu.id);
-      }
-    }
-    batches.push({
-      batch: batchNum,
-      dependsOn: prevBatchNums,
-      slices: currentBatch.map((id) => wuToSlice(wus.find((w) => w.id === id)!)),
-      parallelizableWithinBatch: currentBatch.length > 1
-    });
-    for (const id of currentBatch) placed.add(id);
+    const ready = pickReadyBatch(wus, upstream, placed);
+    batches.push(materialiseBatch(batchNum, prevBatchNums, ready, wus));
+    for (const id of ready) placed.add(id);
     prevBatchNums = [batchNum];
     batchNum++;
   }
-
   return batches;
+}
+
+function pickReadyBatch(
+  wus: readonly WorkUnit[],
+  upstream: ReadonlyMap<string, readonly string[]>,
+  placed: ReadonlySet<string>
+): string[] {
+  const ready: string[] = [];
+  for (const wu of wus) {
+    if (placed.has(wu.id)) continue;
+    const ups = upstream.get(wu.id) ?? [];
+    if (ups.every((u) => placed.has(u))) {
+      ready.push(wu.id);
+    }
+  }
+  if (ready.length > 0) return ready;
+  // Fallback: pick whatever is unplaced (shouldn't happen on a valid DAG,
+  // but keeps the loop total when cycles sneak through).
+  for (const wu of wus) {
+    if (!placed.has(wu.id)) ready.push(wu.id);
+  }
+  return ready;
+}
+
+function materialiseBatch(
+  batchNum: number,
+  dependsOn: readonly number[],
+  ids: readonly string[],
+  wus: readonly WorkUnit[]
+): ParallelBatch {
+  return {
+    batch: batchNum,
+    dependsOn: [...dependsOn],
+    slices: ids.map((id) => wuToSlice(wus.find((w) => w.id === id)!)),
+    parallelizableWithinBatch: ids.length > 1
+  };
 }
 
 function wuToSlice(wu: WorkUnit): SliceCandidate {
