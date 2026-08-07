@@ -128,7 +128,7 @@ Every lane opens with **one slash command**.
 
 ---
 
-## Status · shipping 4.0.3 GA
+## Status · shipping 4.0.17
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -140,23 +140,26 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — GA (2026-07-30) |
+| **Latest** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.17 (2026-08-07) |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test` · `peaks-slice-decompose`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
-| **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · ~80s full run |
+| **Test suite** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · **0 timeouts** · 14 BDD caller-binding edge cases |
 | **IDE adapters** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder (adapters in progress — contributions welcome) |
 | **Runtime** | Node ≥ 20 |
 | **License** | MIT |
 
-### What 4.0.3 GA actually shipped (2026-07-30)
+### What 4.0.17 actually shipped (2026-08-07)
 
 | Epic | Solved | Verified by |
 | --- | --- | --- |
-| **Test suite rebuilt from scratch** | Old 559-file unit suite took 3+ hours; the 11-file / 161-case rebuild runs in ~80s, and combined with sub-package tests and later slices the workspace-wide total is 285+ cases across 4 packages. Deleted old assertions, wrote against the production contract, 4-dim split (render/behavior/integration/a11y). | commits `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
-| **Karpathy evaluation cost self-review** | LLM no longer "done for today, will continue tomorrow" after 1–2 slices — `karpathy-reviewer` reports `costRatio`; `peaks job karpathy-cost-check` auto-downgrades `block` → `warn` above 10. 24h-mode stays the override. | `peaks job karpathy-cost-check --review-file <path>` · 21-case unit test |
-| **Compact visibility** | `peaks compact history` for the LLM to read every compact event of the current session; `peaks statusline compact` for the IDE statusline (`--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)`). | `auto-compact-orchestrator` appends to `compact-history.jsonl` · 19-case unit test |
-| **Sub-package coverage + workspace-wide `pnpm test:full`** | Independent 4-dim tests for `peaks-loop-mut` / `peaks-loop-shared-channel`; `peaks-loop-shared` 0 file (`passWithNoTests`); redundant root mirror removed. | commits `593ffcdf` → `08e92d8f` · `pnpm test:full` runs all 4 packages in one go |
-| **CLI surface collapsed (73 → 5 super-commands)** | Five super-commands (`peaks code / audit / doctor / openspec / release / release-pack`) replace 73 leaf commands, byte-identical contract preserved, opaque to downstream callers. | rid-009 · 26 routing tests |
+| **Vitest worker cap (root-cause fix)** | 17 timeouts blocked the full suite; the root cause was `pool: 'forks' + fileParallelism: true` with no `maxWorkers` cap. On a 16-core box, ~15 fork workers + 2 files spawning real `node` processes = 8.8× oversubscription. `testTimeout` measures wall clock, so descheduled tests burned 30s doing nothing. Fix: `maxWorkers = floor(cpus/2)` + `PEAKS_VITEST_MAX_WORKERS` env override + 6-case drift-guard test. **17 timeouts → 0, wall 383.67s → 360.40s, 3/3 AC-1 runs all 0 timeouts.** | commit `ace1a03d` + guard test `tests/unit/vitest-concurrency-guard.test.ts` |
+| **PRD-002b ESLint strictification (`no-magic-numbers`)** | Slice 2 dropped 917 → 192 violations (−725). 20 source files extracted 140+ inline magic numbers into named `const`s. `no-magic-numbers` config got `ignore: [-1, 0, 1, 2, 100, 1000]` + `ignoreArrayIndexes / ignoreDefaultValues`. 7 BDD tests, 31/31 lint tests PASS. Severity stayed `warn` (D5 no-touch-stockcode). | commits `d5ef17c1` + `0c3187c4` + 7 BDD tests |
+| **Statusline `--now` injection + 24-spawn amortization** | Slice 1 root cause: the test wrote `updatedAt = new Date().toISOString()` (just-NOW) and expected the lifecycle to be "within 10s window", but under full-suite concurrency the spawned subprocess is descheduled and only executes several seconds later — the completed-expiry window ages out → C1 baseline fallback → `expected '' to contain '[████████]'`. Fix: add `--now <ms>` CLI option; test pins `TEST_NOW_MS` shared by both CLI and lifecycle. **Slice 7** went further: replaced 24 real `node dist/cli/index.js` spawns with a single `beforeAll` IPC server (JSON over stdio). Wall 216s → 29s (7.5× speedup), 24/24 PASS. | commit `3d6e4bc9` (slice 1 inside) + `44c42424` (slice 7) |
+| **Complexity refactor (slice 3 A+B+C+D + slice 4 bundle-reader rewrite)** | Slice 3 four-stage refactor dropped 357 → 330 complexity violations (target ≤90, this wave covers the high cohort): spec-service parser → table-dispatch, slice-decompose → FSM, project-context `detectComponentLibrary` → 11-dispatch table. **Slice 4** = bundle-reader full rewrite, 5 violations → 1, public API preserved verbatim. | commits `72ef798c` + `31160051` + `1ac6e56d` + `923be824` + `0603754d` + `6b27eb94` |
+| **Type-narrowing + max-lines pilot (slice 5+6)** | Slice 5 closed 670 violations: 667 phantom `no-explicit-any` config swap (broken ruleId fix, same pattern as the no-duplicate-imports 4.0.16 fix) + 3 real narrowings (`catch (error: any)` → `unknown` + `instanceof Error`). Slice 6 split 4 over-length functions in `dispatch-record-writer.ts`, 4 → 0 in target file. Both slices prove the rules are essentially exhausted — true count is an order of magnitude smaller than the sediment claimed. | commits `fbb43e9e` + `3d6e4bc9` (inside) |
+| **Mac auto-compact ESM anti-fake-green: 5/5 verified** | Slice 8 audit-only: 5 defenses (`readClaudeTranscriptFallback` / `readClaudeStatuslinePercent` / `presence-marker-detector` / `post-compact-detector` / `step-08-gate`) all in place, ESM `require()` 0 hits, legacy silent-catch blocks already explicit re-throw `ReferenceError` / `SyntaxError`. | sediment `.peaks/memory/2026-08-07-mac-esm-defense-audit.md` |
+| **Caller-binding coverage extension (slice 9)** | 14 BDD tests covering 5 gap categories: multi-tenant isolation / post-rotation recovery / TTL freshness / rotation hygiene / primary-wins contract. `tests/unit/session/*` grew from 51 → 65 tests. | commit `823be8c4` + new file `tests/unit/session/caller-binding-slice-9-edge-cases.test.ts` |
+| **Pre-publish gates all green** | `gate-cli-version` ALIGNED (root 4.0.17 == shared CLI_VERSION 4.0.17), `build-integrity: OK`, 0 `Co-Authored-By` trailers. | per `peaks-loop-publishing-critical-hard-rules` recipe |
 
 ---
 
