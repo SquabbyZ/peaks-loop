@@ -277,104 +277,151 @@ export function parseSpecYaml(raw: string, expectedRid: string): LoopSpec {
 
 type ParseResult = { value: unknown; next: number };
 
+/** Discriminated line kinds emitted by `classifyObjectLine`. Drives the
+ *  `parseObjectBlock` state machine (PRD-002b slice 3 Commit C —
+ *  table-dispatch). Order matters: `indent-back` short-circuits the loop. */
+type ObjectLine =
+  | { kind: 'blank' }
+  | { kind: 'comment' }
+  | { kind: 'indent-back' }
+  | { kind: 'indent-forward' }
+  | { kind: 'kv-inline-object'; key: string; value: string }
+  | { kind: 'kv-nested-block'; key: string; value: '' | '|' | '>' }
+  | { kind: 'kv-scalar'; key: string; value: string };
+
 function parseObjectBlock(lines: string[], start: number, baseIndent: number): ParseResult {
   const obj: Record<string, unknown> = {};
   let i = start;
   for (; i < lines.length; i++) {
     const line = lines[i] ?? '';
-    if (line.trim() === '' || line.trim().startsWith('#')) continue;
-    const indent = leadingSpaces(line);
-    if (indent < baseIndent) return { value: obj, next: i };
-    if (indent > baseIndent) continue; // caller should escalate
-    const trimmed = line.trim();
-    if (!trimmed.includes(':')) continue;
-    const parts = splitTopLevel(trimmed, ':');
-    const key = parts[0] ?? '';
-    const value = (parts[1] ?? '').trim();
-    // When `value` still contains a top-level `: ,` pattern, the line is
-    // an inline object whose first key is the same as `key` (e.g.
-    // `strategy: max-cycles, maxCycles: 3` →
-    // `{strategy: 'max-cycles', maxCycles: 3}`). Re-stitch the leading
-    // key so the inline-object parser can see the full kv list, then
-    // store the resulting flat object as `obj[key]`.
-    if (key.length > 0 && value.length > 0 && hasInlineObjectShape(value)) {
-      obj[key] = parseInlineObject(`${key}: ${value}`);
-      continue;
-    }
-    if (value === '' || value === '|' || value === '>') {
-      // Could be nested block.
-      const next = lines[i + 1] ?? '';
-      const nextIndent = leadingSpaces(next);
-      if (nextIndent > indent) {
-        if (next.trim().startsWith('- ')) {
-          const arrRes = parseArrayBlock(lines, i + 1, nextIndent);
-          obj[key] = arrRes.value;
-          i = arrRes.next - 1;
-          continue;
-        } else {
-          const objRes = parseObjectBlock(lines, i + 1, nextIndent);
-          obj[key] = objRes.value;
-          i = objRes.next - 1;
-          continue;
-        }
+    const cls = classifyObjectLine(line, baseIndent);
+    switch (cls.kind) {
+      case 'blank':
+      case 'comment':
+      case 'indent-forward':
+        continue;
+      case 'indent-back':
+        return { value: obj, next: i };
+      case 'kv-inline-object':
+        obj[cls.key] = parseInlineObject(`${cls.key}: ${cls.value}`);
+        continue;
+      case 'kv-nested-block': {
+        const consumed = consumeNestedBlock(lines, i, line, cls.value);
+        obj[cls.key] = consumed.value;
+        i = consumed.next - 1;
+        continue;
       }
-      obj[key] = value === '|' || value === '>' ? '' : null;
-      continue;
+      case 'kv-scalar':
+        obj[cls.key] = parseValueOrInlineObject(cls.value);
+        continue;
     }
-    obj[key] = parseValueOrInlineObject(value);
   }
   return { value: obj, next: i };
 }
 
+/** Classify a single line at `baseIndent` into a token kind. Pure —
+ *  no mutation of the loop index. */
+function classifyObjectLine(line: string, baseIndent: number): ObjectLine {
+  const trimmed = line.trim();
+  if (trimmed === '') return { kind: 'blank' };
+  if (trimmed.startsWith('#')) return { kind: 'comment' };
+  const indent = leadingSpaces(line);
+  if (indent < baseIndent) return { kind: 'indent-back' };
+  if (indent > baseIndent) return { kind: 'indent-forward' };
+  if (!trimmed.includes(':')) return { kind: 'comment' }; // noise: no `:` → skip
+  return classifyKeyValue(trimmed);
+}
+
+/** Inspect a trimmed, colon-bearing line and classify its key/value
+ *  payload. Delegates the value-shape triage to `classifyValueKind`. */
+function classifyKeyValue(trimmed: string): ObjectLine {
+  const parts = splitTopLevel(trimmed, ':');
+  const key = parts[0] ?? '';
+  const value = (parts[1] ?? '').trim();
+  switch (classifyValueKind(value)) {
+    case 'inline-object':
+      return { kind: 'kv-inline-object', key, value };
+    case 'nested-block':
+      return { kind: 'kv-nested-block', key, value: value as '' | '|' | '>' };
+    case 'scalar':
+      return { kind: 'kv-scalar', key, value };
+  }
+}
+
+/** Triage the post-colon value string. Returns the kind that the
+ *  caller should produce. The inline-object check delegates to
+ *  `hasInlineObjectShape`; the nested-block check covers YAML's
+ *  three block-scalar placeholders. */
+function classifyValueKind(value: string): 'inline-object' | 'nested-block' | 'scalar' {
+  if (value.length > 0 && hasInlineObjectShape(value)) return 'inline-object';
+  if (value === '' || value === '|' || value === '>') return 'nested-block';
+  return 'scalar';
+}
+
+/** Consume the nested block (array or object) under a `kv-nested-block`
+ *  line. Returns the parsed value plus the index past the last consumed
+ *  line (caller subtracts 1 before the for-loop increment). When the
+ *  next line is NOT indented further, returns a null / empty scalar and
+ *  `next = i + 1` so the caller lands on the line after the kv marker. */
+function consumeNestedBlock(
+  lines: string[],
+  i: number,
+  line: string,
+  value: '' | '|' | '>'
+): { value: unknown; next: number } {
+  const next = lines[i + 1] ?? '';
+  const nextIndent = leadingSpaces(next);
+  const ownIndent = leadingSpaces(line);
+  if (nextIndent > ownIndent) {
+    if (next.trim().startsWith('- ')) {
+      const arrRes = parseArrayBlock(lines, i + 1, nextIndent);
+      return { value: arrRes.value, next: arrRes.next };
+    }
+    const objRes = parseObjectBlock(lines, i + 1, nextIndent);
+    return { value: objRes.value, next: objRes.next };
+  }
+  // Block-style scalar placeholder with no children — keep the original
+  // behaviour: `|` / `>` collapse to `''`, empty value to `null`.
+  return { value: value === '|' || value === '>' ? '' : null, next: i + 1 };
+}
+
 /** Inspect the trimmed value — if it looks like an inline object
- *  (`key: val, key: val`), parse as such; otherwise treat as scalar. */
+ *  (`key: val, key: val`), report true; otherwise false. Refactored
+ *  2026-08-07 (PRD-002b slice 3 Commit C — table-dispatch): the
+ *  original hand-rolled character walk was complexity 19; now we
+ *  delegate to the shared `scanTopLevelSeparators` scanner twice
+ *  (comma, then colon per part) and dispatch on the resulting parts.
+ *  Behaviour-preserving: a top-level `,` AND a top-level `:` are both
+ *  present iff `commaParts.length >= 2` AND at least one part splits
+ *  further on `:`. */
 function hasInlineObjectShape(value: string): boolean {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (trimmed === '' || trimmed.startsWith('[') || trimmed.startsWith('{')) return false;
-  let topColon = -1;
-  let topComma = -1;
-  let depth = 0;
-  let inQuote: string | null = null;
-  for (let i = 0; i < trimmed.length; i++) {
-    const ch = trimmed[i];
-    if (inQuote !== null) { if (ch === inQuote) inQuote = null; continue; }
-    if (ch === '"' || ch === "'") { inQuote = ch; continue; }
-    if (ch === '[' || ch === '{') depth++;
-    if (ch === ']' || ch === '}') depth--;
-    if (depth !== 0) continue;
-    if (ch === ':' && topColon === -1) topColon = i;
-    if (ch === ',') topComma = i;
-  }
-  return topColon !== -1 && topComma !== -1;
+  const commaParts = scanTopLevelSeparators(trimmed, ',');
+  if (commaParts.length < 2) return false;
+  return commaParts.some((part) => scanTopLevelSeparators(part, ':').length >= 2);
 }
 
+/** Parse a value that may be either a scalar or an inline object.
+ *  Refactored 2026-08-07 (PRD-002b slice 3 Commit C — table-dispatch):
+ *  the original hand-rolled character walk was complexity 21; now
+ *  delegates to the shared `scanTopLevelSeparators` scanner. The
+ *  original check was `topColon !== -1 && topComma !== -1 &&
+ *  topComma > topColon`, i.e. "the first top-level `:` lies before
+ *  the last top-level `,`". Equivalent: the FIRST comma-separated
+ *  part contains at least one top-level `:`. Behaviour-preserving. */
 function parseValueOrInlineObject(value: string): unknown {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   if (trimmed === '' || trimmed.startsWith('[') || trimmed.startsWith('{')) {
     return parseScalar(trimmed);
   }
-  let topColon = -1;
-  let topComma = -1;
-  let depth = 0;
-  let inQuote: string | null = null;
-  for (let i = 0; i < trimmed.length; i++) {
-    const ch = trimmed[i];
-    if (inQuote !== null) {
-      if (ch === inQuote) inQuote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") { inQuote = ch; continue; }
-    if (ch === '[' || ch === '{') depth++;
-    if (ch === ']' || ch === '}') depth--;
-    if (depth !== 0) continue;
-    if (ch === ':' && topColon === -1) topColon = i;
-    if (ch === ',') topComma = i;
-  }
-  if (topColon !== -1 && topComma !== -1 && topComma > topColon) {
-    return parseInlineObject(trimmed);
-  }
+  const commaParts = scanTopLevelSeparators(trimmed, ',');
+  if (commaParts.length < 2) return parseScalar(trimmed);
+  const first = commaParts[0] ?? '';
+  const hasColonInFirst = scanTopLevelSeparators(first, ':').length >= 2;
+  if (hasColonInFirst) return parseInlineObject(trimmed);
   return parseScalar(trimmed);
 }
 

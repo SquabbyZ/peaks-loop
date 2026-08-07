@@ -109,39 +109,100 @@ function majorOf(version: string | undefined): string | undefined {
   return major !== undefined && /^\d+$/.test(major) ? major : undefined;
 }
 
+/** Library detector — returns a `ComponentLibrary` when its package
+ *  signal is present, otherwise `null` so the dispatcher can move on.
+ *  Each detector is a single-function unit (≤ 3 branches) so the
+ *  per-detector complexity stays under the `complexity` threshold.
+ *  Refactored 2026-08-07 (PRD-002b slice 3 Commit C — table-dispatch):
+ *  replaces the original 12-step `if`-chain with a `[signal, detect]`
+ *  table iterated in order; first detector to match wins. */
+type LibraryDetector = (deps: Record<string, string>, projectRoot: string) => ComponentLibrary | null;
+
+const LIBRARY_DETECTORS: readonly LibraryDetector[] = [
+  detectAntd,
+  detectMui,
+  detectElementPlus,
+  detectElementUi,
+  detectArco,
+  detectTdesign,
+  detectSemi,
+  detectNextui,
+  detectChakra,
+  detectVant,
+  detectShadcn
+];
+
 export function detectComponentLibrary(projectRoot: string, deps: Record<string, string>): ComponentLibrary {
-  if ('antd' in deps) {
-    const major = majorOf(deps['antd']);
-    const hasProSuite = '@ant-design/pro-components' in deps || Object.keys(deps).some((d) => d.startsWith('@ant-design/pro-'));
-    return hasProSuite
-      ? { name: 'antd-pro', ...(major !== undefined ? { majorVersion: major } : {}), hasProSuite: true }
-      : { name: 'antd', ...(major !== undefined ? { majorVersion: major } : {}) };
-  }
-  if ('@mui/material' in deps) return { name: 'mui', ...(majorOf(deps['@mui/material']) !== undefined ? { majorVersion: majorOf(deps['@mui/material'])! } : {}) };
-  if ('element-plus' in deps) return { name: 'element-plus' };
-  if ('element-ui' in deps) return { name: 'element-ui' };
-  if ('@arco-design/web-react' in deps) return { name: 'arco' };
-  if ('tdesign-react' in deps || 'tdesign-vue-next' in deps) return { name: 'tdesign' };
-  if ('@douyinfe/semi-ui' in deps) return { name: 'semi' };
-  if ('@nextui-org/react' in deps) return { name: 'nextui' };
-  if ('@chakra-ui/react' in deps) return { name: 'chakra' };
-  if ('vant' in deps) return { name: 'vant' };
-  // shadcn / ui is a Tailwind-based component primitive set shipped as
-  // copyable source files under `components/ui/`. It has no top-level
-  // package of its own, so the signal we use is: Tailwind is present
-  // AND at least one of its peer utilities is also present.
-  if (
-    ('class-variance-authority' in deps
-      || 'clsx' in deps
-      || 'tailwind-merge' in deps
-      || 'lucide-react' in deps)
-    && ('tailwindcss' in deps
-      || existsSync(join(projectRoot, 'components', 'ui'))
-      || existsSync(join(projectRoot, 'src', 'components', 'ui')))
-  ) {
-    return { name: 'shadcn' };
+  for (const detector of LIBRARY_DETECTORS) {
+    const result = detector(deps, projectRoot);
+    if (result !== null) return result;
   }
   return { name: 'none' };
+}
+
+function detectAntd(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  if (!('antd' in deps)) return null;
+  const major = majorOf(deps['antd']);
+  const hasProSuite = '@ant-design/pro-components' in deps
+    || Object.keys(deps).some((d) => d.startsWith('@ant-design/pro-'));
+  return hasProSuite
+    ? { name: 'antd-pro', ...(major !== undefined ? { majorVersion: major } : {}), hasProSuite: true }
+    : { name: 'antd', ...(major !== undefined ? { majorVersion: major } : {}) };
+}
+
+function detectMui(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  if (!('@mui/material' in deps)) return null;
+  const major = majorOf(deps['@mui/material']);
+  return { name: 'mui', ...(major !== undefined ? { majorVersion: major } : {}) };
+}
+
+function detectElementPlus(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return 'element-plus' in deps ? { name: 'element-plus' } : null;
+}
+
+function detectElementUi(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return 'element-ui' in deps ? { name: 'element-ui' } : null;
+}
+
+function detectArco(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return '@arco-design/web-react' in deps ? { name: 'arco' } : null;
+}
+
+function detectTdesign(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return ('tdesign-react' in deps || 'tdesign-vue-next' in deps) ? { name: 'tdesign' } : null;
+}
+
+function detectSemi(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return '@douyinfe/semi-ui' in deps ? { name: 'semi' } : null;
+}
+
+function detectNextui(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return '@nextui-org/react' in deps ? { name: 'nextui' } : null;
+}
+
+function detectChakra(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return '@chakra-ui/react' in deps ? { name: 'chakra' } : null;
+}
+
+function detectVant(deps: Record<string, string>, _projectRoot: string): ComponentLibrary | null {
+  return 'vant' in deps ? { name: 'vant' } : null;
+}
+
+/** shadcn / ui is a Tailwind-based component primitive set shipped as
+ *  copyable source files under `components/ui/`. It has no top-level
+ *  package of its own, so the signal we use is: at least one of its
+ *  peer utilities (cva, clsx, tailwind-merge, lucide-react) is present
+ *  AND Tailwind is present (either as a dep or via a components/ui dir). */
+function detectShadcn(deps: Record<string, string>, projectRoot: string): ComponentLibrary | null {
+  const hasPeerUtility = 'class-variance-authority' in deps
+    || 'clsx' in deps
+    || 'tailwind-merge' in deps
+    || 'lucide-react' in deps;
+  if (!hasPeerUtility) return null;
+  const hasTailwind = 'tailwindcss' in deps
+    || existsSync(join(projectRoot, 'components', 'ui'))
+    || existsSync(join(projectRoot, 'src', 'components', 'ui'));
+  return hasTailwind ? { name: 'shadcn' } : null;
 }
 
 function detectCssFrameworks(projectRoot: string, deps: Record<string, string>): CssFramework[] {
