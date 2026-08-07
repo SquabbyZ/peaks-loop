@@ -70,6 +70,18 @@ export default defineConfig({
     cache: {
       dir: './node_modules/.cache/vitest',
     },
+    // 4.0.17 perf slice 3 commit 3: prebundle peaks-loop-shared (the
+    // most-imported workspace package) via vite's deps.optimizer.
+    // Without this, every worker re-resolves the workspace package
+    // through node_modules at module-load time. Estimate: 100-200s
+    // saving on the 802s aggregate import time.
+    deps: {
+      optimizer: {
+        ssr: {
+          include: ['peaks-loop-shared'],
+        },
+      },
+    },
   },
 });
 
