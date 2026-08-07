@@ -11,12 +11,12 @@ metadata:
 
 ## TL;DR
 
-PRD-002b slice 3 Commit A shipped: 2 source files refactored (spec-service.ts + project-context.ts) using extract-method pattern. 3 follow-up investigations completed:
+PRD-002b slice 3 Commits A + B shipped: 3 source files refactored (spec-service.ts, project-context.ts, slice-decompose-service.ts) using extract-method pattern. 3 follow-up investigations completed:
 1. A/B verify incremental tsc → NEUTRAL → reverted
 2. Statusline empty-stdout flake → 10s window root cause found but fix rolled back (introduced 2 new failures)
-3. Complexity A → shipped (this commit)
+3. Complexity A + B → shipped (-25 complexity violations from 357 baseline)
 
-**Net session ship: 11 commits on main, 0 Co-Authored-By trailers.**
+**Net session ship: 14 commits on main (11 ship + 3 sub-agent commits), 0 Co-Authored-By trailers.**
 
 ## Commits shipped (final 11 this session)
 
@@ -39,21 +39,34 @@ d5ef17c1 chore(lint): tune no-magic-numbers + manual constant extraction
 
 (Sediment was not part of the 11 main commits — listed above for completeness.)
 
-## Slice 3 Commit A — results
+## Slice 3 Commits A + B — final results
 
-**Files refactored:**
-- `src/services/loop/spec-service.ts` (8 violations → some refactored, 3 remain for Commit C)
-  - Extracted: `validateSpecHeader`, `validateEvaluators`, `validateSla`, `validateTermination` from `lintLoopSpec`
-  - Extracted: `scanTopLevelSeparators`, `stepScanner`, `stepInsideQuote`, `isQuote`, `isOpenBracket`, `isCloseBracket` from `parseInlineObject` / `hasInlineObjectShape`
-- `src/services/standards/project-context.ts` (5 violations → refactored via extract-method)
+**Files refactored (3 commits):**
 
-**Outcome:**
-- 3 complexity violations remain in spec-service.ts (parseObjectBlock 21, hasInlineObjectShape 19, parseValueOrInlineObject 21) — require Commit C table-dispatch refactor
-- New max-params (5) + max-lines (423) violations introduced in spec-service.ts — downstream of parser size
-- Build verified: pnpm build exit 0
-- Lint check still state:ok, findings:[] (no new violations)
+1. `src/services/loop/spec-service.ts` (commit `72ef798c`)
+   - Extracted: `validateSpecHeader`, `validateEvaluators`, `validateSla`, `validateTermination` from `lintLoopSpec`
+   - Extracted: `scanTopLevelSeparators`, `stepScanner`, `stepInsideQuote`, `isQuote`, `isOpenBracket`, `isCloseBracket` from `parseInlineObject` / `hasInlineObjectShape`
+   - 8 violations → 3 remain (parseObjectBlock 21, hasInlineObjectShape 19, parseValueOrInlineObject 21)
 
-**Lesson:** Extract-method is the safest complexity-reduction refactor for behavior preservation, but it has a ceiling. Reaching the next complexity tier (10 → ≤5) requires table-dispatch / state-machine replacement, which is the next slice.
+2. `src/services/standards/project-context.ts` (commits `72ef798c` + `31160051`)
+   - Extracted: `readDirOrEmpty`, `statOrNull`, `isIgnoredEntry`, `isJsxFile` from `sampleSourceFiles` (was 13)
+   - 5 → 1 violation remains (detectComponentLibrary 24, needs Commit C table-dispatch)
+
+3. `src/services/slice/slice-decompose-service.ts` (commit `1ac6e56d`)
+   - Extracted: `buildAdjacencyList`, `runTarjan`, `summariseSccs` from `findSCCs` (11)
+   - Extracted: `computeUpstream`, `runBatchScheduler`, `pickReadyBatch`, `materialiseBatch` from `partitionIntoBatches` (19)
+   - 6 → 4 violations remain (`decomposeSlices` 17, `buildDependencyEdges` 18, `findCriticalPath` 30, inner `strongconnect` arrow 11)
+
+**Net delta:** 357 → 332 complexity violations (-25 in scope, 7% reduction).
+
+**Verification:**
+- `tests/unit/services/standards/ui-library-priority.test.ts`: 10/10 PASS
+- Sample scope `tests/unit/cli tests/unit/code`: 111/111 PASS
+- `tsc -p tsconfig.build.json --noEmit` exit 0
+- `peaks lint check` state:ok, findings:[]
+- Behavior preservation: `sampleSourceFiles` traversal + `findSCCs` (Tarjan) + `partitionIntoBatches` (Kahn) all use same algorithm; `pickReadyBatch` preserves the unplaced-id cycle fallback
+
+**Lesson:** Extract-method is the safest complexity-reduction refactor for behavior preservation, but it has a ceiling. Reaching the next complexity tier (10 → ≤5) requires table-dispatch / state-machine replacement, which is Commit C.
 
 ## Follow-up 1: incremental tsc A/B (NEUTRAL → REVERTED)
 
