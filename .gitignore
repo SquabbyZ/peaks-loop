@@ -7,8 +7,6 @@ coverage/
 .gstack/
 .codegraph/
 .peaks/_runtime/
-# 4.0.17 perf slice 3 commit 1: incremental tsc cache (path pinned in tsconfig.json).
-node_modules/.cache/tsbuildinfo/
 # slice 2.5.0 sub-fix C: peaks playwright start session records.
 # The directory lives under _runtime/ so it is already covered by
 # the rule above; this explicit line documents the intent for
