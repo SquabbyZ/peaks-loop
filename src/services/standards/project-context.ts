@@ -207,6 +207,12 @@ function detectDataFetching(deps: Record<string, string>): string[] {
 
 function detectLegacySignals(projectRoot: string, deps: Record<string, string>): string[] {
   const signals: string[] = [];
+  collectPackageLegacySignals(deps, signals);
+  collectSourceFileLegacySignals(projectRoot, signals);
+  return signals;
+}
+
+function collectPackageLegacySignals(deps: Record<string, string>, signals: string[]): void {
   if ('moment' in deps) signals.push('`moment` in deps — prefer `dayjs` or `date-fns` for new code');
   if (Object.keys(deps).some((d) => d.startsWith('enzyme'))) signals.push('Enzyme test suite — write new tests with React Testing Library');
   if ('redux-saga' in deps) signals.push('redux-saga — keep saga patterns for existing flows; use Redux Toolkit thunks/RTK Query for new code');
@@ -214,27 +220,31 @@ function detectLegacySignals(projectRoot: string, deps: Record<string, string>):
   if ('jquery' in deps) signals.push('jQuery — do not add new jQuery usage');
   if ('backbone' in deps) signals.push('Backbone — legacy; do not add new Backbone code');
   if (deps['vue']?.startsWith('2') === true) signals.push('Vue 2 — preserve Options API for existing components');
+}
 
-  // Lightweight heuristic for class components and inline styles in src/
+function collectSourceFileLegacySignals(projectRoot: string, signals: string[]): void {
   const srcRoot = join(projectRoot, 'src');
-  if (existsSync(srcRoot)) {
-    const sample = sampleSourceFiles(srcRoot, 80);
-    let classComponentHits = 0;
-    let inlineStyleHits = 0;
-    for (const filePath of sample) {
-      try {
-        const content = readFileSync(filePath, 'utf8');
-        if (/extends\s+(?:React\.)?Component\b/.test(content)) classComponentHits += 1;
-        const matches = content.match(/style=\{\{/g);
-        if (matches !== null) inlineStyleHits += matches.length;
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // ignore unreadable files
-      }
+  if (!existsSync(srcRoot)) return;
+  const sample = sampleSourceFiles(srcRoot, 80);
+  const { classComponentHits, inlineStyleHits } = scanSampleForLegacyMarkers(sample);
+  if (classComponentHits >= 1) signals.push(`React class components detected (${classComponentHits}+ files) — keep class style for existing modules, use function components + hooks for new code`);
+  if (inlineStyleHits >= 50) signals.push(`Inline styles dominant (${inlineStyleHits}+ occurrences) — match existing styling for new code in same modules`);
+}
+
+function scanSampleForLegacyMarkers(sample: readonly string[]): { classComponentHits: number; inlineStyleHits: number } {
+  let classComponentHits = 0;
+  let inlineStyleHits = 0;
+  for (const filePath of sample) {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+      if (/extends\s+(?:React\.)?Component\b/.test(content)) classComponentHits += 1;
+      const matches = content.match(/style=\{\{/g);
+      if (matches !== null) inlineStyleHits += matches.length;
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      // ignore unreadable files
     }
-    if (classComponentHits >= 1) signals.push(`React class components detected (${classComponentHits}+ files) — keep class style for existing modules, use function components + hooks for new code`);
-    if (inlineStyleHits >= 50) signals.push(`Inline styles dominant (${inlineStyleHits}+ occurrences) — match existing styling for new code in same modules`);
   }
-  return signals;
+  return { classComponentHits, inlineStyleHits };
 }
 
 function sampleSourceFiles(root: string, limit: number): string[] {

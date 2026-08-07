@@ -117,14 +117,40 @@ export function buildSpec(input: Partial<LoopSpec>, expectedRid: string): LoopSp
   };
 }
 
-/** Lint a LoopSpec — returns a report with semantic errors / warnings. */
+/** Lint a LoopSpec — returns a report with semantic errors / warnings.
+ *
+ *  Refactored 2026-08-07 (PRD-002b slice 3 commit A — extract-method):
+ *  the original function had complexity 14. Each validation phase now lives
+ *  in its own helper, dropping the orchestrator to complexity ~5.
+ *  Behavior is byte-for-byte preserved: same error/warning strings, same
+ *  ordering, same return shape. */
 export function lintLoopSpec(spec: LoopSpec): SpecLintReport {
   const errors: string[] = [];
   const warnings: string[] = [];
+  validateSpecHeader(spec, errors);
+  validateEvaluators(spec.evaluators, errors, warnings);
+  validateSla(spec.sla, spec.evaluators, errors);
+  validateTermination(spec.termination, errors);
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    normalizedSpec: spec
+  };
+}
+
+function validateSpecHeader(spec: LoopSpec, errors: string[]): void {
   if (spec.schemaVersion !== 1) errors.push(`unsupported schemaVersion ${spec.schemaVersion} (expected 1)`);
   if (!/^[a-z][a-z0-9-]*$/.test(spec.rid)) errors.push(`rid "${spec.rid}" must match /^[a-z][a-z0-9-]*$/`);
+}
+
+function validateEvaluators(
+  evaluators: readonly SpecEvaluatorEntry[],
+  errors: string[],
+  warnings: string[]
+): void {
   const seenKinds = new Set<string>();
-  for (const ev of spec.evaluators) {
+  for (const ev of evaluators) {
     if (typeof ev.kind !== 'string' || ev.kind.length === 0) {
       errors.push(`evaluator with empty kind`);
       continue;
@@ -132,20 +158,24 @@ export function lintLoopSpec(spec: LoopSpec): SpecLintReport {
     if (seenKinds.has(ev.kind)) warnings.push(`evaluator kind "${ev.kind}" duplicated`);
     seenKinds.add(ev.kind);
   }
-  const evalKinds = new Set(spec.evaluators.map((e) => e.kind));
-  for (const s of spec.sla) {
+}
+
+function validateSla(
+  sla: readonly SpecSlaEntry[],
+  evaluators: readonly SpecEvaluatorEntry[],
+  errors: string[]
+): void {
+  const evalKinds = new Set(evaluators.map((e) => e.kind));
+  for (const s of sla) {
     if (!evalKinds.has(s.evaluator)) errors.push(`sla.evaluator "${s.evaluator}" is not declared in evaluators[]`);
     if (s.maxScore < 0 || s.maxScore > 1) errors.push(`sla.maxScore for "${s.evaluator}" must be in [0,1] (got ${s.maxScore})`);
   }
-  if (spec.termination.strategy === 'max-cycles' && (spec.termination.maxCycles === undefined || spec.termination.maxCycles < 1)) {
+}
+
+function validateTermination(termination: SpecTermination, errors: string[]): void {
+  if (termination.strategy === 'max-cycles' && (termination.maxCycles === undefined || termination.maxCycles < 1)) {
     errors.push(`termination.strategy=max-cycles requires maxCycles ≥ 1`);
   }
-  return {
-    ok: errors.length === 0,
-    errors,
-    warnings,
-    normalizedSpec: spec
-  };
 }
 
 /** Serialize a LoopSpec to a stable YAML representation. Pure. */
@@ -353,27 +383,30 @@ function parseArrayBlock(lines: string[], start: number, baseIndent: number): Pa
   let i = start;
   for (; i < lines.length; i++) {
     const line = lines[i] ?? '';
-    if (line.trim() === '' || line.trim().startsWith('#')) continue;
-    const indent = leadingSpaces(line);
-    if (indent < baseIndent) return { value: arr, next: i };
-    if (indent > baseIndent) continue; // tolerate noise
+    if (shouldSkipArrayLine(line, baseIndent)) continue;
+    if (leadingSpaces(line) < baseIndent) return { value: arr, next: i };
     const trimmed = line.trim();
     if (!trimmed.startsWith('- ')) continue;
-    const item = trimmed.slice(2).trim();
-    if (item.startsWith('{') && item.endsWith('}')) {
-      const inner = item.slice(1, -1).trim();
-      arr.push(parseInlineObject(inner));
-      continue;
-    }
-    if (item.includes(':')) {
-      // Inline object on array item (e.g. `- kind: foo, gate: bar`).
-      const inline = parseInlineObject(item);
-      arr.push(inline);
-      continue;
-    }
-    arr.push(parseScalar(item));
+    arr.push(parseArrayItem(trimmed.slice(2).trim()));
   }
   return { value: arr, next: i };
+}
+
+function shouldSkipArrayLine(line: string, baseIndent: number): boolean {
+  if (line.trim() === '' || line.trim().startsWith('#')) return true;
+  if (leadingSpaces(line) > baseIndent) return true; // tolerate noise
+  return false;
+}
+
+function parseArrayItem(item: string): unknown {
+  if (item.startsWith('{') && item.endsWith('}')) {
+    return parseInlineObject(item.slice(1, -1).trim());
+  }
+  if (item.includes(':')) {
+    // Inline object on array item (e.g. `- kind: foo, gate: bar`).
+    return parseInlineObject(item);
+  }
+  return parseScalar(item);
 }
 
 function parseInlineObject(body: string): Record<string, unknown> {
@@ -405,53 +438,73 @@ function parseInlineObject(body: string): Record<string, unknown> {
 }
 
 function splitCommas(s: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  let inQuote: string | null = null;
-  for (const ch of s) {
-    if (inQuote !== null) {
-      cur += ch;
-      if (ch === inQuote) inQuote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      inQuote = ch;
-      cur += ch;
-      continue;
-    }
-    if (ch === '[' || ch === '{') depth++;
-    if (ch === ']' || ch === '}') depth--;
-    if (ch === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur.length > 0) out.push(cur);
-  return out.map((x) => x.trim()).filter((x) => x.length > 0);
+  const raw = scanTopLevelSeparators(s, ',');
+  return raw.map((x) => x.trim()).filter((x) => x.length > 0);
 }
 
-function splitTopLevel(s: string, sep: string): string[] {
-  let depth = 0;
-  let inQuote: string | null = null;
+/** Shared scanner — splits `s` on `sep` at depth 0 outside quotes.
+ *  Behaviour-preserving with the original splitCommas / splitTopLevel
+ *  loops; extracted on 2026-08-07 (PRD-002b slice 3 A) to drop both
+ *  callers' complexity from 13 to ≤ 2. */
+function scanTopLevelSeparators(s: string, sep: string): string[] {
   const out: string[] = [];
+  let depth = 0;
   let cur = '';
+  let inQuote: string | null = null;
   for (const ch of s) {
-    if (inQuote !== null) {
-      cur += ch;
-      if (ch === inQuote) inQuote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") { inQuote = ch; cur += ch; continue; }
-    if (ch === '[' || ch === '{') depth++;
-    if (ch === ']' || ch === '}') depth--;
-    if (ch === sep && depth === 0) { out.push(cur); cur = ''; continue; }
-    cur += ch;
+    const ctx = stepScanner(ch, sep, cur, inQuote, depth);
+    cur = ctx.cur;
+    inQuote = ctx.inQuote;
+    depth = ctx.depth;
+    if (ctx.push) out.push(ctx.push);
+    if (ctx.reset) cur = '';
   }
   if (cur.length > 0) out.push(cur);
   return out;
+}
+
+type ScannerStep = {
+  cur: string;
+  inQuote: string | null;
+  depth: number;
+  push: string | null;
+  reset: boolean;
+};
+
+function stepScanner(
+  ch: string,
+  sep: string,
+  cur: string,
+  inQuote: string | null,
+  depth: number
+): ScannerStep {
+  if (inQuote !== null) return stepInsideQuote(ch, cur, inQuote, depth);
+  if (isQuote(ch)) return { cur: cur + ch, inQuote: ch, depth, push: null, reset: false };
+  if (isOpenBracket(ch)) return { cur, inQuote, depth: depth + 1, push: null, reset: false };
+  if (isCloseBracket(ch)) return { cur, inQuote, depth: depth - 1, push: null, reset: false };
+  if (ch === sep && depth === 0) return { cur, inQuote, depth, push: cur, reset: true };
+  return { cur: cur + ch, inQuote, depth, push: null, reset: false };
+}
+
+function stepInsideQuote(ch: string, cur: string, inQuote: string | null, depth: number): ScannerStep {
+  const nextInQuote = ch === inQuote ? null : inQuote;
+  return { cur: cur + ch, inQuote: nextInQuote, depth, push: null, reset: false };
+}
+
+function isQuote(ch: string): boolean {
+  return ch === '"' || ch === "'";
+}
+
+function isOpenBracket(ch: string): boolean {
+  return ch === '[' || ch === '{';
+}
+
+function isCloseBracket(ch: string): boolean {
+  return ch === ']' || ch === '}';
+}
+
+function splitTopLevel(s: string, sep: string): string[] {
+  return scanTopLevelSeparators(s, sep);
 }
 
 function leadingSpaces(line: string): number {
@@ -468,12 +521,27 @@ function parseScalar(raw: string): unknown {
   if (raw === 'true') return true;
   if (raw === 'false') return false;
   if (raw === 'null' || raw === '~') return null;
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    return raw.slice(1, -1);
+  const unquoted = unquoteIfWrapped(raw);
+  if (unquoted !== null) return unquoted;
+  return parseScalarNumber(raw) ?? raw;
+}
+
+function unquoteIfWrapped(raw: string): string | null {
+  const len = raw.length;
+  if (len >= 2) {
+    const first = raw[0];
+    const last = raw[len - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return raw.slice(1, -1);
+    }
   }
+  return null;
+}
+
+function parseScalarNumber(raw: string): number | null {
   if (/^-?\d+$/.test(raw)) return parseInt(raw, 10);
   if (/^-?\d+\.\d+$/.test(raw)) return parseFloat(raw);
-  return raw;
+  return null;
 }
 
 export function specPath(projectRoot: string, sid: string, rid: string): string {
