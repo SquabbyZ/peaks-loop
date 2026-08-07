@@ -168,6 +168,11 @@ function resolveDistEntry(): string {
 
 const DIST_ENTRY = resolveDistEntry();
 
+// Path to the long-running IPC helper. Sibling of this test file.
+// Resolved via `import.meta.url` so the helper moves with the test
+// file (works in worktrees, monorepo nests, etc.).
+const RPC_HELPER_PATH = join(dirname(fileURLToPath(import.meta.url)), '_statusline-rpc-helper.mjs');
+
 // ---------------------------------------------------------------------------
 // Deterministic dist freshness guard (rejection-pass C1/I1 fix #1)
 // ---------------------------------------------------------------------------
@@ -447,42 +452,118 @@ interface CliRun {
   readonly stderr: string;
 }
 
-function spawnCli(
+async function spawnCli(
   args: string[],
   options: { stdinPayload?: string; env?: NodeJS.ProcessEnv } = {},
-): CliRun {
+): Promise<CliRun> {
   if (!active) throw new Error('spawnCli called without active harness');
-  const env: NodeJS.ProcessEnv = { ...process.env, ...(options.env ?? {}) };
-  const r: SpawnSyncReturns<string> = spawnSync(
-    process.execPath,
-    [active.distEntry, ...args],
-    {
-      cwd: active.cwd,
-      env,
-      encoding: 'utf8',
-      shell: false,
-      input: options.stdinPayload ?? '',
-      // Slice 2026-08-06-test-perf-follow: enforce a hard 10s ceiling on
-      // every child CLI invocation. The 4.0.17 worker-cap fix (commit
-      // ace1a03d) closed the 17 starvation timeouts, but a hung child
-      // (deadlock, file-lock contention, parent-pipe never drained) would
-      // still stall the entire file because spawnSync defaults to no
-      // timeout — `status: null, signal: 'SIGTERM'` would surface but the
-      // vitest worker would keep running until vitest's outer 60s default
-      // (or hang forever if the child re-spawns). 10s is well above the
-      // real p99 (~3s for statusline render) and gives a clear error if
-      // a child ever fails to close within budget.
-      timeout: 10_000,
-    },
-  );
-  // 4.0.17 concurrency-flake fix: also surface `signal` so callers can
-  // distinguish a clean exit (status 0) from a timeout-killed exit
-  // (status null + signal 'SIGTERM'). Under full-suite concurrency the
-  // spawnSync 10s ceiling can fire if the parent process is descheduled;
-  // the test previously treated status:null as a failure, but a SIGTERM
-  // child that drained stdin cleanly produced correct stdout before the
-  // ceiling hit — the assertion should accept that case.
-  return { status: r.status, signal: r.signal, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  // Slice 2026-08-07-statusline-perf: send a JSON IPC message to the
+  // long-running helper forked once per suite (see `beforeAll`). The
+  // helper invokes `dist/cli/program.js`'s `createProgram()` directly,
+  // so the program graph is built ONCE for the entire suite instead of
+  // 24 times. The 10s ceiling (added in 7dfa6f38) is preserved — the
+  // helper enforces it per request and surfaces `status: null` when it
+  // fires, which the existing assertion (`status === 0 || signal ===
+  // SIGTERM`) already accepts as a SIGTERM-equivalent timeout exit.
+  //
+  // Env diffing: the helper snapshots `process.env`, applies the
+  // per-request env on top, runs the command, and restores the
+  // original env. The caller passes ONLY the delta; `process.env` is
+  // the implicit base (the test runner's env, including PATH).
+  const env: NodeJS.ProcessEnv = options.env ?? {};
+  return ipcCall({
+    args,
+    stdinPayload: options.stdinPayload ?? '',
+    cwd: active.cwd,
+    env,
+    timeoutMs: 10_000,
+  });
+}
+
+/**
+ * Long-running IPC helper state. Populated by `beforeAll` and torn down
+ * by `afterAll`. Single child per suite — 24 requests go through one
+ * process instead of 24 `spawnSync` calls.
+ *
+ * Why `fork()` and not `spawn()`: `fork()` gives us the dedicated IPC
+ * channel automatically, but we use plain stdio (line-delimited JSON)
+ * here for portability — `process.parentPort` is conditional on the
+ * `--enable-source-maps` / IPC combo and varies by Node version.
+ */
+let rpcChild: ChildProcess | null = null;
+let rpcNextId = 1;
+const rpcPending = new Map<number, { resolve: (r: CliRun) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
+let rpcStderrLog = '';
+
+function ipcCall(req: { args: string[]; stdinPayload: string; cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }): Promise<CliRun> {
+  if (!rpcChild || !rpcChild.stdin || !rpcChild.stdout || !rpcChild.stderr) {
+    return Promise.reject(new Error('IPC helper not started; call beforeAll first'));
+  }
+  return new Promise<CliRun>((resolve, reject) => {
+    const id = rpcNextId++;
+    const line = JSON.stringify({
+      id,
+      args: req.args,
+      stdinPayload: req.stdinPayload,
+      cwd: req.cwd,
+      env: req.env,
+      timeoutMs: req.timeoutMs,
+    }) + '\n';
+    const timer = setTimeout(() => {
+      rpcPending.delete(id);
+      reject(new Error(`IPC request ${id} (args=${req.args.join(' ')}) timed out after ${req.timeoutMs}ms`));
+    }, req.timeoutMs + 1000);
+    rpcPending.set(id, { resolve, reject, timer });
+    rpcChild!.stdin!.write(line);
+  });
+}
+
+function setupRpcChild(child: ChildProcess): void {
+  let stdoutBuf = '';
+  rpcStderrLog = '';
+  rpcPending.clear();
+  child.stdout?.setEncoding('utf8');
+  child.stdout?.on('data', (chunk: string) => {
+    stdoutBuf += chunk;
+    let nl;
+    while ((nl = stdoutBuf.indexOf('\n')) !== -1) {
+      const line = stdoutBuf.slice(0, nl);
+      stdoutBuf = stdoutBuf.slice(nl + 1);
+      if (line.trim().length === 0) continue;
+      try {
+        const resp = JSON.parse(line) as { id: number; status: number | null; signal?: NodeJS.Signals; stdout: string; stderr: string };
+        const entry = rpcPending.get(resp.id);
+        if (entry) {
+          clearTimeout(entry.timer);
+          rpcPending.delete(resp.id);
+          entry.resolve({
+            status: resp.status,
+            signal: resp.signal ?? null,
+            stdout: resp.stdout,
+            stderr: resp.stderr,
+          });
+        }
+      } catch {
+        // ignore malformed lines
+      }
+    }
+  });
+  child.stderr?.setEncoding('utf8');
+  child.stderr?.on('data', (chunk: string) => {
+    rpcStderrLog += chunk;
+  });
+  child.on('exit', (code, signal) => {
+    for (const [id, entry] of rpcPending.entries()) {
+      clearTimeout(entry.timer);
+      rpcPending.delete(id);
+      entry.resolve({
+        status: code,
+        signal: signal ?? 'SIGTERM',
+        stdout: '',
+        stderr: `RPC helper exited (code=${code}, signal=${signal}). stderr was: ${rpcStderrLog}`,
+      });
+    }
+  });
 }
 
 /**
@@ -512,10 +593,10 @@ function stripped(s: string): string {
  * `writePresence` writes the lease under the same callerId we send
  * here, so the read is a deterministic hit.
  */
-function runStatuslineStdin(
+async function runStatuslineStdin(
   h: Harness,
   extraEnv: NodeJS.ProcessEnv = {},
-): CliRun {
+): Promise<CliRun> {
   const stdin = JSON.stringify({
     workspace: { current_dir: h.projectRoot },
     session_id: h.sessionId,
@@ -533,11 +614,11 @@ function runStatuslineStdin(
  * Compact subcommand path: explicit --project + --session-id, no stdin.
  * Used for the documented compact-cell-bar contract and the --json envelope.
  */
-function runStatuslineCompact(
+async function runStatuslineCompact(
   h: Harness,
   extraArgs: string[] = [],
   extraEnv: NodeJS.ProcessEnv = {},
-): CliRun {
+): Promise<CliRun> {
   // Slice 2026-08-07-statusline-flake: see `runStatuslineStdin`. Pass
   // `--now` to the compact path too so its `decideCompactStatusline`
   // uses the same pinned clock as the lifecycle record.
@@ -552,7 +633,7 @@ function runStatuslineCompact(
 // ---------------------------------------------------------------------------
 
 describe("Scenario: suite guards", () => {
-  it("when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)", () => {
+  it("when invoked, should dist/cli/index.js exists at suite start (rejection #5: build before subprocess tests)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -583,7 +664,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     rmSync(join(sessionDir, 'txt', 'auto-compact-pending.json'), { force: true });
   });
 
-  it("when invoked, should normal C1 (no lifecycle): \"Peaks ● peaks-rd › <basename>\"", () => {
+  it("when invoked, should normal C1 (no lifecycle): \"Peaks ● peaks-rd › <basename>\"", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -591,7 +672,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     writeSessionFile(active);
     writePresence(active);
     rmSync(active.lifecyclePath, { force: true });
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // The brand prefix + a breathing active glyph + skill + (gate hidden
     // — `implementation` is not in ATTENTION_GATE_LABELS) + root label.
@@ -609,7 +690,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 
-  it("when invoked, should queued lifecycle: primary line carries the queued compact segment", () => {
+  it("when invoked, should queued lifecycle: primary line carries the queued compact segment", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -617,13 +698,13 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     writeSessionFile(active);
     writePresence(active);
     seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('queued');
     expect(stripped(r.stdout)).toContain('[░░░░░░░░]');
   });
 
-  it("when invoked, should compacting lifecycle: primary line carries the 4-cell compact segment", () => {
+  it("when invoked, should compacting lifecycle: primary line carries the 4-cell compact segment", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -631,13 +712,13 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     writeSessionFile(active);
     writePresence(active);
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('[████░░░░]');
     expect(stripped(r.stdout)).toContain('compacting');
   });
 
-  it("when invoked, should completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio", () => {
+  it("when invoked, should completed lifecycle (within 10s window): primary line carries the 8-cell compact segment with after-ratio", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -653,7 +734,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     // line to the C1 baseline.
     const updatedAt = new Date(TEST_NOW_MS).toISOString();
     seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('[████████]');
     // The primary line formats the after-ratio as a percentage (`.toFixed(0)`),
@@ -663,7 +744,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     expect(stripped(r.stdout)).toContain('42%');
   });
 
-  it("when invoked, should failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)", () => {
+  it("when invoked, should failed lifecycle: primary line carries the failed segment + failedAt (errorSummary is in the compact subcommand, not the primary line)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -676,7 +757,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
       errorSummary: 'synthetic failure for integration test',
       updatedAt: new Date(TEST_NOW_MS).toISOString(),
     }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // The primary line shows the failed segment + failedAt cell. The
     // errorSummary is intentionally NOT in the primary line (it's a noisy
@@ -687,7 +768,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     expect(stripped(r.stdout)).toContain('compacting');
   });
 
-  it("when invoked, should back to normal (lifecycle removed): primary line returns to the C1 baseline", () => {
+  it("when invoked, should back to normal (lifecycle removed): primary line returns to the C1 baseline", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -698,7 +779,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     // Remove the lifecycle to simulate "compact done, indicator expires".
     // The 10s expiry is tested separately below.
     rmSync(active.lifecyclePath, { force: true });
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
@@ -710,7 +791,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
 // ---------------------------------------------------------------------------
 
 describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the primary state (rejection design requirement)", () => {
-  it("when invoked, should completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)", () => {
+  it("when invoked, should completed lifecycle recorded 15s ago → primary line falls back to C1 baseline (no green ✓)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -728,7 +809,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
       afterRatio: 0.42,
       updatedAt: fifteenSecondsAgo,
     }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // The 10-second expiry has elapsed: the compact segment is suppressed,
     // the primary line returns to the C1 baseline (active presence + brand).
@@ -738,7 +819,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
     expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
   });
 
-  it("when invoked, should completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)", () => {
+  it("when invoked, should completed lifecycle recorded 1s ago → primary line STILL shows the compact segment (within window)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -756,7 +837,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
       afterRatio: 0.42,
       updatedAt: oneSecondAgo,
     }));
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('[████████]');
   });
@@ -767,7 +848,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
 // ---------------------------------------------------------------------------
 
 describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the renderer to the ASCII palette (rejection #2)", () => {
-  it("when invoked, should primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)", () => {
+  it("when invoked, should primary line under PEAKS_STATUSLINE_ASCII=1 is byte-identical ASCII (no Unicode-extra glyphs)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -775,7 +856,7 @@ describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
     writeSessionFile(active);
     writePresence(active);
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
+    const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // ASCII palette uses `+` for compacting and `#`/`-` for the bar.
     // No `●`, no `█`, no `░` — those are Unicode-extra glyphs.
@@ -786,14 +867,14 @@ describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
     expect(r.stdout).not.toContain('░');
   });
 
-  it("when invoked, should NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII=\"\": default unicode, no ANSI", () => {
+  it("when invoked, should NO_COLOR=1 takes precedence over PEAKS_STATUSLINE_ASCII=\"\": default unicode, no ANSI", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    const r = runStatuslineStdin(active, {
+    const r = await runStatuslineStdin(active, {
       NO_COLOR: '1',
       PEAKS_STATUSLINE_ASCII: '',
     });
@@ -804,14 +885,14 @@ describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
     expect(r.stdout).not.toContain('\x1b[');
   });
 
-  it("when invoked, should PEAKS_STATUSLINE_ASCII=0 is treated as \"unset\" (does not force ASCII)", () => {
+  it("when invoked, should PEAKS_STATUSLINE_ASCII=0 is treated as \"unset\" (does not force ASCII)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
+    const r = await runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '0' });
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toMatch(/[●◐◑◒◓]/);
   });
@@ -822,13 +903,13 @@ describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
 // ---------------------------------------------------------------------------
 
 describe("Scenario: behavior — `peaks statusline compact --json` emits the documented envelope (rejection #3 fix)", () => {
-  it("when invoked, should compact --json: returns the {ok: true, command: \"statusline.compact\", data: {label, state}} envelope", () => {
+  it("when invoked, should compact --json: returns the {ok: true, command: \"statusline.compact\", data: {label, state}} envelope", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = runStatuslineCompact(active, ['--json']);
+    const r = await runStatuslineCompact(active, ['--json']);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     const env = JSON.parse(r.stdout);
     expect(env.ok).toBe(true);
@@ -839,13 +920,13 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
     expect(env.data.state.filledCells).toBe(4);
   });
 
-  it("when invoked, should compact --json without --project: still emits the envelope (auto-detect from cwd)", () => {
+  it("when invoked, should compact --json without --project: still emits the envelope (auto-detect from cwd)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = spawnCli(
+    const r = await spawnCli(
       ['statusline', 'compact', '--session-id', active.sessionId, '--json'],
       { env: {} },
     );
@@ -855,13 +936,13 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
     expect(env.data.label).toBe('compact [░░░░░░░░]');
   });
 
-  it("when invoked, should compact WITHOUT --json: emits the plain label only (no JSON envelope braces)", () => {
+  it("when invoked, should compact WITHOUT --json: emits the plain label only (no JSON envelope braces)", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const r = runStatuslineCompact(active);
+    const r = await runStatuslineCompact(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(r.stdout).toBe('compact [████░░░░]\n');
     // No JSON envelope braces; the bar brackets `[` `]` are the compact
@@ -875,41 +956,41 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
 // ---------------------------------------------------------------------------
 
 describe("Scenario: integration — the CLI reads the lifecycle + presence from the spawned cwd (no global state)", () => {
-  it("when invoked, should changing the lifecycle record between runs changes the rendered output", () => {
+  it("when invoked, should changing the lifecycle record between runs changes the rendered output", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const first = runStatuslineCompact(active);
+    const first = await runStatuslineCompact(active);
     expect(first.stdout).toBe('compact [████░░░░]\n');
 
     seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date(TEST_NOW_MS).toISOString() }));
-    const second = runStatuslineCompact(active);
+    const second = await runStatuslineCompact(active);
     expect(second.stdout).toBe('compact [████████] → 0.50\n');
   });
 
-  it("when invoked, should invalid lifecycle JSON surfaces the honest \"status unreadable\" label, not a fake progress bar", () => {
+  it("when invoked, should invalid lifecycle JSON surfaces the honest \"status unreadable\" label, not a fake progress bar", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     mkdirSync(dirname(active.lifecyclePath), { recursive: true });
     writeFileSync(active.lifecyclePath, '{not valid json', 'utf8');
-    const r = runStatuslineCompact(active);
+    const r = await runStatuslineCompact(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(r.stdout).not.toMatch(/████/);
     expect(r.stdout).toContain('status unreadable');
   });
 
-  it("when invoked, should primary `peaks statusline` with stdin honors the active-skill presence + root label", () => {
+  it("when invoked, should primary `peaks statusline` with stdin honors the active-skill presence + root label", async () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active, { skill: 'peaks-qa', gate: 'qa-validation' });
-    const r = runStatuslineStdin(active);
+    const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // The canonical lease projection (slice 2026-08-05-statusline-sid-scoped-lease)
     // surfaces `skill` + `mode` only — `gate` is intentionally NOT part of
@@ -942,7 +1023,7 @@ describe("Scenario: a11y — rendered labels stay single-line English, no `?`, n
   ];
 
   for (const stage of STAGES) {
-    it(`${stage}: compact output is single-line, no '?', no 'peaks <verb>'`, () => {
+    it(`${stage}: compact output is single-line, no '?', no 'peaks <verb>'`, async () => {
       // given: the test setup
       // when:  the function under test is invoked
       // then:  the result matches the expectation
@@ -951,7 +1032,7 @@ describe("Scenario: a11y — rendered labels stay single-line English, no `?`, n
         ? { failedAt: 'compacting', errorSummary: 'integration-test failure', updatedAt: new Date(TEST_NOW_MS).toISOString() }
         : (stage === 'completed' ? { afterRatio: 0.42, updatedAt: new Date(TEST_NOW_MS).toISOString() } : {});
       seedLifecycle(active, makeRecord({ stage, ...overrides }));
-      const r = runStatuslineCompact(active);
+      const r = await runStatuslineCompact(active);
       expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
       const line = r.stdout.replace(/\n$/, '');
       expect(line).not.toMatch(/\n/);
@@ -965,13 +1046,32 @@ describe("Scenario: a11y — rendered labels stay single-line English, no `?`, n
 // Suite-level setup / teardown
 // ---------------------------------------------------------------------------
 
-beforeAll(() => {
+beforeAll(async () => {
   if (!existsSync(DIST_ENTRY)) {
     throw new Error(
       `DIST_ENTRY not found at ${DIST_ENTRY}. Run "pnpm build" in the repo root before running this test.`,
     );
   }
   assertDistFresh();
+  // Slice 2026-08-07-statusline-perf: fork the IPC helper once per suite
+  // so all 24 statusline CLI invocations share a single Node process +
+  // a single `createProgram()` instance. This drops the per-spawn cost
+  // from ~10s (Node startup + 60+ command registrations) to ~100ms
+  // (one IPC round-trip). Real spawn count goes 24 → 1.
+  rpcChild = fork(RPC_HELPER_PATH, [], {
+    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+  });
+  setupRpcChild(rpcChild);
+  // Tiny readiness probe: send a noop `-V` request and wait for
+  // the response via the normal ipcCall path. If the helper fails to
+  // start (e.g. dist missing), this throws before any test runs.
+  await ipcCall({
+    args: ['-V'],
+    stdinPayload: '',
+    cwd: REPO_ROOT,
+    env: {},
+    timeoutMs: 5000,
+  });
 });
 
 beforeEach(() => {
@@ -996,9 +1096,33 @@ afterEach(() => {
   }
 });
 
-afterAll(() => {
+afterAll(async () => {
   // No-op: cleanup is fully handled by afterEach. The previous
   // `completedDirs` accumulator was removed because it caused a
   // double-fire race with the afterEach handler. The harness is
   // per-test isolated; cross-test cleanup is not needed.
+  //
+  // Slice 2026-08-07-statusline-perf: shut down the IPC helper forked
+  // in `beforeAll`. Send EOF on stdin (graceful) and SIGTERM (forced)
+  // if the helper doesn't exit within 2s. Use `unref()` so the helper
+  // exiting doesn't keep vitest's worker alive.
+  if (rpcChild) {
+    const child = rpcChild;
+    rpcChild = null;
+    try {
+      child.stdin?.end();
+    } catch {
+      // ignore
+    }
+    const exited = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), 2000);
+      child.once('exit', () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
+    if (!exited) {
+      try { child.kill('SIGTERM'); } catch { /* ignore */ }
+    }
+  }
 });
