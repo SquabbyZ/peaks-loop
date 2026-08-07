@@ -439,6 +439,17 @@ function spawnCli(
       encoding: 'utf8',
       shell: false,
       input: options.stdinPayload ?? '',
+      // Slice 2026-08-06-test-perf-follow: enforce a hard 10s ceiling on
+      // every child CLI invocation. The 4.0.17 worker-cap fix (commit
+      // ace1a03d) closed the 17 starvation timeouts, but a hung child
+      // (deadlock, file-lock contention, parent-pipe never drained) would
+      // still stall the entire file because spawnSync defaults to no
+      // timeout — `status: null, signal: 'SIGTERM'` would surface but the
+      // vitest worker would keep running until vitest's outer 60s default
+      // (or hang forever if the child re-spawns). 10s is well above the
+      // real p99 (~3s for statusline render) and gives a clear error if
+      // a child ever fails to close within budget.
+      timeout: 10_000,
     },
   );
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };

@@ -169,7 +169,16 @@ describe("Scenario: integration — real ≥256KB Mac-shaped transcript fixture 
   });
 
   afterEach(() => {
-    // Best-effort cleanup; tmp dir leakage is harmless for unit tests.
+    // Slice 2026-08-06-test-perf-follow: actually rmSync the tmp root.
+    // The pre-rid afterEach only nulled out the variables — the actual
+    // mkdtempSync'd directory leaked into OS tmp and accumulated across
+    // the suite. Case 1 runs ≥3 times in some CI lanes (one per
+    // dimension assertion in the 4dim template) so the leak compounds.
+    // Best-effort: a thrown test body must not mask the failure with a
+    // cleanup error, but we MUST clean to avoid tmp root bloat.
+    if (tmpDir) {
+      try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
     tmpDir = '';
     projectsDir = '';
   });
