@@ -63,13 +63,6 @@ export default defineConfig({
     fileParallelism: true,
     maxWorkers,
     passWithNoTests: true,
-    // 4.0.17 perf slice 3 commit 2: cache compiled test files to disk
-    // so subsequent runs skip the TS transform pass for unchanged files.
-    // Estimate: 30-60s cold savings, 10-20% warm savings on the 1853s
-    // aggregate transform+import time.
-    cache: {
-      dir: './node_modules/.cache/vitest',
-    },
   },
 });
 
