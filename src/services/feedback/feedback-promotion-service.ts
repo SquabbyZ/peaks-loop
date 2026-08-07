@@ -29,6 +29,15 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
+/**
+ * PRD-002b slice 2 — extract magic numbers used by the promotion
+ * helper. `slice(0, 5)` was used as a heuristic on the user's body
+ * to keep the rule stub short; `slice(0, 2000)` caps error-mirror
+ * stderr payload size to avoid unbounded log growth.
+ */
+const RULE_BODY_PREVIEW_LINES = 5;
+const STDERR_TRUNCATE_BYTES = 2000;
+
 export type PromotionLayer = 'A' | 'B' | 'C';
 
 export const PROMOTION_LAYERS: readonly PromotionLayer[] = ['A', 'B', 'C'] as const;
@@ -241,7 +250,7 @@ export function generatePromotionStub(opts: {
   const { layer, feedbackName } = opts;
   if (layer === 'A') {
     return {
-      snippet: `# SOP entry for feedback "${feedbackName}"\n\n<!-- Append the rule + acceptance criteria below. Reference from a new peaks-sop gate. -->\n\n## Rule\n\n${opts.feedbackBody.split('\n').slice(0, 5).join('\n')}\n\n## Enforcement\n\nAdd a check to sops/<name>.md and reference from .claude/rules/.`,
+      snippet: `# SOP entry for feedback "${feedbackName}"\n\n<!-- Append the rule + acceptance criteria below. Reference from a new peaks-sop gate. -->\n\n## Rule\n\n${opts.feedbackBody.split('\n').slice(0, RULE_BODY_PREVIEW_LINES).join('\n')}\n\n## Enforcement\n\nAdd a check to sops/<name>.md and reference from .claude/rules/.`,
       targetFiles: [`sops/${feedbackName}.md`]
     };
   }

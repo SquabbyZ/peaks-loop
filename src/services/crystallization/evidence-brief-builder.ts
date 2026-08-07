@@ -4,6 +4,18 @@ import {
   type EvidenceBrief,
 } from "./crystallization-types.js";
 
+/* ---------------------------------------------------------------------- */
+/* PRD-002b slice 2 — schema-limit constants extracted from inline         */
+/* `.max(N)` calls so the no-magic-numbers rule stops flagging the        */
+/* constraint values. Bytewise-identical to the original literals.       */
+/* ---------------------------------------------------------------------- */
+const BRIEF_TRACE_ID_MAX = 256;
+const BRIEF_SECTION_TEXT_MAX = 4000;
+const BRIEF_BULLET_MAX = 1000;
+const BRIEF_TRACE_POINTER_MAX = 256;
+const BRIEF_EVALUATOR_ONE_LINER_MAX = 1000;
+const BRIEF_EVALUATOR_RISK_TAG_MAX = 200;
+
 /**
  * EvidenceBriefBuilder — spec §4.7 / §10 RL-7.
  *
@@ -51,40 +63,40 @@ import {
  * editing every caller.
  */
 export const BriefTraceInputSchema = z.object({
-  trace_id: z.string().trim().min(1).max(256),
+  trace_id: z.string().trim().min(1).max(BRIEF_TRACE_ID_MAX),
   /**
    * The full NL recap of the run. Required for what_happened.
    * 1-2 sentences is the spec guidance; the builder does not
    * truncate, but tests passing multi-paragraph input will be
    * warned at the Zod boundary (max 4000 chars per section).
    */
-  what_happened: z.string().trim().min(1).max(4000),
+  what_happened: z.string().trim().min(1).max(BRIEF_SECTION_TEXT_MAX),
   /**
    * The "why this matters" recap. Required for why_it_matters.
    */
-  why_it_matters: z.string().trim().min(1).max(4000),
+  why_it_matters: z.string().trim().min(1).max(BRIEF_SECTION_TEXT_MAX),
   /**
    * Failure-mode and preference-extraction recap. Required for
    * what_learned.
    */
-  what_learned: z.string().trim().min(1).max(4000),
+  what_learned: z.string().trim().min(1).max(BRIEF_SECTION_TEXT_MAX),
   /**
    * The recommended action. Required for what_action (1
    * sentence per spec).
    */
-  what_action: z.string().trim().min(1).max(4000),
+  what_action: z.string().trim().min(1).max(BRIEF_SECTION_TEXT_MAX),
   /**
    * Optional structured bullets (e.g. "4 phases, 3 gates passed,
    * 1 evaluator verdict"). Counts are allowed at this layer; the
    * brief section is the NL primary (RL-7).
    */
-  bullets: z.array(z.string().trim().min(1).max(1000)).default([]),
+  bullets: z.array(z.string().trim().min(1).max(BRIEF_BULLET_MAX)).default([]),
   /**
    * Source trace ids backing the brief (the column on
    * crystallization_event spec §4.5).
    */
   source_trace_pointers: z
-    .array(z.string().trim().min(1).max(256))
+    .array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX))
     .default([]),
 });
 export type BriefTraceInput = z.input<typeof BriefTraceInputSchema>;
@@ -96,8 +108,8 @@ export type BriefTraceInput = z.input<typeof BriefTraceInputSchema>;
  * flows into the recommendation envelope.
  */
 export const EvaluatorSummarySchema = z.object({
-  one_liner: z.string().trim().max(1000).default(""),
-  risk_tags: z.array(z.string().trim().min(1).max(200)).default([]),
+  one_liner: z.string().trim().max(BRIEF_EVALUATOR_ONE_LINER_MAX).default(""),
+  risk_tags: z.array(z.string().trim().min(1).max(BRIEF_EVALUATOR_RISK_TAG_MAX)).default([]),
 });
 export type EvaluatorSummary = z.input<typeof EvaluatorSummarySchema>;
 
@@ -107,9 +119,9 @@ export type EvaluatorSummary = z.input<typeof EvaluatorSummarySchema>;
 
 export const RecommendationPayloadSchema = z.object({
   brief: EvidenceBriefSchema,
-  bullets: z.array(z.string().trim().min(1).max(1000)).default([]),
+  bullets: z.array(z.string().trim().min(1).max(BRIEF_BULLET_MAX)).default([]),
   source_trace_pointers: z
-    .array(z.string().trim().min(1).max(256))
+    .array(z.string().trim().min(1).max(BRIEF_TRACE_POINTER_MAX))
     .default([]),
   evaluator_summary: EvaluatorSummarySchema.default({
     one_liner: "",

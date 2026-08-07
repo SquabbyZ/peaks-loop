@@ -1,5 +1,25 @@
 import { z } from "zod";
 
+/* ---------------------------------------------------------------------- */
+/* PRD-002b slice 2 — schema-limit constants extracted from inline         */
+/* `.max(N)` calls so the no-magic-numbers rule stops flagging the        */
+/* constraint values. Names describe the field, not just the number.     */
+/* Bytewise-identical to the original literals (signaled in commit).     */
+/* ---------------------------------------------------------------------- */
+const LOOP_ID_MAX = 64;
+const LOOP_SHARE_EXCLUDED_PATH_MAX = 4096;
+const LOOP_NAME_MAX = 200;
+const LOOP_SCENARIO_MAX = 4000;
+const LOOP_TRIGGER_POLICY_MAX = 2000;
+const LOOP_SUCCESS_CRITERIA_ITEM_MAX = 1000;
+const LOOP_INTERACTION_POLICY_MAX = 2000;
+const LOOP_FEEDBACK_POLICY_MAX = 2000;
+const LOOP_EVOLUTION_POLICY_MAX = 2000;
+const LOOP_EVALUATOR_POLICY_ITEM_MAX = 1000;
+const LOOP_LINKED_BEE_MAX = 64;
+const LOOP_HISTORY_ITEM_MAX = 128;
+const LOOP_CRYSTALLIZATION_EVIDENCE_MAX = 128;
+
 /**
  * LoopRelease — spec §4.1 (Loop Engineering Asset).
  *
@@ -81,7 +101,7 @@ export const LOOP_RELEASE_M3_FIELDS = [
 export const LoopReleaseM3ExtensionSchema = z.object({
   shareable: z.boolean().default(true),
   share_excluded_paths: z
-    .array(z.string().min(1).max(4096))
+    .array(z.string().min(1).max(LOOP_SHARE_EXCLUDED_PATH_MAX))
     .default([]),
   desktop_visible: z.boolean().default(true),
   export_bundle_format: z
@@ -104,28 +124,28 @@ export const LoopReleaseInputSchema = z
     id: z
       .string()
       .min(1)
-      .max(64)
+      .max(LOOP_ID_MAX)
       .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, {
         message:
           "id must be kebab-case starting with a lowercase letter (e.g. loop-onboarding-research)",
       }),
-    name: z.string().min(1).max(200),
-    scenario: z.string().trim().min(1).max(4000),
-    trigger_policy: z.string().trim().min(1).max(2000),
+    name: z.string().min(1).max(LOOP_NAME_MAX),
+    scenario: z.string().trim().min(1).max(LOOP_SCENARIO_MAX),
+    trigger_policy: z.string().trim().min(1).max(LOOP_TRIGGER_POLICY_MAX),
     success_criteria: z
-      .array(z.string().trim().min(1).max(1000))
+      .array(z.string().trim().min(1).max(LOOP_SUCCESS_CRITERIA_ITEM_MAX))
       .min(1, "success_criteria must list at least one declarative criterion"),
     interaction_policy: z
       .string()
       .trim()
       .min(1, "interaction_policy must declare human-NL-choice-only semantics")
-      .max(2000),
-    feedback_policy: z.string().trim().min(1).max(2000),
-    evolution_policy: z.string().trim().min(1).max(2000),
-    evaluator_policy: z.array(z.string().trim().min(1).max(1000)).min(1),
-    linked_bees: z.array(z.string().min(1).max(64)).default([]),
-    run_history: z.array(z.string().min(1).max(128)).default([]),
-    crystallization_evidence: z.array(z.string().min(1).max(128)).default([]),
+      .max(LOOP_INTERACTION_POLICY_MAX),
+    feedback_policy: z.string().trim().min(1).max(LOOP_FEEDBACK_POLICY_MAX),
+    evolution_policy: z.string().trim().min(1).max(LOOP_EVOLUTION_POLICY_MAX),
+    evaluator_policy: z.array(z.string().trim().min(1).max(LOOP_EVALUATOR_POLICY_ITEM_MAX)).min(1),
+    linked_bees: z.array(z.string().min(1).max(LOOP_LINKED_BEE_MAX)).default([]),
+    run_history: z.array(z.string().min(1).max(LOOP_HISTORY_ITEM_MAX)).default([]),
+    crystallization_evidence: z.array(z.string().min(1).max(LOOP_CRYSTALLIZATION_EVIDENCE_MAX)).default([]),
     lifecycle_status: LoopReleaseLifecycleStatusSchema,
     version: z
       .string()

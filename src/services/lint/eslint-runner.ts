@@ -22,6 +22,23 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { resolveNpxInvocation } from './npx-resolver.js';
 
+/**
+ * PRD-002b slice 2 — extract runner-pipeline magic numbers (ESLint
+ * severity codes, buffer / timeout budgets, max project-root walk
+ * depth, red-line top-N aggregation cap, base severity defaults).
+ * Values are bytewise-identical to the original literals.
+ */
+const ESLINT_SEVERITY_ERROR = 2;
+const ESLINT_SEVERITY_WARN = 1;
+const ESLINT_DEFAULT_TIMEOUT_MS = 60_000;
+const KB_PER_MB = 1024;
+const BYTES_PER_KB = 1024;
+const MB_TO_BYTES = KB_PER_MB * BYTES_PER_KB;
+const DIFF_BUFFER_BYTES = 16 * MB_TO_BYTES;
+const OUTPUT_BUFFER_BYTES = 32 * MB_TO_BYTES;
+const PROJECT_ROOT_WALK_MAX_DEPTH = 8;
+const RED_LINE_TOP_FILES = 5;
+
 export const ESLINT_PACKAGE_PINS = {
   eslint: '8.57.1',
   typescriptEslintParser: '8.66.0',
@@ -98,8 +115,8 @@ type EslintMessage = {
 };
 
 function severityFor(value: unknown): 'error' | 'warn' | 'info' {
-  if (value === 2) return 'error';
-  if (value === 1) return 'warn';
+  if (value === ESLINT_SEVERITY_ERROR) return 'error';
+  if (value === ESLINT_SEVERITY_WARN) return 'warn';
   return 'info';
 }
 
@@ -129,7 +146,7 @@ function resolveProjectRoot(cwd: string): string {
   // `config/eslint/.peaks-rules.cjs` and use that as the project root.
   const marker = join('config', 'eslint', '.peaks-rules.cjs');
   let current = cwd;
-  for (let depth = 0; depth < 8; depth += 1) {
+  for (let depth = 0; depth < PROJECT_ROOT_WALK_MAX_DEPTH; depth += 1) {
     if (existsSync(join(current, marker))) return current;
     const parent = dirname(current);
     if (parent === current) break;
@@ -144,7 +161,7 @@ function loadDiffRanges(cwd: string): readonly DiffRange[] {
     const result = spawnSync('git', ['diff', 'HEAD', '--unified=0', '--no-color'], {
       cwd,
       encoding: 'utf8',
-      maxBuffer: 16 * 1024 * 1024
+      maxBuffer: DIFF_BUFFER_BYTES
     });
     if (result.status !== 0 || typeof result.stdout !== 'string') return [];
     const stdout = result.stdout;
@@ -259,7 +276,7 @@ function aggregateRedLine(baseline: readonly BaselineViolation[]): readonly RedL
     const topFiles = [...agg.fileCounts.entries()]
       .map(([file, count]) => ({ file, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, RED_LINE_TOP_FILES);
     out.push({ ruleId, count: agg.count, topFiles });
   }
   out.sort((a, b) => b.count - a.count);
@@ -323,8 +340,8 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   const spawnOptions: SpawnSyncOptions = {
     cwd: projectRoot,
     encoding: 'utf8',
-    timeout: options.timeoutMs ?? 60_000,
-    maxBuffer: 32 * 1024 * 1024
+    timeout: options.timeoutMs ?? ESLINT_DEFAULT_TIMEOUT_MS,
+    maxBuffer: OUTPUT_BUFFER_BYTES
   };
 
   let command: string;

@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+/* ---------------------------------------------------------------------- */
+/* PRD-002b slice 2 — schema-limit constants extracted from inline         */
+/* `.max(N)` / `.length(N)` calls so the no-magic-numbers rule stops     */
+/* flagging the constraint values. Names describe the field, not the     */
+/* number. Bytewise-identical to the original literals.                  */
+/* ---------------------------------------------------------------------- */
+const CRYS_BRIEF_SECTION_MAX = 4000;
+const CRYS_EVIDENCE_BULLET_MAX = 1000;
+const CRYS_TRACE_POINTER_MAX = 256;
+const CRYS_LOOP_ID_MAX = 64;
+const CRYS_BEE_ID_MAX_I32 = 2 ** 31 - 1;
+const CRYS_EVENT_ID_MAX = 128;
+
 /**
  * CrystallizationEvent — spec §4.5 / §4.7 / §5.
  *
@@ -85,7 +98,7 @@ const BriefSectionSchema = z
   .string()
   .trim()
   .min(1, "brief section must be non-empty natural language")
-  .max(4000);
+  .max(CRYS_BRIEF_SECTION_MAX);
 
 /**
  * EvidenceBrief — the 4-section brief (spec §4.7).
@@ -165,7 +178,7 @@ export function hasAllFourBriefSections(brief: EvidenceBrief): boolean {
 const OptionalLoopId = z
   .string()
   .min(1)
-  .max(64)
+  .max(CRYS_LOOP_ID_MAX)
   .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, {
     message: "loop_release_id must be kebab-case starting with a lowercase letter",
   })
@@ -174,7 +187,7 @@ const OptionalBeeId = z
   .number()
   .int()
   .positive()
-  .max(2 ** 31 - 1, "bee_release_id out of 32-bit range")
+  .max(CRYS_BEE_ID_MAX_I32, "bee_release_id out of 32-bit range")
   .optional();
 
 /**
@@ -189,20 +202,20 @@ export const CrystallizationEventInputSchema = z.object({
   trigger: CrystallizationTriggerSchema,
   evidence_brief: EvidenceBriefSchema,
   evidence_bullets: z
-    .array(z.string().trim().min(1).max(1000))
+    .array(z.string().trim().min(1).max(CRYS_EVIDENCE_BULLET_MAX))
     .default([]),
   source_trace_pointers: z
-    .array(z.string().trim().min(1).max(256))
+    .array(z.string().trim().min(1).max(CRYS_TRACE_POINTER_MAX))
     .default([]),
   evaluator_summary: z
     .string()
     .trim()
-    .max(4000)
+    .max(CRYS_BRIEF_SECTION_MAX)
     .default(""),
   user_decision_summary: z
     .string()
     .trim()
-    .max(4000)
+    .max(CRYS_BRIEF_SECTION_MAX)
     .default(""),
   created_loop_release_id: OptionalLoopId,
   updated_loop_release_id: OptionalLoopId,
@@ -227,7 +240,7 @@ export const CrystallizationEventSchema = CrystallizationEventInputSchema.extend
   id: z
     .string()
     .min(1)
-    .max(128)
+    .max(CRYS_EVENT_ID_MAX)
     .regex(/^crys-[0-9a-f]{8,}$/, {
       message:
         "id must start with 'crys-' followed by a hex suffix (spec §4.5)",

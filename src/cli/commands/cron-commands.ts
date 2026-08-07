@@ -38,7 +38,19 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 const SCHEDULE_VERSION = 1 as const;
 const SCHEDULE_FILENAME = 'schedule.json';
 const HISTORY_FILENAME = 'history.jsonl';
-const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1_000; // 24h
+/**
+ * PRD-002b slice 2 — extract cron-orchestration magic numbers (24h
+ * default interval, 5-minute exec timeout, stderr-message truncation
+ * lengths in the renderer).
+ */
+const MS_PER_SECOND = 1_000;
+const MINUTES_PER_HOUR = 60;
+const SECONDS_PER_MINUTE = 60;
+const HOURS_PER_DAY = 24;
+const DEFAULT_INTERVAL_MS = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+const EXEC_TIMEOUT_MS = 5 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+const STDERR_RECORD_TRUNCATE_BYTES = 2000;
+const STDERR_NEXT_ACTIONS_TRUNCATE_CHARS = 200;
 
 export type ScheduleEntry = {
   readonly id: string;
@@ -163,12 +175,12 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
-      timeout: 5 * 60_000
+      timeout: EXEC_TIMEOUT_MS
     });
   } catch (err) {
     const e = err as { status?: number; stderr?: string };
     exitCode = typeof e.status === 'number' ? e.status : 1;
-    stderr = (e.stderr ?? getErrorMessage(err)).slice(0, 2000);
+    stderr = (e.stderr ?? getErrorMessage(err)).slice(0, STDERR_RECORD_TRUNCATE_BYTES);
   }
   const record: RunRecord = {
     id,
@@ -306,7 +318,7 @@ export function registerCronCommand(program: Command, io: ProgramIO): void {
         ok(
           'cron.run',
           { projectRoot, ran: records.length, records },
-          records.filter((r) => r.exitCode !== 0).map((r) => `Task ${r.taskId} failed (exit=${r.exitCode}): ${r.stderr.slice(0, 200)}`),
+          records.filter((r) => r.exitCode !== 0).map((r) => `Task ${r.taskId} failed (exit=${r.exitCode}): ${r.stderr.slice(0, STDERR_NEXT_ACTIONS_TRUNCATE_CHARS)}`),
           [`Ran ${records.length} task(s); ${records.filter((r) => r.exitCode === 0).length} succeeded.`]
         ),
         options.json

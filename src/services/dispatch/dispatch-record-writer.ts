@@ -279,7 +279,21 @@ export type LifecycleInput = {
   projectRoot?: string;
 };
 
-const MAX_PROMPT_BYTES = 256 * 1024;
+/**
+ * PRD-002b slice 2 — extract dispatch-record size budgets (max-prompt
+ * bytes, note truncation cap) + time-math primitives so the
+ * no-magic-numbers rule stops flagging the writer pipeline.
+ */
+const BYTES_PER_KB = 1024;
+const MAX_PROMPT_KB = 256;
+const MAX_PROMPT_BYTES = MAX_PROMPT_KB * BYTES_PER_KB;
+const NOTE_MAX_CHARS = 200;
+const MS_PER_SECOND = 1_000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+const REDACTION_MAX_SCAN_DEPTH = 20;
 
 /** Write a new dispatch record (G2 + G5 + G6). Returns the absolute path. */
 export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
@@ -542,7 +556,7 @@ export function isOrphanDispatchRecord(opts: {
   const s = statSync(opts.recordPath);
   const now = opts.now ?? new Date();
   const ageMs = now.getTime() - s.mtimeMs;
-  const ttlMs = DISPATCH_RECORD_TTL_DAYS * 24 * 60 * 60 * 1000;
+  const ttlMs = DISPATCH_RECORD_TTL_DAYS * MS_PER_DAY;
   return ageMs > ttlMs;
 }
 
@@ -555,7 +569,7 @@ export function appendHeartbeat(input: AppendHeartbeatInput): { record: Dispatch
     err.code = 'INVALID_PROGRESS';
     throw err;
   }
-  if (note !== undefined && note.length > 200) {
+  if (note !== undefined && note.length > NOTE_MAX_CHARS) {
     const err = new Error(`note must be ≤ 200 chars (got ${note.length})`) as Error & { code: string };
     err.code = 'NOTE_TOO_LONG';
     throw err;

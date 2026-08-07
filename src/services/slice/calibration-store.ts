@@ -26,6 +26,20 @@
 import type { WorkEstimate } from './slice-decompose-types.js';
 
 /**
+ * PRD-002b slice 2 — calibration heuristic coefficients + thresholds
+ * extracted into named constants so the no-magic-numbers rule stops
+ * flagging the weight+threshold math. Values are bytewise-identical to
+ * the original literals.
+ */
+const LOC_WEIGHT_PER_LINE = 0.25;
+const TEST_WEIGHT_PER_FILE = 0.5;
+const COMPLEXITY_WEIGHT_PER_NODE = 0.1;
+const P90_P50_RATIO = 1.6;
+const HIGH_CONFIDENCE_MIN_SAMPLES = 5;
+const MEDIUM_CONFIDENCE_MIN_SAMPLES = 1;
+const OUTPUT_PRECISION_DECIMALS = 10;
+
+/**
  * Compute a work-estimate envelope.
  *
  * @param complexitySum Sum of `complexity` of touched graph nodes. Pass 0
@@ -57,22 +71,22 @@ export function calibrate(
     throw new RangeError(`calibrate: sampleSize must be a non-negative integer, got ${sampleSize}`);
   }
 
-  const minutesP50 = 0.25 * locSum + 0.5 * testCount + 0.1 * complexitySum;
-  const minutesP90 = minutesP50 * 1.6;
-  const confidence: WorkEstimate['confidence'] = sampleSize >= 5 ? 'high' : sampleSize >= 1 ? 'medium' : 'low';
+  const minutesP50 = LOC_WEIGHT_PER_LINE * locSum + TEST_WEIGHT_PER_FILE * testCount + COMPLEXITY_WEIGHT_PER_NODE * complexitySum;
+  const minutesP90 = minutesP50 * P90_P50_RATIO;
+  const confidence: WorkEstimate['confidence'] = sampleSize >= HIGH_CONFIDENCE_MIN_SAMPLES ? 'high' : sampleSize >= MEDIUM_CONFIDENCE_MIN_SAMPLES ? 'medium' : 'low';
   const rationale =
     sampleSize === 0
-      ? 'v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample'
-      : sampleSize < 5
-        ? `v1 heuristic: ${sampleSize} historical sample(s) available; will switch to percentile lookup at sampleSize >= 5`
+      ? `v1 heuristic: ${LOC_WEIGHT_PER_LINE} min/LoC + ${TEST_WEIGHT_PER_FILE} min/test + ${COMPLEXITY_WEIGHT_PER_NODE} min/complexity; confidence low because no historical sample`
+      : sampleSize < HIGH_CONFIDENCE_MIN_SAMPLES
+        ? `v1 heuristic: ${sampleSize} historical sample(s) available; will switch to percentile lookup at sampleSize >= ${HIGH_CONFIDENCE_MIN_SAMPLES}`
         : `v1 heuristic with sampleSize ${sampleSize}; v1.1 will switch to percentile lookup`;
 
   return {
     complexitySum,
     testCount,
     locSum,
-    minutesP50: Math.round(minutesP50 * 10) / 10,
-    minutesP90: Math.round(minutesP90 * 10) / 10,
+    minutesP50: Math.round(minutesP50 * OUTPUT_PRECISION_DECIMALS) / OUTPUT_PRECISION_DECIMALS,
+    minutesP90: Math.round(minutesP90 * OUTPUT_PRECISION_DECIMALS) / OUTPUT_PRECISION_DECIMALS,
     confidence,
     rationale
   };

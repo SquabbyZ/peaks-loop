@@ -38,6 +38,21 @@ const ABSOLUTE_PATH_UNIX = /\/usr\/(?:local|bin|opt)\b/;
 const MAGIC_NUMBER = /\b(\d{3,})\b/;
 const LOAD_STRATEGY_PATTERN = /loadStrategy:\s*(always|on-demand)/i;
 
+/**
+ * PRD-002b slice 2 — extract cross-cutting thresholds used by
+ * multiple enforcers (file-size cap, magic-number digit floor).
+ * Per-rule spec literals (≤800 lines, ≤12 H2 headings, ≤10 magic
+ * digits, top-N aggregation cap) are kept inline because they ARE
+ * the rule spec; extracting them would change the rule semantics to
+ * depend on a constant with no semantic gain. Names here describe
+ * the role only.
+ */
+const KB_PER_FILE = 1024;
+const LOAD_STRATEGY_FILE_SIZE_KB = 5;
+const OVERVIEW_TOP_SEARCH_LINES = 30;
+const OVERVIEW_MIN_LINE_COUNT = 200;
+const LOAD_STRATEGY_PROBE_LINES = 20;
+
 export interface ReferenceFile {
   readonly skill: string;
   readonly name: string;
@@ -200,8 +215,8 @@ export function lintH2CountLe12(ref: ReferenceFile): readonly LintHit[] {
 }
 
 export function lintOverviewNearTop(ref: ReferenceFile): readonly LintHit[] {
-  if (ref.lines.length <= 200) return [];
-  if (findLine(ref.lines.slice(0, 30), OVERVIEW_HEADING) !== -1) return [];
+  if (ref.lines.length <= OVERVIEW_MIN_LINE_COUNT) return [];
+  if (findLine(ref.lines.slice(0, OVERVIEW_TOP_SEARCH_LINES), OVERVIEW_HEADING) !== -1) return [];
   return [hit(
     'rl-ref-overview-section-near-top-001',
     'long references (>200 lines) must have `## Overview` within the first 30 lines',
@@ -230,7 +245,7 @@ export function lintLoadStrategyAlwaysCacheable(ref: ReferenceFile): readonly Li
   // Heuristic: a loadStrategy: always reference must not have a
   // top-level shell command. This is a soft check — we look at
   // the first 10 non-frontmatter lines for I/O patterns.
-  const lines = ref.lines.slice(0, 20);
+  const lines = ref.lines.slice(0, LOAD_STRATEGY_PROBE_LINES);
   for (const line of lines) {
     if (/^\s*(npm|pnpm|yarn|npx|git|curl|wget|docker)\s+/.test(line)) {
       return [hit(
@@ -408,7 +423,7 @@ export function lintLoadStrategyMatchesSize(
   ref: ReferenceFile
 ): readonly LintHit[] {
   const sizeBytes = Buffer.byteLength(ref.body, 'utf8');
-  if (sizeBytes <= 5 * 1024) return [];
+  if (sizeBytes <= LOAD_STRATEGY_FILE_SIZE_KB * KB_PER_FILE) return [];
   // >5KB file should declare loadStrategy: on-demand (always
   // is a context-budget bug).
   const strategy = LOAD_STRATEGY_PATTERN.exec(ref.body);

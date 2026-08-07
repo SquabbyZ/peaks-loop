@@ -7,7 +7,11 @@ import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 const SINCE_PATTERN = /^(\d+)([smhd])$/i;
 const WINDOW_CAP_HOURS = 24;
-const WINDOW_CAP_MS = WINDOW_CAP_HOURS * 60 * 60 * 1000;
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+const WINDOW_CAP_MS = WINDOW_CAP_HOURS * MS_PER_HOUR;
 
 type ParseResult = { ok: true; ms: number } | { ok: false; error: string };
 
@@ -18,7 +22,7 @@ function parseSince(raw: string | undefined): ParseResult {
   const value = Number(match[1]);
   if (!Number.isFinite(value) || value < 0) return { ok: false, error: `--since must be a non-negative integer (got ${raw})` };
   const unit = (match[2] ?? 'h').toLowerCase();
-  const multiplier = unit === 'd' ? 86_400_000 : unit === 'h' ? 3_600_000 : unit === 'm' ? 60_000 : 1_000;
+  const multiplier = unit === 'd' ? MS_PER_DAY : unit === 'h' ? MS_PER_HOUR : unit === 'm' ? MS_PER_MINUTE : MS_PER_SECOND;
   return { ok: true, ms: Math.min(WINDOW_CAP_MS, value * multiplier) };
 }
 
@@ -47,7 +51,7 @@ function boundaryLabel(raw: string): Boundary {
   if (!match) return { key: 'valid', message: 'unparseable' };
   const value = Number(match[1]);
   const unit = (match[2] ?? 'h').toLowerCase();
-  const multiplier = unit === 'd' ? 86_400_000 : unit === 'h' ? 3_600_000 : unit === 'm' ? 60_000 : 1_000;
+  const multiplier = unit === 'd' ? MS_PER_DAY : unit === 'h' ? MS_PER_HOUR : unit === 'm' ? MS_PER_MINUTE : MS_PER_SECOND;
   if (value * multiplier > WINDOW_CAP_MS) {
     return { key: 'cap', message: 'since>24h is capped to the 24h window' };
   }
@@ -89,7 +93,7 @@ export function registerDashboardLongRunCommand(dashboard: Command, io: ProgramI
         const sliceCount = readSlices(projectRoot, sid);
         const checkpointAgeMs = readLastCheckpointAgeMs(snapshot);
         const checkpointFrequency = snapshot.checkpoints > 0 && snapshot.enteredAt
-          ? Math.max(1, Math.round((Date.now() - Date.parse(snapshot.enteredAt)) / snapshot.checkpoints / 60_000))
+          ? Math.max(1, Math.round((Date.now() - Date.parse(snapshot.enteredAt)) / snapshot.checkpoints / MS_PER_MINUTE))
           : null;
         const indicators = {
           dispatchCount: sliceCount,

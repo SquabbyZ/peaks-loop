@@ -155,6 +155,15 @@ export interface AutoCompactTestHooks {
 const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
 
 /**
+ * PRD-002b slice 2 — extract the few cross-cutting magic numbers
+ * that actually appear at runtime call sites in this orchestrator.
+ * Threshold ratios (0.85 / 0.95) live in `auto-compact-types.ts`
+ * and are NOT extracted here because they ARE the contract; comment
+ * + spec prose references must keep the literal value visible.
+ */
+const COLLAPSED_ERROR_MAX_CHARS = 160;
+
+/**
  * Map a context ratio to a `CompactTrigger` action. Pure; the side
  * effects (checkpoint + IDE dispatch) live in `runAutoCompact`. Two
  * tiers (standard mode; partial mode shifts both thresholds):
@@ -593,7 +602,7 @@ function summarizeLifecycleError(error: unknown): string {
   if (raw.length === 0) raw = 'unknown error';
   const firstLine = raw.split('\n')[0] ?? '';
   const collapsed = firstLine.replace(/\s+/g, ' ').trim();
-  return collapsed.length === 0 ? 'unknown error' : (collapsed.length > 160 ? collapsed.slice(0, 160) : collapsed);
+  return collapsed.length === 0 ? 'unknown error' : (collapsed.length > COLLAPSED_ERROR_MAX_CHARS ? collapsed.slice(0, COLLAPSED_ERROR_MAX_CHARS) : collapsed);
 }
 
 /**

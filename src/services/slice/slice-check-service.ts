@@ -13,6 +13,24 @@ import { findMockViolations } from '../audit/enforcers/mock-placement.js';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import type { SliceCheckOptions, SliceCheckResult, SliceCheckStage } from './slice-check-types.js';
 
+/**
+ * PRD-002b slice 2 — extract timeouts + budget constants for the
+ * slice-check pipeline (typecheck / unit-tests / git diff / fixture
+ * staging thresholds). Values are bytewise-identical to the original
+ * literals.
+ */
+const TYPECHECK_TIMEOUT_MS = 180_000;
+const UNIT_TESTS_TIMEOUT_MS = 600_000;
+const GIT_DIFF_TIMEOUT_MS = 30_000;
+const BYTES_PER_KB = 1024;
+const BYTES_PER_MB = BYTES_PER_KB * BYTES_PER_KB;
+const EXEC_MAX_BUFFER_BYTES = 32 * BYTES_PER_MB;
+const TYPECHECK_TAIL_LINES = 10;
+const UNIT_TEST_TAIL_LINES = 12;
+const HEAD_LINES_IN_TAIL = 3;
+const AUDIT_MIN_RED_LINES = 60;
+const REVIEW_FILE_MIN_BYTES = 20;
+
 interface RunResult {
   status: 'pass' | 'fail';
   stdout: string;
@@ -70,7 +88,7 @@ function runCommand(command: string, args: string[], cwd: string, timeoutMs: num
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: 32 * 1024 * 1024,
+      maxBuffer: EXEC_MAX_BUFFER_BYTES,
       shell
     }).toString('utf8');
     return {
@@ -96,7 +114,7 @@ function runCommand(command: string, args: string[], cwd: string, timeoutMs: num
 function tailLines(text: string, max: number): string {
   const lines = text.split('\n').filter((l) => l.trim().length > 0);
   if (lines.length <= max) return lines.join('\n');
-  return [...lines.slice(0, 3), `... (${lines.length - max} more lines) ...`, ...lines.slice(-max + 3)].join('\n');
+  return [...lines.slice(0, HEAD_LINES_IN_TAIL), `... (${lines.length - max} more lines) ...`, ...lines.slice(-max + HEAD_LINES_IN_TAIL)].join('\n');
 }
 
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
@@ -107,7 +125,7 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   // installed by pnpm at workspace-install time and avoids the
   // npx PATH-lookup issue.
   const tsc = resolveLocalBinary(projectRoot, 'tsc');
-  const result = runCommand(tsc.command, [...tsc.args, '--noEmit'], projectRoot, 180_000, tsc.shell);
+  const result = runCommand(tsc.command, [...tsc.args, '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS, tsc.shell);
   const testFiles = result.stdout.match(/(tests?\/.*\.test\.ts)/g) ?? [];
   return {
     name: 'typecheck',
@@ -116,7 +134,7 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
     durationMs: result.durationMs,
     detail: result.status === 'pass'
       ? `Typecheck passed in ${result.durationMs}ms.`
-      : tailLines(result.stdout + result.stderr, 10) || `tsc exited with code ${result.exitCode}.`,
+      : tailLines(result.stdout + result.stderr, TYPECHECK_TAIL_LINES) || `tsc exited with code ${result.exitCode}.`,
     data: { exitCode: result.exitCode }
   };
 }
@@ -163,7 +181,7 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   const description = runTests
     ? `${vitest.command} run (full test suite, coverage off)`
     : `${vitest.command} run --changed (tests for git-changed files only, coverage off)`;
-  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, 600_000, vitest.shell);
+  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, UNIT_TESTS_TIMEOUT_MS, vitest.shell);
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.
@@ -175,7 +193,7 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
     durationMs: result.durationMs,
     detail: result.status === 'pass'
       ? `All tests passed in ${result.durationMs}ms.`
-      : tailLines(result.stdout + result.stderr, 12) || `vitest exited with code ${result.exitCode}.`,
+      : tailLines(result.stdout + result.stderr, UNIT_TEST_TAIL_LINES) || `vitest exited with code ${result.exitCode}.`,
     data: {
       tests: summary.tests,
       passed,
@@ -249,7 +267,7 @@ async function runReviewFanout(
         const abs = join(projectRoot, '.peaks', scope, candidate);
         if (existsSync(abs)) {
           const bytes = statSync(abs).size;
-          if (bytes >= 20) {
+          if (bytes >= REVIEW_FILE_MIN_BYTES) {
             hit = { abs, scope, bytes };
             break;
           }
@@ -426,7 +444,7 @@ async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage>
     //   - totalRedLines >= 60 (catalog grew to 66; pins the lower bound)
     //   - enforcerFindings has no rl-audit-no-orphan-enforcer / rl-audit-no-orphan-catalog hits
     const issues: string[] = [];
-    if (result.audit.totalRedLines < 60) {
+    if (result.audit.totalRedLines < AUDIT_MIN_RED_LINES) {
       issues.push(`totalRedLines ${result.audit.totalRedLines} < 60`);
     }
     const orphanFindings = result.audit.enforcerFindings.filter((f) =>
@@ -467,7 +485,7 @@ async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
   // List changed files via git. `--name-only` produces one path per line;
   // we filter to text files in scope and read each.
-  const diffResult = runCommand('git', ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], projectRoot, 30_000);
+  const diffResult = runCommand('git', ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], projectRoot, GIT_DIFF_TIMEOUT_MS);
   if (diffResult.status !== 'pass') {
     return {
       name: 'mock-placement',
