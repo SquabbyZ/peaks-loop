@@ -65,7 +65,20 @@
 //
 // Run with: pnpm vitest run tests/unit/cli/statusline-cli-integration.test.ts
 
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+// Slice 2026-08-07-statusline-perf: amortize the 24 real `node
+// dist/cli/index.js` spawns by funneling every CLI invocation through a
+// single long-running child process (forked once in `beforeAll`). The
+// fork loads `dist/cli/program.js` directly so the commander's program
+// graph is built ONCE for the entire suite, instead of 24 times. Each
+// test request goes over a line-delimited JSON protocol on stdio. The
+// helper script is `tests/unit/cli/_statusline-rpc-helper.mjs` (TEST
+// INFRASTRUCTURE only — not part of the production CLI binary).
+import {
+  fork,
+  spawnSync,
+  type ChildProcess,
+  type SpawnSyncReturns,
+} from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -100,7 +113,16 @@ declareDimensions(
 );
 
 const SID = `2026-08-01-task6-integ-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const NOW_ISO = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago — fresh enough to render as 'active' (not stale).
+// Slice 2026-08-07-statusline-flake: pin `TEST_NOW_MS` at suite start so
+// both the lifecycle `updatedAt` and the spawned CLI's `Date.now()` use
+// the SAME pinned clock. This keeps the 10s completed-expiry window
+// in-range even when the subprocess is descheduled for several seconds
+// under full-suite concurrency. We can't reuse `Date.now()` between
+// `seedLifecycle` and the CLI subprocess invocation because the
+// subprocess wall-clock drifts during scheduling; pinning it up-front
+// is the only deterministic contract.
+const TEST_NOW_MS = Date.now();
+const NOW_ISO = new Date(TEST_NOW_MS - 60_000).toISOString(); // 1 minute ago — fresh enough to render as 'active' (not stale).
 
 /**
  * Stable callerId for the canonical lease written by `writePresence`.
@@ -499,7 +521,12 @@ function runStatuslineStdin(
     session_id: h.sessionId,
     caller_id: HARNESS_CALLER_ID,
   });
-  return spawnCli(['statusline'], { stdinPayload: stdin, env: extraEnv });
+  // Slice 2026-08-07-statusline-flake: pass `--now <TEST_NOW_MS>` so the
+  // subprocess's `Date.now()` is deterministic relative to the lifecycle
+  // `updatedAt` we wrote in the same `it` block. Without this the 10s
+  // completed-expiry window can age out while the subprocess is
+  // descheduled under full-suite concurrency.
+  return spawnCli(['statusline', '--now', String(TEST_NOW_MS)], { stdinPayload: stdin, env: extraEnv });
 }
 
 /**
@@ -511,8 +538,11 @@ function runStatuslineCompact(
   extraArgs: string[] = [],
   extraEnv: NodeJS.ProcessEnv = {},
 ): CliRun {
+  // Slice 2026-08-07-statusline-flake: see `runStatuslineStdin`. Pass
+  // `--now` to the compact path too so its `decideCompactStatusline`
+  // uses the same pinned clock as the lifecycle record.
   return spawnCli(
-    ['statusline', 'compact', '--project', h.projectRoot, '--session-id', h.sessionId, ...extraArgs],
+    ['statusline', 'compact', '--project', h.projectRoot, '--session-id', h.sessionId, '--now', String(TEST_NOW_MS), ...extraArgs],
     { env: extraEnv },
   );
 }
@@ -586,7 +616,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('queued');
@@ -600,7 +630,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(stripped(r.stdout)).toContain('[████░░░░]');
@@ -614,7 +644,14 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    const updatedAt = new Date().toISOString();
+    // Slice 2026-08-07-statusline-flake: pin `updatedAt` to the suite's
+    // pinned `TEST_NOW_MS` (same clock the subprocess receives via
+    // `--now`) so the 10s completed-expiry window check is in-range by
+    // construction, not by race. The subprocess may sit descheduled
+    // for several seconds under full-suite concurrency, which previously
+    // aged the lifecycle out of the window and collapsed the primary
+    // line to the C1 baseline.
+    const updatedAt = new Date(TEST_NOW_MS).toISOString();
     seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.42, updatedAt }));
     const r = runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
@@ -637,7 +674,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
       stage: 'failed',
       failedAt: 'compacting',
       errorSummary: 'synthetic failure for integration test',
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(TEST_NOW_MS).toISOString(),
     }));
     const r = runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
@@ -657,7 +694,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     // Remove the lifecycle to simulate "compact done, indicator expires".
     // The 10s expiry is tested separately below.
     rmSync(active.lifecyclePath, { force: true });
@@ -681,8 +718,11 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
     writeSessionFile(active);
     writePresence(active);
     // Use 15s ago (well past the 10s expiry) so the test is robust to
-    // wall-clock elapsed during the suite.
-    const fifteenSecondsAgo = new Date(Date.now() - 15_000).toISOString();
+    // wall-clock elapsed during the suite. Slice 2026-08-07-statusline-
+    // flake: offset from the suite's pinned `TEST_NOW_MS` (NOT from
+    // `Date.now()`) so the offset is measured against the subprocess's
+    // `--now` clock, not the test runner's wall clock.
+    const fifteenSecondsAgo = new Date(TEST_NOW_MS - 15_000).toISOString();
     seedLifecycle(active, makeRecord({
       stage: 'completed',
       afterRatio: 0.42,
@@ -707,8 +747,10 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
     writePresence(active);
     // Use 1s ago (not 9s) so the test is robust to the 30+ second
     // wall-clock the full 24-test suite can take. The 9s case would
-    // race the 10s expiry on a slow CI run.
-    const oneSecondAgo = new Date(Date.now() - 1_000).toISOString();
+    // race the 10s expiry on a slow CI run. Slice 2026-08-07-statusline-
+    // flake: offset from the suite's pinned `TEST_NOW_MS` so the offset
+    // is measured against the subprocess's `--now` clock.
+    const oneSecondAgo = new Date(TEST_NOW_MS - 1_000).toISOString();
     seedLifecycle(active, makeRecord({
       stage: 'completed',
       afterRatio: 0.42,
@@ -732,7 +774,7 @@ describe("Scenario: behavior — PEAKS_STATUSLINE_ASCII=1 env override drops the
     if (!active) throw new Error('harness not active');
     writeSessionFile(active);
     writePresence(active);
-    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = runStatuslineStdin(active, { PEAKS_STATUSLINE_ASCII: '1' });
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // ASCII palette uses `+` for compacting and `#`/`-` for the bar.
@@ -785,7 +827,7 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
-    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = runStatuslineCompact(active, ['--json']);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     const env = JSON.parse(r.stdout);
@@ -802,7 +844,7 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
-    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'queued', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = spawnCli(
       ['statusline', 'compact', '--session-id', active.sessionId, '--json'],
       { env: {} },
@@ -818,7 +860,7 @@ describe("Scenario: behavior — `peaks statusline compact --json` emits the doc
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
-    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const r = runStatuslineCompact(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     expect(r.stdout).toBe('compact [████░░░░]\n');
@@ -838,11 +880,11 @@ describe("Scenario: integration — the CLI reads the lifecycle + presence from 
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     if (!active) throw new Error('harness not active');
-    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'compacting', updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const first = runStatuslineCompact(active);
     expect(first.stdout).toBe('compact [████░░░░]\n');
 
-    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date().toISOString() }));
+    seedLifecycle(active, makeRecord({ stage: 'completed', afterRatio: 0.5, updatedAt: new Date(TEST_NOW_MS).toISOString() }));
     const second = runStatuslineCompact(active);
     expect(second.stdout).toBe('compact [████████] → 0.50\n');
   });
@@ -906,8 +948,8 @@ describe("Scenario: a11y — rendered labels stay single-line English, no `?`, n
       // then:  the result matches the expectation
       if (!active) throw new Error('harness not active');
       const overrides: Partial<CompactLifecycleRecord> = stage === 'failed'
-        ? { failedAt: 'compacting', errorSummary: 'integration-test failure', updatedAt: new Date().toISOString() }
-        : (stage === 'completed' ? { afterRatio: 0.42, updatedAt: new Date().toISOString() } : {});
+        ? { failedAt: 'compacting', errorSummary: 'integration-test failure', updatedAt: new Date(TEST_NOW_MS).toISOString() }
+        : (stage === 'completed' ? { afterRatio: 0.42, updatedAt: new Date(TEST_NOW_MS).toISOString() } : {});
       seedLifecycle(active, makeRecord({ stage, ...overrides }));
       const r = runStatuslineCompact(active);
       expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);

@@ -77,7 +77,7 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
 type InstallOptions = { global?: boolean; project?: string; force?: boolean; dryRun?: boolean; json?: boolean; ide?: string };
 type UninstallOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
-type RenderOptions = { project?: string; json?: boolean };
+type RenderOptions = { project?: string; json?: boolean; now?: number | string };
 
 /**
  * Default-statusline render body. Reused by both the top-level default
@@ -100,7 +100,14 @@ export async function runDefaultStatuslineRender(
   const seeded = options.project
     ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
     : stdin;
-  const model = buildStatusLineModel(seeded, Date.now());
+  // Slice 2026-08-07-statusline-flake: accept `--now <epoch-ms>` to pin
+  // `Date.now()` for deterministic lifecycle-window checks under full-
+  // suite concurrency. The integration test passes a test-time `now`
+  // pinned at the moment `seedLifecycle` was called so the completed-
+  // expiry window stays in-range regardless of how long the spawned
+  // subprocess sat descheduled. Production callers omit the flag.
+  const now = options.now !== undefined ? Number(options.now) : Date.now();
+  const model = buildStatusLineModel(seeded, now);
   const capability = resolveStatusLineCapability({
     env: process.env,
     isTTY: Boolean(process.stdout.isTTY),
@@ -127,6 +134,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .command('statusline')
       .description('Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.')
       .option('--project <path>', 'project root path (used to label the status line when stdin is absent; applies to the default render path)')
+      .option('--now <ms>', 'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window')
   );
 
   // Default behavior: when the user types `peaks statusline` with no
@@ -266,7 +274,8 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       )
       .option('--project <path>', 'project root (auto-detected from cwd when omitted)')
       .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding; supported for QA / internal tooling)')
-      .action((options: { project?: string; sessionId?: string; json?: boolean }, command: Command) => {
+      .option('--now <ms>', 'override current time (epoch ms) — for testing / deterministic rendering of the lifecycle expiry window')
+      .action((options: { project?: string; sessionId?: string; json?: boolean; now?: number | string }, command: Command) => {
         // Re-resolve options via `command.optsWithGlobals()` (Commander 12.x
         // compatibility): when the parent `statusline` command has its own
         // `--json` registered AND the user types `peaks statusline compact
@@ -275,7 +284,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
         // parent + child options so the JSON branch fires regardless of
         // which scope commander assigned the flag to. Verified by the
         // `compact --json emits the documented envelope` integration test.
-        const merged: { project?: string; sessionId?: string; json?: boolean } = {
+        const merged: { project?: string; sessionId?: string; json?: boolean; now?: number | string } = {
           ...options,
           ...(command.optsWithGlobals?.() as { json?: boolean }),
         };
@@ -284,10 +293,15 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
             ? merged.project
             : (findProjectRoot(process.cwd()) ?? process.cwd());
           const sid = merged.sessionId ?? getSessionIdCanonical(projectRoot) ?? null;
+          // Slice 2026-08-07-statusline-flake: honor `--now` (epoch ms)
+          // when present so deterministic lifecycle-window checks stay
+          // in-range under full-suite concurrency. See `--now` doc on
+          // the parent `statusline` command.
+          const now = merged.now !== undefined ? Number(merged.now) : Date.now();
           const state = decideCompactStatusline({
             projectRoot,
             sessionId: sid,
-            now: Date.now(),
+            now,
           });
           const label = renderCompactStatusline(state);
           // For non-JSON mode we print the LABEL DIRECTLY to stdout

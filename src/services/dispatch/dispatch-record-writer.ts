@@ -314,7 +314,36 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   const path = dispatchRecordPath(projectRoot, sessionId, requestId, now());
   const safePath = assertSafeDispatchRecordPath(path, projectRoot);
 
-  const record: DispatchRecord = {
+  const record = buildInitialDispatchRecord(input, now);
+  writeAtomic(safePath, record);
+  // Slice 2026-06-23-audit-4th #A4: register the path in the
+  // session's active-dispatches index so a future restart can
+  // discover in-flight records without scanning the directory.
+  // The index is best-effort (no lock): the on-disk record is the
+  // source of truth; the index is purely a hint for the LLM-side
+  // runner. A crash between writeAtomic and the index write is
+  // non-fatal — the next restart scans the directory anyway.
+  registerActiveDispatch({
+    projectRoot,
+    sessionId,
+    recordPath: safePath,
+    requestId,
+    role,
+    batchId,
+    now
+  });
+  return { path: safePath, record };
+}
+
+/**
+ * Construct the initial `DispatchRecord` from a `WriteInitialDispatchInput`.
+ * PRD-002b slice 6: extracted from `writeInitialDispatchRecord` so the
+ * writer stays under the `max-lines-per-function: 50` ESLint ceiling.
+ * Behavior is byte-identical to the previous inline literal.
+ */
+function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () => Date): DispatchRecord {
+  const { role, requestId, sessionId, prompt, toolCall, batchId } = input;
+  return {
     version: '4.0.0',
     createdAt: now().toISOString(),
     completedAt: null,
@@ -371,25 +400,6 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     graphNodeId: typeof input.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.graphNodeId) ? input.graphNodeId : null,
     graphRef: typeof input.graphRef === 'string' && input.graphRef.length > 0 ? input.graphRef : null,
   };
-
-  writeAtomic(safePath, record);
-  // Slice 2026-06-23-audit-4th #A4: register the path in the
-  // session's active-dispatches index so a future restart can
-  // discover in-flight records without scanning the directory.
-  // The index is best-effort (no lock): the on-disk record is the
-  // source of truth; the index is purely a hint for the LLM-side
-  // runner. A crash between writeAtomic and the index write is
-  // non-fatal — the next restart scans the directory anyway.
-  registerActiveDispatch({
-    projectRoot,
-    sessionId,
-    recordPath: safePath,
-    requestId,
-    role,
-    batchId,
-    now
-  });
-  return { path: safePath, record };
 }
 
 /**
@@ -675,75 +685,88 @@ export function tryAutoReleaseLease(args: {
   // `node:child_process` is loaded via dynamic import so this module
   // remains ESM-compatible (the compiled heartbeat CLI throws
   // `require is not defined` if we use `require` here).
-  void (async () => {
-    let spawned = false;
-    try {
-      const cp = await import('node:child_process');
-      const child = cp.spawn(
-        process.execPath,
-        [
-          process.argv[1] ?? '',
-          'worktree', 'release',
-          '--lease-id', args.leaseId,
-          '--project', args.projectRoot,
-          '--session', args.sessionId,
-          '--json'
-        ],
-        // `pipe` rather than `ignore` so a spawn failure (e.g. ENOENT
-        // on process.argv[1] in a test) shows up on stderr instead
-        // of vanishing into the void. The release CLI is short-lived
-        // so buffering is irrelevant.
-        { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
-      );
-      spawned = true;
-      if (process.env.PEAKS_WORKTREE_LEASE_DEBUG) {
-        child.stderr?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
-        child.stdout?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
-        child.on('error', (e) => process.stderr.write(`[release error] ${e.message}\n`));
-        child.on('exit', (code) => process.stderr.write(`[release exit] code=${code}\n`));
-      } else {
-        child.stderr?.on('data', () => { /* drain */ });
-        child.stdout?.on('data', () => { /* drain */ });
-        child.on('error', () => { /* detached best-effort */ });
-      }
-      child.unref();
-    } catch (e) {
-      // Slice 2026-07-29-worktree-l2-extended Part 4.A: surface
-      // auto-release failures to the observability stream so the
-      // dashboard can alert. The spawn-attempt itself threw (not
-      // a child-process exit-code failure — those are not
-      // catchable from the parent because the child is detached
-      // and unref'd). emitLeaseEvent is fire-and-forget; it
-      // returns a result we don't inspect.
-      emitLeaseEvent({
-        sessionId: args.sessionId,
-        projectRoot: args.projectRoot,
-        kind: 'autoRelease-failed',
-        leaseId: args.leaseId,
-        reason: (e as Error).message
-      });
-    }
-    if (spawned) {
-      // Record the success path. Idempotent with the manual
-      // `peaks worktree release` metric — the release CLI itself
-      // emits a 'release' event when it runs and lands. Two
-      // events for one logical release is acceptable; the
-      // dashboard can dedup or count both under
-      // lease.autoRelease.count.
-      emitLeaseEvent({
-        sessionId: args.sessionId,
-        projectRoot: args.projectRoot,
-        kind: 'autoRelease',
-        leaseId: args.leaseId
-      });
-    }
-  })();
+  void spawnLeaseReleaseChild(args);
   // NB: we deliberately do NOT log per-call here — every heartbeat
   // that reports done in a busy session would otherwise spam the
   // log. The release CLI itself emits a structured envelope on
   // success; that's the audit record.
   if (args.logger !== undefined) {
     args.logger(`peaks.worktree.autoRelease leaseId=${args.leaseId} sessionId=${args.sessionId}`);
+  }
+}
+
+/**
+ * Spawn the detached `peaks worktree release` subprocess.
+ * PRD-002b slice 6: extracted from `tryAutoReleaseLease` so the
+ * public wrapper stays under the `max-lines-per-function: 50`
+ * ESLint ceiling. Behavior is byte-identical to the previous
+ * inline IIFE.
+ */
+async function spawnLeaseReleaseChild(args: {
+  projectRoot: string;
+  sessionId: string;
+  leaseId: string;
+}): Promise<void> {
+  let spawned = false;
+  try {
+    const cp = await import('node:child_process');
+    const child = cp.spawn(
+      process.execPath,
+      [
+        process.argv[1] ?? '',
+        'worktree', 'release',
+        '--lease-id', args.leaseId,
+        '--project', args.projectRoot,
+        '--session', args.sessionId,
+        '--json'
+      ],
+      // `pipe` rather than `ignore` so a spawn failure (e.g. ENOENT
+      // on process.argv[1] in a test) shows up on stderr instead
+      // of vanishing into the void. The release CLI is short-lived
+      // so buffering is irrelevant.
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: true }
+    );
+    spawned = true;
+    if (process.env.PEAKS_WORKTREE_LEASE_DEBUG) {
+      child.stderr?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
+      child.stdout?.on('data', (d: Buffer) => process.stderr.write(`[release] ${d.toString('utf8')}`));
+      child.on('error', (e) => process.stderr.write(`[release error] ${e.message}\n`));
+      child.on('exit', (code) => process.stderr.write(`[release exit] code=${code}\n`));
+    } else {
+      child.stderr?.on('data', () => { /* drain */ });
+      child.stdout?.on('data', () => { /* drain */ });
+      child.on('error', () => { /* detached best-effort */ });
+    }
+    child.unref();
+  } catch (e) {
+    // Slice 2026-07-29-worktree-l2-extended Part 4.A: surface
+    // auto-release failures to the observability stream so the
+    // dashboard can alert. The spawn-attempt itself threw (not
+    // a child-process exit-code failure — those are not
+    // catchable from the parent because the child is detached
+    // and unref'd). emitLeaseEvent is fire-and-forget; it
+    // returns a result we don't inspect.
+    emitLeaseEvent({
+      sessionId: args.sessionId,
+      projectRoot: args.projectRoot,
+      kind: 'autoRelease-failed',
+      leaseId: args.leaseId,
+      reason: (e as Error).message
+    });
+  }
+  if (spawned) {
+    // Record the success path. Idempotent with the manual
+    // `peaks worktree release` metric — the release CLI itself
+    // emits a 'release' event when it runs and lands. Two
+    // events for one logical release is acceptable; the
+    // dashboard can dedup or count both under
+    // lease.autoRelease.count.
+    emitLeaseEvent({
+      sessionId: args.sessionId,
+      projectRoot: args.projectRoot,
+      kind: 'autoRelease',
+      leaseId: args.leaseId
+    });
   }
 }
 
@@ -776,48 +799,7 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
   // (best-effort; the dispatch record itself is the source of truth
   // and the transition is observable through the graph store).
   if (result.record.workflowId !== null && result.record.graphNodeId !== null && result.record.graphRef !== null) {
-    try {
-      // Lazy ESM dynamic import: the graph lifecycle service is not
-      // on the dispatch hot path; it would be wasteful to import it
-      // for non-graph-bound dispatches. ESM dynamic import returns
-      // a promise; we do not await (best-effort) — the dispatch
-      // record write is the load-bearing artifact, and the graph
-      // node transition is observable to the next CLI call.
-      void (async () => {
-        try {
-          const lifecycleMod = await import('../workflow/workflow-node-lifecycle.js');
-          const storeMod = await import('../workflow/workflow-graph-store.js');
-          const sessionRoot = (() => {
-            try {
-              return storeMod.graphPathFor({
-                projectRoot: input.projectRoot ?? '',
-                sessionId: result.record.sessionId,
-                graphRef: result.record.graphRef ?? '',
-                workflowId: result.record.workflowId ?? '',
-              });
-            } catch { return null; }
-          })();
-          if (sessionRoot === null) return;
-          const graph = storeMod.readGraph({
-            projectRoot: input.projectRoot ?? '',
-            sessionId: result.record.sessionId,
-            graphRef: result.record.graphRef ?? '',
-            workflowId: result.record.workflowId ?? '',
-          });
-          const node = graph.nodes.find((n) => n.id === result.record.graphNodeId);
-          if (node === undefined) return;
-          // Use the dispatch record's path as the dispatchRef. The
-          // record itself is the load-bearing artifact; the
-          // graph-node transition is a derived side-effect.
-          const dispatchRef = input.recordPath;
-          lifecycleMod.writeEnvelope({
-            graphNode: node,
-            dispatchRef,
-            envelopeDispatchRef: dispatchRef,
-          });
-        } catch { /* best-effort graph transition */ }
-      })();
-    } catch { /* best-effort */ }
+    scheduleGraphEnvelopeTransition(input, result.record);
   }
   // Slice 2026-06-23-audit-4th #A4: update the active-dispatches
   // index. Best-effort (the on-disk record is the source of truth);
@@ -855,6 +837,61 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
     }
   }
   return result;
+}
+
+/**
+ * Schedule a detached graph-envelope transition for a completed dispatch.
+ * PRD-002b slice 6: extracted from `markCompleted` to keep that function
+ * under the `max-lines-per-function: 50` ESLint ceiling. Behavior is
+ * byte-identical to the previous inline block:
+ *   - skip when graph binding fields are all non-null on the record;
+ *   - dynamic ESM import the lifecycle + store modules (not on hot path);
+ *   - best-effort; failures swallowed so the dispatch record write is
+ *     load-bearing and the next CLI call can observe the transition.
+ */
+function scheduleGraphEnvelopeTransition(input: LifecycleInput, record: DispatchRecord): void {
+  try {
+    // Lazy ESM dynamic import: the graph lifecycle service is not
+    // on the dispatch hot path; it would be wasteful to import it
+    // for non-graph-bound dispatches. ESM dynamic import returns
+    // a promise; we do not await (best-effort) — the dispatch
+    // record write is the load-bearing artifact, and the graph
+    // node transition is observable to the next CLI call.
+    void (async () => {
+      try {
+        const lifecycleMod = await import('../workflow/workflow-node-lifecycle.js');
+        const storeMod = await import('../workflow/workflow-graph-store.js');
+        const sessionRoot = (() => {
+          try {
+            return storeMod.graphPathFor({
+              projectRoot: input.projectRoot ?? '',
+              sessionId: record.sessionId,
+              graphRef: record.graphRef ?? '',
+              workflowId: record.workflowId ?? '',
+            });
+          } catch { return null; }
+        })();
+        if (sessionRoot === null) return;
+        const graph = storeMod.readGraph({
+          projectRoot: input.projectRoot ?? '',
+          sessionId: record.sessionId,
+          graphRef: record.graphRef ?? '',
+          workflowId: record.workflowId ?? '',
+        });
+        const node = graph.nodes.find((n) => n.id === record.graphNodeId);
+        if (node === undefined) return;
+        // Use the dispatch record's path as the dispatchRef. The
+        // record itself is the load-bearing artifact; the
+        // graph-node transition is a derived side-effect.
+        const dispatchRef = input.recordPath;
+        lifecycleMod.writeEnvelope({
+          graphNode: node,
+          dispatchRef,
+          envelopeDispatchRef: dispatchRef,
+        });
+      } catch { /* best-effort graph transition */ }
+    })();
+  } catch { /* best-effort */ }
 }
 
 /** Mark a record as disposed (reducer ran). */
@@ -960,6 +997,61 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
       'The v1 → v4.0.0 migration is in-file; records from much older or newer builds must be regenerated.'
     );
   }
+
+  const legacy = parseUpgradeRecordLegacyFields(obj);
+  const migration = parseUpgradeRecordMigrationFields(obj);
+
+  return {
+    version: '4.0.0',
+    createdAt: legacy.createdAt,
+    completedAt: legacy.completedAt,
+    outcome: legacy.outcome,
+    artifactPaths: legacy.artifactPaths,
+    disposed: legacy.disposed,
+    disposedAt: legacy.disposedAt,
+    role: legacy.role,
+    requestId: legacy.requestId,
+    sessionId: legacy.sessionId,
+    prompt: legacy.prompt,
+    toolCall: legacy.toolCall,
+    batchId: legacy.batchId,
+    heartbeats: legacy.heartbeats,
+    lastBeatAt: legacy.lastBeatAt,
+    status: legacy.status,
+    stage: migration.stage,
+    leaseId: migration.leaseId,
+    isolationStartedAt: migration.isolationStartedAt,
+    serviceKill: migration.serviceKill,
+    mergeBackAttempts: migration.mergeBackAttempts,
+    workflowId: migration.workflowId,
+    graphNodeId: migration.graphNodeId,
+    graphRef: migration.graphRef
+  };
+}
+
+/**
+ * Parse the v1..v3.2 core fields of a legacy dispatch record.
+ * PRD-002b slice 6: extracted from `upgradeRecord` so the reader
+ * stays under the `max-lines-per-function: 50` ESLint ceiling.
+ * Behavior is byte-identical to the previous inline block.
+ */
+function parseUpgradeRecordLegacyFields(obj: Record<string, unknown>): {
+  readonly role: string;
+  readonly requestId: string;
+  readonly sessionId: string;
+  readonly prompt: string;
+  readonly toolCall: SubAgentToolCall;
+  readonly createdAt: string;
+  readonly heartbeats: Heartbeat[];
+  readonly lastBeatAt: string | null;
+  readonly status: DispatchRecordStatus;
+  readonly completedAt: string | null;
+  readonly outcome: DispatchOutcome;
+  readonly artifactPaths: string[];
+  readonly disposed: boolean;
+  readonly disposedAt: string | null;
+  readonly batchId: string;
+} {
   const role = stringField(obj, 'role');
   const requestId = stringField(obj, 'requestId');
   const sessionId = stringField(obj, 'sessionId');
@@ -999,24 +1091,42 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
   const batchId = typeof obj.batchId === 'string' && obj.batchId.length > 0
     ? obj.batchId
     : 'legacy-batch';
-
   return {
-    version: '4.0.0',
-    createdAt,
-    completedAt,
-    outcome,
-    artifactPaths,
-    disposed,
-    disposedAt,
     role,
     requestId,
     sessionId,
     prompt,
     toolCall,
-    batchId,
+    createdAt,
     heartbeats,
     lastBeatAt,
     status,
+    completedAt,
+    outcome,
+    artifactPaths,
+    disposed,
+    disposedAt,
+    batchId
+  };
+}
+
+/**
+ * Parse the post-v3 migration fields of a legacy dispatch record.
+ * PRD-002b slice 6: extracted from `upgradeRecord` so the reader
+ * stays under the `max-lines-per-function: 50` ESLint ceiling.
+ * Behavior is byte-identical to the previous inline block.
+ */
+function parseUpgradeRecordMigrationFields(obj: Record<string, unknown>): {
+  readonly stage: string | null;
+  readonly leaseId: string | null;
+  readonly isolationStartedAt: string | null;
+  readonly serviceKill: ReadonlyArray<{ readonly pid: number; readonly name: string; readonly signal: string; readonly exitCode: number | null; readonly skipped?: boolean; readonly reason?: string }>;
+  readonly mergeBackAttempts: number;
+  readonly workflowId: string | null;
+  readonly graphNodeId: string | null;
+  readonly graphRef: string | null;
+} {
+  return {
     // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / PB-2)
     // — legacy records (pre-slice) had no `stage` field. The reader
     // defaults to `null` so the watch surface can tell "no stage ever
