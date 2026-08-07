@@ -14,6 +14,7 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { cpus } from 'node:os';
 import { defineConfig } from 'vitest/config';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
@@ -26,6 +27,22 @@ const jsToTsAlias = {
   find: /^~\/src\/(.*)\.js$/,
   replacement: resolve(projectRoot, 'src', '$1') + '.ts',
 };
+
+// 4.0.17: cap vitest worker concurrency to end full-suite starvation timeouts.
+// Uncapped `pool: 'forks'` + `fileParallelism: true` on a 16-core box spawns
+// ~15 fork workers; two test files additionally spawn real `node` subprocesses
+// (`statusline-cli-integration.test.ts` × 24, `bump-version-ac7.test.ts` × 8),
+// pushing runnable processes past core count. `testTimeout` measures wall clock,
+// so descheduled tests burn their 30 s budget while doing zero work. Measured
+// oversubscription was 8.8× (aggregate test time 3359 s vs wall 383 s on 16 cores).
+// Schedule `maxWorkers = floor(cpus/2)` so workers never exceed core count, with
+// PEAKS_VITEST_MAX_WORKERS override for CI tuning. Floor of 2 keeps 2-core boxes
+// from collapsing to 1 worker. Validation: 17 timeouts → 0, 705 → 722 pass,
+// wall 383.67 s → 362.21 s on the 16-core measurement box.
+const defaultMaxWorkers = Math.max(2, Math.floor(cpus().length / 2));
+const maxWorkers = process.env.PEAKS_VITEST_MAX_WORKERS
+  ? Number(process.env.PEAKS_VITEST_MAX_WORKERS)
+  : defaultMaxWorkers;
 
 export default defineConfig({
   root: projectRoot,
@@ -44,6 +61,7 @@ export default defineConfig({
     hookTimeout: 30_000,
     pool: 'forks',
     fileParallelism: true,
+    maxWorkers,
     passWithNoTests: true,
   },
 });
