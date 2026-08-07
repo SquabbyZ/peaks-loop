@@ -21,15 +21,12 @@
  *      imported release to `stable` (AC-26 — peaks loop promote
  *      reads evolution_evaluation rows).
  *
- * The reader is also the integration point for AC-26 — the loop
- * promote path (which lives in a future slice / CLI command) checks
- * `evolution_evaluation.independent_scorer_verdict` before allowing
- * a candidate → stable transition; this slice does not add a new
- * `peaks loop promote` because `peaks asset crystallize` already
- * enforces the brief-section + pre-run gates and creates the
- * initial `candidate` row. The integration test for AC-26 verifies
- * that a freshly imported bundle has no `evolution_evaluation`
- * row and that promotion therefore cannot proceed.
+ * Slice 4 (PRD-002b): split the four high-cohort functions
+ * (readBundle 15, importLoopBundle 20, materialiseRelatedBees 28,
+ * importBeeBundle arrow 38) into small helpers with table dispatch
+ * for kind routing and early-return for guard paths. Public API
+ * (readBundle, ReadBundleArgs, ReadBundleResult, the four error
+ * classes) is preserved verbatim.
  */
 
 import {
@@ -158,6 +155,84 @@ export type ReadBundleResult = {
 };
 
 /* ---------------------------------------------------------------------- */
+/* Stage helpers (slice 4)                                                  */
+/* ---------------------------------------------------------------------- */
+
+/** SHA-256 content-hash filename pattern. */
+const SHA256_RE = /^[0-9a-f]{64}$/;
+
+/** Coerce a possibly-unknown value to a string lifecycle status, defaulting to "candidate". */
+function readSourceLifecycle(release: Record<string, unknown>): string {
+  return typeof release.lifecycle_status === "string"
+    ? release.lifecycle_status
+    : "candidate";
+}
+
+/**
+ * Enforce the AC-25 hard rule: bundles always land as `candidate`;
+ * any other source status is refused. Layered at every import site
+ * for defense in depth.
+ */
+function enforceImportAsCandidate(status: string): void {
+  if (status !== "candidate") {
+    throw new BundleImportToStableForbiddenError(status);
+  }
+}
+
+/** Coerce an unknown value to a boolean-ish 0/1 column value. */
+function bool01(value: unknown, defaultValue: 0 | 1): 0 | 1 {
+  if (value === undefined) return defaultValue;
+  return value ? 1 : 0;
+}
+
+/** Coerce an unknown value to a string column value (empty string default). */
+function str(value: unknown, defaultValue = ""): string {
+  return typeof value === "string" ? value : defaultValue;
+}
+
+/** Coerce an unknown value to a string-or-null column value. */
+function strOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+/** Coerce an unknown value to a JSON-stringified column value. */
+function jsonArr(value: unknown): string {
+  return JSON.stringify((value as unknown[]) ?? []);
+}
+
+/** Coerce an unknown value to an ISO-8601 string (now() default). */
+function isoOrNow(value: unknown): string {
+  return typeof value === "string" ? value : new Date().toISOString();
+}
+
+/** Now as an ISO string. */
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** Safe directory listing (returns [] on error). */
+function readDirEntries(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+/** Read and JSON.parse a file, throwing BundleMalformedError on parse failure. */
+function readJsonOrThrow(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch (err: unknown) {
+    throw new BundleMalformedError(
+      `manifest.json could not be parsed: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 /* Main entrypoint                                                           */
 /* ---------------------------------------------------------------------- */
 
@@ -168,79 +243,80 @@ export function readBundle(args: ReadBundleArgs): ReadBundleResult {
   }
 
   const stageDir = inPath + ".extract";
-  if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
-  mkdirSync(stageDir, { recursive: true });
-
-  let extractOk = false;
+  resetStageDir(stageDir);
   try {
     runTar(["-xzf", inPath, "-C", stageDir]);
-    extractOk = true;
-  } finally {
-    if (!extractOk) rmSync(stageDir, { recursive: true, force: true });
-  }
-
-  try {
-    const manifestPath = join(stageDir, "manifest.json");
-    if (!existsSync(manifestPath)) {
-      throw new BundleMalformedError(
-        "bundle is missing manifest.json (writer is required to emit it)"
-      );
-    }
-    let rawManifest: unknown;
-    try {
-      rawManifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
-    } catch (err: unknown) {
-      throw new BundleMalformedError(
-        `manifest.json could not be parsed: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-    }
-    const manifest = parseManifest(rawManifest);
-
-    // Re-materialise content-addressed blobs regardless of kind —
-    // the layout (`blobs/<sha256>`) is identical for both.
-    const blobsStageDir = join(stageDir, "blobs");
-    if (existsSync(blobsStageDir)) {
-      mkdirSync(blobsDir, { recursive: true });
-      const blobsOut = blobsDir;
-      for (const fname of readDirEntries(blobsStageDir)) {
-        const src = join(blobsStageDir, fname);
-        if (!fname.match(/^[0-9a-f]{64}$/)) continue;
-        const destDir = join(blobsOut, fname.slice(0, 2));
-        mkdirSync(destDir, { recursive: true });
-        const destPath = join(destDir, fname);
-        if (!existsSync(destPath)) {
-          writeFileSync(destPath, readFileSync(src));
-        }
-      }
-    }
-
-    if (manifest.kind === "loop") {
-      const assetId = importLoopBundle(db, manifest, args.asName);
-      return {
-        assetId,
-        kind: "loop",
-        importedAs: "candidate",
-        warnings: manifest.format_version_minor === 0 ? [] : [
-          `minor-version=${manifest.format_version_minor}; supported but flagging for awareness`,
-        ],
-        evidenceBriefCount: manifest.evidence_briefs.length,
-      };
-    }
-    const beeId = importBeeBundle(db, manifest, blobsDir, args.asName);
-    return {
-      assetId: beeId,
-      kind: "bee",
-      importedAs: "candidate",
-      warnings: manifest.format_version_minor === 0 ? [] : [
-        `minor-version=${manifest.format_version_minor}; supported but flagging for awareness`,
-      ],
-      evidenceBriefCount: manifest.evidence_briefs.length,
-    };
+    const manifest = loadStageManifest(stageDir);
+    materialiseBlobs(stageDir, blobsDir);
+    const assetId = KIND_IMPORTERS[manifest.kind](db, manifest, blobsDir, args.asName);
+    return buildReadResult(manifest, assetId);
   } finally {
     if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Clean any prior extract dir, then recreate it. Split out of
+ * readBundle so the main orchestrator stays branch-light.
+ */
+function resetStageDir(stageDir: string): void {
+  if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
+  mkdirSync(stageDir, { recursive: true });
+}
+
+/**
+ * Read and parse the staged manifest.json, raising a
+ * BundleMalformedError if the file is missing.
+ */
+function loadStageManifest(stageDir: string): BundleManifest {
+  const manifestPath = join(stageDir, "manifest.json");
+  if (!existsSync(manifestPath)) {
+    throw new BundleMalformedError(
+      "bundle is missing manifest.json (writer is required to emit it)"
+    );
+  }
+  return parseManifest(readJsonOrThrow(manifestPath));
+}
+
+/**
+ * Re-materialise content-addressed blobs regardless of kind —
+ * the layout (`blobs/<sha256>`) is identical for both.
+ */
+function materialiseBlobs(stageDir: string, blobsDir: string): void {
+  const blobsStageDir = join(stageDir, "blobs");
+  if (!existsSync(blobsStageDir)) return;
+  mkdirSync(blobsDir, { recursive: true });
+  for (const fname of readDirEntries(blobsStageDir)) {
+    if (!fname.match(SHA256_RE)) continue;
+    const destDir = join(blobsDir, fname.slice(0, 2));
+    mkdirSync(destDir, { recursive: true });
+    const destPath = join(destDir, fname);
+    if (existsSync(destPath)) continue;
+    writeFileSync(destPath, readFileSync(join(blobsStageDir, fname)));
+  }
+}
+
+/**
+ * Build the read-result envelope, including the minor-version
+ * warning if the bundle is not on the default minor.
+ */
+function buildReadResult(
+  manifest: BundleManifest,
+  assetId: string | number
+): ReadBundleResult {
+  const warnings: string[] =
+    manifest.format_version_minor === 0
+      ? []
+      : [
+          `minor-version=${manifest.format_version_minor}; supported but flagging for awareness`,
+        ];
+  return {
+    assetId,
+    kind: manifest.kind,
+    importedAs: "candidate",
+    warnings,
+    evidenceBriefCount: manifest.evidence_briefs.length,
+  };
 }
 
 /* ---------------------------------------------------------------------- */
@@ -307,82 +383,42 @@ function parseManifest(raw: unknown): BundleManifest {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Kind dispatch (table — replaces if/else on manifest.kind)                 */
+/* ---------------------------------------------------------------------- */
+
+type KindImporter = (
+  db: Database.Database,
+  manifest: BundleManifest,
+  blobsDir: string,
+  asName: string | undefined
+) => string | number;
+
+const KIND_IMPORTERS: Record<PeaksBundleKind, KindImporter> = {
+  loop: (db, manifest, _blobsDir, asName) =>
+    importLoopBundle(db, manifest, asName),
+  bee: (db, manifest, blobsDir, asName) =>
+    importBeeBundle(db, manifest, blobsDir, asName),
+};
+
+/* ---------------------------------------------------------------------- */
 /* Loop import                                                              */
 /* ---------------------------------------------------------------------- */
 
 function importLoopBundle(
   db: Database.Database,
   manifest: BundleManifest,
-  asName?: string
+  asName: string | undefined
 ): string {
   const srcLoop = manifest.loop_release as Record<string, unknown>;
   const srcId = String(srcLoop.id ?? "");
   if (!srcId) throw new BundleMalformedError("loop_release is missing id");
+
+  const srcStatus = readSourceLifecycle(srcLoop);
+  enforceImportAsCandidate(srcStatus);
+
   const targetId = asName ?? srcId;
-
-  // Hard-block per spec §7A.2 / AC-25: bundles MAY ONLY land as
-  // candidate. A non-candidate source lifecycle is REFUSED; we
-  // never silently coerce away a stable / retired source.
-  const srcStatus =
-    typeof srcLoop.lifecycle_status === "string"
-      ? srcLoop.lifecycle_status
-      : "candidate";
-  if (srcStatus !== "candidate") {
-    throw new BundleImportToStableForbiddenError(srcStatus);
-  }
-
-  // The reader always lands as candidate — the source's lifecycle
-  // status is silently overridden (spec §7A.2 hard rule).
-  const loopRow = {
-    id: targetId,
-    name: srcLoop.name,
-    scenario: srcLoop.scenario,
-    trigger_policy: srcLoop.trigger_policy,
-    success_criteria_json: JSON.stringify(
-      (srcLoop.success_criteria as unknown[]) ?? []
-    ),
-    interaction_policy: srcLoop.interaction_policy,
-    feedback_policy: srcLoop.feedback_policy,
-    evolution_policy: srcLoop.evolution_policy,
-    evaluator_policy_json: JSON.stringify(
-      (srcLoop.evaluator_policy as unknown[]) ?? []
-    ),
-    linked_bees_json: JSON.stringify((srcLoop.linked_bees as unknown[]) ?? []),
-    run_history_json: JSON.stringify((srcLoop.run_history as unknown[]) ?? []),
-    crystallization_evidence_json: JSON.stringify(
-      (srcLoop.crystallization_evidence as unknown[]) ?? []
-    ),
-    lifecycle_status: "candidate",
-    version: srcLoop.version,
-    schema_version: srcLoop.schema_version ?? PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
-    archived_at:
-      typeof srcLoop.archived_at === "string"
-        ? srcLoop.archived_at
-        : new Date().toISOString(),
-    shareable:
-      srcLoop.shareable === undefined ? 1 : srcLoop.shareable ? 1 : 0,
-    share_excluded_paths: JSON.stringify(
-      (srcLoop.share_excluded_paths as unknown[]) ?? []
-    ),
-    desktop_visible:
-      srcLoop.desktop_visible === undefined
-        ? 1
-        : srcLoop.desktop_visible
-          ? 1
-          : 0,
-    export_bundle_format:
-      typeof srcLoop.export_bundle_format === "string"
-        ? srcLoop.export_bundle_format
-        : "peaks.bundle/1",
-  };
-
-  // Defense-in-depth: refuse if lifecycle was anything other than
-  // candidate. (The schema parse above already pinned the constant,
-  // but we layer this so any future schema relaxation cannot
-  // bypass the import-to-candidate rule.)
-  if (loopRow.lifecycle_status !== "candidate") {
-    throw new BundleImportToStableForbiddenError(loopRow.lifecycle_status);
-  }
+  const loopRow = buildLoopRow(srcLoop, targetId);
+  enforceImportAsCandidate(loopRow.lifecycle_status);
 
   // First materialise related bee_release rows. The bundle's
   // loop_bee_relations reference these bee ids; re-stamping the
@@ -391,69 +427,134 @@ function importLoopBundle(
   const beeIdMap = materialiseRelatedBees(db, manifest.related_bee_releases);
 
   const tx = db.transaction(() => {
-    db.prepare(
-      `INSERT OR REPLACE INTO loop_release (
-         id, name, scenario, trigger_policy,
-         success_criteria_json, interaction_policy, feedback_policy, evolution_policy,
-         evaluator_policy_json, linked_bees_json, run_history_json, crystallization_evidence_json,
-         lifecycle_status, version, schema_version, archived_at,
-         shareable, share_excluded_paths, desktop_visible, export_bundle_format
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      loopRow.id,
-      loopRow.name,
-      loopRow.scenario,
-      loopRow.trigger_policy,
-      loopRow.success_criteria_json,
-      loopRow.interaction_policy,
-      loopRow.feedback_policy,
-      loopRow.evolution_policy,
-      loopRow.evaluator_policy_json,
-      loopRow.linked_bees_json,
-      loopRow.run_history_json,
-      loopRow.crystallization_evidence_json,
-      loopRow.lifecycle_status,
-      loopRow.version,
-      loopRow.schema_version,
-      loopRow.archived_at,
-      loopRow.shareable,
-      loopRow.share_excluded_paths,
-      loopRow.desktop_visible,
-      loopRow.export_bundle_format
-    );
-
-    // Re-stamp relations (preserving source row content, but the
-    // loop_id is rewritten if `asName` was supplied).
-    for (const rel of manifest.loop_bee_relations) {
-      const r = rel as Record<string, unknown>;
-      const originalBeeId = Number(r.bee_release_id);
-      const newBeeId = beeIdMap.get(originalBeeId) ?? originalBeeId;
-      db.prepare(
-        `INSERT OR REPLACE INTO loop_bee_relation (
-           loop_release_id, bee_release_id, role, reason, schema_version, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?)`
-      ).run(
-        asName ?? String(r.loop_release_id),
-        newBeeId,
-        String(r.role),
-        String(r.reason ?? ""),
-        String(
-          r.schema_version ?? PEAKS_BUNDLE_SCHEMA_VERSIONS.loop_bee_relation
-        ),
-        typeof r.created_at === "string"
-          ? r.created_at
-          : new Date().toISOString()
-      );
-    }
+    insertLoopReleaseRow(db, loopRow);
+    insertLoopBeeRelations(db, manifest, beeIdMap, targetId);
   });
-
   tx();
   return targetId;
+}
+
+/**
+ * Pure mapping from a raw loop_release row to the column-shape
+ * the receiver writes to `loop_release`. Split out so the SQL
+ * INSERT can stay isolated.
+ */
+function buildLoopRow(
+  srcLoop: Record<string, unknown>,
+  targetId: string
+): LoopRow {
+  return {
+    id: targetId,
+    name: srcLoop.name,
+    scenario: srcLoop.scenario,
+    trigger_policy: srcLoop.trigger_policy,
+    success_criteria_json: jsonArr(srcLoop.success_criteria),
+    interaction_policy: srcLoop.interaction_policy,
+    feedback_policy: srcLoop.feedback_policy,
+    evolution_policy: srcLoop.evolution_policy,
+    evaluator_policy_json: jsonArr(srcLoop.evaluator_policy),
+    linked_bees_json: jsonArr(srcLoop.linked_bees),
+    run_history_json: jsonArr(srcLoop.run_history),
+    crystallization_evidence_json: jsonArr(srcLoop.crystallization_evidence),
+    // The reader always lands as candidate — the source's lifecycle
+    // status is silently overridden (spec §7A.2 hard rule).
+    lifecycle_status: "candidate",
+    version: srcLoop.version,
+    schema_version: srcLoop.schema_version ?? PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
+    archived_at: isoOrNow(srcLoop.archived_at),
+    shareable: bool01(srcLoop.shareable, 1),
+    share_excluded_paths: jsonArr(srcLoop.share_excluded_paths),
+    desktop_visible: bool01(srcLoop.desktop_visible, 1),
+    export_bundle_format:
+      typeof srcLoop.export_bundle_format === "string"
+        ? srcLoop.export_bundle_format
+        : "peaks.bundle/1",
+  };
+}
+
+type LoopRow = {
+  id: string;
+  name: unknown;
+  scenario: unknown;
+  trigger_policy: unknown;
+  success_criteria_json: string;
+  interaction_policy: unknown;
+  feedback_policy: unknown;
+  evolution_policy: unknown;
+  evaluator_policy_json: string;
+  linked_bees_json: string;
+  run_history_json: string;
+  crystallization_evidence_json: string;
+  lifecycle_status: "candidate";
+  version: unknown;
+  schema_version: string;
+  archived_at: string;
+  shareable: 0 | 1;
+  share_excluded_paths: string;
+  desktop_visible: 0 | 1;
+  export_bundle_format: string;
+};
+
+const LOOP_RELEASE_COLUMNS = [
+  "id", "name", "scenario", "trigger_policy",
+  "success_criteria_json", "interaction_policy", "feedback_policy", "evolution_policy",
+  "evaluator_policy_json", "linked_bees_json", "run_history_json", "crystallization_evidence_json",
+  "lifecycle_status", "version", "schema_version", "archived_at",
+  "shareable", "share_excluded_paths", "desktop_visible", "export_bundle_format",
+] as const;
+
+/** Insert one loop_release row (or replace on conflict). */
+function insertLoopReleaseRow(
+  db: Database.Database,
+  row: Record<string, unknown>
+): void {
+  const placeholders = LOOP_RELEASE_COLUMNS.map(() => "?").join(", ");
+  db.prepare(
+    `INSERT OR REPLACE INTO loop_release (${LOOP_RELEASE_COLUMNS.join(", ")}) VALUES (${placeholders})`
+  ).run(...LOOP_RELEASE_COLUMNS.map((c) => row[c] as never));
+}
+
+/**
+ * Re-stamp relations (preserving source row content, but the
+ * loop_id is rewritten if `asName` was supplied).
+ */
+function insertLoopBeeRelations(
+  db: Database.Database,
+  manifest: BundleManifest,
+  beeIdMap: Map<number, number>,
+  loopReleaseId: string
+): void {
+  const stmt = db.prepare(
+    `INSERT OR REPLACE INTO loop_bee_relation (
+       loop_release_id, bee_release_id, role, reason, schema_version, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?)`
+  );
+  for (const rel of manifest.loop_bee_relations) {
+    const r = rel as Record<string, unknown>;
+    const originalBeeId = Number(r.bee_release_id);
+    const newBeeId = beeIdMap.get(originalBeeId) ?? originalBeeId;
+    stmt.run(
+      loopReleaseId,
+      newBeeId,
+      str(r.role),
+      str(r.reason),
+      str(r.schema_version, PEAKS_BUNDLE_SCHEMA_VERSIONS.loop_bee_relation),
+      isoOrNow(r.created_at)
+    );
+  }
 }
 
 /* ---------------------------------------------------------------------- */
 /* Related-bees materialisation                                            */
 /* ---------------------------------------------------------------------- */
+
+type BeeBundleEntry = {
+  bee_release: Record<string, unknown>;
+  manifest: Record<string, unknown> | undefined;
+  segments: Array<Record<string, unknown>>;
+  files: Array<Record<string, unknown>>;
+  changes: Array<Record<string, unknown>>;
+};
 
 /**
  * Materialise the related_bee_releases rows in `db`. Returns a map
@@ -473,78 +574,66 @@ function materialiseRelatedBees(
   const map = new Map<number, number>();
   if (relatedBees.length === 0) return map;
   for (const raw of relatedBees) {
-    const obj = raw as {
-      bee_release: Record<string, unknown>;
-      manifest: Record<string, unknown> | undefined;
-      segments: Array<Record<string, unknown>>;
-      files: Array<Record<string, unknown>>;
-      changes: Array<Record<string, unknown>>;
-    };
-    const release = obj.bee_release ?? {};
-    const srcId = Number(release.id);
-    if (!Number.isInteger(srcId) || srcId <= 0) continue;
-    const beeName = String(release.bee_name ?? "");
-    if (!beeName) continue;
-    // Honour the same non-candidate hard rule at the bee row.
-    const srcStatus =
-      typeof release.lifecycle_status === "string"
-        ? release.lifecycle_status
-        : "candidate";
-    if (srcStatus !== "candidate") {
-      throw new BundleImportToStableForbiddenError(srcStatus);
-    }
-
-    // Pre-existing receiver-side bee with the same name → keep its id.
-    const existing = db
-      .prepare("SELECT id FROM bee_release WHERE bee_name = ?")
-      .get(beeName) as { id: number } | undefined;
-    let newId: number;
-    if (existing) {
-      newId = existing.id;
-    } else {
-      const ins = db.prepare(
-        `INSERT INTO bee_release (
-           bee_name, version, source, archived_at, archived_by, user_intent_raw,
-           description, parent_version, changelog, shareable, desktop_visible
-         ) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, ?, ?)`
-      );
-      const info = ins.run(
-        beeName,
-        String(release.version ?? "0.0.0"),
-        new Date().toISOString(),
-        release.user_intent_raw ?? null,
-        release.description ?? null,
-        release.parent_version ?? null,
-        release.changelog ?? null,
-        release.shareable === false ? 0 : 1,
-        release.desktop_visible === false ? 0 : 1
-      );
-      newId = Number(info.lastInsertRowid);
-      if (obj.manifest) {
-        const m = obj.manifest;
-        db.prepare(
-          `INSERT INTO bee_manifest (
-             release_id, schema_version, description, segments_json,
-             entrypoint_preamble, promotion, min_cycles,
-             requires_human, requires_smoke, retire_on_misses
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).run(
-          newId,
-          String(m.schema_version ?? "peaks.bee/1"),
-          String(m.description ?? ""),
-          JSON.stringify(m.segments_json ?? []),
-          (m.entrypoint_preamble as string | null) ?? null,
-          String(m.promotion ?? "manual"),
-          (m.min_cycles as number | null) ?? null,
-          m.requires_human === undefined ? 1 : Number(m.requires_human),
-          m.requires_smoke === undefined ? 1 : Number(m.requires_smoke),
-          (m.retire_on_misses as number | null) ?? null
-        );
-      }
-    }
-    map.set(srcId, newId);
+    const entry = raw as BeeBundleEntry;
+    const inserted = materialiseSingleRelatedBee(db, entry);
+    if (inserted !== null) map.set(inserted.srcId, inserted.newId);
   }
   return map;
+}
+
+/**
+ * Materialise one related bee. Returns null if the entry is not
+ * importable (missing id or bee_name). Otherwise returns the
+ * src→new id pair so the caller can record it in the redirect map.
+ */
+function materialiseSingleRelatedBee(
+  db: Database.Database,
+  entry: BeeBundleEntry
+): { srcId: number; newId: number } | null {
+  const release = entry.bee_release ?? {};
+  const srcId = Number(release.id);
+  if (!Number.isInteger(srcId) || srcId <= 0) return null;
+  const beeName = String(release.bee_name ?? "");
+  if (!beeName) return null;
+
+  // Honour the same non-candidate hard rule at the bee row.
+  enforceImportAsCandidate(readSourceLifecycle(release));
+
+  // Pre-existing receiver-side bee with the same name → keep its id.
+  const existing = db
+    .prepare("SELECT id FROM bee_release WHERE bee_name = ?")
+    .get(beeName) as { id: number } | undefined;
+  if (existing) return { srcId, newId: existing.id };
+
+  return { srcId, newId: insertNewRelatedBee(db, release, entry.manifest) };
+}
+
+function insertNewRelatedBee(
+  db: Database.Database,
+  release: Record<string, unknown>,
+  manifest: Record<string, unknown> | undefined
+): number {
+  const info = db
+    .prepare(
+      `INSERT INTO bee_release (
+         bee_name, version, source, archived_at, archived_by, user_intent_raw,
+         description, parent_version, changelog, shareable, desktop_visible
+       ) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      String(release.bee_name ?? ""),
+      String(release.version ?? "0.0.0"),
+      nowIso(),
+      release.user_intent_raw ?? null,
+      release.description ?? null,
+      release.parent_version ?? null,
+      release.changelog ?? null,
+      release.shareable === false ? 0 : 1,
+      release.desktop_visible === false ? 0 : 1
+    );
+  const newId = Number(info.lastInsertRowid);
+  if (manifest) insertBeeManifestRow(db, newId, manifest);
+  return newId;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -555,45 +644,47 @@ function importBeeBundle(
   db: Database.Database,
   manifest: BundleManifest,
   _blobsDir: string,
-  asName?: string
+  asName: string | undefined
 ): number {
-  if (!manifest.bee_release) {
+  const beeObj = manifest.bee_release as BeeBundleEntry | undefined;
+  if (!beeObj) {
     throw new BundleMalformedError("bee_release payload missing from bee bundle");
   }
-  const beeObj = manifest.bee_release as {
-    bee_release: Record<string, unknown>;
-    manifest: Record<string, unknown> | undefined;
-    segments: Array<Record<string, unknown>>;
-    files: Array<Record<string, unknown>>;
-    changes: Array<Record<string, unknown>>;
-  };
   const release = beeObj.bee_release;
-  const newBeeName =
-    asName ?? String(release.bee_name ?? "");
+  const newBeeName = asName ?? String(release.bee_name ?? "");
   if (!newBeeName) throw new BundleMalformedError("bee_release.bee_name missing");
-
   // Same hard rule: any non-candidate import is refused. The reader
   // does not honor --as-stable switches.
-  const srcStatus =
-    typeof release.lifecycle_status === "string"
-      ? release.lifecycle_status
-      : "candidate";
-  if (srcStatus !== "candidate") {
-    throw new BundleImportToStableForbiddenError(srcStatus);
-  }
+  enforceImportAsCandidate(readSourceLifecycle(release));
 
-  let newId = -1;
   const tx = db.transaction(() => {
-    const ins = db.prepare(
+    const newId = insertAnchorBeeRelease(db, release, newBeeName);
+    if (beeObj.manifest) insertBeeManifestRow(db, newId, beeObj.manifest);
+    insertBeeSegmentRows(db, newId, beeObj.segments ?? []);
+    insertBeeFileRows(db, newId, newBeeName, beeObj.files ?? []);
+    insertBeeChangeRows(db, newId, beeObj.changes ?? []);
+    return newId;
+  });
+  return tx();
+}
+
+/** Insert the anchor bee_release row for a `bee` bundle and return its new id. */
+function insertAnchorBeeRelease(
+  db: Database.Database,
+  release: Record<string, unknown>,
+  beeName: string
+): number {
+  const info = db
+    .prepare(
       `INSERT INTO bee_release (
          bee_name, version, source, archived_at, archived_by, user_intent_raw,
          description, parent_version, changelog, shareable, desktop_visible
        ) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, ?, ?)`
-    );
-    const info = ins.run(
-      newBeeName,
+    )
+    .run(
+      beeName,
       String(release.version ?? "0.0.0"),
-      new Date().toISOString(),
+      nowIso(),
       release.user_intent_raw ?? null,
       release.description ?? null,
       release.parent_version ?? null,
@@ -601,83 +692,104 @@ function importBeeBundle(
       release.shareable === false ? 0 : 1,
       release.desktop_visible === false ? 0 : 1
     );
-    newId = Number(info.lastInsertRowid);
-    if (beeObj.manifest) {
-      const m = beeObj.manifest;
-      db.prepare(
-        `INSERT INTO bee_manifest (
-           release_id, schema_version, description, segments_json,
-           entrypoint_preamble, promotion, min_cycles,
-           requires_human, requires_smoke, retire_on_misses
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        newId,
-        String(m.schema_version ?? "peaks.bee/1"),
-        String(m.description ?? ""),
-        JSON.stringify(m.segments_json ?? []),
-        (m.entrypoint_preamble as string | null) ?? null,
-        String(m.promotion ?? "manual"),
-        (m.min_cycles as number | null) ?? null,
-        m.requires_human === undefined ? 1 : Number(m.requires_human),
-        m.requires_smoke === undefined ? 1 : Number(m.requires_smoke),
-        (m.retire_on_misses as number | null) ?? null
-      );
-    }
-    for (const s of beeObj.segments ?? []) {
-      db.prepare(
-        `INSERT INTO bee_segment_ref (
-           release_id, segment_name, inputs_json, outputs_json, side_effects
-         ) VALUES (?, ?, ?, ?, ?)`
-      ).run(
-        newId,
-        String(s.segment_name ?? ""),
-        (s.inputs_json as string | null) ?? null,
-        (s.outputs_json as string | null) ?? null,
-        (s.side_effects as string | null) ?? null
-      );
-    }
-    for (const f of beeObj.files ?? []) {
-      db.prepare(
-        `INSERT INTO bee_file (
-           release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        newId,
-        String(f.owner_kind ?? "bee"),
-        newBeeName,
-        String(f.path ?? ""),
-        String(f.kind ?? "other"),
-        Number(f.size_bytes ?? 0),
-        String(f.sha256 ?? ""),
-        String(f.blob_path ?? "")
-      );
-    }
-    for (const c of beeObj.changes ?? []) {
-      db.prepare(
-        `INSERT INTO bee_change (
-           release_id, change_kind, target_kind, target_name, detail
-         ) VALUES (?, ?, ?, ?, ?)`
-      ).run(
-        newId,
-        String(c.change_kind ?? ""),
-        String(c.target_kind ?? ""),
-        String(c.target_name ?? ""),
-        (c.detail as string | null) ?? null
-      );
-    }
-  });
-  tx();
-  return newId;
+  return Number(info.lastInsertRowid);
 }
 
-/* ---------------------------------------------------------------------- */
-/* Utility                                                                  */
-/* ---------------------------------------------------------------------- */
+/** Insert one bee_manifest row. */
+function insertBeeManifestRow(
+  db: Database.Database,
+  releaseId: number,
+  manifest: Record<string, unknown>
+): void {
+  db.prepare(
+    `INSERT INTO bee_manifest (
+       release_id, schema_version, description, segments_json,
+       entrypoint_preamble, promotion, min_cycles,
+       requires_human, requires_smoke, retire_on_misses
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    releaseId,
+    String(manifest.schema_version ?? "peaks.bee/1"),
+    String(manifest.description ?? ""),
+    JSON.stringify(manifest.segments_json ?? []),
+    strOrNull(manifest.entrypoint_preamble),
+    String(manifest.promotion ?? "manual"),
+    (manifest.min_cycles as number | null) ?? null,
+    manifest.requires_human === undefined ? 1 : Number(manifest.requires_human),
+    manifest.requires_smoke === undefined ? 1 : Number(manifest.requires_smoke),
+    (manifest.retire_on_misses as number | null) ?? null
+  );
+}
 
-function readDirEntries(dir: string): string[] {
-  try {
-    return readdirSync(dir);
-  } catch {
-    return [];
+/** Insert bee_segment_ref rows. */
+function insertBeeSegmentRows(
+  db: Database.Database,
+  releaseId: number,
+  segments: ReadonlyArray<Record<string, unknown>>
+): void {
+  if (segments.length === 0) return;
+  const stmt = db.prepare(
+    `INSERT INTO bee_segment_ref (
+       release_id, segment_name, inputs_json, outputs_json, side_effects
+     ) VALUES (?, ?, ?, ?, ?)`
+  );
+  for (const s of segments) {
+    stmt.run(
+      releaseId,
+      String(s.segment_name ?? ""),
+      strOrNull(s.inputs_json),
+      strOrNull(s.outputs_json),
+      strOrNull(s.side_effects)
+    );
+  }
+}
+
+/** Insert bee_file rows. */
+function insertBeeFileRows(
+  db: Database.Database,
+  releaseId: number,
+  beeName: string,
+  files: ReadonlyArray<Record<string, unknown>>
+): void {
+  if (files.length === 0) return;
+  const stmt = db.prepare(
+    `INSERT INTO bee_file (
+       release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const f of files) {
+    stmt.run(
+      releaseId,
+      String(f.owner_kind ?? "bee"),
+      beeName,
+      String(f.path ?? ""),
+      String(f.kind ?? "other"),
+      Number(f.size_bytes ?? 0),
+      String(f.sha256 ?? ""),
+      String(f.blob_path ?? "")
+    );
+  }
+}
+
+/** Insert bee_change rows. */
+function insertBeeChangeRows(
+  db: Database.Database,
+  releaseId: number,
+  changes: ReadonlyArray<Record<string, unknown>>
+): void {
+  if (changes.length === 0) return;
+  const stmt = db.prepare(
+    `INSERT INTO bee_change (
+       release_id, change_kind, target_kind, target_name, detail
+     ) VALUES (?, ?, ?, ?, ?)`
+  );
+  for (const c of changes) {
+    stmt.run(
+      releaseId,
+      String(c.change_kind ?? ""),
+      String(c.target_kind ?? ""),
+      String(c.target_name ?? ""),
+      strOrNull(c.detail)
+    );
   }
 }
