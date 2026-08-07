@@ -460,7 +460,9 @@ function buildLoopRow(
     // status is silently overridden (spec §7A.2 hard rule).
     lifecycle_status: "candidate",
     version: srcLoop.version,
-    schema_version: srcLoop.schema_version ?? PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
+    schema_version: typeof srcLoop.schema_version === "string" && srcLoop.schema_version.length > 0
+      ? srcLoop.schema_version
+      : PEAKS_BUNDLE_SCHEMA_VERSIONS.loop,
     archived_at: isoOrNow(srcLoop.archived_at),
     shareable: bool01(srcLoop.shareable, 1),
     share_excluded_paths: jsonArr(srcLoop.share_excluded_paths),
