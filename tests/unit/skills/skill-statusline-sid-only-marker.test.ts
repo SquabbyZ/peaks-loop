@@ -55,11 +55,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { buildStatusLineModel } from '~/src/services/skills/skill-statusline-service';
+import {
+  buildStatusLineModel,
+  read24hOverlay,
+} from '~/src/services/skills/skill-statusline-service';
 import {
   renderStatusLine,
   computeRootSuffix,
-  type StatusLineCapability
+  format24hSuffix,
+  type StatusLineCapability,
 } from '~/src/services/skills/skill-statusline-renderer';
 
 const SID = '2026-08-04-session-3fe1be';
@@ -181,7 +185,12 @@ describe("AC1 — idle + session bound appends [shortSid]", () => {
 });
 
 describe("AC2 — stale + session bound appends [shortSid]", () => {
-  it("renders stale text + `peaks-loop [3fe1be]`", () => {
+  it("renders neutral stale text + `peaks-loop [3fe1be]`", () => {
+    // Slice rid-statusline-stale-ux AC-1 + AC-2: stale rendering
+    // neutralized. The previous slice asserted `expect(out).toContain('stale')`
+    // against the legacy `stale <N>h` token; renderStale now emits
+    // `(previous session · <human age>)` instead. This test pins the
+    // NEW neutral copy and keeps the peaks-code + sid suffix invariants.
     // given: a peaks-code lease whose startedAt + lastHeartbeat are
     //        > 24h before NOW_MS. Stdin does NOT carry a matching
     //        callerId, so the read falls back to the
@@ -190,8 +199,9 @@ describe("AC2 — stale + session bound appends [shortSid]", () => {
     //        for non-IDE callers that have no callerId; the
     //        staleness check then resolves state='stale'.
     // when:  renderStatusLine is called
-    // then:  output contains the stale marker (`stale <N>h`) AND the
-    //        sid suffix after `peaks-loop`
+    // then:  output contains the neutral "(previous session ...)" marker
+    //        AND the peaks-code token (C-1 retained) AND the sid
+    //        suffix after `peaks-loop`.
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
     writePresenceLease(
@@ -208,11 +218,14 @@ describe("AC2 — stale + session bound appends [shortSid]", () => {
       expect(model.state).toBe('stale');
       expect(model.sessionId).toBe(SID);
       const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ascii' }));
-      expect(out).toContain('stale');
+      // AC-1: neutral copy replaces legacy "stale <Nh>" token.
+      expect(out).toContain('previous session');
+      expect(out).not.toMatch(/stale \d+[hm]/);
+      // C-1: peaks-code skill name still surfaces.
       expect(out).toContain('peaks-code');
       expect(out).toContain('[3fe1be]');
-      // Order: stale marker → peaks-loop → [3fe1be].
-      expect(out.indexOf('stale')).toBeLessThan(out.indexOf('peaks-loop'));
+      // Order: neutral marker → peaks-loop → [3fe1be].
+      expect(out.indexOf('previous session')).toBeLessThan(out.indexOf('peaks-loop'));
       expect(out.indexOf('peaks-loop')).toBeLessThan(out.indexOf('[3fe1be]'));
     });
   });
@@ -250,7 +263,8 @@ describe("AC3 — idle + unbound never appends [shortSid]", () => {
       ageMs: null,
       compact: { kind: 'none' as const, filledCells: 0 as const },
       activeLeaf: null,
-      sessionId: null
+      sessionId: null,
+      twentyFourHourState: null
     };
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ascii' }));
     expect(out).not.toContain('[3fe1be]');
@@ -273,7 +287,8 @@ describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () 
       ageMs: null,
       compact: { kind: 'none' as const, filledCells: 0 as const },
       activeLeaf: null,
-      sessionId: SID
+      sessionId: SID,
+      twentyFourHourState: null
     };
     const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ascii' }));
     expect(out).toContain('presence unreadable');
@@ -305,7 +320,8 @@ describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () 
       ageMs: null,
       compact: { kind: 'none' as const, filledCells: 0 as const },
       activeLeaf: null,
-      sessionId: SID
+      sessionId: SID,
+      twentyFourHourState: null
     };
     const suffix = computeRootSuffix(model, 'peaks-loop', palette);
     expect(suffix).toBe(' -> peaks-loop');
@@ -379,5 +395,261 @@ describe("AC10 — visual consistency across idle/active", () => {
     for (let i = 0; i < idleSlice.length; i++) {
       expect(idleSlice.charCodeAt(i)).toBeLessThan(128);
     }
+  });
+});
+
+// =============================================================================
+// rid-statusline-24h-overlay — 12-case test block (2026-08-10)
+// =============================================================================
+//
+// PRD AC-1..AC-4 + AC-6 (regression sweep) coverage. The renderer's
+// `renderActive` function now takes a 7th arg `twentyFourHourState`; the
+// service's `buildStatusLineModel` reads `.peaks/_runtime/<sid>/24h-state.json`
+// when state === 'active' and attaches the overlay to the model.
+//
+// Cases 1-3: pure `read24hOverlay` service-layer coverage on a tmpdir-shaped
+//            project root (AC-1 prep / AC-2 prep / AC-3 prep).
+// Case 4:    `buildStatusLineModel` integration (model carries overlay).
+// Cases 5-7: direct `format24hSuffix` helper-level coverage.
+// Cases 8-11: renderer integration / end-to-end (PRD AC-1..AC-4).
+// Case 12:   4 inline malformed-shape variants (P0-4 hardening).
+// Plus AC-6 regression sweep at the bottom.
+//
+// NOTE: the existing test surface has a `STALE_LEASE_START` constant but no
+//       RECENT constant — the default in `writePresenceLease` is
+//       '2026-08-05T11:55:00.000Z' which is < 24h before NOW_MS, so callers
+//       who omit the last two args get a fresh lease. The 12 cases below
+//       rely on this default.
+const SID_24H = '2026-08-10-test-sid';
+const CALLER_24H = 'b1d2d2c0-1111-4111-8111-111111111111';
+
+function makeOverlayProjectRoot(): string {
+  const parent = mkdtempSync(join(tmpdir(), 'peaks-statusline-24h-parent-'));
+  const root = join(parent, 'peaks-loop');
+  mkdirSync(join(root, '.peaks'), { recursive: true });
+  writeFileSync(
+    join(root, '.peaks', 'config.json'),
+    JSON.stringify({ schemaVersion: 1 }),
+    'utf8',
+  );
+  return root;
+}
+
+function write24hState(
+  projectRoot: string,
+  sessionId: string,
+  payload: unknown,
+): void {
+  const dir = join(projectRoot, '.peaks', '_runtime', sessionId);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, '24h-state.json'),
+    typeof payload === 'string' ? payload : JSON.stringify(payload),
+    'utf8',
+  );
+}
+
+describe('rid-statusline-24h-overlay — read24hOverlay service layer', () => {
+  const projectRoot = makeOverlayProjectRoot();
+  const sessionId = SID_24H;
+
+  it('case 1: returns overlay when 24h-state.json exists with valid shape', () => {
+    write24hState(projectRoot, sessionId, { state: '24H_ACTIVE' });
+    const overlay = read24hOverlay(projectRoot, sessionId);
+    expect(overlay).not.toBeNull();
+    expect(overlay?.state).toBe('24H_ACTIVE');
+  });
+
+  it('case 2: returns null when 24h-state.json does not exist (AC-2 prep)', () => {
+    const otherProjectRoot = makeOverlayProjectRoot();
+    const overlay = read24hOverlay(otherProjectRoot, sessionId);
+    expect(overlay).toBeNull();
+  });
+
+  it('case 3: returns null when 24h-state.json is corrupt JSON (AC-3 prep)', () => {
+    const otherProjectRoot = makeOverlayProjectRoot();
+    write24hState(otherProjectRoot, sessionId, '{not valid json');
+    const overlay = read24hOverlay(otherProjectRoot, sessionId);
+    expect(overlay).toBeNull();
+  });
+});
+
+describe('rid-statusline-24h-overlay — buildStatusLineModel integration', () => {
+  it('case 4: attaches twentyFourHourState to model when state is active and 24h-state.json exists (AC-1 prep)', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    makeSessionBinding(projectRoot, SID_24H);
+    writePresenceLease(
+      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
+    );
+    write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
+    const stdin = {
+      workspace: { current_dir: projectRoot },
+      session_id: 'claude-code-outer-24h',
+      caller_id: CALLER_24H
+    };
+    const model = buildStatusLineModel(stdin, NOW_MS);
+    expect(model.state).toBe('active');
+    expect(model.twentyFourHourState).not.toBeNull();
+    expect(model.twentyFourHourState?.state).toBe('24H_ACTIVE');
+  });
+});
+
+describe('rid-statusline-24h-overlay — format24hSuffix helper', () => {
+  const basePalette = {
+    active: '*',
+    idle: 'o',
+    idleStale: 'o',
+    warning: '!',
+    inlineSeparator: ' . ',
+    trailSeparator: ' -> ',
+    idleLabel: 'empty',
+    invalidMessage: 'presence unreadable',
+    compact: { queued: '[', preparing: '+', compacting: '+', verifying: '+', completed: '*', failed: 'x' },
+    barFilled: '#',
+    barEmpty: '-',
+    ratioArrow: '->'
+  };
+
+  it('case 5: overlay=null returns empty string (helper-level AC-2 back-compat)', () => {
+    const out = format24hSuffix(null, basePalette, 'ascii', true);
+    expect(out).toBe('');
+  });
+
+  it('case 6: lowercase state conversion — [24h-24h_active]', () => {
+    const out = format24hSuffix(
+      { state: '24H_ACTIVE' },
+      basePalette,
+      'ascii',
+      true,
+    );
+    expect(out).toContain('[24h-24h_active]');
+  });
+
+  it('case 7: ASCII palette uses " . " inline separator (no Unicode-extra glyphs)', () => {
+    const out = format24hSuffix(
+      { state: '24H_ACTIVE' },
+      basePalette,
+      'ascii',
+      true,
+    );
+    expect(out).toContain(' . [24h-24h_active]');
+    // No Unicode-extra glyphs: every char is ASCII (< 128).
+    for (let i = 0; i < out.length; i++) {
+      expect(out.charCodeAt(i)).toBeLessThan(128);
+    }
+  });
+});
+
+describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)', () => {
+  it('case 8: AC-1 active + 24H_ACTIVE renders [24h-24h_active] suffix', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    makeSessionBinding(projectRoot, SID_24H);
+    writePresenceLease(
+      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
+    );
+    write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
+    const stdin = {
+      workspace: { current_dir: projectRoot },
+      session_id: 'claude-code-outer-24h',
+      caller_id: CALLER_24H
+    };
+    const model = buildStatusLineModel(stdin, NOW_MS);
+    const out = withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'ansi-unicode' }),
+    );
+    expect(model.state).toBe('active');
+    expect(out).toContain('peaks-code');
+    expect(out).toContain('full-auto');
+    expect(out).toContain('[24h-24h_active]');
+  });
+
+  it('case 9: AC-2 active + 24h-state.json missing renders no suffix', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    makeSessionBinding(projectRoot, SID_24H);
+    writePresenceLease(
+      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
+    );
+    // NO 24h-state.json written
+    const stdin = {
+      workspace: { current_dir: projectRoot },
+      session_id: 'claude-code-outer-24h',
+      caller_id: CALLER_24H
+    };
+    const model = buildStatusLineModel(stdin, NOW_MS);
+    const out = withPinnedClock(0, () =>
+      renderStatusLine(model, { capability: 'ansi-unicode' }),
+    );
+    expect(model.state).toBe('active');
+    expect(out).toContain('peaks-code');
+    expect(out).not.toContain('[24h-');
+  });
+
+  it('case 10: AC-3 active + corrupt 24h-state.json renders no suffix + no exception', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    makeSessionBinding(projectRoot, SID_24H);
+    writePresenceLease(
+      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
+    );
+    write24hState(projectRoot, SID_24H, '{not valid json');
+    const stdin = {
+      workspace: { current_dir: projectRoot },
+      session_id: 'claude-code-outer-24h',
+      caller_id: CALLER_24H
+    };
+    expect(() => {
+      const model = buildStatusLineModel(stdin, NOW_MS);
+      const out = withPinnedClock(0, () =>
+        renderStatusLine(model, { capability: 'ansi-unicode' }),
+      );
+      expect(out).not.toContain('[24h-');
+    }).not.toThrow();
+  });
+
+  it('case 11: AC-4 stale state renders no 24h suffix (24h overlays only active)', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    makeSessionBinding(projectRoot, SID_24H);
+    // STALE_LEASE_START is > 24h before NOW_MS → stale
+    writePresenceLease(
+      projectRoot, SID_24H, 'old-outer-24h', 'wf-stale-24h', 'peaks-code', 'full-auto',
+      'running', STALE_LEASE_START, STALE_LEASE_START,
+    );
+    write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
+    // callerId mismatch → outer-mismatch branch falls through to idle
+    // path → the 24h-state.json file on disk is irrelevant because
+    // state is NOT 'active'.
+    runWithNoCallerIdEnv(() => {
+      const stdin = {
+        workspace: { current_dir: projectRoot },
+        session_id: 'new-outer-24h',
+        caller_id: null
+      };
+      const model = buildStatusLineModel(stdin, NOW_MS);
+      expect(model.state).toBe('stale');
+      const out = withPinnedClock(0, () =>
+        renderStatusLine(model, { capability: 'ansi-unicode' }),
+      );
+      expect(out).not.toContain('[24h-');
+    });
+  });
+});
+
+describe('rid-statusline-24h-overlay — malformed shape hardening (P0-4)', () => {
+  it('case 12: read24hOverlay returns null for 4 malformed variants', () => {
+    const projectRoot = makeOverlayProjectRoot();
+    // (a) { state: '' } — empty string
+    write24hState(projectRoot, SID_24H, { state: '' });
+    expect(read24hOverlay(projectRoot, SID_24H)).toBeNull();
+
+    // (b) { state: 123 } — wrong type
+    write24hState(projectRoot, SID_24H, { state: 123 });
+    expect(read24hOverlay(projectRoot, SID_24H)).toBeNull();
+
+    // (c) {} — missing state
+    write24hState(projectRoot, SID_24H, {});
+    expect(read24hOverlay(projectRoot, SID_24H)).toBeNull();
+
+    // (d) [] — array root, not object
+    write24hState(projectRoot, SID_24H, []);
+    expect(read24hOverlay(projectRoot, SID_24H)).toBeNull();
   });
 });

@@ -55,19 +55,20 @@ function activeModel(presence: StatusLinePresence | null, projectRoot: string | 
     ageMs: null,
     compact: { kind: 'none', filledCells: 0 },
     activeLeaf: null,
+    twentyFourHourState: null,
   };
 }
 
 function staleModel(presence: StatusLinePresence, ageMs: number): StatusLineModel {
-  return { state: 'stale', projectRoot: ROOT, presence, ageMs, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
+  return { state: 'stale', projectRoot: ROOT, presence, ageMs, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null, twentyFourHourState: null };
 }
 
 function invalidModel(): StatusLineModel {
-  return { state: 'invalid-presence', projectRoot: ROOT, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
+  return { state: 'invalid-presence', projectRoot: ROOT, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null, twentyFourHourState: null };
 }
 
 function idleModel(projectRoot: string | null = ROOT): StatusLineModel {
-  return { state: 'idle', projectRoot, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null };
+  return { state: 'idle', projectRoot, presence: null, ageMs: null, compact: { kind: 'none', filledCells: 0 }, activeLeaf: null, twentyFourHourState: null };
 }
 
 function compactActiveModel(compact: CompactStatuslineState): StatusLineModel {
@@ -78,6 +79,7 @@ function compactActiveModel(compact: CompactStatuslineState): StatusLineModel {
     ageMs: null,
     compact,
     activeLeaf: null,
+    twentyFourHourState: null,
   };
 }
 

@@ -3,6 +3,7 @@ import type {
   StatusLineModel,
   StatusLinePresence,
   StatusLineActiveLeaf,
+  TwentyFourHourOverlay,
 } from './skill-statusline-service.js';
 import type {
   CompactStatuslineState,
@@ -77,6 +78,13 @@ function isAttentionGate(gate: string | undefined): string | null {
  */
 interface StatusPalette {
   readonly active: string;
+  // Slice rid-statusline-stale-ux AC-1: stale presence belongs to a
+  // *previous* session (outer-session-mismatch). `idleStale` is the
+  // muted slate tier — slow-blink OFF, distinct from `idle` (true empty,
+  // slow-blink ON) and `warning` (loud invalid-presence alarm). Three-way
+  // visual distinction keeps the user's read clear: idle = nothing here,
+  // idleStale = previous-session residue (neutral), warning = read error.
+  readonly idleStale: string;
   readonly idle: string;
   readonly warning: string;
   readonly inlineSeparator: string; // between skill + gate
@@ -181,6 +189,12 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
     return {
       active: '*',
       idle: 'o',
+      // Slice rid-statusline-stale-ux AC-1: stale residue uses the same
+      // glyph as `idle` (`o`) but stays static (no slow-blink — the user
+      // is reading a *previous* session's residue, not a live idle state).
+      // The neutral copy `(previous session · N days ago)` is the
+      // decisive signal; the glyph is auxiliary.
+      idleStale: 'o',
       warning,
       inlineSeparator: ' . ',
       trailSeparator: ' -> ',
@@ -198,6 +212,11 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
   return {
     active: brandGlyph('●'),
     idle: blinkBrand('○'),
+    // Slice rid-statusline-stale-ux AC-1: muted slate (`#AAAAC8` dim)
+    // — slow-blink OFF, distinct from `idle` (slow-blink brand) and
+    // `warning` (yellow invalid-presence). The stale branch is
+    // semantically "previous-session residue" (neutral), NOT an error.
+    idleStale: dimBrand('○'),
     warning,
     inlineSeparator: brand(' · '),
     trailSeparator: brand(' → '),
@@ -259,6 +278,10 @@ function paletteFor(capability: StatusLineCapability | undefined, noColor: boole
 }
 
 function formatAge(ageMs: number | null): string {
+  // Slice rid-statusline-stale-ux AC-1: this legacy `stale <N>h/m`
+  // token is NO LONGER used by renderStale. Kept exported / defined
+  // for any downstream caller / test that still asserts against the
+  // `stale` substring. The active renderer path uses `formatHumanAge`.
   if (ageMs === null) return '';
   const hours = Math.round(ageMs / (60 * 60 * 1000));
   if (hours >= 1) return `stale ${hours}h`;
@@ -266,9 +289,67 @@ function formatAge(ageMs: number | null): string {
   return `stale ${minutes}m`;
 }
 
+// Slice rid-statusline-stale-ux AC-1 + perf H2: human-friendly neutral
+// age label for the stale branch. en-US strings per RD §5 R1 (codebase
+// consistency); zh-CN deferred to a future i18n slice. Backed by a
+// bounded Map cache (parity with `formatShortSid` memoization at
+// `skill-statusline-sid-suffix.ts`).
+const HUMAN_AGE_CACHE = new Map<number, string>();
+const HUMAN_AGE_CACHE_LIMIT = 16;
+export function formatHumanAge(ageMs: number | null): string {
+  if (ageMs === null) return 'unknown';
+  const cached = HUMAN_AGE_CACHE.get(ageMs);
+  if (cached !== undefined) return cached;
+  let result: string;
+  if (ageMs < 5 * 60 * 1000) {
+    result = 'just now';
+  } else {
+    const minutes = Math.round(ageMs / (60 * 1000));
+    if (minutes < 60) {
+      result = `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    } else {
+      const hours = Math.round(ageMs / (60 * 60 * 1000));
+      if (hours < 24) {
+        result = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+      } else {
+        const days = Math.round(ageMs / (24 * 60 * 60 * 1000));
+        result = `${days} day${days === 1 ? '' : 's'} ago`;
+      }
+    }
+  }
+  if (HUMAN_AGE_CACHE.size >= HUMAN_AGE_CACHE_LIMIT) HUMAN_AGE_CACHE.clear();
+  HUMAN_AGE_CACHE.set(ageMs, result);
+  return result;
+}
+
 function rootLabel(projectRoot: string | null): string {
   if (!projectRoot) return '';
   return basename(projectRoot);
+}
+
+/**
+ * Slice rid-statusline-24h-overlay (2026-08-10): format the 24h-mode
+ * overlay suffix appended after the existing `<baseMode>` token in
+ * the ACTIVE state. Returns `''` when the overlay is `null` (missing
+ * file / corrupt file / wrong shape — see `read24hOverlay`).
+ *
+ * Output shape (ASCII palette): ` . [24h-<lowercase-state>]`
+ * Output shape (unicode palette): ` · [24h-<lowercase-state>]`
+ *
+ * en-US only; i18n deferred to a future slice (PRD §Non-goals.5).
+ * The `[24h-...]` prefix is a deliberate marker so the user can
+ * visually distinguish a 24h-mode substate from a base-mode token
+ * like `[full-auto]`.
+ */
+export function format24hSuffix(
+  overlay: TwentyFourHourOverlay | null,
+  palette: StatusPalette,
+  capability: StatusLineCapability,
+  noColor: boolean,
+): string {
+  if (!overlay) return '';
+  const label = `[24h-${overlay.state.toLowerCase()}]`;
+  return `${palette.inlineSeparator}${brandRun(label, noColor, capability)}`;
 }
 
 /**
@@ -308,14 +389,20 @@ function renderActive(
   capability: StatusLineCapability,
   noColor: boolean,
   activeLeaf: StatusLineActiveLeaf | null,
+  twentyFourHourState: TwentyFourHourOverlay | null,
 ): string {
   if (!presence) {
     return `${palette.idle} ${palette.idleLabel}`;
   }
+  // Slice rid-statusline-24h-overlay (2026-08-10): the 24h suffix
+  // is appended on every active-return branch that carries a skill
+  // token. The `!presence` branch (idle mark, no skill token) is
+  // intentionally NOT modified — 24h overlays are active-only.
+  const suffix = format24hSuffix(twentyFourHourState, palette, capability, noColor);
   const attentionLabel = isAttentionGate(presence.gate);
   if (attentionLabel !== null) {
     // Attention gate — surface the warning glyph + human-readable label.
-    return `${palette.warning} ${brandRun(presence.skill, noColor, capability)}${palette.inlineSeparator}${brandRun(attentionLabel, noColor, capability)}`;
+    return `${palette.warning} ${brandRun(presence.skill, noColor, capability)}${palette.inlineSeparator}${brandRun(attentionLabel, noColor, capability)}${suffix}`;
   }
   const skill = presence.skill;
   const dot = renderActiveDot(capability, nowMs, noColor);
@@ -329,9 +416,9 @@ function renderActive(
       ? ` ${brandRun(`(+${activeLeaf.pendingCount - 1})`, noColor, capability)}`
       : '';
     const sep = brandRun(' | ', noColor, capability);
-    return `${dot} ${leaf}${tail}${sep}${brandRun(skill, noColor, capability)}${modeToken}`;
+    return `${dot} ${leaf}${tail}${sep}${brandRun(skill, noColor, capability)}${modeToken}${suffix}`;
   }
-  return `${dot} ${brandRun(skill, noColor, capability)}${modeToken}`;
+  return `${dot} ${brandRun(skill, noColor, capability)}${modeToken}${suffix}`;
 }
 
 function renderStale(
@@ -341,10 +428,20 @@ function renderStale(
   capability: StatusLineCapability,
   noColor: boolean,
 ): string {
+  // Slice rid-statusline-stale-ux AC-1: stale presence belongs to a
+  // *previous* session (outer-session-mismatch). Line still emits the
+  // recorded skill name (per C-1 — `expect(out).toContain('peaks-code')`
+  // must keep passing), but uses `palette.idleStale` (new muted palette,
+  // distinct from idle and warning) and neutral
+  // `(previous session · <human age>)` suffix instead of legacy
+  // `stale <Nh>` token. ASCII capability replaces the `·` middle dot
+  // with `-` so byte-identical shape holds across encodings.
   const skill = presence?.skill ?? 'unknown';
-  const age = formatAge(ageMs);
-  const ageSuffix = age ? `${palette.inlineSeparator}${brandRun(age, noColor, capability)}` : '';
-  return `${palette.warning} ${brandRun(skill, noColor, capability)}${ageSuffix}`;
+  const age = formatHumanAge(ageMs);
+  const sep = capability === 'ascii' ? '-' : '·';
+  const label = age ? `(previous session ${sep} ${age})` : '(previous session)';
+  const ageSuffix = `${palette.inlineSeparator}${brandRun(label, noColor, capability)}`;
+  return `${palette.idleStale} ${brandRun(skill, noColor, capability)}${ageSuffix}`;
 }
 
 function renderInvalid(palette: StatusPalette): string {
@@ -754,7 +851,7 @@ export function renderStatusLine(
   } else {
     switch (model.state) {
       case 'active':
-        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf)}${rootSuffix}`;
+        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf, model.twentyFourHourState)}${rootSuffix}`;
         break;
       case 'stale':
         line = `${brand} ${renderStale(model.presence, model.ageMs, palette, capability, noColor)}${rootSuffix}`;

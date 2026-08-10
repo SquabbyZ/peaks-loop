@@ -138,6 +138,69 @@ export function resolveCanonicalProjectRoot(startPath: string): string {
   return start;
 }
 
+/**
+ * Slice rid-statusline-stale-ux AC-2 + P1 H1 option A: strict
+ * canonicalization for use in trust-boundary paths (e.g.
+ * `peaks session primer`).
+ *
+ * Unlike `resolveCanonicalProjectRoot` (fail-open, returns `start`
+ * on any resolution failure), this helper THROWS on:
+ *   - empty / whitespace-only input
+ *   - NUL byte in input
+ *   - non-existent path (realpathSync ENOENT)
+ *   - non-canonical (symlink) input (when the input path and its
+ *     realpath differ in a way that suggests the user passed a
+ *     symlinked path through a security-sensitive surface)
+ *
+ * Existing fail-open `resolveCanonicalProjectRoot` is retained for
+ * back-compat — many callers depend on the fail-open behavior
+ * (e.g. `init-command.ts:32`). The strict variant is opt-in.
+ */
+export class InvalidProjectRootError extends Error {
+  constructor(
+    public readonly reason: 'empty' | 'nul-byte' | 'non-existent' | 'non-canonical',
+    input: string
+  ) {
+    super(`Invalid project root (${reason}): "${input}"`);
+    this.name = 'InvalidProjectRootError';
+  }
+}
+
+export function resolveCanonicalProjectRootStrict(startPath: string): string {
+  if (!startPath || startPath.trim() === '') {
+    throw new InvalidProjectRootError('empty', startPath);
+  }
+  if (startPath.indexOf('\0') !== -1) {
+    throw new InvalidProjectRootError('nul-byte', startPath);
+  }
+  const start = resolve(startPath);
+  let realStart: string;
+  try {
+    realStart = realpathSync(start);
+  } catch {
+    throw new InvalidProjectRootError('non-existent', startPath);
+  }
+  if (realStart !== start) {
+    // User passed a path through a symlink; reject as non-canonical
+    // for trust-boundary entry points.
+    throw new InvalidProjectRootError('non-canonical', startPath);
+  }
+  // Delegate to the existing canonicalization (git root → heuristic)
+  // AFTER the strict pre-checks pass.
+  const canonical = resolveCanonicalProjectRoot(startPath);
+  if (canonical === startPath || canonical === realStart) {
+    return canonical;
+  }
+  // Canonicalization moved the path (e.g. to a git root) — accept it
+  // but ensure it also exists.
+  try {
+    realpathSync(canonical);
+    return canonical;
+  } catch {
+    throw new InvalidProjectRootError('non-existent', startPath);
+  }
+}
+
 function resolveProjectRootFromGit(startPath: string): string | null {
   // execFileSync (not execSync) so a malicious `startPath` cannot
   // inject argv into the spawned git invocation. The child only

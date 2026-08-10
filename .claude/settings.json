@@ -5,6 +5,17 @@
     "padding": 0
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "peaks session primer --project \"${CLAUDE_PROJECT_DIR}\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

@@ -6,7 +6,7 @@ import { atomicWriteJson, readJsonObjectFile } from '../ide/shared/atomic-json.j
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 import type { HookScope } from '../ide/shared/safe-path.js';
-import { HOOK_OUTER_CACHE_COMMAND, HOOK_OUTER_CACHE_EVENT, HOOK_OUTER_CACHE_SENTINEL } from './outer-cache-hook-constants.js';
+import { HOOK_OUTER_CACHE_COMMAND, HOOK_OUTER_CACHE_EVENT, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_COMMAND, HOOK_WORKSPACE_INIT_EVENT, HOOK_WORKSPACE_INIT_SENTINEL } from './session-start-hook-constants.js';
 
 /**
  * Install (and remove) the Peaks-managed hooks in an IDE's settings.json.
@@ -333,6 +333,20 @@ function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[]
       command: HOOK_OUTER_CACHE_COMMAND,
       event: HOOK_OUTER_CACHE_EVENT
     });
+    // Slice rid-statusline-stale-ux AC-2: SessionStart outer-cache
+    // write is followed by `peaks session primer` entry so that
+    // rotation + presence cleanup fire BEFORE the first statusline
+    // render of a fresh session. The new subcommand is idempotent
+    // and short-circuits when the binding already matches — safe to
+    // call on every SessionStart. Order matters conceptually:
+    // outer-cache write must come first (the primer's
+    // ensureSessionWithRotation reads the current outer session id).
+    entries.push({
+      sentinel: HOOK_WORKSPACE_INIT_SENTINEL,
+      matcher: '',
+      command: HOOK_WORKSPACE_INIT_COMMAND,
+      event: HOOK_WORKSPACE_INIT_EVENT
+    });
     // Slice 2026-08-06-codegate-vendor-neutral: code-gate entry on
     // Edit|Write|MultiEdit matcher. Vendor-neutral command
     // (`peaks code-gate --json`); the CLI adapter lives in
@@ -366,7 +380,12 @@ function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  // the rest of the peaks-managed entries.
  const base = [HOOK_ENFORCE_SENTINEL, LEGACY_PROGRESS_START_SENTINEL, HOOK_CODE_GATE_SENTINEL];
  if (ide === 'claude-code') {
-   return [...base, HOOK_OUTER_CACHE_SENTINEL];
+   // Slice rid-statusline-stale-ux AC-2: include the SessionStart
+   // workspace-init primer sentinel so uninstall strips it alongside
+   // the gate-enforce entry, and so hand-added entries matching this
+   // sentinel are recognized as peaks-managed (not stripped as
+   // non-Peaks).
+   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL];
  }
  return base;
 }

@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
 import { decideCompactStatusline } from '../compact-statusline/compact-statusline-service.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
@@ -77,7 +78,74 @@ export type StatusLineModel = {
    * existent root.
    */
   sessionId: string | null;
+  /**
+   * Slice rid-statusline-24h-overlay (2026-08-10): the 24h-mode
+   * overlay snapshot read from `.peaks/_runtime/<sid>/24h-state.json`,
+   * or `null` when no file exists / file is corrupt / file has wrong
+   * shape. The renderer reads this to append `[24h-<state>]` after
+   * the existing `<baseMode>` token in the ACTIVE state only.
+   *
+   * Always present (never undefined). `null` means "no overlay" —
+   * the renderer skips the suffix without re-reading disk.
+   */
+  twentyFourHourState: TwentyFourHourOverlay | null;
 };
+
+/**
+ * Slice rid-statusline-24h-overlay (2026-08-10): minimal overlay
+ * type returned by `read24hOverlay`. The renderer only consumes
+ * `state` (to format `[24h-<state.toLowerCase()>]`). The canonical
+ * schema at `src/services/24h-mode/state.ts:55-66` carries additional
+ * fields (`attempts: Record<DecisionKey, number>`, `enteredAt`,
+ * `checkpoints`, etc.) but the overlay is deliberately MINIMAL —
+ * it tolerates forward compatibility with new states the writer
+ * may add, and it never throws on malformed shapes (PRD AC-3:
+ * graceful null on any invalid input).
+ */
+export type TwentyFourHourOverlay = {
+  state: string;
+};
+
+/**
+ * Slice rid-statusline-24h-overlay (2026-08-10): name-distinct from
+ * the canonical `read24hState` in `src/services/24h-mode/store.ts:108`.
+ * The canonical reader calls `coerceSnapshot` (which throws on
+ * malformed shapes via `24H_STATE_INVALID`); this overlay reader
+ * returns `null` for ANY malformed shape (per PRD AC-3 — never
+ * throw across the statusline boundary).
+ *
+ * Returns null when:
+ *   - `projectRoot` or `sessionId` is empty
+ *   - the file does not exist (ENOENT)
+ *   - JSON.parse fails (corrupt file)
+ *   - root is not a non-array object
+ *   - `state` is missing, non-string, or empty string
+ */
+export function read24hOverlay(
+  projectRoot: string,
+  sessionId: string,
+): TwentyFourHourOverlay | null {
+  if (!projectRoot || !sessionId) return null;
+  const path = join(projectRoot, '.peaks', '_runtime', sessionId, '24h-state.json');
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    // ENOENT, EACCES, EISDIR — all treated as "no overlay"
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // corrupt JSON — graceful null (PRD AC-3)
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const obj = parsed as Record<string, unknown>;
+  if (typeof obj['state'] !== 'string' || obj['state'].length === 0) return null;
+  return { state: obj['state'] };
+}
 
 function resolveCwdFromStdin(stdin: StatusLineStdin | null): string {
   const fromWorkspace = stdin?.workspace?.current_dir ?? stdin?.workspace?.project_dir;
@@ -284,17 +352,17 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   }
 
   if (projectRoot === null) {
-    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact, activeLeaf: null, sessionId: null };
+    return { state: 'idle', projectRoot: null, presence: null, ageMs: null, compact, activeLeaf: null, sessionId: null, twentyFourHourState: null };
   }
 
   // callerId resolves the read-side isolation; back-compat is `null`.
   const callerId = resolveCallerId(stdin);
   const { presence, invalid } = readPresenceReadOnly(projectRoot, callerId);
   if (invalid) {
-    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
+    return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
   }
   if (presence === null) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
   }
 
   // Session binding: when the presence was stamped with a Claude session id and
@@ -304,7 +372,7 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
   // fall back to the time-based behavior below for backward compatibility.
   const liveSessionId = typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
   if (presence.claudeSessionId && liveSessionId && presence.claudeSessionId !== liveSessionId) {
-    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId };
+    return { state: 'idle', projectRoot, presence: null, ageMs: null, compact, activeLeaf: null, sessionId, twentyFourHourState: null };
   }
 
   const setAtMs = presence.setAt ? Date.parse(presence.setAt) : Number.NaN;
@@ -322,7 +390,16 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
     activeLeaf = null;
   }
 
-  return { state, projectRoot, presence, ageMs, compact, activeLeaf, sessionId };
+  // Slice rid-statusline-24h-overlay (2026-08-10): read the 24h-mode
+  // overlay snapshot ONLY when state === 'active'. Stale / idle /
+  // invalid-presence / idle-via-outer-mismatch never carry the suffix
+  // (per PRD §Non-goals.6 — "不在 idle / stale / invalid-presence
+  // 状态下 overlay 24h suffix"). When projectRoot or sessionId is
+  // missing, return null without re-reading disk.
+  const twentyFourHourState: TwentyFourHourOverlay | null =
+    state === 'active' ? read24hOverlay(projectRoot, sessionId ?? '') : null;
+
+  return { state, projectRoot, presence, ageMs, compact, activeLeaf, sessionId, twentyFourHourState };
 }
 
 /**

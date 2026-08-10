@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0.18 — 2026-08-10 (statusline 24h overlay)
+
+**Bug fix — statusline doesn't reflect 24h mode substate after transition**:
+- `src/services/skills/skill-statusline-service.ts`: adds `read24hOverlay` helper (name-distinct from canonical `src/services/24h-mode/store.ts:108 read24hState` so the two readers with divergent null vs empty-snapshot semantics are not confused); adds `TwentyFourHourOverlay` type (minimal `{ state: string }`); adds `twentyFourHourState: TwentyFourHourOverlay | null` field to `StatusLineModel`; populates the field in all 5 return paths of `buildStatusLineModel` (lines for projectRoot-null, invalid-presence, idle, outer-mismatch idle, and final active/stale — only the active branch calls `read24hOverlay`).
+- `src/services/skills/skill-statusline-renderer.ts`: adds `format24hSuffix(overlay, palette, capability, noColor)` exported helper; extends `renderActive` signature to a 7th arg `twentyFourHourState`; appends `[24h-<state.toLowerCase()>]` suffix in 3 active-return branches (attention-gate / activeLeaf / normal); updates the call site at line 822.
+- 12 new vitest cases in `tests/unit/skills/skill-statusline-sid-only-marker.test.ts` (3 service-layer `read24hOverlay` + 1 `buildStatusLineModel` integration + 3 `format24hSuffix` helper-level + 4 renderer-integration AC-1..AC-4 + 1 malformed-shape hardening).
+- 5 typed-fixture sites updated to include `twentyFourHourState: null` (`tests/unit/services/skills/skill-statusline-renderer.test.ts` 5 factories + `tests/unit/skills/skill-statusline-sid-only-marker.test.ts` 3 directly-constructed literals).
+
+**Safety semantics preserved**:
+- v2.15.0 `presence:check-stale --project . --json` still returns `stale: true` on outer-mismatch. `skill-presence-service.ts` / `presence-lease-service.ts` / `workspace-service.ts` / `session/**` / `audit/**` / `src/services/24h-mode/**` / `src/cli/commands/session-24h-mode.ts` are FORBIDDEN files in this slice — zero edits.
+- No new dependencies. No enum/API/command-surface changes.
+
+**Migration**: zero changes required for existing users. Active 24h mode sessions automatically pick up the new `[24h-<state>]` suffix on next statusline render after the user runs `peaks session 24h-mode transition`. Sessions without a 24h-state.json file render unchanged (back-compat).
+
 ## 4.0.17 — 2026-08-07 (Vitest worker cap + statusline SIGTERM + 9-slice shipped)
 
 **Core fix — vitest worker concurrency cap (root-cause)**:

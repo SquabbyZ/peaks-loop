@@ -20,6 +20,7 @@ import { registerCronSchedulerCommand } from './commands/cron-scheduler-commands
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
+import { registerPrimerCommand } from './commands/primer-command.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import { printErrorEnvelope, printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
@@ -219,6 +220,13 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // registerCoreAndArtifactCommands instead of being created twice.
  autoRegisterAllCommands(program, io);
  registerSkillVisibilityCommand(program, repoRoot);
+ // Slice rid-statusline-stale-ux AC-2: register `peaks session primer`
+ // so it appears in `peaks session --help` for LLM `<TAB>`-discovery.
+ // Mounted as a CHILD of the existing `session` commander group
+ // (verified at src/cli/commands/core/session-command.ts:32). NOT
+ // `program.command('session primer')` (that registers a single
+ // literal command name, not a child of the session group).
+ registerPrimerCommand(program, io);
 
  return program;
 }
