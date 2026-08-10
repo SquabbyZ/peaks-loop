@@ -5,6 +5,7 @@ import { LifecycleOwner } from './lifecycle';
 import { VendorAdapterRegistry } from './vendor/registry';
 import { ClaudeAdapter } from './vendor/claude-adapter';
 import { CodexAdapter } from './vendor/codex-adapter';
+import { CopilotAdapter } from './vendor/copilot-adapter';
 import { PromptBuilder } from './prompt-builder';
 import { StatusProtocol } from './status-protocol';
 import { AutoCompactAdapter } from './auto-compact-adapter';
@@ -20,7 +21,7 @@ export interface DispatchInput {
 export interface DispatchResult { pid: number; dispatchRecordPath: string; }
 
 export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult> {
-  const registry = new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter()]);
+  const registry = new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter(), new CopilotAdapter()]);
   const adapter = registry.get(i.vendor);
   if (!adapter) throw new Error(`vendor adapter not registered: ${i.vendor}`);
 
