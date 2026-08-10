@@ -97,7 +97,7 @@ These apply to **every task** in this plan unless a task explicitly overrides th
 
 - [ ] **Step 1: Create the runtime package directory and base files**
 
-`packages/runtime/package.json`:
+`packages/peaks-loop-internal-runtime/package.json`:
 ```json
 {
   "name": "@peaks-loop/runtime",
@@ -123,7 +123,7 @@ These apply to **every task** in this plan unless a task explicitly overrides th
 }
 ```
 
-`packages/runtime/tsconfig.json`:
+`packages/peaks-loop-internal-runtime/tsconfig.json`:
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -136,12 +136,12 @@ These apply to **every task** in this plan unless a task explicitly overrides th
 }
 ```
 
-`packages/runtime/src/index.ts`:
+`packages/peaks-loop-internal-runtime/src/index.ts`:
 ```ts
 export const RUNTIME_VERSION = '4.0.0';
 ```
 
-`packages/runtime/src/types.ts`:
+`packages/peaks-loop-internal-runtime/src/types.ts`:
 ```ts
 export type DetachedMode = 'in-process' | 'detached';
 export type VendorId = 'claude' | 'codex' | 'copilot';
@@ -158,7 +158,7 @@ export interface ChildStatus {
 
 - [ ] **Step 2: Register the workspace**
 
-`pnpm-workspace.yaml` — add `packages/runtime`:
+`pnpm-workspace.yaml` — confirm `packages/*` glob covers `peaks-loop-internal-runtime` (no change needed if glob is `packages/*`):
 ```yaml
 packages:
   - 'packages/*'
@@ -1894,7 +1894,7 @@ export class CodexAdapter implements VendorAdapter {
 }
 ```
 
-`packages/runtime/src/index.ts`:
+`packages/peaks-loop-internal-runtime/src/index.ts`:
 ```ts
 export { CodexAdapter } from './vendor/codex-adapter';
 ```

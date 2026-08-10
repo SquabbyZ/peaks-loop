@@ -5,7 +5,7 @@ status: draft
 date: 2026-08-10
 author: SquabbyZ (601709253@qq.com)
 skill: peaks-code
-scope: peaks-loop monorepo (adds packages/peaks-loop-internal-runtime/)
+scope: peaks-loop monorepo (adds packages/peaks-loop-internal-runtime/ with npm name `peaks-loop-internal-runtime`)
 ---
 
 # peaks-loop Detached Sub-Agent · Design
@@ -51,7 +51,7 @@ scope: peaks-loop monorepo (adds packages/peaks-loop-internal-runtime/)
 └────────────────────────────────────────────────────────────────────┘
                               ▲                  ▲
 ┌────────────────────────────────────────────────────────────────────┐
-│  Layer 2 · packages/peaks-loop-internal-runtime 子 package          │
+│  Layer 2 · packages/peaks-loop-internal-runtime 子 package（npm name `peaks-loop-internal-runtime`，与 peaks-loop-shared 平级）│
 │    ┌─ ProcessSupervisor   spawn / detach / PID / kill              │
 │    ┌─ VendorAdapterRegistry (claude/codex/copilot headless flag)   │
 │    ┌─ StatusProtocol       status file + heartbeat CLI 协议        │
@@ -79,15 +79,15 @@ scope: peaks-loop monorepo (adds packages/peaks-loop-internal-runtime/)
 
 | 组件 | 位置 | 职责 |
 |---|---|---|
-| `ProcessSupervisor` | `packages/runtime/src/process-supervisor.ts` | spawn / detach / PID 管理 / graceful shutdown。跨平台：Windows 用 `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`；POSIX 用 `setsid` + `nohup` |
-| `VendorAdapterRegistry` | `packages/runtime/src/vendor/registry.ts` | 注册 + 查找 vendor adapter；`getAdapter(vendorId)` |
-| `VendorAdapter` 接口 | `packages/runtime/src/vendor/adapter.ts` | `headlessArgs(prompt, opts)` / `parseStatusLine(stdoutBuf)` / `detectInstalled()` |
-| 3 个 vendor adapter | `packages/runtime/src/vendor/{claude,codex,copilot}-adapter.ts` | 各家 CLI 的 headless flag、output format regex、parse 逻辑 |
-| `PromptBuilder` | `packages/runtime/src/prompt-builder.ts` | 把 `rid + role + vendor + projectFiles + references` 拼成 vendor-specific prompt，**绝不包含 orchestrator session history** |
-| `StatusProtocol` | `packages/runtime/src/status-protocol.ts` | 读 `status.json`，合并到 dispatch record 的 heartbeat 数组；解析 prompt 内的 `<peaks-heartbeat .../>` 标记 |
-| `LifecycleOwner` | `packages/runtime/src/lifecycle.ts` | **闭环回收**（正常退出 + 异常 crash 都清理 PID / log / status file / owner-session）；orphan reaper |
-| `AutoCompactAdapter` | `packages/runtime/src/auto-compact-adapter.ts` | **G8 子进程无限上下文**：在子进程 prompt 里注入 `<peaks-auto-compact threshold="0.85\|0.95">` 标记；子进程 LLM 看到 0.85 → 主动 compact 自己的会话（写到 scratch 文件）；0.95 → 同步写 + 通知 peaks |
-| `ResourceBudgetGuard` | `packages/runtime/src/guards/resource-budget.ts` | 性能护栏：runtime 自身 ≤ 200MB / ≤ 5% CPU；fan-out ≤ 8 / 子代理 ≤ 1.5GB / CPU ≤ 75% / orphan ≤ 16（见 §5 性能护栏）|
+| `ProcessSupervisor` | `packages/peaks-loop-internal-runtime/src/process-supervisor.ts` | spawn / detach / PID 管理 / graceful shutdown。跨平台：Windows 用 `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`；POSIX 用 `setsid` + `nohup` |
+| `VendorAdapterRegistry` | `packages/peaks-loop-internal-runtime/src/vendor/registry.ts` | 注册 + 查找 vendor adapter；`getAdapter(vendorId)` |
+| `VendorAdapter` 接口 | `packages/peaks-loop-internal-runtime/src/vendor/adapter.ts` | `headlessArgs(prompt, opts)` / `parseStatusLine(stdoutBuf)` / `detectInstalled()` |
+| 3 个 vendor adapter | `packages/peaks-loop-internal-runtime/src/vendor/{claude,codex,copilot}-adapter.ts` | 各家 CLI 的 headless flag、output format regex、parse 逻辑 |
+| `PromptBuilder` | `packages/peaks-loop-internal-runtime/src/prompt-builder.ts` | 把 `rid + role + vendor + projectFiles + references` 拼成 vendor-specific prompt，**绝不包含 orchestrator session history** |
+| `StatusProtocol` | `packages/peaks-loop-internal-runtime/src/status-protocol.ts` | 读 `status.json`，合并到 dispatch record 的 heartbeat 数组；解析 prompt 内的 `<peaks-heartbeat .../>` 标记 |
+| `LifecycleOwner` | `packages/peaks-loop-internal-runtime/src/lifecycle.ts` | **闭环回收**（正常退出 + 异常 crash 都清理 PID / log / status file / owner-session）；orphan reaper |
+| `AutoCompactAdapter` | `packages/peaks-loop-internal-runtime/src/auto-compact-adapter.ts` | **G8 子进程无限上下文**：在子进程 prompt 里注入 `<peaks-auto-compact threshold="0.85\|0.95">` 标记；子进程 LLM 看到 0.85 → 主动 compact 自己的会话（写到 scratch 文件）；0.95 → 同步写 + 通知 peaks |
+| `ResourceBudgetGuard` | `packages/peaks-loop-internal-runtime/src/guards/resource-budget.ts` | 性能护栏：runtime 自身 ≤ 200MB / ≤ 5% CPU；fan-out ≤ 8 / 子代理 ≤ 1.5GB / CPU ≤ 75% / orphan ≤ 16（见 §5 性能护栏）|
 | CLI 入口 | `src/cli/commands/sub-agent/detached.ts` | `peaks sub-agent dispatch --mode detached` / `peaks sub-agent heartbeat --mode detached` / `peaks sub-agent cleanup --orphan` / `peaks vendor-detect` / `peaks doctor invoke --from-code` |
 | SKILL.md 改写 | `.claude/skills/peaks-code/SKILL.md` + `references/sub-agent-dispatch.md` | `--mode` 字段；orchestrator obligations 加 1 行（"emit one-line prose before detached dispatch"） |
 | Dashboard hook | `.claude/skills/peaks-code/references/lease-dashboard.html` | 加 `detachedGraphView` 容器 + 数据接口（空 div；渲染留后续 slice） |
@@ -354,13 +354,12 @@ type DispatchRecord = {
 
 ### 6.1 Monorepo 改造
 
-1. 在 `packages/` 下加 `peaks-loop-internal-runtime/`（pnpm workspace 自动识别）。
-2. `peaks-loop-shared` 现状不动；`peaks-loop-internal-runtime` 与 shared 平级。
-3. `peaks-loop` 顶层 monorepo package.json 加 workspace dep：`"@peaks-loop/runtime": "workspace:*"`。
-4. 既有 publish 流水线（`.github/workflows/publish.yml`）改：
+1. 在 `packages/` 下加 `peaks-loop-internal-runtime/`（npm name `peaks-loop-internal-runtime`，与 peaks-loop-shared 同命名约定，目录名前缀一致 `peaks-loop-`；pnpm workspace glob `packages/*` 自动识别）。
+2. `peaks-loop-shared` 现状不动；`peaks-loop-internal-runtime` 与 shared 平级（**注意**：现有 sibling packages 顶层 monorepo package.json 不互加 workspace dep——顶层 peaks-loop 通过 npm install 装 shared，sibling 之间也用 npm install 互装）。
+3. 既有 publish 流水线（`.github/workflows/publish.yml`）改：
    - 加 `peaks-loop-internal-runtime` 进 publish 列表。
    - 顺序：先发 runtime → 再发 shared → 再发 peaks-loop（避免 chicken-egg；4.0.14 lockstep sediment 已固化顺序）。
-5. `gate-cli-version` step 扩到 3 package（peaks-loop / peaks-loop-shared / peaks-loop-internal-runtime）必须同版本号。
+4. `gate-cli-version` step 扩到 3 package（peaks-loop / peaks-loop-shared / peaks-loop-internal-runtime）必须同版本号。
 
 ### 6.2 后向兼容
 
@@ -412,7 +411,7 @@ type DispatchRecord = {
 
 ## 8. 实施顺序（给后续 writing-plans 参考）
 
-1. **monorepo 骨架**：建 `packages/peaks-loop-internal-runtime/` + workspace dep。
+1. **monorepo 骨架**：建 `packages/peaks-loop-internal-runtime/`（npm name `peaks-loop-internal-runtime`）。
 2. **LifecycleOwner + ProcessSupervisor**（先闭环后功能）：先确保 spawn / detach / 闭环清理能跑通 mock vendor。
 3. **VendorAdapterRegistry + claude adapter**：先 1 个 vendor 验证通路。
 4. **PromptBuilder + StatusProtocol**：让子进程真能反馈进度。
