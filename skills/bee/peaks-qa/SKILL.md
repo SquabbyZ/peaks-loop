@@ -259,3 +259,7 @@ QA contracts to assert on the L2 surface (a minimal acceptance test set):
 2. `peaks worktree list` reports 0 active leases after a clean run.
 3. `peaks lease-metrics --rate` after a 1-spawn / 0-release test reports `estimatedLeaked: 1, completedLifetimes: 0`.
 4. `peaks audit red-lines` reports `proseOnly: 0` and `partial: 0` for any shipped L2 surface.
+
+## Sub-role detached mode (Phase C, slice 2026-08-10)
+
+QA sub-roles (`qa-business`, `qa-perf`, `qa-security`, `qa-business-api`, `qa-business-frontend`, `qa-business-regression`) accept `--mode detached --vendor <vendor>` for parallel test-case execution. Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached`, isolated from the orchestrator session. Use detached mode when the test-case writer's expected runtime exceeds 60s OR it processes ≥ 20 source files. The default remains `in-process` (backward compat; existing 106+ dispatch tests untouched). When `--mode detached` is used, the child QA agent receives the G8 infinite-context auto-compact marker (0.85 / 0.95 thresholds; unlimited spend authorized). See `peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.

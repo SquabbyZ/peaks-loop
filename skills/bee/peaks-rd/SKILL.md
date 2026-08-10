@@ -151,6 +151,10 @@ Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and
 
 Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) lives in **`references/parallel-review-fanout.md`**. Read that file before issuing any 3-way fan-out.
 
+## Reviewer fan-out detached mode (Phase C, slice 2026-08-10)
+
+Reviewer fan-out may run in detached mode for any of the 3-way fan-out roles (`code-reviewer`, `qa-test-cases-writer`, `karpathy-reviewer`). Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached --vendor <vendor>`, isolated from the orchestrator session. Use detached mode when the reviewer's expected runtime exceeds 60s OR processes ≥ 20 source files. Pass `--mode detached` explicitly per reviewer role; the default remains `in-process` (backward compat). The karpathy-reviewer's G8 infinite-context marker (auto-compact at 0.85/0.95, unlimited spend) is honored automatically when `--mode detached` is used. See `peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.
+
 ## Refactor hard gates
 
 If a request is refactor, cleanup, architecture adjustment, module split, or technical debt work: scan project structure and existing standards; locate or run UT coverage; block implementation unless coverage is >= 95%; treat missing, unknown, or unverifiable coverage as failing; generate intermediate artifacts before implementation; call or consume peaks-prd and peaks-qa artifacts even in direct RD mode; require strict slice spec before each slice; require 100% acceptance for the slice; require code changes and intermediate artifacts to be traceable in local `.peaks/_runtime/<sessionId>/` storage before continuing.
