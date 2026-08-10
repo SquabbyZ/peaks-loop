@@ -333,6 +333,26 @@ jobs:
           fi
           echo "On-disk CLI_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-shared@${shared_cli_version}"
 
+          # Phase A Task 15: extend gate to peaks-loop-internal-runtime
+          # (private package — NOT in the publish list; runtime is
+          # consumed via workspace:* from the monorepo, so an internal
+          # version drift still causes peaks-loop@<new> to pin a stale
+          # runtime. We assert on-disk RUNTIME_VERSION literal matches
+          # root_version).
+          if [ ! -f packages/peaks-loop-internal-runtime/src/index.ts ]; then
+            echo "::error title=missing runtime src/index.ts::publish.yml refuses to publish when peaks-loop-internal-runtime/src/index.ts is missing"
+            exit 1
+          fi
+          runtime_cli_version=$(grep -oE 'RUNTIME_VERSION = '"'"'[^'"'"']+'"'"'' packages/peaks-loop-internal-runtime/src/index.ts | head -1 \
+            | sed -E "s/RUNTIME_VERSION = '([^']+)'/\1/")
+          if [ "${runtime_cli_version}" != "${root_version}" ]; then
+            echo "::error title=runtime CLI_VERSION drift::peaks-loop-internal-runtime on-disk carries RUNTIME_VERSION=${runtime_cli_version} but root package.json is ${root_version}"
+            echo "::error::publish.yml refuses to publish when peaks-loop-internal-runtime/src/index.ts RUNTIME_VERSION literal lags the root version."
+            echo "::error::Fix: bump packages/peaks-loop-internal-runtime/src/index.ts RUNTIME_VERSION + package.json#version, commit, then re-tag."
+            exit 1
+          fi
+          echo "On-disk RUNTIME_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-internal-runtime@${runtime_cli_version}"
+
           # rid-010: precheck logic mirrors src/services/release/version-precheck-service.ts#runAllLayers (Layer A only; §(B) tarball-content gate below stays CI-only — AC-7 grep proof).
           # ---- (B) Tarball-content gate (AC4): pack shared, verify the
           # packed tarball's package/dist/version.js carries the same
