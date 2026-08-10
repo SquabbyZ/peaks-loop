@@ -1,5 +1,50 @@
 # Changelog
 
+## 4.0.19 — 2026-08-11 (detached sub-agent + G8 infinite-context — single-ship)
+
+**New feature — detached sub-agent mode (Phase A-E single-ship)**:
+- New monorepo package `peaks-loop-internal-runtime` (npm name `peaks-loop-internal-runtime`; sibling of `peaks-loop-shared`; private; consumed via `workspace:*`).
+- 11 new modules: `ProcessSupervisor` (Windows `DETACHED_PROCESS` + POSIX `setsid`), `LifecycleOwner` (closure invariant — 100% cleanup of pid / log.txt / status.json / owner-session on every exit path), `VendorAdapter` interface + `ClaudeAdapter` / `CodexAdapter` / `CopilotAdapter` + `VendorAdapterRegistry`, `PromptBuilder` (5-8KB minimum-context slice + forbidden-marker guard `@@@ORCHESTRATOR_SESSION_HISTORY_BOUNDARY@@@`), `StatusProtocol` (heartbeat merge + stale detection + autoCompact events), `AutoCompactAdapter` (G8 marker `<peaks-auto-compact threshold="0.85|0.95">` + scratch file parser), `ResourceBudgetGuard` (RSS ≤ 200MB / CPU ≤ 5% / fan-out ≤ 8 / `--no-throttle` user override), `dispatchDetached` orchestrator (wires all collaborators), `peaks-loop-internal-runtime/src/index.ts` (public re-exports).
+- 2 new CLI handlers: `src/cli/commands/sub-agent/detached.ts` (`peaks sub-agent dispatch <role> --mode detached --vendor claude|codex|copilot --no-throttle --max-concurrent <N>`), `src/cli/commands/vendor-detect.ts` (`peaks vendor-detect` — reports installed vendor CLIs + recommends default), `src/cli/commands/doctor/invoke-from-code.ts` (`peaks doctor invoke --from-code` — writes proposal stub for peaks-doctor bridge).
+- New bench: `benchmarks/runtime-detached/{baseline.ts, resource-budget-bench.ts}`. Idle sample: rssMb=79, cpuPct=0.34 (passes §5.3 ceiling rails).
+
+**G8 infinite-context auto-compact protocol (Phase A critical path)**:
+- Child vendor LLM receives `<peaks-auto-compact>` marker in minimum-context prompt.
+- At ≥ 0.85 of vendor window: child writes scratch file `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` (summary + decisionsKept + discardedOptions) + calls `peaks runtime write-compact-event` to append `autoCompactEvents[]` to dispatch record.
+- At ≥ 0.95: synchronous compact + status.json `note: 'compact-emergency'` + peaks main process notification.
+- **Unlimited spend authorized**: G8 red line; `tokenUsage` recorded on dispatch record for audit visibility only (no alert, no kill, no user ask).
+
+**LifecycleOwner closure invariant — core red line**:
+- Every exit path (success / crash / OOM-killed / SIGTERM / orchestrator session exit) MUST remove `pid` + `log.txt` + `status.json` + `owner-session` (archived to `log-archive.txt` + `status-final.json` for forensics).
+- Orphan reaper (RL-15: user-only decision; peaks does NOT auto-kill).
+- Unit + integration test coverage (4 lifecycle + 3 integration closure audit).
+
+**Performance ceiling rails (spec §5.3)**:
+- peaks runtime RSS ≤ 200 MB idle / CPU ≤ 5% idle / fan-out ≤ 8 (default).
+- `--no-throttle --max-concurrent <N>` bypasses (user accepts risk; adds warning to envelope).
+- `peaks sub-agent cleanup --orphan` is the only orphan-killing path.
+
+**Publish lockstep 3 packages (gate-cli-version extension)**:
+- `gate-cli-version` now verifies 3 lockstep dimensions: root `package.json#version` ↔ peaks-loop-shared `dist/version.js#CLI_VERSION` ↔ peaks-loop-internal-runtime `src/index.ts#RUNTIME_VERSION` (private package — NOT in publish list; runtime is consumed via workspace:* only).
+- 2/2 lockstep test passes (`tests/unit/publish/lockstep-three-packages.test.ts`).
+
+**Doc updates**:
+- `skills/peaks-code/SKILL.md` + `skills/peaks-code/references/sub-agent-dispatch.md` — Detached mode section + G11.5 orchestrator prose obligation.
+- `skills/bee/peaks-rd/SKILL.md` + `skills/bee/peaks-qa/SKILL.md` — reviewer / sub-role `--mode detached` paragraphs.
+- `skills/peaks-code/references/lease-dashboard.html` — `detachedGraphView` empty container hook (Phase E render deferred).
+- Spec: `docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md`.
+- Plan: `docs/superpowers/plans/2026-08-10-peaks-detached-sub-agent-plan.md`.
+
+**Tests added**: 11 vitest files (15 unit + 3 integration suites): process-supervisor, lifecycle, vendor/{claude,codex,copilot}-adapter, prompt-builder, status-protocol, auto-compact-adapter, resource-budget, dispatch, sub-agent-detached, vendor-detect, doctor-invoke-from-code, lockstep-three-packages. 0 regressions in existing 106+ dispatch tests.
+
+**CI fix (publish #142)**:
+- Explicit `.js` extensions in all relative imports under `packages/peaks-loop-internal-runtime/src` (peaks-loop uses `module: NodeNext`; vitest hides this but `tsc -p tsconfig.build.json` requires `.js`).
+- Added `"peaks-loop-internal-runtime": "workspace:*"` to root `package.json` (CLI handlers consume runtime via npm name import, not relative path into `packages/`).
+
+**Backwards compat**: 100%. Default dispatch mode remains `in-process`; existing 106+ dispatch tests untouched; peak-loop-shared retains its 0.0.x SemVer.
+
+**For full design context**: `docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md` §0 + §3.2 + §3.5 + §5.3 + §6.3. Closure sediment: `.peaks/memory/2026-08-11-runtime-detached-4-0-19-ship-pending.md`.
+
 ## 4.0.18 — 2026-08-10 (statusline 24h overlay)
 
 **Bug fix — statusline doesn't reflect 24h mode substate after transition**:
