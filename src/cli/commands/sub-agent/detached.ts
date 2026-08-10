@@ -8,8 +8,7 @@
  * This handler only fires when the user explicitly passes --mode detached.
  * Spec: docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md §3.1 §5.3
  */
-import { dispatchDetached } from '../../../../packages/peaks-loop-internal-runtime/src/dispatch';
-import { ResourceBudgetGuard } from '../../../../packages/peaks-loop-internal-runtime/src/guards/resource-budget';
+import { dispatchDetached, ResourceBudgetGuard } from 'peaks-loop-internal-runtime';
 
 export interface DispatchFlags {
   role: string;

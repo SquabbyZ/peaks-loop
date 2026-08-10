@@ -31,6 +31,9 @@ importers:
       headroom-ai:
         specifier: 0.22.4
         version: 0.22.4
+      peaks-loop-internal-runtime:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-internal-runtime
       peaks-loop-mut:
         specifier: workspace:*
         version: link:packages/peaks-loop-mut

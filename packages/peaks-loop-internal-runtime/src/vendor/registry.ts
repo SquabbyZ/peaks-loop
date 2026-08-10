@@ -1,7 +1,7 @@
-import type { VendorAdapter } from './adapter';
-import { ClaudeAdapter } from './claude-adapter';
-import { CodexAdapter } from './codex-adapter';
-import { CopilotAdapter } from './copilot-adapter';
+import type { VendorAdapter } from './adapter.js';
+import { ClaudeAdapter } from './claude-adapter.js';
+import { CodexAdapter } from './codex-adapter.js';
+import { CopilotAdapter } from './copilot-adapter.js';
 
 export class VendorAdapterRegistry {
   private map = new Map<string, VendorAdapter>();

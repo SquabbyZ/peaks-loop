@@ -3,7 +3,7 @@
  * Reports which vendor CLIs are installed on PATH + recommends default.
  * Spec: docs/superpowers/specs/2026-08-10-peaks-detached-sub-agent-design.md §3.3
  */
-import { defaultRegistry } from '../../../../packages/peaks-loop-internal-runtime/src/index';
+import { defaultRegistry } from 'peaks-loop-internal-runtime';
 
 export async function vendorDetect(opts: { json: boolean }) {
   const reg = defaultRegistry();

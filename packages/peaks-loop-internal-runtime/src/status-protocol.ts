@@ -1,4 +1,4 @@
-import type { ChildStatus } from './types';
+import type { ChildStatus } from './types.js';
 
 export interface HeartbeatEntry { progress: number; note: string; ts: number; }
 export interface AutoCompactEvent { at: number; threshold: '0.85' | '0.95'; tokensBefore: number; tokensAfter: number; scratchFile?: string; }

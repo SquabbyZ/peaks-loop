@@ -1,4 +1,4 @@
-import type { AutoCompactEvent } from './status-protocol';
+import type { AutoCompactEvent } from './status-protocol.js';
 
 export interface MarkerOpts { rid: string; sid: string; vendorWindow: number; }
 export interface ScratchPayload {

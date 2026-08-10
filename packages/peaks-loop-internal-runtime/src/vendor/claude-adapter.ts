@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { VendorAdapter } from './adapter';
-import type { ChildStatus } from '../types';
+import type { VendorAdapter } from './adapter.js';
+import type { ChildStatus } from '../types.js';
 
 const pExecFile = promisify(execFile);
 

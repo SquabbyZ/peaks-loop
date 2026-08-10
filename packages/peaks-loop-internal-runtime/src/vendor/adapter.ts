@@ -1,4 +1,4 @@
-import type { ChildStatus } from '../types';
+import type { ChildStatus } from '../types.js';
 
 export interface VendorAdapter {
   readonly id: 'claude' | 'codex' | 'copilot';
