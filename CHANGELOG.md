@@ -1,6 +1,15 @@
 # Changelog
 
-## 4.0.19 — 2026-08-11 (detached sub-agent + G8 infinite-context — single-ship)
+## 4.0.20 — 2026-08-11 (peaks-loop-internal-runtime published as public lockstep package)
+
+**Fix — peaks-loop@4.0.19 install 404 on `peaks-loop-internal-runtime`**:
+- peaks-loop-internal-runtime@4.0.19 was originally marked `private: true` (workspace-internal consumer only); but peaks-loop@4.0.19 tarball depends on it, so users installing peaks-loop@4.0.19 from the registry got `npm error 404 'peaks-loop-internal-runtime@4.0.0' is not in this registry` (the spec drift was that plan §6.1 said "runtime is private" but lockstep publish requires runtime to be public for npm to resolve the `peaks-loop-internal-runtime: "4.0.0"` rewrite in peaks-loop tarball).
+- Fix: remove `private: true` from `packages/peaks-loop-internal-runtime/package.json`, add `publishConfig.access: public`. Add `description` field. Bump version 4.0.19 → 4.0.20 (re-publish so runtime@4.0.20 lands on registry).
+- `gate-cli-version` (publish.yml) extended to verify runtime `RUNTIME_VERSION` (the API contract string, `4.0.20`) against root version; this stays in lockstep with `RUNTIME_NPM_VERSION` (the package.json#version, also `4.0.20`).
+
+**Backwards compat**: 100%. peaks-loop@4.0.20 is a drop-in for peaks-loop@4.0.19 once the registry has both peaks-loop@4.0.20 and peaks-loop-internal-runtime@4.0.20 published.
+
+## 4.0.19 — 2026-08-11 (detached sub-agent + G8 infinite-context — single-ship, SUPERSEDED)
 
 **New feature — detached sub-agent mode (Phase A-E single-ship)**:
 - New monorepo package `peaks-loop-internal-runtime` (npm name `peaks-loop-internal-runtime`; sibling of `peaks-loop-shared`; private; consumed via `workspace:*`).
