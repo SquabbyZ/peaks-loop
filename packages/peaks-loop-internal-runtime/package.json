@@ -1,0 +1,22 @@
+{
+  "name": "peaks-loop-internal-runtime",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run tests/unit/runtime"
+  },
+  "peerDependencies": {
+    "peaks-loop-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "4.1.10"
+  }
+}
