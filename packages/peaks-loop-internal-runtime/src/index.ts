@@ -8,3 +8,4 @@ export { PromptBuilder } from './prompt-builder';
 export { StatusProtocol } from './status-protocol';
 export type { HeartbeatEntry, AutoCompactEvent } from './status-protocol';
 export { AutoCompactAdapter } from './auto-compact-adapter';
+export { ResourceBudgetGuard } from './guards/resource-budget';
