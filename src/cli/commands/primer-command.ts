@@ -161,7 +161,20 @@ export async function runPrimerAction(
 }
 
 export function registerPrimerCommand(program: Command, io: ProgramIO): void {
-  const session = program.command('session');
+  // Reuse the existing `session` commander group registered earlier
+  // in `createProgram` (via autoRegisterAllCommands → session-command.ts:32).
+  // Creating a new `program.command('session')` here throws
+  // `cannot add command 'session' as already have command 'session'`
+  // because commander disallows duplicate top-level command names.
+  // This regression was caught in publish.yml gate-changeset step
+  // (run #134, exit 1) on the first 4.0.18 release attempt.
+  const session = program.commands.find((c) => c.name() === 'session');
+  if (!session) {
+    throw new Error(
+      'registerPrimerCommand: session group not registered; ' +
+        'autoRegisterAllCommands must run before registerPrimerCommand'
+    );
+  }
   session
     .command('primer')
     .description(
