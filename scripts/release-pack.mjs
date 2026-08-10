@@ -64,6 +64,15 @@ function discoverSubpackages() {
     if (!existsSync(pkgJsonPath)) continue;
     const spec = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
     if (typeof spec.name !== 'string' || spec.name.length === 0) continue;
+    // Slice 2026-08-10 peaks-loop-internal-runtime: private packages
+    // are workspace-internal consumers (consumed via workspace:* from
+    // the monorepo, NOT published to npm). Including them in the
+    // publish list triggers npm error code EPRIVATE and aborts the
+    // whole pipeline. Skip them here; pnpm pack + npm publish both
+    // respect package.json#private=true individually (pnpm pack
+    // still packs them for the gate-cli-version on-disk check; we
+    // just don't try to publish them to the registry).
+    if (spec.private === true) continue;
     out.push({ dir: `packages/${entry.name}`, name: spec.name, version: spec.version });
   }
   return out;
