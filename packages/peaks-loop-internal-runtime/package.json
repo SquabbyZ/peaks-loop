@@ -2,6 +2,10 @@
   "name": "peaks-loop-internal-runtime",
   "version": "0.0.1",
   "description": "Detached sub-agent runtime: ProcessSupervisor + LifecycleOwner + VendorAdapter (claude/codex/copilot) + G8 infinite-context auto-compact. Slice 2026-08-10.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SquabbyZ/peaks-loop"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
