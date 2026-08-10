@@ -1,5 +1,6 @@
 import type { VendorAdapter } from './adapter';
 import { ClaudeAdapter } from './claude-adapter';
+import { CodexAdapter } from './codex-adapter';
 
 export class VendorAdapterRegistry {
   private map = new Map<string, VendorAdapter>();
@@ -11,4 +12,4 @@ export class VendorAdapterRegistry {
   list(): VendorAdapter[] { return [...this.map.values()]; }
 }
 
-export const defaultRegistry = () => new VendorAdapterRegistry([new ClaudeAdapter()]);
+export const defaultRegistry = () => new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter()]);

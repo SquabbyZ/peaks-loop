@@ -1,5 +1,6 @@
 export const RUNTIME_VERSION = '4.0.19';
 export { ClaudeAdapter } from './vendor/claude-adapter';
+export { CodexAdapter } from './vendor/codex-adapter';
 export { VendorAdapterRegistry, defaultRegistry } from './vendor/registry';
 export type { VendorAdapter } from './vendor/adapter';
 export { ProcessSupervisor } from './process-supervisor';
