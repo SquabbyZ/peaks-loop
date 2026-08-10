@@ -423,3 +423,19 @@ After every sub-agent dispatch returns, Code **restores presence** once (not per
 ```bash
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-converged
 ```
+
+---
+
+## Detached Mode (Phase A, slice 2026-08-10)
+
+`peaks sub-agent dispatch <role> --prompt <text> --request-id <rid> --mode detached --vendor claude|codex|copilot [--no-throttle --max-concurrent <N>] --json` spawns a real OS process independent of the orchestrator IDE session.
+
+- **Cross-platform spawn**: Windows uses `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`; POSIX uses `setsid` + `nohup`. Implementation: `packages/peaks-loop-internal-runtime/src/process-supervisor.ts`.
+- **Minimum-context prompt**: `PromptBuilder` emits a 5–8KB slice `{rid, role, vendor, files, refs}` plus the verbatim `<peaks-auto-compact>` marker. The forbidden marker `@@@ORCHESTRATOR_SESSION_HISTORY_BOUNDARY@@@` MUST NOT appear in any prompt (unit-tested; regression fails vitest).
+- **G8 infinite context**: the child LLM self-monitors context; on ≥0.85 it compacts and writes `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json`; on ≥0.95 it writes `status.json` note `'compact-emergency'`. peaks runtime does NOT throttle on token cost — user authorized unlimited spend for G8 (recorded as `tokenUsage` on the dispatch record for audit visibility only).
+- **Lifecycle closure invariant**: `pid` / `log.txt` / `status.json` / `owner-session` 100% cleaned on every exit path (success / crash / OOM / SIGTERM). `peaks sub-agent cleanup --orphan` is the only orphan-killing path (RL-15: user-only decision; default is "do nothing").
+- **Resource budget guard**: `ResourceBudgetGuard` enforces `runtime RSS ≤ 200MB / idle CPU ≤ 5% / fan-out ≤ 8 (default)`. `--no-throttle` bypasses (user accepts risk; adds warning to envelope). `--max-concurrent <N>` overrides the 8 default.
+- **Vendor-neutral**: `VendorAdapterRegistry` registers `ClaudeAdapter` (Phase A) / `CodexAdapter` + `CopilotAdapter` (Phase B). Missing vendor CLI → fallback to default with `dispatchRecord.warning = 'vendor fallback: <id>→claude'`.
+- **Orchestrator prose obligation (G11.5)**: before each detached dispatch, emit `⏳ Spawning detached sub-agent via <vendor>: rid=<rid> (ETA ~60s)`. Envelope field `data.orchestratorVisibleHint` carries the same string for tooling.
+
+Default mode remains `in-process` (backward compat). The dispatch CLI accepts `--mode in-process|detached`; existing 106+ tests dispatching without `--mode` continue to use the in-process IDE-internal Task path.

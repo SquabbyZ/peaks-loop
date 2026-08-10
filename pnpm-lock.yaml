@@ -102,6 +102,19 @@ importers:
         specifier: ^3.25.2
         version: 3.25.2(zod@3.25.76)
 
+  packages/peaks-loop-internal-runtime:
+    dependencies:
+      peaks-loop-shared:
+        specifier: workspace:*
+        version: link:../peaks-loop-shared
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(patch_hash=8345f65f3461f834377a05e49a9728f673f2f66a7dc6d8c8043e969bbbbe66b2)(@types/node@22.19.19)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))(vite@6.4.3(@types/node@22.19.19)(tsx@4.22.0)(yaml@2.9.0))
+
   packages/peaks-loop-mut:
     dependencies:
       zod:

@@ -100,7 +100,7 @@ These apply to **every task** in this plan unless a task explicitly overrides th
 `packages/peaks-loop-internal-runtime/package.json`:
 ```json
 {
-  "name": "@peaks-loop/runtime",
+  "name": "peaks-loop-internal-runtime",
   "version": "4.0.0",
   "private": true,
   "type": "module",
@@ -114,7 +114,7 @@ These apply to **every task** in this plan unless a task explicitly overrides th
     "test": "vitest run tests/unit/runtime"
   },
   "peerDependencies": {
-    "@peaks-loop/shared": "workspace:*"
+    "peaks-loop-shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
@@ -165,12 +165,7 @@ packages:
   - '.'
 ```
 
-Root `package.json` — add dependency:
-```json
-"dependencies": {
-  "@peaks-loop/runtime": "workspace:*"
-}
-```
+Root `package.json` — **不要** 加 workspace dep（peaks-loop 顶层通过 npm install 装 peaks-loop-shared；runtime 跟 peaks-loop 顶层是 sibling，不在 root deps）。sibling 之间不互加 workspace dep。
 
 - [ ] **Step 3: Run install to verify workspace wiring**
 
@@ -179,14 +174,14 @@ Expected: `Lockfile is up to date` and `packages/runtime` appears in `pnpm ls`.
 
 - [ ] **Step 4: Build and confirm export resolves**
 
-Run: `pnpm --filter @peaks-loop/runtime build`
-Expected: emits `packages/runtime/dist/index.js` and `dist/index.d.ts`.
+Run: `pnpm --filter peaks-loop-internal-runtime build`
+Expected: emits `packages/peaks-loop-internal-runtime/dist/index.js` and `dist/index.d.ts`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add packages/runtime package.json pnpm-workspace.yaml pnpm-lock.yaml
-git commit -m "feat(runtime): scaffold @peaks-loop/runtime monorepo package"
+git commit -m "feat(runtime): scaffold peaks-loop-internal-runtime monorepo package"
 ```
 
 ---
