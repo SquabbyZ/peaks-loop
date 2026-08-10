@@ -106,16 +106,13 @@ export interface DispatchRecord {
    * defaulted to `null` on read so v3 records upgrade cleanly.
    */
   /**
-   * Slice 2026-07-29-rid-prose-only-sweep Part 34: schema v3.1
-   * is the explicit minor bump that records the
-   * `isolationStartedAt` (Part 7) and `leaseId` (Part 3.A.1 +
-   * Part 4.C) fields as part of the canonical schema. v3
-   * records on disk upgrade transparently — see `upgradeRecord`
-   * in this file. The literal type ('3.1') is the source of
-   * truth for "this record is v3.1-form"; readers check
-   * `version === '3.1'` for forward-compatible dispatching.
+   * Phase A Task 8: schema bumped to v4.1.0 (additive). The bump
+   * is purely additive — new fields (`mode`, `vendor`,
+   * `autoCompactEvents`, `tokenUsage`) all default safely on
+   * read for legacy v4.0.0 / v3.2 / v3.1 / v3 / v2 / v1 records.
+   * No existing field semantics changed.
    */
-  readonly version: '4.0.0';
+  readonly version: '4.1.0';
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly outcome: DispatchOutcome;
@@ -214,6 +211,49 @@ export interface DispatchRecord {
   readonly workflowId: string | null;
   readonly graphNodeId: string | null;
   readonly graphRef: string | null;
+  /**
+   * Phase A Task 8: dispatch execution mode. `in-process` is the
+   * current behavior (LLM-side runner, no separate OS process).
+   * `detached` is the new path: `peaks sub-agent dispatch --mode
+   * detached` spawns a real child OS process running a different
+   * LLM vendor (claude / codex / copilot) and reports back via
+   * the dispatch record. v4.1.0 is the additive bump; legacy v4.0.0
+   * records upgrade to `in-process` on read.
+   */
+  readonly mode: 'in-process' | 'detached';
+  /**
+   * Phase A Task 8: vendor id when `mode='detached'`. `null` when
+   * the dispatch is in-process. Reserved for future use; current
+   * detached sub-agents use `claude` but the schema also accepts
+   * `codex` and `copilot` for the vendor-neutral adapter layer.
+   */
+  readonly vendor: 'claude' | 'codex' | 'copilot' | null;
+  /**
+   * Phase A Task 8: G8 autoCompact events accumulated by the child
+   * LLM during a detached run. Each event records the threshold
+   * that fired (0.85 = first warning, 0.95 = second warning) plus
+   * token counts before/after. Empty for in-process dispatches
+   * and for legacy records upgraded on read.
+   */
+  readonly autoCompactEvents: ReadonlyArray<{
+    readonly at: number;
+    readonly threshold: '0.85' | '0.95';
+    readonly tokensBefore: number;
+    readonly tokensAfter: number;
+    readonly scratchFile?: string;
+  }>;
+  /**
+   * Phase A Task 8: G8 token-usage accounting for detached sub-agents.
+   * Detached runs have "unlimited spend but recorded" semantics —
+   * the cost is recorded for audit but not enforced. `null` when
+   * the dispatch is in-process (no detached accounting) or for
+   * legacy records upgraded on read.
+   */
+  readonly tokenUsage: {
+    readonly promptTokens: number;
+    readonly completionTokens: number;
+    readonly totalCostUsd?: number;
+  } | null;
 }
 
 /** Input for the initial write. */
@@ -251,6 +291,39 @@ export type WriteInitialDispatchInput = {
   workflowId?: string | null;
   graphNodeId?: string | null;
   graphRef?: string | null;
+  /**
+   * Phase A Task 8: dispatch execution mode. Default `'in-process'`
+   * preserves the current LLM-side runner behavior. `'detached'`
+   * triggers the new real-OS-process path via
+   * `peaks sub-agent dispatch --mode detached`.
+   */
+  mode?: 'in-process' | 'detached';
+  /**
+   * Phase A Task 8: vendor id when `mode='detached'`. Required by
+   * the adapter layer to know which CLI / runtime to spawn. The
+   * schema accepts the three vendors peaks-loop has adapters for
+   * (claude / codex / copilot). Ignored when `mode='in-process'`.
+   */
+  vendor?: 'claude' | 'codex' | 'copilot';
+  /**
+   * Phase A Task 8: G8 autoCompact events accumulated by the child
+   * LLM. Optional on input — most dispatches start with an empty
+   * array and the detached runner appends events as they fire.
+   */
+  autoCompactEvents?: Array<{
+    at: number;
+    threshold: '0.85' | '0.95';
+    tokensBefore: number;
+    tokensAfter: number;
+    scratchFile?: string;
+  }>;
+  /**
+   * Phase A Task 8: G8 token-usage accounting. Detached runs
+   * record spend for audit (unlimited, but persisted). Optional
+   * on input; the detached runner fills this in as it streams
+   * usage from the vendor API.
+   */
+  tokenUsage?: { promptTokens: number; completionTokens: number; totalCostUsd?: number };
 };
 
 /** Heartbeat write input. */
@@ -344,7 +417,7 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
 function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () => Date): DispatchRecord {
   const { role, requestId, sessionId, prompt, toolCall, batchId } = input;
   return {
-    version: '4.0.0',
+    version: '4.1.0',
     createdAt: now().toISOString(),
     completedAt: null,
     outcome: 'no-execution',
@@ -399,6 +472,25 @@ function buildInitialDispatchRecord(input: WriteInitialDispatchInput, now: () =>
     workflowId: typeof input.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.workflowId) ? input.workflowId : null,
     graphNodeId: typeof input.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(input.graphNodeId) ? input.graphNodeId : null,
     graphRef: typeof input.graphRef === 'string' && input.graphRef.length > 0 ? input.graphRef : null,
+    // Phase A Task 8: detached sub-agent mode (default in-process).
+    mode: input.mode === 'detached' ? 'detached' : 'in-process',
+    vendor: input.vendor === 'claude' || input.vendor === 'codex' || input.vendor === 'copilot' ? input.vendor : null,
+    autoCompactEvents: Array.isArray(input.autoCompactEvents)
+      ? input.autoCompactEvents.filter((e): e is { at: number; threshold: '0.85' | '0.95'; tokensBefore: number; tokensAfter: number; scratchFile?: string } =>
+          typeof e?.at === 'number' &&
+          (e?.threshold === '0.85' || e?.threshold === '0.95') &&
+          typeof e?.tokensBefore === 'number' &&
+          typeof e?.tokensAfter === 'number',
+        )
+      : [],
+    tokenUsage:
+      typeof input.tokenUsage === 'object' && input.tokenUsage !== null && typeof input.tokenUsage.promptTokens === 'number' && typeof input.tokenUsage.completionTokens === 'number'
+        ? {
+            promptTokens: input.tokenUsage.promptTokens,
+            completionTokens: input.tokenUsage.completionTokens,
+            ...(typeof input.tokenUsage.totalCostUsd === 'number' ? { totalCostUsd: input.tokenUsage.totalCostUsd } : {}),
+          }
+        : null,
   };
 }
 
@@ -987,14 +1079,15 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     throw new Error('Dispatch record root must be an object');
   }
   const obj = parsed as Record<string, unknown>;
-  // Slice 4.0.8: 3.2 → 4.0.0 schema bump. The literal type narrows
-  // to '4.0.0' but legacy v3.2 / v3.1 / 3 / 2 / 1 records are
-  // accepted transparently and upgraded on read.
+  // Slice 4.0.8: 3.2 → 4.0.0 schema bump. Phase A Task 8: 4.0.0 → 4.1.0
+  // (additive). The literal type narrows to '4.1.0' but legacy v4.0.0 /
+  // v3.2 / v3.1 / 3 / 2 / 1 records are accepted transparently and
+  // upgraded on read.
   const rawVersion = obj.version;
-  if (rawVersion !== '4.0.0' && rawVersion !== '3.2' && rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
+  if (rawVersion !== '4.1.0' && rawVersion !== '4.0.0' && rawVersion !== '3.2' && rawVersion !== '3.1' && rawVersion !== 3 && rawVersion !== 2 && rawVersion !== 1) {
     throw new Error(
-      `Dispatch record version mismatch: expected '4.0.0', '3.2', '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
-      'The v1 → v4.0.0 migration is in-file; records from much older or newer builds must be regenerated.'
+      `Dispatch record version mismatch: expected '4.1.0', '4.0.0', '3.2', '3.1', 3, 2, or 1, got ${JSON.stringify(rawVersion)}. ` +
+      'The v1 → v4.1.0 migration is in-file; records from much older or newer builds must be regenerated.'
     );
   }
 
@@ -1002,7 +1095,7 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
   const migration = parseUpgradeRecordMigrationFields(obj);
 
   return {
-    version: '4.0.0',
+    version: '4.1.0',
     createdAt: legacy.createdAt,
     completedAt: legacy.completedAt,
     outcome: legacy.outcome,
@@ -1025,7 +1118,16 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     mergeBackAttempts: migration.mergeBackAttempts,
     workflowId: migration.workflowId,
     graphNodeId: migration.graphNodeId,
-    graphRef: migration.graphRef
+    graphRef: migration.graphRef,
+    // Phase A Task 8: detached sub-agent fields. Legacy records
+    // (pre-4.1.0) default mode='in-process', vendor=null,
+    // autoCompactEvents=[], tokenUsage=null. See
+    // parseUpgradeRecordMigrationFields for the per-field
+    // validation rules.
+    mode: migration.mode,
+    vendor: migration.vendor,
+    autoCompactEvents: migration.autoCompactEvents,
+    tokenUsage: migration.tokenUsage
   };
 }
 
@@ -1125,6 +1227,16 @@ function parseUpgradeRecordMigrationFields(obj: Record<string, unknown>): {
   readonly workflowId: string | null;
   readonly graphNodeId: string | null;
   readonly graphRef: string | null;
+  readonly mode: 'in-process' | 'detached';
+  readonly vendor: 'claude' | 'codex' | 'copilot' | null;
+  readonly autoCompactEvents: ReadonlyArray<{
+    readonly at: number;
+    readonly threshold: '0.85' | '0.95';
+    readonly tokensBefore: number;
+    readonly tokensAfter: number;
+    readonly scratchFile?: string;
+  }>;
+  readonly tokenUsage: { readonly promptTokens: number; readonly completionTokens: number; readonly totalCostUsd?: number } | null;
 } {
   return {
     // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1 / PB-2)
@@ -1166,7 +1278,33 @@ function parseUpgradeRecordMigrationFields(obj: Record<string, unknown>): {
     // fields to `null` so a legacy record upgrades transparently.
     workflowId: typeof obj.workflowId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(obj.workflowId) ? obj.workflowId : null,
     graphNodeId: typeof obj.graphNodeId === 'string' && /^[a-zA-Z0-9._-]{1,200}$/.test(obj.graphNodeId) ? obj.graphNodeId : null,
-    graphRef: typeof obj.graphRef === 'string' ? obj.graphRef : null
+    graphRef: typeof obj.graphRef === 'string' ? obj.graphRef : null,
+    // Phase A Task 8: 4.0.0 → 4.1.0 migration. Pre-4.1.0 records
+    // have no mode / vendor / autoCompactEvents / tokenUsage
+    // fields. Default to safe in-process / null / [] / null so
+    // legacy records upgrade transparently without breaking
+    // consumers (e.g. the dashboard, the merge-back-runner).
+    mode: obj.mode === 'detached' ? 'detached' : 'in-process',
+    vendor: obj.vendor === 'claude' || obj.vendor === 'codex' || obj.vendor === 'copilot' ? obj.vendor : null,
+    autoCompactEvents: Array.isArray(obj.autoCompactEvents)
+      ? (obj.autoCompactEvents as Array<Record<string, unknown>>).filter(
+          (e): e is { at: number; threshold: '0.85' | '0.95'; tokensBefore: number; tokensAfter: number; scratchFile?: string } =>
+            typeof e?.at === 'number' &&
+            (e?.threshold === '0.85' || e?.threshold === '0.95') &&
+            typeof e?.tokensBefore === 'number' &&
+            typeof e?.tokensAfter === 'number',
+        )
+      : [],
+    tokenUsage:
+      typeof obj.tokenUsage === 'object' && obj.tokenUsage !== null && typeof (obj.tokenUsage as Record<string, unknown>).promptTokens === 'number' && typeof (obj.tokenUsage as Record<string, unknown>).completionTokens === 'number'
+        ? {
+            promptTokens: (obj.tokenUsage as Record<string, unknown>).promptTokens as number,
+            completionTokens: (obj.tokenUsage as Record<string, unknown>).completionTokens as number,
+            ...(typeof (obj.tokenUsage as Record<string, unknown>).totalCostUsd === 'number'
+              ? { totalCostUsd: (obj.tokenUsage as Record<string, unknown>).totalCostUsd as number }
+              : {}),
+          }
+        : null
   };
 }
 
