@@ -1,4 +1,4 @@
-export const RUNTIME_VERSION = '4.0.0';
+export const RUNTIME_VERSION = '4.0.19';
 export { ClaudeAdapter } from './vendor/claude-adapter';
 export { VendorAdapterRegistry, defaultRegistry } from './vendor/registry';
 export type { VendorAdapter } from './vendor/adapter';
