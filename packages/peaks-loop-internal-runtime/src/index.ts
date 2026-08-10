@@ -4,3 +4,4 @@ export { VendorAdapterRegistry, defaultRegistry } from './vendor/registry';
 export type { VendorAdapter } from './vendor/adapter';
 export { ProcessSupervisor } from './process-supervisor';
 export { LifecycleOwner } from './lifecycle';
+export { PromptBuilder } from './prompt-builder';
