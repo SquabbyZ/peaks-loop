@@ -9,3 +9,5 @@ export { StatusProtocol } from './status-protocol';
 export type { HeartbeatEntry, AutoCompactEvent } from './status-protocol';
 export { AutoCompactAdapter } from './auto-compact-adapter';
 export { ResourceBudgetGuard } from './guards/resource-budget';
+export { dispatchDetached } from './dispatch';
+export type { DispatchInput, DispatchResult } from './dispatch';
