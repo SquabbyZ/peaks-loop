@@ -5,3 +5,5 @@ export type { VendorAdapter } from './vendor/adapter';
 export { ProcessSupervisor } from './process-supervisor';
 export { LifecycleOwner } from './lifecycle';
 export { PromptBuilder } from './prompt-builder';
+export { StatusProtocol } from './status-protocol';
+export type { HeartbeatEntry, AutoCompactEvent } from './status-protocol';
