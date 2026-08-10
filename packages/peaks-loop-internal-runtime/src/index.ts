@@ -1,4 +1,4 @@
-export const RUNTIME_VERSION = '4.0.23';
+export const RUNTIME_VERSION = '4.0.19';
 export { ClaudeAdapter } from './vendor/claude-adapter';
 export { CodexAdapter } from './vendor/codex-adapter';
 export { CopilotAdapter } from './vendor/copilot-adapter';
