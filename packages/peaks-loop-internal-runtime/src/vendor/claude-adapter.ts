@@ -1,9 +1,6 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import type { VendorAdapter } from './adapter.js';
 import type { ChildStatus } from '../types.js';
-
-const pExecFile = promisify(execFile);
+import { detectBinaryInstalled } from './detect-binary.js';
 
 export class ClaudeAdapter implements VendorAdapter {
   readonly id = 'claude' as const;
@@ -33,9 +30,6 @@ export class ClaudeAdapter implements VendorAdapter {
   }
 
   async detectInstalled(): Promise<boolean> {
-    try {
-      const { stdout } = await pExecFile(this.binary, ['--version'], { timeout: 3000 });
-      return stdout.length > 0;
-    } catch { return false; }
+    return detectBinaryInstalled(this.binary);
   }
 }
