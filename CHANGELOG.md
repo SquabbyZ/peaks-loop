@@ -1,5 +1,39 @@
 # Changelog
 
+## 4.0.23 — 2026-08-11 (Bump to NEW version — per Rule 3 unpublish 24-72h grace)
+
+**1 atomic commits from session 2026-08-11** + Layer 3 fix verify (publish.yml no auto-bump):
+
+**Why 4.0.23 not 4.0.22**: per peaks-loop-publishing-critical-hard-rules rule 3:
+> Cannot unpublish on npm (OIDC Trusted Publishing fails `npm unpublish` / `npm deprecate`). For repeated retries, prefer bumping to a NEW version.
+
+Per npm unpublish policy: versions can only be re-published within 24-72 hours of unpublish. Operator manually unpublished `peaks-loop@4.0.22` earlier this session (~10:20Z); 4.0.22 npm slot is now in the 24-72h grace window where republish is blocked. 5 force-push attempts of `v4.0.22` all failed at the final `Publish to npm` step with the same symptom (14/15 gates pass; final OIDC publish step fails for unpublish-related reason invisible to non-admin logs).
+
+**Solution per rule 3**: bump to a NEW version (`4.0.23`); 4.0.22 npm slot permanently retired (or wait 72h then retry — out of session scope).
+
+**Lockstep contract** (per Lesson 2):
+- peaks-loop root `package.json#version`: 4.0.22 → **4.0.23**
+- peaks-loop-shared `src/version.ts` `CLI_VERSION`: 4.0.22 → **4.0.23**
+- peaks-loop-shared `package.json#version`: 0.0.56 → **0.0.57**
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_VERSION`: 4.0.22 → **4.0.23**
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_NPM_VERSION`: 0.0.7 → **0.0.8**
+- peaks-loop-internal-runtime `package.json#version`: 0.0.7 → **0.0.8**
+
+**Code unchanged from 4.0.21 / intended-4.0.22** — this is purely a version bump to bypass the npm unpublish grace window.
+
+**Pre-publish registry state** (this version is bumping over):
+- `peaks-loop@4.0.21` ✓ on registry (current latest)
+- `peaks-loop@4.0.22` ✗ unpublished + in 24-72h grace
+- `peaks-loop-shared@0.0.56` ✓ auto-shipped in earlier partial-publish
+- `peaks-loop-internal-runtime@0.0.7` ✓ auto-shipped in earlier partial-publish
+
+**Pending follow-up (out of 4.0.23 scope)**:
+- F2 detached architecture heavy refactor (in-shell background subprocess) — already shipped as `0622933d`
+- F8 skill-resolution slice (session 7f7f78 original intent; rid-002/003/004 scope unknown — needs user scoping first)
+- Layer 4 dual-side lockstep guard test (per Lesson 2 — peaks-loop-shared CLI_VERSION + peaks-loop-internal-runtime RUNTIME_VERSION)
+- F3 vendor-detect Windows ENOENT true fix (PATHEXT silent catch)
+- 4.0.22 npm slot retry after 72h grace window expires (~13:00Z + 72h = ~Sat 13:00Z)
+
 ## 4.0.22 — 2026-08-11 (Layer 3 publish.yml fix verification — same code as 4.0.21)
 
 **1 atomic commits from session 2026-08-11 continuation + Layer 3 fix verify**:
