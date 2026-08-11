@@ -6,6 +6,10 @@ coverage/
 .DS_Store
 .gstack/
 .codegraph/
+# Slice rid-CG-003 — preferred managed location for peaks-loop-managed
+# codegraph data. The legacy root `.codegraph/` rule above is preserved
+# for downstream consumers that pre-date the preferred-path move.
+.peaks/.codegraph/
 .peaks/_runtime/
 # slice 2.5.0 sub-fix C: peaks playwright start session records.
 # The directory lives under _runtime/ so it is already covered by

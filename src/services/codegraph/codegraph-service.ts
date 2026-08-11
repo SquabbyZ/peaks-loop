@@ -226,6 +226,11 @@ function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: stri
 export function createCodegraphInvocation(options: CodegraphInvocationOptions): CodegraphInvocation {
   assertSupportedSubcommand(options.subcommand);
   const projectRoot = resolveProjectRoot(options.project);
+  // Slice rid-CG-003 — spawn the upstream binary inside the
+  // resolved codegraph dir's PARENT so its default `.codegraph/`
+  // discovery lands on `.peaks/.codegraph/` (preferred) or
+  // `.codegraph/` (legacy fallback).
+  const location = resolveCodegraphProjectRoot(projectRoot);
 
   assertSupportedOptions(options);
   assertRequiredOptions(options);
@@ -235,7 +240,7 @@ export function createCodegraphInvocation(options: CodegraphInvocationOptions): 
   return {
     executable: CODEGRAPH_EXECUTABLE,
     args: buildCommandArgs(options, projectRoot),
-    cwd: projectRoot,
+    cwd: location.cwd,
     packageName: CODEGRAPH_PACKAGE_NAME,
     packageVersion: CODEGRAPH_PACKAGE_VERSION,
     subcommand: options.subcommand
@@ -250,18 +255,82 @@ export async function executeCodegraphInvocation(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Slice rid-CG-006 — downstream init conflict guard
+ * Slice rid-CG-003 — preferred `.peaks/.codegraph/` lookup + legacy
+ * root `.codegraph/` fallback (spike follow-up #1).
  * ────────────────────────────────────────────────────────────────────── */
 
 /**
- * Marker file peaks-loop writes inside `.codegraph/` after a
- * successful upstream init. Its presence distinguishes
+ * Slice rid-CG-006 — root `.codegraph/` (legacy). peaks-loop still
+ * reads from this location for back-compat with downstream consumers
+ * whose projects pre-date the slice rid-CG-003 preferred-path move.
+ */
+export const CODEGRAPH_DIR_NAME = '.codegraph';
+/**
+ * Slice rid-CG-003 — preferred managed location. Going forward
+ * peaks-loop writes here; legacy root `.codegraph/` is only used
+ * when it pre-exists AND `.peaks/.codegraph/` does not.
+ */
+export const PREFERRED_CODEGRAPH_DIR = '.peaks/.codegraph';
+/**
+ * Marker file peaks-loop writes inside the resolved codegraph dir
+ * after a successful upstream init. Its presence distinguishes
  * peaks-loop-managed schemas from foreign ones (aider / cody /
  * etc. all happily use the same directory name).
  */
-export const CODEGRAPH_DIR_NAME = '.codegraph';
 export const CODEGRAPH_MARKER_NAME = '.peaks-loop-marker';
 export const CODEGRAPH_INIT_CONFLICT_EXIT_CODE = 73;
+
+export type ResolvedCodegraphLocation =
+  | { readonly source: 'preferred'; readonly cwd: string; readonly codegraphDir: string }
+  | { readonly source: 'legacy'; readonly cwd: string; readonly codegraphDir: string }
+  | { readonly source: 'fresh-preferred'; readonly cwd: string; readonly codegraphDir: string };
+
+/**
+ * Slice rid-CG-003 — pure resolver that returns the cwd the
+ * upstream codegraph binary should be spawned with and the
+ * absolute path to the data directory it should read/write.
+ *
+ * Precedence:
+ *   1. `<projectRoot>/.peaks/.codegraph/` exists → use it
+ *      (cwd = `<projectRoot>/.peaks`, codegraphDir = preferred path)
+ *   2. `<projectRoot>/.codegraph/` exists → fall back to legacy
+ *      (cwd = `<projectRoot>`, codegraphDir = legacy path)
+ *   3. neither exists → default to the preferred path so the next
+ *      `peaks codegraph init` lands in `.peaks/.codegraph/`
+ *      (cwd = `<projectRoot>/.peaks`, codegraphDir = preferred path,
+ *       `source: 'fresh-preferred'`)
+ *
+ * The cwd is the directory the upstream binary treats as "project
+ * root" — the binary's default codegraph discovery reads
+ * `<cwd>/.codegraph/`, so we always set cwd to the PARENT of the
+ * resolved codegraph dir. Pure fs check; no IO beyond `existsSync`.
+ */
+export function resolveCodegraphProjectRoot(projectRoot: string): ResolvedCodegraphLocation {
+  const preferredDir = join(projectRoot, PREFERRED_CODEGRAPH_DIR);
+  const legacyDir = join(projectRoot, CODEGRAPH_DIR_NAME);
+
+  if (existsSync(preferredDir)) {
+    return {
+      source: 'preferred',
+      cwd: join(projectRoot, '.peaks'),
+      codegraphDir: preferredDir
+    };
+  }
+
+  if (existsSync(legacyDir)) {
+    return {
+      source: 'legacy',
+      cwd: projectRoot,
+      codegraphDir: legacyDir
+    };
+  }
+
+  return {
+    source: 'fresh-preferred',
+    cwd: join(projectRoot, '.peaks'),
+    codegraphDir: preferredDir
+  };
+}
 
 export type CodegraphInitGuardResult =
   | { status: 'fresh'; codegraphDir: string }
@@ -280,13 +349,12 @@ export class CodegraphInitConflictError extends Error {
 
 export type CodegraphInitGuard = (projectRoot: string) => CodegraphInitGuardResult;
 
-export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGuardResult {
-  const codegraphDir = join(projectRoot, CODEGRAPH_DIR_NAME);
-
-  if (!existsSync(codegraphDir)) {
-    return { status: 'fresh', codegraphDir };
-  }
-
+/**
+ * Inspect a candidate codegraph directory and return its guard
+ * status. A file (or symlink-to-file) at the path counts as a
+ * foreign-schema conflict because it blocks directory creation.
+ */
+function inspectCandidateCodegraphDir(codegraphDir: string): CodegraphInitGuardResult {
   let isDir = false;
   try {
     isDir = statSync(codegraphDir).isDirectory();
@@ -294,9 +362,6 @@ export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGua
     isDir = false;
   }
   if (!isDir) {
-    // A file (or symlink-to-file) named `.codegraph` blocks
-    // directory creation. Surface as a foreign-schema conflict so
-    // the caller can move the file or pass --force (future slice).
     return { status: 'conflict-foreign-schema', codegraphDir };
   }
 
@@ -306,6 +371,29 @@ export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGua
   }
 
   return { status: 'conflict-foreign-schema', codegraphDir };
+}
+
+/**
+ * Slice rid-CG-003 — preferred-path-first init guard.
+ *
+ * Looks at `.peaks/.codegraph/` first; falls back to `.codegraph/`
+ * when the preferred path is absent. The 'fresh' case returns the
+ * preferred path so the next `peaks codegraph init` lands inside
+ * `.peaks/` instead of polluting the project root.
+ */
+export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGuardResult {
+  const preferredDir = join(projectRoot, PREFERRED_CODEGRAPH_DIR);
+  const legacyDir = join(projectRoot, CODEGRAPH_DIR_NAME);
+
+  if (existsSync(preferredDir)) {
+    return inspectCandidateCodegraphDir(preferredDir);
+  }
+
+  if (existsSync(legacyDir)) {
+    return inspectCandidateCodegraphDir(legacyDir);
+  }
+
+  return { status: 'fresh', codegraphDir: preferredDir };
 }
 
 /**
