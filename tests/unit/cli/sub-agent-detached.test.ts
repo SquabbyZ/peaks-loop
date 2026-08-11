@@ -8,19 +8,24 @@
 //   2. --no-throttle + --max-concurrent flag plumbing (Task 11.5 budget ceiling).
 //   3. Refuses when mode != detached (backward compat — default stays in-process).
 //
-// Imports use the relative path that matches `tests/unit/runtime/dispatch.test.ts`
-// (peaks-loop-internal-runtime has no tsconfig path alias; sibling tests use
-// relative imports).
+// Mock-target contract (rid-001 redo): mocks target the
+// `peaks-loop-internal-runtime` workspace alias (NOT the handler module
+// itself, and NOT the deep TS-source path). The handler
+// (src/cli/commands/sub-agent/detached.ts) imports via the package alias
+// which resolves to node_modules/peaks-loop-internal-runtime/dist/*.js;
+// mocking at the alias intercepts ALL import shapes. The previous
+// path-based mocks crashed because the production handler bypasses the
+// mocked source TS file and reads the compiled `dist/` instead,
+// letting `await dispatchDetached()` reach a real `claude` spawn
+// (ENOENT) — same-source fake-green as the original rid-001 defect.
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../../packages/peaks-loop-internal-runtime/src/dispatch', () => ({
+vi.mock('peaks-loop-internal-runtime', () => ({
   dispatchDetached: vi.fn(async () => ({
     pid: 1234,
     dispatchRecordPath: '/x/dispatch-r1.json',
   })),
-}));
-vi.mock('../../../packages/peaks-loop-internal-runtime/src/guards/resource-budget', () => ({
   ResourceBudgetGuard: class {
     constructor(_cfg: { maxRssMb: number; maxCpuPct: number }) {}
     sample() { return { rssMb: 100, cpuPct: 1 }; }

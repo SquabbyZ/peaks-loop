@@ -83,6 +83,7 @@ import { registerSwarmCommands } from './swarm-commands.js';
 import { registerTechCommands } from './tech-commands.js';
 import { registerTestCommands } from './test-commands.js';
 import { registerUnderstandCommands } from './understand-commands.js';
+import { registerVendorDetectCommand } from './vendor-detect.js';
 import { registerUpgradeCommands } from './upgrade-commands.js';
 import { registerUserTouchpointCommands } from './user-touchpoint-commands.js';
 import { registerVerdictAggregateCommands } from './verdict-aggregate-command.js';
@@ -148,6 +149,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['worktree-auth-commands', registerWorktreeAuthCommand],
   ['session-spill-demo', registerSpillDemoCommand],
   ['outer-cache-commands', registerOuterCacheCommands],
+  ['vendor-detect', registerVendorDetectCommand],
 ];
 
 function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO): void {

@@ -100,8 +100,59 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .requiredOption('--graph-node <id>', 'graph node id this dispatch binds to (RD §4 D4c)')
       .option('--workflow-id <id>', 'workflow id the graph node belongs to (defaults to derived from session)')
       .option('--graph-ref <ref>', 'graphRef (defaults to graphs/<workflow-id>.json)')
+      // rid-001 detached sub-agent dispatch: 4 new options. Default
+      // mode is `in-process` so the 106+ existing dispatch call sites
+      // keep their path byte-identical. The detached branch below
+      // fires only when --mode detached is explicitly passed.
+      .option('--mode <mode>', 'dispatch execution mode: in-process (default, dry-run envelope only) | detached (shell out to peaks-loop-internal-runtime/dispatch.dispatchDetached for real vendor CLI execution).')
+      .option('--vendor <vendor>', 'target vendor CLI for --mode detached (claude | codex | copilot). Ignored in the default in-process path.')
+      .option('--no-throttle', 'rid-001 detached: user-overrides ResourceBudgetGuard when concurrent fan-out exceeds max-concurrent (user accepts risk; surfaces as warning)')
+      .option('--max-concurrent <n>', 'rid-001 detached: override the per-tenant max concurrent budget (default 8). Effective in both detached and in-process paths.')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
+    // rid-001 detached sub-agent dispatch: when --mode detached is
+    // explicitly requested, lazy-import the detached handler and short-
+    // circuit before the warm-path in-process pipeline runs. Branch
+    // lives in the existing action handler (NOT a sibling `peaks
+    // sub-agent-detached` command) per the slice decision memo:
+    //   - 106+ existing dispatch tests reach this exact action path
+    //   - Backward compat requires the default (no --mode) to keep
+    //     the in-process envelope shape byte-identical
+    //   - One validation entry-point reduces double-pipe maintenance
+    if (options.mode === 'detached') {
+      try {
+        const { dispatch: detachedDispatch } = await import('./sub-agent/detached.js');
+        const projectRoot = options.project ?? process.cwd();
+        const maxConcurrent = typeof options.maxConcurrent === 'string' && options.maxConcurrent.length > 0
+          ? Number.parseInt(options.maxConcurrent, 10)
+          : undefined;
+        const result = await detachedDispatch({
+          role,
+          prompt: typeof options.prompt === 'string' ? options.prompt : '',
+          requestId: options.requestId ?? 'unknown-rid',
+          mode: 'detached',
+          ...(typeof options.vendor === 'string' ? { vendor: options.vendor } : {}),
+          project: projectRoot,
+          json: asJson,
+          ...(options.noThrottle === true ? { noThrottle: true } : {}),
+          ...(typeof maxConcurrent === 'number' && Number.isInteger(maxConcurrent) && maxConcurrent > 0
+            ? { maxConcurrent }
+            : {}),
+        });
+        printResult(io, ok(result.command, result.data, result.warnings ?? [], result.nextActions ?? []), asJson);
+      } catch (error: unknown) {
+        printResult(io, fail('sub-agent.dispatch', 'DISPATCH_DETACHED_ERROR', getErrorMessage(error), {
+          role,
+          toolCall: null,
+          dispatchRecordPath: null
+        } as never, [
+          'If --mode detached fails on import, the peaks-loop-internal-runtime package may be missing; reinstall and retry.',
+          'For environments without a vendor CLI on PATH, drop --mode to fall back to the default in-process dry-run.'
+        ]), asJson);
+        process.exitCode = 1;
+      }
+      return;
+    }
     // 2.7.0 slice-dag-dispatcher MVP: --from-dag short-circuits the single
     // sub-agent path and runs the full DAG plan via `dag-orchestrator`.
     if (typeof options.fromDag === 'string' && options.fromDag.length > 0) {

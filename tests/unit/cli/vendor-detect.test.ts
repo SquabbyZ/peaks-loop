@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../../../packages/peaks-loop-internal-runtime/src/index', () => ({
+// Mock at the workspace alias 'peaks-loop-internal-runtime' (NOT the
+// source-file path). The handler (src/cli/commands/vendor-detect.ts)
+// imports via the package alias which resolves to
+// node_modules/peaks-loop-internal-runtime/dist/index.js. Mocking at
+// the alias intercepts ALL import shapes — the old path-based mocks
+// crashed because the production handler bypasses the mocked source.
+vi.mock('peaks-loop-internal-runtime', () => ({
   defaultRegistry: () => ({
     list: () => [
       { id: 'claude', detectInstalled: vi.fn(async () => true) },

@@ -77,6 +77,34 @@ export type DispatchOptions = {
   graphNode?: string;
   workflowId?: string;
   graphRef?: string;
+  /**
+   * rid-001 detached sub-agent dispatch (slice 2026-08-11): dispatch
+   * execution mode. `in-process` (default) keeps the existing warm-path
+   * CLI dispatch; `detached` shells out to
+   * `peaks-loop-internal-runtime/dispatch.dispatchDetached` for vendor
+   * CLI execution. Default `in-process` preserves backward compat with
+   * the 106+ existing dispatch call sites.
+   */
+  mode?: 'in-process' | 'detached';
+  /**
+   * rid-001 detached sub-agent dispatch: target vendor CLI when
+   * --mode detached is selected. Only consulted in the detached path;
+   * ignored in the default in-process path. Accepts `claude | codex
+   * | copilot` (matches VendorAdapterRegistry).
+   */
+  vendor?: 'claude' | 'codex' | 'copilot';
+  /**
+   * rid-001 Task 11.5 budget ceiling: user-overrides ResourceBudgetGuard
+   * when active concurrent fan-out would otherwise throttle detached
+   * dispatch. The user accepts the risk; surfaces as `warnings[]` only.
+   */
+  noThrottle?: boolean;
+  /**
+   * rid-001 Task 11.5: override the per-tenant max-concurrent budget
+   * (default 8). Effective in both detached (ResourceBudgetGuard) and
+   * in-process (batch-counter) paths.
+   */
+  maxConcurrent?: string;
   json?: boolean;
 };
 
