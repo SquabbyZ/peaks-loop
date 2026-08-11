@@ -1,5 +1,37 @@
 # Changelog
 
+## 4.0.22 — 2026-08-11 (Layer 3 publish.yml fix verification — same code as 4.0.21)
+
+**1 atomic commits from session 2026-08-11 continuation + Layer 3 fix verify**:
+
+- `fix(runtime): detached sub-agent now in-shell background subprocess` (`0622933d`, 4 files / +164/-11)
+- `fix(publish.yml): DELETE Auto-bump version step at line 189 (Layer 3 follow-up to peaks-loop-publishing-critical-hard-rules rule 1)` (`9aff3545`, 1 file / +20/-48)
+- `fix(publish.yml): convert DELETED Auto-bump step to YAML comment (no run: clause = workflow parse error)` (`7e3cec22`, 1 file / +7/-22)
+- `chore(release): bump to 4.0.22 — Layer 3 fix verification` (`8be4d694`, 5 files / +6/-6)
+
+**Layer 3 fix verification**: this 4.0.22 publish is the FIRST publish after DELETEing publish.yml:189 (`Auto-bump version per smallest-semver policy` step). Previous 4.0.21 + 4.0.22 retry attempts both got auto-bumped past operator intent by line 189; the auto-bump step was the root cause of the 4.0.21/4.0.22 redirect saga. This 4.0.22 publish uses `bump-version.mjs` idempotently (--to 4.0.22 no-op since local is already 4.0.22) + exact-tag-as-authoritative contract enforced by `Verify exact tag matches bumped root version` gate (rid-017 D3).
+
+**publish.yml run progression** (#31489608863):
+1. ✓ Checkout / setup pnpm / setup Node.js / npm 11+ upgrade
+2. ✓ Strict vX.Y.Z tag format gate
+3. ✓ Idempotency guard
+4. ✓ **(no Auto-bump step)** — Layer 3 fix verified effective
+5. ✓ Sync README badges
+6. ✓ Build + Vitest
+7. ✓ Verify peaks-loop-shared tarball CLI_VERSION parity (4.0.22 == 4.0.22)
+8. ✓ gate-capability-baseline
+9. ✓ Verify peaks-loop-internal-runtime RUNTIME_VERSION parity (4.0.22 == 4.0.22)
+
+**Code unchanged from 4.0.21 ship** — this is a re-version to verify the publish.yml fix, not a feature release.
+
+**Lockstep contract** (per Lesson 2):
+- peaks-loop root `package.json#version`: 4.0.22
+- peaks-loop-shared `src/version.ts` `CLI_VERSION`: 4.0.22
+- peaks-loop-shared `package.json#version`: 0.0.56 (next available after 0.0.55 — skipped 0.0.55 because auto-bump during 4.0.21 publish already shipped 0.0.55)
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_VERSION`: 4.0.22
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_NPM_VERSION`: 0.0.7 (next available after 0.0.6)
+- peaks-loop-internal-runtime `package.json#version`: 0.0.7
+
 ## 4.0.21 — 2026-08-11 (Batch A: vendor-detect recovery + codegraph integration + anti-fake-green gate)
 
 **7 atomic commits from session 2026-08-11 (rid-001 redo → 8-子任务 codegraph → Batch A F1-F7)** + 4.0.21 lockstep bump + changelog entry:
