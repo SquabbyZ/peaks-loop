@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ChildProcess } from 'node:child_process';
 import { ProcessSupervisor } from './process-supervisor.js';
 import { LifecycleOwner } from './lifecycle.js';
 import { VendorAdapterRegistry } from './vendor/registry.js';
@@ -18,7 +19,7 @@ export interface DispatchInput {
   runtimeDir: string; subAgentsDir: string;
   verbatimBlocks?: string[];
 }
-export interface DispatchResult { pid: number; dispatchRecordPath: string; }
+export interface DispatchResult { pid: number; dispatchRecordPath: string; child?: ChildProcess; }
 
 export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult> {
   const registry = new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter(), new CopilotAdapter()]);
@@ -53,5 +54,5 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
     status: 'running', heartbeats: [], at: Date.now(),
   }, null, 2));
 
-  return { pid: handle.pid, dispatchRecordPath: recPath };
+  return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child };
 }

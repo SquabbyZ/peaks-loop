@@ -46,38 +46,33 @@ export async function dispatch(f: DispatchFlags) {
     warnings.push('user-overrode: --no-throttle (peak runtime may exceed performance ceiling)');
   }
 
-  // rid-001 fix: pre-existing unhandled 'error' event from 9bdeaba7 — when
-  // the vendor CLI is not on PATH, the underlying ChildProcess spawn fires
-  // an async 'error' event AFTER dispatchDetached returns. Node.js's default
-  // unhandled 'error' throws and kills the process. The actual ChildProcess
-  // is owned by peaks-loop-internal-runtime (out of scope), so register a
-  // process-level handler that swallows ENOENT for the dispatch window.
-  const onUncaught = (err: NodeJS.ErrnoException) => {
-    if (err && err.code === 'ENOENT') return;
-    throw err;
-  };
-  process.on('uncaughtException', onUncaught);
+  // rid-001 fix (F1 follow-up): the vendor CLI's ChildProcess is owned by
+  // peaks-loop-internal-runtime/dispatch.dispatchDetached, which now exposes
+  // it via DispatchResult.child. When the vendor binary is not on PATH the
+  // spawn fires an async 'error' event after dispatchDetached returns; we
+  // attach a per-child handler that swallows ENOENT (expected when the user
+  // hasn't installed claude/codex/copilot) and logs anything else. This is
+  // the canonical pattern (matches codegraph-process-runner.ts) — no more
+  // process-level uncaughtException swallow.
   const sid = process.env.PEAKS_SESSION_ID ?? 'local';
-  let r: { pid: number; dispatchRecordPath: string };
-  try {
-    r = await dispatchDetached({
-      sid,
-      rid: f.requestId,
-      role: f.role as 'rd' | 'qa' | 'ui' | 'txt' | 'general-purpose',
-      vendor: (f.vendor ?? 'claude') as 'claude' | 'codex' | 'copilot',
-      userTask: f.prompt,
-      files: [],
-      refs: [],
-      runtimeDir: `.peaks/_runtime/${sid}/detached`,
-      subAgentsDir: `.peaks/_sub_agents/${sid}`,
-    });
-    // Settle: let the async 'error' event fire (or resolve cleanly) before
-    // removing the handler. 50ms is sufficient for ENOENT propagation on
-    // Windows / macOS / Linux per Node.js child_process behavior.
-    await new Promise<void>((res) => setTimeout(res, 50));
-  } finally {
-    process.removeListener('uncaughtException', onUncaught);
-  }
+  let r: { pid: number; dispatchRecordPath: string; child?: import('node:child_process').ChildProcess };
+  r = await dispatchDetached({
+    sid,
+    rid: f.requestId,
+    role: f.role as 'rd' | 'qa' | 'ui' | 'txt' | 'general-purpose',
+    vendor: (f.vendor ?? 'claude') as 'claude' | 'codex' | 'copilot',
+    userTask: f.prompt,
+    files: [],
+    refs: [],
+    runtimeDir: `.peaks/_runtime/${sid}/detached`,
+    subAgentsDir: `.peaks/_sub_agents/${sid}`,
+  });
+  r.child?.on('error', (err: NodeJS.ErrnoException) => {
+    if (err && err.code === 'ENOENT') return;
+    // Non-ENOENT child errors are surfaced to stderr; the dispatch envelope
+    // has already been written and the detached child is fire-and-forget.
+    console.error('[peaks sub-agent dispatch] detached child error:', err);
+  });
 
   return {
     ok: true,
