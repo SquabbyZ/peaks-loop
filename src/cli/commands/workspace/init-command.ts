@@ -33,6 +33,11 @@ import { resolveCanonicalProjectRoot } from '../../../services/config/config-ser
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
 import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
 import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
+import {
+  defaultCodegraphInitGuard,
+  writeCodegraphMarker
+} from '../../../services/codegraph/codegraph-service.js';
+import { mkdirSync } from 'node:fs';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -508,6 +513,38 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         markStandardsChecked(projectRoot, sessionId);
       }
 
+      // rid-CG-001: auto-stake a peaks-loop-managed `.codegraph/`
+      // directory after a successful workspace init. Calls the
+      // conflict guard (rid-CG-006) BEFORE writing so a foreign
+      // schema is never silently overwritten. We deliberately do
+      // NOT spawn the upstream codegraph binary here — `peaks
+      // workspace init` must stay fast and offline-safe; the user
+      // runs `peaks codegraph index` next if they want the actual
+      // SQLite-backed index.
+      let codegraphAutoOutcome: { status: 'fresh' | 'noop' | 'conflict' } | null = null;
+      try {
+        const guard = defaultCodegraphInitGuard(projectRoot);
+        if (guard.status === 'fresh') {
+          mkdirSync(guard.codegraphDir, { recursive: true });
+          writeCodegraphMarker(guard.codegraphDir);
+          codegraphAutoOutcome = { status: 'fresh' };
+          nextActions.push(
+            `Auto-created empty ${guard.codegraphDir}/ and stamped the peaks-loop marker. ` +
+              'Run `peaks codegraph index --project <path>` next to build the SQLite-backed index.'
+          );
+        } else if (guard.status === 'noop-already-peaks-loop') {
+          codegraphAutoOutcome = { status: 'noop' };
+        } else {
+          codegraphAutoOutcome = { status: 'conflict' };
+          warningsForEnvelope.push(
+            `${guard.codegraphDir} already exists with a non-peaks-loop schema; ` +
+              'refusing to auto-init codegraph. Run `peaks codegraph init --project <path>` after moving the foreign directory.'
+          );
+        }
+      } catch (err) {
+        warningsForEnvelope.push(`codegraph auto-stake failed: ${getErrorMessage(err)}`);
+      }
+
       printResult(
         io,
         ok(
@@ -526,6 +563,8 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
               scope: hooksOutcome.scope,
               ...(hooksOutcome.reason !== undefined ? { reason: hooksOutcome.reason } : {})
             },
+            // rid-CG-001: surface codegraph auto-stake outcome.
+            ...(codegraphAutoOutcome !== null ? { codegraphAutoStake: codegraphAutoOutcome } : {}),
             // Slice 2026-07-15-project-scan-bootstrap (G2): envelope
             // for the .peaks/project-scan/ bootstrap. Always present
             // (even when skipped / errored) so downstream readers can

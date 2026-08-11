@@ -1,6 +1,15 @@
 import { Command, InvalidArgumentError } from 'commander';
-import { createCodegraphInvocation, executeCodegraphInvocation, type CodegraphInvocationOptions } from '../../services/codegraph/codegraph-service.js';
-import { fail } from 'peaks-loop-shared/result';
+import { statSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+  createCodegraphInvocation,
+  executeCodegraphInvocation,
+  defaultCodegraphInitGuard,
+  writeCodegraphMarker,
+  CodegraphInitConflictError,
+  type CodegraphInvocationOptions
+} from '../../services/codegraph/codegraph-service.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
@@ -90,6 +99,124 @@ async function runCodegraphCommand(io: ProgramIO, command: string, options: Code
   }
 }
 
+/**
+ * rid-CG-006 — init conflict guard. Resolves the project root and
+ * probes `.codegraph/` for the peaks-loop marker before invoking the
+ * upstream binary.
+ *
+ *   - fresh                          → proceed to upstream init
+ *   - noop-already-peaks-loop        → skip upstream, emit warning
+ *   - conflict-foreign-schema        → exit 73 + CODEGRAPH_INIT_CONFLICT envelope
+ *
+ * On a successful upstream init, write the marker so the next run
+ * hits the noop branch instead of the conflict branch.
+ */
+async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOptions, asJson?: boolean): Promise<void> {
+  let projectRoot: string;
+  try {
+    const candidate = resolve(options.project);
+    if (!statSync(candidate).isDirectory()) {
+      throw new Error('Project path must exist and be a directory');
+    }
+    projectRoot = candidate;
+  } catch (error) {
+    printCodegraphFailure(io, 'codegraph.init', error, asJson);
+    return;
+  }
+
+  const guardOutcome = defaultCodegraphInitGuard(projectRoot);
+
+  if (guardOutcome.status === 'noop-already-peaks-loop') {
+    printResult(
+      io,
+      ok(
+        'codegraph.init',
+        {
+          guard: guardOutcome.status,
+          codegraphDir: guardOutcome.codegraphDir,
+          markerPresent: true
+        },
+        [`.codegraph/ is already managed by peaks-loop; init is a no-op. Marker: ${guardOutcome.codegraphDir}/.peaks-loop-marker`],
+        ['Run `peaks codegraph index` to (re)build the index without touching the schema.']
+      ),
+      asJson
+    );
+    return;
+  }
+
+  if (guardOutcome.status === 'conflict-foreign-schema') {
+    const conflict = new CodegraphInitConflictError(
+      `Refusing to init: ${guardOutcome.codegraphDir} already exists with a non-peaks-loop schema. ` +
+        'Move or rename the foreign directory, then re-run `peaks codegraph init`.',
+      guardOutcome.codegraphDir
+    );
+    printResult(
+      io,
+      fail('codegraph.init', conflict.code, conflict.message, { codegraphDir: conflict.codegraphDir }, [
+        'Move or rename the foreign .codegraph/ directory before retrying.',
+        'Or remove .codegraph/ if you are sure no other tool owns it.',
+        'Or run `peaks codegraph init --project <path> --force` once the foreign-tool safety flag ships (tracked in rid-CG-006).'
+      ]),
+      asJson
+    );
+    process.exitCode = conflict.exitCode;
+    return;
+  }
+
+  // guardOutcome.status === 'fresh' — proceed.
+  try {
+    const invocation = createCodegraphInvocation({
+      subcommand: 'init',
+      project: options.project,
+      ...(options.yes === true ? { yes: true } : {})
+    });
+    const result = await executeCodegraphInvocation(invocation);
+    const didFail = result.exitCode !== null && result.exitCode !== 0;
+
+    if (result.stdout.length > 0) {
+      io.stdout((didFail ? redactSensitiveErrorMessage(result.stdout) : result.stdout).trimEnd());
+    }
+    if (result.stderr.length > 0) {
+      io.stderr((didFail ? redactSensitiveErrorMessage(result.stderr) : result.stderr).trimEnd());
+    }
+
+    if (didFail) {
+      if (asJson === true) {
+        printCodegraphFailure(
+          io,
+          'codegraph.init',
+          new Error(result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`),
+          true,
+          result.exitCode ?? 1
+        );
+      }
+      process.exitCode = result.exitCode ?? 1;
+      return;
+    }
+
+    // Upstream succeeded — stamp the marker so the next run hits the
+    // noop branch. Best-effort: a marker-write failure must NOT undo
+    // the upstream init (peaks-loop still owns the schema logically).
+    try {
+      writeCodegraphMarker(guardOutcome.codegraphDir);
+    } catch {
+      // intentionally swallowed — surface as warning below
+    }
+    printResult(
+      io,
+      ok(
+        'codegraph.init',
+        { guard: guardOutcome.status, codegraphDir: guardOutcome.codegraphDir, markerWritten: true },
+        [],
+        [`Stamped peaks-loop marker at ${guardOutcome.codegraphDir}/.peaks-loop-marker`]
+      ),
+      asJson
+    );
+  } catch (error) {
+    printCodegraphFailure(io, 'codegraph.init', error, asJson);
+  }
+}
+
 export function registerCodegraphCommands(program: Command, io: ProgramIO): void {
   const codegraph = program.command('codegraph').description('Run upstream codegraph commands through the Peaks launcher');
 
@@ -98,17 +225,7 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
   );
 
   addProjectOption(codegraph.command('init').description('Initialize codegraph for a project').option('--yes', 'answer yes to upstream prompts')).action(
-    (options: CodegraphInitOptions) =>
-      runCodegraphCommand(
-        io,
-        'codegraph.init',
-        {
-          subcommand: 'init',
-          project: options.project,
-          ...(options.yes === true ? { yes: true } : {})
-        },
-        options.peaksJson
-      )
+    (options: CodegraphInitOptions) => runCodegraphInitCommand(io, options, options.peaksJson)
   );
 
   addProjectOption(

@@ -1,6 +1,6 @@
-import { existsSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
 
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
@@ -246,4 +246,80 @@ export async function executeCodegraphInvocation(
   runner: CodegraphProcessRunner = defaultCodegraphProcessRunner
 ): Promise<CodegraphExecutionResult> {
   return runner(invocation);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Slice rid-CG-006 — downstream init conflict guard
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Marker file peaks-loop writes inside `.codegraph/` after a
+ * successful upstream init. Its presence distinguishes
+ * peaks-loop-managed schemas from foreign ones (aider / cody /
+ * etc. all happily use the same directory name).
+ */
+export const CODEGRAPH_DIR_NAME = '.codegraph';
+export const CODEGRAPH_MARKER_NAME = '.peaks-loop-marker';
+export const CODEGRAPH_INIT_CONFLICT_EXIT_CODE = 73;
+
+export type CodegraphInitGuardResult =
+  | { status: 'fresh'; codegraphDir: string }
+  | { status: 'noop-already-peaks-loop'; codegraphDir: string }
+  | { status: 'conflict-foreign-schema'; codegraphDir: string };
+
+export class CodegraphInitConflictError extends Error {
+  public readonly code = 'CODEGRAPH_INIT_CONFLICT';
+  public readonly exitCode = CODEGRAPH_INIT_CONFLICT_EXIT_CODE;
+
+  public constructor(message: string, public readonly codegraphDir: string) {
+    super(message);
+    this.name = 'CodegraphInitConflictError';
+  }
+}
+
+export type CodegraphInitGuard = (projectRoot: string) => CodegraphInitGuardResult;
+
+export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGuardResult {
+  const codegraphDir = join(projectRoot, CODEGRAPH_DIR_NAME);
+
+  if (!existsSync(codegraphDir)) {
+    return { status: 'fresh', codegraphDir };
+  }
+
+  let isDir = false;
+  try {
+    isDir = statSync(codegraphDir).isDirectory();
+  } catch {
+    isDir = false;
+  }
+  if (!isDir) {
+    // A file (or symlink-to-file) named `.codegraph` blocks
+    // directory creation. Surface as a foreign-schema conflict so
+    // the caller can move the file or pass --force (future slice).
+    return { status: 'conflict-foreign-schema', codegraphDir };
+  }
+
+  const markerPath = join(codegraphDir, CODEGRAPH_MARKER_NAME);
+  if (existsSync(markerPath)) {
+    return { status: 'noop-already-peaks-loop', codegraphDir };
+  }
+
+  return { status: 'conflict-foreign-schema', codegraphDir };
+}
+
+/**
+ * Pure-fs helper that stamps the peaks-loop marker AFTER a
+ * successful upstream init. The CLI action must call this after
+ * `executeCodegraphInvocation` returns exit 0.
+ */
+export function writeCodegraphMarker(codegraphDir: string): void {
+  writeFileSync(join(codegraphDir, CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+}
+
+/**
+ * Test seam — pure stub of the default guard. Lets callers inject a
+ * pre-computed outcome without touching the real filesystem.
+ */
+export function constantCodegraphInitGuard(outcome: CodegraphInitGuardResult): CodegraphInitGuard {
+  return () => outcome;
 }
