@@ -274,6 +274,38 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 
 ---
 
+## Downstream consumer notes
+
+If you maintain a project that depends on `peaks-loop` (or that runs `npm install peaks-loop` as part of CI / contributor onboarding), three behaviors are worth pinning in your head:
+
+- **`codegraph` is a transitive dependency.** `peaks-loop` pins `@colbymchenry/codegraph@0.7.10` in its `dependencies`, so `npm install` / `pnpm install` will pull it automatically. The CLI command group `peaks codegraph …` (status / init / index / query / files / context / affected) is shipped inside `dist/services/codegraph/`. No extra install step required.
+- **`.codegraph/` directory ownership is shared.** Tools like aider, cody, and similar agents also create a top-level `.codegraph/`. `peaks codegraph init` will refuse to overwrite a foreign schema and exits with code 73 + a `CODEGRAPH_INIT_CONFLICT` envelope. If your project already has a `.codegraph/` from another tool, move / rename it (or remove it if you no longer need it) before running `peaks codegraph init`.
+- **Session binding lives under `.peaks/_runtime/<sessionId>/`.** Codegraph orchestration context (and other per-session evidence) is written there by RD / QA slices. Add `.peaks/_runtime/` to your project's `.gitignore` to avoid committing local session state. A missing / unbound session produces a graceful skip-with-warning, never a crash.
+- **Doctor fallback for yarn-pnp / pnpm-strict.** `peaks doctor` falls back to a filesystem walk when `require.resolve('@colbymchenry/codegraph/package.json')` throws, so downstream installs under strict resolution modes still get a green check (or a `severity: 'warning'` if the version drifted from the pinned `0.7.10`).
+- **Tarball size / verify.** Each release ships the codegraph service under `dist/services/codegraph/`. Per-release verification lives at `scripts/verify-codegraph-tarball.mjs` (run `node scripts/verify-codegraph-tarball.mjs` locally before tagging a release). Exit 0 means the whitelist is intact; exit 1 means the tarball is missing the codegraph service files.
+
+Install snippet (typical consumer):
+
+```bash
+# Add peaks-loop to your project
+npm install peaks-loop
+
+# Bootstrap codegraph for the first time (refuses if .codegraph/ already
+# exists with a non-peaks-loop schema; exit code 73 + envelope)
+npx peaks codegraph init --project .
+
+# Verify the doctor is green for downstream resolution modes
+npx peaks doctor --project .
+```
+
+Three common pitfalls:
+
+1. **`peaks codegraph init` exits 73** — your project has a pre-existing `.codegraph/` from another tool. Move it out of the way (or remove it), then re-run.
+2. **`peaks doctor` warns about codegraph version drift** — your lockfile resolved a different `@colbymchenry/codegraph` version than the pinned `0.7.10`. Pin to `0.7.10` in your lockfile; the warning does not flip the doctor exit code.
+3. **Session-bound artifacts under `.peaks/_runtime/` are noisy in `git status`** — add the path to your project's `.gitignore`. The `peaks-loop` repo already does this; consumers should mirror the rule.
+
+---
+
 ## Links
 
 - All skills → [`skills/`](./skills/)

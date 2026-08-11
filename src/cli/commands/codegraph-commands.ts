@@ -6,6 +6,7 @@ import {
   executeCodegraphInvocation,
   defaultCodegraphInitGuard,
   writeCodegraphMarker,
+  writeCodegraphAffectedContext,
   CodegraphInitConflictError,
   type CodegraphInvocationOptions
 } from '../../services/codegraph/codegraph-service.js';
@@ -39,6 +40,8 @@ interface CodegraphFilesOptions extends CommonCodegraphOptions {
 
 interface CodegraphAffectedOptions extends CommonCodegraphOptions {
   json?: boolean;
+  rid?: string;
+  writeEnvelope?: boolean;
 }
 
 function addPeaksJsonOption(command: Command): Command {
@@ -217,6 +220,86 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOpti
   }
 }
 
+/**
+ * rid-CG-002 — codegraph-affected envelope write.
+ *
+ * Wraps the generic `runCodegraphCommand` and, after a successful
+ * upstream invocation, calls `writeCodegraphAffectedContext` so the
+ * RD / QA handoff can pick up `.peaks/_runtime/<sid>/rd/codegraph-context.md`
+ * without re-running the (5-30 s) codegraph query.
+ *
+ * The envelope write is gated by `--write-envelope` (default off) so
+ * ad-hoc CLI invocations don't silently mutate the user's session
+ * directory. peaks-code's RD dispatch hook flips the flag on.
+ *
+ * On no-session-binding, we surface a `warning` field instead of
+ * throwing — the upstream result is still printed so the caller
+ * always sees the affected list.
+ */
+async function runCodegraphAffectedCommand(
+  io: ProgramIO,
+  files: string[],
+  options: CodegraphAffectedOptions,
+  asJson?: boolean
+): Promise<void> {
+  // Capture stdout so we can re-emit it into the envelope payload.
+  // We still forward every line to the original `io.stdout` so the
+  // user sees the affected list as if the wrapper were transparent.
+  const capturedLines: string[] = [];
+  const captureIo: ProgramIO = {
+    stdout: (chunk: string) => {
+      capturedLines.push(chunk);
+      io.stdout(chunk);
+    },
+    stderr: (chunk: string) => io.stderr(chunk)
+  };
+
+  await runCodegraphCommand(
+    captureIo,
+    'codegraph.affected',
+    {
+      subcommand: 'affected',
+      project: options.project,
+      files,
+      ...(options.json === true ? { json: true } : {})
+    },
+    asJson
+  );
+
+  if (!options.writeEnvelope) {
+    return;
+  }
+
+  // The user opted in via --write-envelope. Run the envelope writer
+  // unconditionally (graceful fallback when no session binding).
+  const rid = options.rid ?? process.env.PEAKS_RD_RID ?? 'unknown-rid';
+  const rawStdout = capturedLines.join('\n');
+  let affectedPayload: unknown = rawStdout;
+  if (options.json === true && typeof affectedPayload === 'string' && affectedPayload.length > 0) {
+    try {
+      affectedPayload = JSON.parse(affectedPayload);
+    } catch {
+      // Keep the raw string when JSON parse fails; the envelope
+      // renderer handles strings cleanly.
+    }
+  }
+
+  const envelope = writeCodegraphAffectedContext({
+    projectRoot: resolve(options.project),
+    rid,
+    files,
+    affectedPayload
+  });
+
+  if (envelope.written) {
+    if (asJson !== true) {
+      io.stdout(`[codegraph-context] wrote ${envelope.path}\n`);
+    }
+  } else if (asJson !== true) {
+    io.stdout(`[codegraph-context] skipped: ${envelope.warning}\n`);
+  }
+}
+
 export function registerCodegraphCommands(program: Command, io: ProgramIO): void {
   const codegraph = program.command('codegraph').description('Run upstream codegraph commands through the Peaks launcher');
 
@@ -301,16 +384,13 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
       .description('Find code affected by files')
       .argument('<files...>', 'project-relative file paths')
       .option('--json', 'forward JSON output flag to upstream codegraph')
+      .option('--rid <rid>', 'request id for the codegraph-context envelope (default: env PEAKS_RD_RID or "unknown-rid")')
+      .option('--write-envelope', 'write codegraph-context.md into the active session')
   ).action((files: string[], options: CodegraphAffectedOptions) =>
-    runCodegraphCommand(
+    runCodegraphAffectedCommand(
       io,
-      'codegraph.affected',
-      {
-        subcommand: 'affected',
-        project: options.project,
-        files,
-        ...(options.json === true ? { json: true } : {})
-      },
+      files,
+      options,
       options.peaksJson
     )
   );

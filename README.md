@@ -282,6 +282,37 @@ winget install Python.Python.3.12
 
 ---
 
+## 下游消费者须知 (Downstream consumer notes)
+
+如果你的项目依赖 `peaks-loop`(或者把 `npm install peaks-loop` 写进 CI / 协作者 onboarding),有三件事需要先记清:
+
+- **`codegraph` 是传递依赖。** `peaks-loop` 在 `dependencies` 里硬钉 `@colbymchenry/codegraph@0.7.10`,所以 `npm install` / `pnpm install` 会自动拉取。CLI 命令组 `peaks codegraph …`(status / init / index / query / files / context / affected)打包在 `dist/services/codegraph/`,无需额外安装步骤。
+- **`.codegraph/` 目录归属是共享的。** aider / cody 等类似工具也会在项目根创建 `.codegraph/`。`peaks codegraph init` 拒绝覆盖外源 schema,以 exit code 73 + `CODEGRAPH_INIT_CONFLICT` 凭据退出。如果你的项目里已经有其他工具建的 `.codegraph/`,跑 `peaks codegraph init` 之前先移走 / 改名(或确认不再需要后删除)。
+- **session 绑定落在 `.peaks/_runtime/<sessionId>/`。** codegraph 编排上下文(以及其他 session 级证据)由 RD / QA 切片写入。把 `.peaks/_runtime/` 加进项目的 `.gitignore`,避免误提交本地 session 状态。session 缺失 / 未绑定时优雅降级为「跳过 + 警告」,绝不 crash。
+- **yarn-pnp / pnpm-strict 的 doctor 兜底。** `peaks doctor` 在 `require.resolve('@colbymchenry/codegraph/package.json')` 抛错时回退到文件系统遍历,因此严格解析模式下的下游安装也能拿到绿色 check(若版本偏离钉死的 `0.7.10` 则降级为 `severity: 'warning'`)。
+- **tarball 大小 / 自检。** 每次发布都把 codegraph service 打进 `dist/services/codegraph/`。逐版本自检脚本见 `scripts/verify-codegraph-tarball.mjs`(发布前本地跑 `node scripts/verify-codegraph-tarball.mjs`)。exit 0 表示 whitelist 完好,exit 1 表示 tarball 漏了 codegraph service 文件。
+
+典型下游安装片段:
+
+```bash
+# 把 peaks-loop 加进项目
+npm install peaks-loop
+
+# 首次引导 codegraph(若项目已有外源 .codegraph/ 会以 exit 73 + 凭据拒绝)
+npx peaks codegraph init --project .
+
+# 校验 doctor 在下游解析模式下仍是绿色
+npx peaks doctor --project .
+```
+
+三个常见坑:
+
+1. **`peaks codegraph init` 退出码 73** —— 项目里已有外源 `.codegraph/`(aider / cody 等)。把它挪开(或删掉)再重跑。
+2. **`peaks doctor` 报 codegraph 版本漂移** —— 你的 lockfile 解到了一个跟钉死 `0.7.10` 不同的版本。在 lockfile 里钉到 `0.7.10`;这条 warning 不会让 doctor 退出码翻红。
+3. **`.peaks/_runtime/` 下的 session 产物在 `git status` 里嘈杂** —— 把这条路径加进项目的 `.gitignore`。`peaks-loop` 仓库已经这样做;下游消费者应当镜像这条规则。
+
+---
+
 ## 链接
 
 - 全部技能清单 → [`skills/`](./skills/)

@@ -1,7 +1,8 @@
-import { existsSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
+import { getSessionId, getSessionDir } from '../session/index.js';
 
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
 const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
@@ -322,4 +323,140 @@ export function writeCodegraphMarker(codegraphDir: string): void {
  */
 export function constantCodegraphInitGuard(outcome: CodegraphInitGuardResult): CodegraphInitGuard {
   return () => outcome;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Slice rid-CG-002 — affected-context envelope writer
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Per-file row rendered into the codegraph-context envelope's
+ * Markdown table. Symbol-count + cross-ref edges are intentionally
+ * optional: when the upstream `affected` JSON does not carry them
+ * (older codegraph versions, or a non-JSON stdout) we leave the
+ * cells blank instead of inventing numbers.
+ */
+export type CodegraphAffectedRow = {
+  readonly file: string;
+  readonly symbolCount?: number;
+  readonly crossRefEdges?: number;
+};
+
+export type WriteCodegraphAffectedContextInput = {
+  /** The peaks-loop project root (where `.peaks/_runtime/` lives). */
+  readonly projectRoot: string;
+  /** Request id, e.g. `rid-CG-002`. Used as the envelope's anchor. */
+  readonly rid: string;
+  /** Project-relative file paths passed to `peaks codegraph affected`. */
+  readonly files: readonly string[];
+  /** Raw upstream payload (string or already-parsed JSON). */
+  readonly affectedPayload: unknown;
+  /**
+   * Optional override for the active session id. When omitted,
+   * the writer calls `getSessionId(projectRoot)` and falls
+   * back to a graceful skip-with-warning when no binding is
+   * present (e.g. the consumer ran `peaks codegraph affected`
+   * outside of a peaks session).
+   */
+  readonly sessionId?: string | null;
+  /**
+   * Optional clock seam for tests; defaults to `new Date()`.
+   */
+  readonly now?: () => Date;
+};
+
+export type WriteCodegraphAffectedContextResult =
+  | { readonly written: true; readonly path: string; readonly sessionId: string }
+  | { readonly written: false; readonly path: ''; readonly warning: string };
+
+/**
+ * Pure renderer — turns the affected payload + rid + file list
+ * into a Markdown body with a leading human-readable table and
+ * a trailing JSON fence for machine consumers.
+ */
+export function renderCodegraphAffectedContext(
+  rid: string,
+  files: readonly string[],
+  affectedPayload: unknown,
+  sessionId: string,
+  now: () => Date = () => new Date()
+): string {
+  const rows: CodegraphAffectedRow[] = files.map((file) => ({ file }));
+  const generatedAt = now().toISOString();
+  const lines: string[] = [
+    '# Codegraph orchestration context',
+    '',
+    `- sessionId: \`${sessionId}\``,
+    `- rid: \`${rid}\``,
+    `- generatedAt: \`${generatedAt}\``,
+    '',
+    '## Affected files',
+    '',
+    '| file | symbolCount | crossRefEdges |',
+    '| --- | --- | --- |',
+    ...rows.map((row) => {
+      const sym = row.symbolCount === undefined ? '' : String(row.symbolCount);
+      const edges = row.crossRefEdges === undefined ? '' : String(row.crossRefEdges);
+      return `| \`${row.file}\` | ${sym} | ${edges} |`;
+    }),
+    '',
+    '## Raw upstream output',
+    '',
+    '```json',
+    typeof affectedPayload === 'string'
+      ? affectedPayload
+      : JSON.stringify(affectedPayload, null, 2),
+    '```',
+    ''
+  ];
+  return lines.join('\n');
+}
+
+/**
+ * Write the `codegraph-context.md` envelope into the canonical
+ * session directory (`.peaks/_runtime/<sessionId>/rd/`). The
+ * envelope is what peaks-code's RD dispatch hook reads back to
+ * seed the QA / TXT handoff (see `peaks-code/SKILL.md`
+ * §"Codegraph orchestration context").
+ *
+ * The function is intentionally side-effect-safe:
+ *   - No session binding → returns `{ written: false, warning }`,
+ *     does NOT throw. Callers can either surface the warning or
+ *     treat it as a no-op.
+ *   - Directory creation is `mkdirSync({ recursive: true })`, so
+ *     the first run in a fresh session creates the `rd/` subdir
+ *     on demand.
+ *   - The path is canonicalized through `getSessionDir` so
+ *     downstream readers (QA / TXT) get a stable path even when
+ *     the caller passed a relative `projectRoot`.
+ */
+export function writeCodegraphAffectedContext(
+  input: WriteCodegraphAffectedContextInput
+): WriteCodegraphAffectedContextResult {
+  const sessionId = input.sessionId ?? getSessionId(input.projectRoot);
+  if (!sessionId || sessionId.length === 0) {
+    return {
+      written: false,
+      path: '',
+      warning:
+        'No active peaks-loop session binding; skipping codegraph-context envelope. ' +
+        'Run `peaks workspace init` (or `peaks session set <id>`) and re-invoke ' +
+        '`peaks codegraph affected`.'
+    };
+  }
+  const sessionDir = getSessionDir(input.projectRoot, sessionId);
+  const rdDir = join(sessionDir, 'rd');
+  if (!existsSync(rdDir)) {
+    mkdirSync(rdDir, { recursive: true });
+  }
+  const contextPath = join(rdDir, 'codegraph-context.md');
+  const body = renderCodegraphAffectedContext(
+    input.rid,
+    input.files,
+    input.affectedPayload,
+    sessionId,
+    input.now
+  );
+  writeFileSync(contextPath, body, 'utf8');
+  return { written: true, path: contextPath, sessionId };
 }
