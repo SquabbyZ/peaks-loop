@@ -105,6 +105,17 @@ export type DispatchOptions = {
    * in-process (batch-counter) paths.
    */
   maxConcurrent?: string;
+  /**
+   * F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
+   * §Lesson 1): frontmatter `--must-ls-files <glob>` flag. When set, the
+   * dispatch CLI runs `git ls-files <glob>` upfront, surfaces
+   * `mustLsFilesVerification: { path, exists, files }` in the envelope,
+   * and prepends a `## must_ls_files enforcement` block to the sub-agent
+   * prompt so the LLM's first action MUST verify the file exists before
+   * claiming "PASS". Absent → unchanged behavior (backward compat with
+   * the 106+ existing dispatch call sites).
+   */
+  mustLsFiles?: string;
   json?: boolean;
 };
 

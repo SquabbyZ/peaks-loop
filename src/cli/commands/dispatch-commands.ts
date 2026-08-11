@@ -108,6 +108,16 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--vendor <vendor>', 'target vendor CLI for --mode detached (claude | codex | copilot). Ignored in the default in-process path.')
       .option('--no-throttle', 'rid-001 detached: user-overrides ResourceBudgetGuard when concurrent fan-out exceeds max-concurrent (user accepts risk; surfaces as warning)')
       .option('--max-concurrent <n>', 'rid-001 detached: override the per-tenant max concurrent budget (default 8). Effective in both detached and in-process paths.')
+      // F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
+      // §Lesson 1): the RD sub-agent's fake-green failure mode was that it
+      // claimed "5/5 reachability tests PASS" while the files were never
+      // on disk. `--must-ls-files <glob>` is the anti-fake-green gate:
+      // the CLI runs `git ls-files <glob>` upfront, reports the result in
+      // the envelope (`data.mustLsFilesVerification`), and prepends a
+      // `## must_ls_files enforcement` block to the sub-agent prompt so
+      // the LLM's first action MUST re-verify file existence before any
+      // "completed" claim. Absent → old behavior is preserved.
+      .option('--must-ls-files <glob>', 'F5: anti-fake-green gate. Run `git ls-files <glob>` upfront; surface the result in the envelope as `mustLsFilesVerification: { path, exists, files }`; prepend a must_ls_files enforcement block to the sub-agent prompt. Absent → unchanged behavior.')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
     // rid-001 detached sub-agent dispatch: when --mode detached is
@@ -467,7 +477,31 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           `branch: ${worktreeBranch}\n` +
           `You MAY ` + '`git worktree add` ' + `and ` + '`git worktree remove` ' + `against this lease without a separate ` + '`peaks worktree auth grant` ' + `— the PreToolUse gate reads the lease file. Run ` + '`peaks worktree release --lease-id ${leaseId}` ' + `when done.\n`
         : '';
-      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}`;
+      // F5 follow-up: anti-fake-green gate. When `--must-ls-files <glob>`
+      // is supplied, run `git ls-files <glob>` upfront, surface the
+      // result in the envelope as `mustLsFilesVerification: { path,
+      // exists, files }`, and prepend a `## must_ls_files enforcement`
+      // frontmatter block to the sub-agent prompt that mandates the
+      // file-existence verification as the LLM's FIRST action (before
+      // any "completed"/"PASS" claim). When the flag is absent the
+      // field is `null` and no block is injected — old call sites
+      // see no behavior change (rid-001 fake-green Lesson 1).
+      let mustLsFilesVerification: { path: string; exists: boolean; files: readonly string[] } | null = null;
+      let mustLsFilesBlock = '';
+      if (typeof options.mustLsFiles === 'string' && options.mustLsFiles.length > 0) {
+        const glob = options.mustLsFiles;
+        const files = runGitLsFiles(projectRoot, glob);
+        const exists = files.length > 0;
+        mustLsFilesVerification = { path: glob, exists, files };
+        mustLsFilesBlock = `\n## must_ls_files enforcement (F5 anti-fake-green)\n` +
+          `glob: ${glob}\n` +
+          `verification: ${exists ? `EXISTS (${files.length} file${files.length === 1 ? '' : 's'} found)` : 'MISSING (no files matched the glob)'}\n` +
+          (exists ? `first match: ${files[0] ?? ''}\n` : '') +
+          `BEFORE any claim that work is "completed" or "PASS", you MUST run \`git ls-files ${glob}\` from the project root and ` +
+          `confirm the file exists. Anti-fake-green rule (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure §Lesson 1): ` +
+          `if the file does not exist, your verdict MUST be \`status: "blocked"\` with reason "must_ls_files_failed". Do NOT silently skip this step.\n`;
+      }
+      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
       let headroomCompressed = false;
       let headroomResult: HeadroomResult | null = null;
       const warnings: string[] = [...decision.warnings];
@@ -685,7 +719,13 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         isolation: isolationMode,
         leaseId,
         worktreePath,
-        worktreeBranch
+        worktreeBranch,
+        // F5: anti-fake-green gate envelope surface. When
+        // `--must-ls-files <glob>` is supplied this carries the
+        // pre-dispatch verification result so the orchestrator can
+        // surface "the file exists" (or "missing — block") before
+        // spawning the sub-agent. Null when the flag is absent.
+        mustLsFilesVerification
       }, warnings, nextActions), asJson);
       // Slice 2026-06-23-audit-4th #B1: structured log on success path.
       // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
@@ -866,6 +906,42 @@ function spawnContainerLease(args: {
     // See spawnWorktreeLease above for the rationale.
     child.unref();
   });
+}
+
+/**
+ * F5 follow-up (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure
+ * §Lesson 1): synchronous anti-fake-green file-existence gate. Runs
+ * `git ls-files <glob>` against `projectRoot` and returns the matching
+ * tracked file paths (relative to projectRoot). Empty array when no
+ * files match (e.g. untracked new file, wrong glob, not a git repo).
+ *
+ * Why `git ls-files` and not `fs.glob`: the anti-fake-green contract
+ * is "the file the sub-agent claims to have written must ACTUALLY be
+ * tracked by git" — `git ls-files` enforces that contract; `fs.glob`
+ * would happily return untracked-but-on-disk files (false-positive
+ * for the fake-green gate).
+ *
+ * Failure modes (best-effort, never throws):
+ *  - git not on PATH → empty array (`ENOENT` swallowed)
+ *  - not a git repo → empty array (git exits non-zero)
+ *  - glob matches zero tracked files → empty array
+ *
+ * Exported for unit-test access (`tests/unit/sub-agent/must-ls-files-flag.test.ts`).
+ * The export is intentional — the helper has zero side effects and
+ * keeps the dispatch action handler small.
+ */
+export function runGitLsFiles(projectRoot: string, glob: string): readonly string[] {
+  try {
+    const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
+    const stdout = execFileSync(
+      'git',
+      ['ls-files', '--', glob],
+      { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }
+    );
+    return stdout.split('\n').filter((line: string) => line.length > 0);
+  } catch {
+    return [];
+  }
 }
 
 /* ---------- Slice 4.0.8 RD §4 D4c: programmatic dispatcher ---------- */
