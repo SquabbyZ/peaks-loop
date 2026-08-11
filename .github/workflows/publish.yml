@@ -186,28 +186,13 @@ jobs:
             echo "Idempotency guard OK: registry latest=${latest}, local root=${local_root}; bump will proceed"
           fi
 
-      - name: Auto-bump version per smallest-semver policy
-        # DELETED 2026-08-11 per peaks-loop-publishing-critical-hard-rules rule 1
-        # ("NEVER tag v<ver> and let publish.yml auto-bump past your pin").
-        # The previous version of this step called `bump-version.mjs --to
-        # <exact_tag_version>` even when the local root version already
-        # matched the exact tag, which rewrote CLI_VERSION + shared/runtime
-        # package.json#version and broke the Layer 5 + on-disk parity gate
-        # in practice (a tagged v4.0.21 push effectively auto-published
-        # v4.0.22 because the step bumped root past the operator's pin).
-        # The exact-tag-as-authoritative contract is now enforced by the
-        # `Verify exact tag matches bumped root version` step (rid-017 D3,
-        # gate-tag-version) — that gate already requires local version
-        # equals the exact tag value. The operator's intent is the tag.
-        # See .peaks/memory/peaks-loop-publishing-critical-hard-rules.md
-        # + .peaks/memory/2026-07-16-rid-017-publish-yml-release-ordering.md.
-        #
-        # For `workflow_dispatch` runs that still need an auto-bump (e.g.
-        # bumping from 4.0.20 -> 4.0.21 without a tag push), invoke
-        # `./scripts/bump-version.mjs --to <X.Y.Z>` from the operator's
-        # local dev box FIRST, commit the bump, then push the matching
-        # vX.Y.Z tag. The publish workflow now only PUBLISHES the
-        # operator-pinned version — it does not invent one.
+      # Auto-bump version step (DELETED 2026-08-11, see commit 9aff3545 +
+      # .peaks/memory/peaks-loop-publishing-critical-hard-rules.md rule 1).
+      # The exact-tag-as-authoritative contract is now enforced by the
+      # 'Verify exact tag matches bumped root version' gate (rid-017 D3).
+      # workflow_dispatch callers needing an auto-bump must run
+      # './scripts/bump-version.mjs --to <X.Y.Z>' locally first, commit,
+      # then push the matching vX.Y.Z tag.
 
       - name: Sync README badges to new version
         # 2026-07-22 follow-up: keep the `Latest` / `最新版本` row in
