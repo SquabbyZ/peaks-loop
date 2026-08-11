@@ -43,7 +43,11 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
 
   const sup = new ProcessSupervisor({ runtimeDir: i.runtimeDir });
   const lo = new LifecycleOwner(i.runtimeDir);
-  const handle = await sup.spawn(adapter.binary, args, { detach: true, rid: i.rid });
+  // F2: in-shell background subprocess. The `detach` field is retained
+  // for backward compat with the public SpawnOpts surface but is now a
+  // no-op (ProcessSupervisor forces detached:false). Pass `false` to
+  // reflect the post-F2 contract explicitly.
+  const handle = await sup.spawn(adapter.binary, args, { detach: false, rid: i.rid });
   lo.register(handle.pid, i.rid, i.sid);
 
   // Write dispatch record (placeholder — final shape per Task 8 schema)
