@@ -114,6 +114,7 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
       '--session-id', sessionId,
       '--project', project,
       '--isolation', 'worktree',
+      '--graph-node', 'n1',
       '--json'
     ], project);
     expect(dispatch.code).toBe(0);
@@ -171,6 +172,7 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
       '--session-id', sessionId,
       '--project', project,
       '--isolation', 'worktree',
+      '--graph-node', 'n1',
       '--json'
     ], project);
     expect(dispatch.code).toBe(0);
@@ -219,6 +221,7 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
       '--request-id', requestId,
       '--session-id', sessionId,
       '--project', project,
+      '--graph-node', 'n1',
       '--json'
     ], project);
     expect(dispatch.code).toBe(0);

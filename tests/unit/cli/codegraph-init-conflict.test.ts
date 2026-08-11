@@ -63,7 +63,9 @@ describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
     try {
       const outcome = defaultCodegraphInitGuard(projectRoot);
       expect(outcome.status).toBe('fresh');
-      expect(outcome.codegraphDir).toBe(join(projectRoot, '.codegraph'));
+      // Slice rid-CG-003 — fresh defaults to `.peaks/.codegraph/`
+      // (preferred path) instead of legacy root `.codegraph/`.
+      expect(outcome.codegraphDir).toBe(join(projectRoot, '.peaks', '.codegraph'));
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

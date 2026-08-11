@@ -129,6 +129,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
       '--request-id', requestId,
       '--session-id', sessionId,
       '--project', project,
+      '--graph-node', 'n1',
       '--json'
     ], project);
 
@@ -165,7 +166,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // record schema is now v3 (v2 upgraded in place by
     // `upgradeRecord` on read). The on-disk format is the same;
     // only the version marker changed.
-    expect(recordRaw.version).toBe('3.1');
+    expect(recordRaw.version).toBe('4.1.0');
     expect(recordRaw.role).toBe('rd');
     expect(recordRaw.requestId).toBe(requestId);
     expect(recordRaw.sessionId).toBe(sessionId);
@@ -209,6 +210,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
       '--session-id', sessionId,
       '--project', project,
       '--isolation', 'worktree',
+      '--graph-node', 'n1',
       '--json'
     ], project);
 
@@ -245,6 +247,7 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
       '--session-id', '2026-07-29-p2c-bad',
       '--project', project,
       '--isolation', 'totally-bogus',
+      '--graph-node', 'n1',
       '--json'
     ], project);
     expect(r.code).toBe(1);

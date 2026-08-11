@@ -25,6 +25,7 @@ vi.mock('peaks-loop-internal-runtime', () => ({
   dispatchDetached: vi.fn(async () => ({
     pid: 1234,
     dispatchRecordPath: '/x/dispatch-r1.json',
+    child: { on: vi.fn(), kill: vi.fn() },
   })),
   ResourceBudgetGuard: class {
     constructor(_cfg: { maxRssMb: number; maxCpuPct: number }) {}

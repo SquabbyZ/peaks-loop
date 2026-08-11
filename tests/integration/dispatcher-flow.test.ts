@@ -147,17 +147,22 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     const require = createRequire(import.meta.url);
     const vitestCli = dirname(require.resolve('vitest', { paths: [REPO_ROOT] })) +
       '/dist/cli.js';
+    // vitest 4.x summary line is "Tests  N passed (N)"; the original
+    // regex `/Tests\s+\d+\s+passed/` still matches the head of that
+    // line. Scope paths point to the post-rebuild integration tests
+    // (the legacy tests/unit/{skill-search,peaks-solo,skill-registry,
+    // skill-browser-workflow}.test.ts files were deleted in the
+    // 2026-07-30 test-rebuild epic; S0's contract is now covered by
+    // tests/integration/skill-search-cli.test.ts).
     const scope = [
-      'tests/unit/skill-search.test.ts',
-      'tests/unit/peaks-solo.test.ts',
-      'tests/unit/skill-registry.test.ts',
-      'tests/unit/skill-browser-workflow.test.ts'
+      'tests/integration/skill-search-cli.test.ts'
     ];
     const result = execFileSync(
       process.execPath,
       [
         vitestCli,
         'run',
+        '--config', 'vitest.config.integration.ts',
         '--reporter=dot',
         '--exclude',
         'tests/integration/dispatcher-flow.test.ts',
