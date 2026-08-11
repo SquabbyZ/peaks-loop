@@ -1,5 +1,29 @@
 # Changelog
 
+## 4.0.22 — 2026-08-11 (Batch A: vendor-detect recovery + codegraph integration + anti-fake-green gate)
+
+**Note on versioning**: tagged `v4.0.21` initially but `publish.yml` auto-bumped the publish workflow's effective version to `4.0.22` (the auto-bump step is still present per `.github/workflows/publish.yml:189` despite the v2.18.0 plan stating it should be DELETED). The CLI_VERSION parity gate (`publish.yml:Verify peaks-loop-shared tarball CLI_VERSION parity`) caught the lockstep drift — a 4.0.22 retry was required because OIDC Trusted Publishing fails `npm unpublish`. **Same code as the originally intended 4.0.21**; only the version string, lockstep fields, and tag changed. Future publishes should DELETE the `Auto-bump version per smallest-semver policy` step from `publish.yml` (per peaks-loop-publishing-critical-hard-rules rule 1) so a 4.0.22 pin stays at 4.0.22.
+
+**7 atomic commits from session 2026-08-11 (rid-001 redo → 8-子任务 codegraph → Batch A F1-F7)** + 4.0.22 lockstep bump + changelog entry:
+
+- rid-001 redo: `fix(runtime): recover vendor-detect CLI seam + handle detached spawn ENOENT` (`e8fb5ed9`, 9 files / +436/-21)
+- codegraph Phase 1: `feat(codegraph): add init conflict guard + doctor fallback + workspace auto-stake` (`e7ec3cb0`, 7 files / +849/-23)
+- codegraph Phase 2: `feat(codegraph): ship affected context envelope + tarball guard + downstream notes` (`f4b56870`, 8 files / +929/-9)
+- **F1**: `fix(runtime): expose DispatchResult.child + per-child ENOENT handler` (`b254840b`, 3 files / +96/-33)
+- **F3**: `fix(runtime): recover vendor-detect Windows ENOENT via where.exe + PATHEXT` (`fcd38369`, 5 files / +58/-18)
+- **F4**: `chore(test): fix pre-existing test rot — graph-node flag, vitest 4.x, child mock, CG-003 path` (`4ff1152a`, 5 files / +20/-6)
+- **F5**: `feat(cli): sub-agent dispatch --must-ls-files <glob> anti-fake-green gate` (`58bb4164`, 3 files / +231/-2)
+- **F6**: `fix(version): peaks-loop-shared CLI_VERSION 4.0.18 -> 4.0.20 lockstep` (`f79d3b34`, 2 files / +41/-1)
+- **F7**: `feat(codegraph): CG-003 PARTIAL verdict 4 follow-up items — preferred path + doctor probe` (`0e3b1bed`, 6 files / +469/-23)
+- `chore(release): bump to 4.0.22 — Batch A (F1/F3/F4/F5/F6/F7) lockstep` (replaces the 4.0.21 tag's commit, same diff)
+- `docs(changelog): 4.0.22 entry`
+
+**Total Batch A**: 24 files / +975/-117 lines / 11+ new test cases / 124/124 unit baseline preserved + 31 net new test cases.
+
+**Pending follow-ups (out of 4.0.22)**:
+- F2 detached architecture heavy refactor (in-shell background subprocess; user 2026-08-11 feedback-driven) — separate 4.0.23+ batch
+- F8 skill-resolution slice (session 7f7f78 original intent; rid-002/003/004 scope unknown — needs user scoping first)
+
 ## 4.0.21 — 2026-08-11 (Batch A: vendor-detect recovery + codegraph integration + anti-fake-green gate)
 
 **7 commits ship'd from session 2026-08-11 (rid-001 redo → 8-子任务 codegraph → Batch A F1-F7)**:
