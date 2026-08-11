@@ -1,13 +1,13 @@
 // API contract: RUNTIME_VERSION tracks peaks-loop root version (4.0.x).
 // This is what consumers (sub-agents dispatched by peaks-code) check at
 // runtime to verify protocol compatibility.
-export const RUNTIME_VERSION = '4.0.22';
+export const RUNTIME_VERSION = '4.0.23';
 
 // npm version: independent 0.0.x SemVer. Runtime is its own package
 // (peaks-loop-internal-runtime@NPM_VERSION) on the registry; bumps
 // per peaks release notes when its public surface actually changes
 // (not per root version bump).
-export const RUNTIME_NPM_VERSION = '0.0.7';
+export const RUNTIME_NPM_VERSION = '0.0.8';
 export { ClaudeAdapter } from './vendor/claude-adapter.js';
 export { CodexAdapter } from './vendor/codex-adapter.js';
 export { CopilotAdapter } from './vendor/copilot-adapter.js';
