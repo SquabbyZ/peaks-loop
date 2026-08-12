@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-12T00:51:21.986Z
+> Last updated: 2026-08-12T01:47:49.567Z
 
 ## Project: peaks-loop
 
@@ -48,7 +48,7 @@
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-08-12 | `2026-08-12-session-4aaf2b` | rid-skill-persistence-001 完整修复 (3 文件 + 2 | peaks-code |
+| 2026-08-12 | `2026-08-12-session-4aaf2b` | rid-skill-persistence-001 完整修复 (3 文件 + 2 | **Path:** `peaks-code / rid-skill-persistence-001` |
 | 2026-08-11 | `2026-08-11-session-5c3563` | Untitled | peaks-code |
 | 2026-08-11 | `2026-08-11-session-1f4285` | Untitled | - |
 | 2026-08-11 | `2026-08-11-session-fadc3c` | Untitled | - |

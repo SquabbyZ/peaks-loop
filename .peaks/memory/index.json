@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-11T15:00:22.439Z",
+  "updatedAt": "2026-08-12T01:48:11.593Z",
   "hot": {
     "feedback": [
       {
@@ -1288,6 +1288,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-rid-statusline-stale-ux-sediment.md",
         "sourceArtifact": null,
         "updatedAt": "2026-08-10"
+      },
+      {
+        "name": "2026-08-11-peaks-code-skill-persistence-pause",
+        "kind": "project",
+        "description": "2026-08-11 已暂停 。用户约束：当前 bee（peaks-code）只有在用户明确提出替换/取消，或用户主动使用另一个非 bee Peaks 技能时才允许被替换或清除；superpowers 自动命中、普通 bug 反馈、c...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-11-peaks-code-skill-persistence-pause.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-11"
       },
       {
         "name": "24h-loop-audit-2026-07-28",
