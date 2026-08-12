@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-05T15:10:00.448Z
+> Last updated: 2026-08-12T00:51:21.986Z
 
 ## Project: peaks-loop
 
@@ -44,24 +44,24 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (20 sessions, showing last 15)
+## Timeline (32 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-08-04 | `2026-08-04-session-3fe1be` | Untitled | requestId: 2026-08-05-bdd-test-style |
+| 2026-08-12 | `2026-08-12-session-4aaf2b` | rid-skill-persistence-001 完整修复 (3 文件 + 2 | peaks-code |
+| 2026-08-11 | `2026-08-11-session-5c3563` | Untitled | peaks-code |
+| 2026-08-11 | `2026-08-11-session-1f4285` | Untitled | - |
+| 2026-08-11 | `2026-08-11-session-fadc3c` | Untitled | - |
+| 2026-08-11 | `2026-08-11-session-383128` | Untitled | - |
+| 2026-08-11 | `2026-08-11-session-5a7298` | Untitled | - |
+| 2026-08-11 | `2026-08-11-session-6367bd` | Untitled | - |
+| 2026-08-11 | `2026-08-11-session-476090` | Untitled | $ pnpm exec tsc -p tsconfig.build.json |
+| 2026-08-11 | `2026-08-11-session-7f7f78` | 技能路径解析与codegraph项目优化 | 1. **CLI wire — `peaks vendor-detect`** must reach the real handler so |
+| 2026-08-10 | `2026-08-10-session-53a9ad` | Untitled | peaks-code |
+| 2026-08-10 | `2026-08-10-session-05b9be` | Untitled | | ID | Status (v1 → v2) | Evidence | |
+| 2026-08-06 | `2026-08-06-session-cacde8` | Untitled | title: ESLint JS/TS Gate (S1) + OCR 1.8.x Multi-language Reviewer Rebu |
 | 2026-08-04 | `2026-08-04-session-70ff1e` | Untitled | peaks-code |
 | 2026-08-04 | `2026-08-04-session-139b31` | Untitled | statusline 当前实现（4.0.9）有 2 个独立的 user-reported 问题： |
 | 2026-08-03 | `2026-08-03-session-1b6cf3` | Untitled | 对 RD 产出的两份 deliverable 做 **4 维验收**: |
-| 2026-08-03 | `2026-08-03-session-bee258` | Untitled | ROLE: hotfix sub-agent for peaks-loop 4.0.8 — fix production ESM repro |
-| 2026-08-01 | `2026-08-01-session-410315` | Untitled | Primary statusline reads and lifecycle transition writes. |
-| 2026-07-31 | `2026-07-31-session-84c3da` | Untitled | requestId: 2026-07-31-rid-mac-transcript-estimate-trigger |
-| 2026-07-30 | `2026-07-30-session-602e5c` | 测试体系从零重建 (epic) | peaks-code |
-| 2026-07-28 | `2026-07-29-session-a84955` | Untitled | schemaVersion: 2 |
-| 2026-07-28 | `2026-07-28-session-71a3cf` | Untitled | G1. 产出 **1 份用户视角的功能地图**，覆盖 5 大域 + 13 skill + 5 super-command + 14 后置 s |
-| 2026-07-27 | `2026-07-28-session-22381b` | Untitled | rid: 2026-07-28-rid-020b-24h-mode-integration-verify |
-| 2026-07-27 | `2026-07-28-session-6984fe` | rid-018-019 4.0.0 GA pre-publish BLOCKER | PASS: body non-empty for 4.0.0 (2560 bytes) |
-| 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | requestId: rid-016 |
-| 2026-07-27 | `2026-07-27-session-b4e485` | Untitled | - |
-| 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | schemaVersion: 1 |
 
 <!-- peaks-managed:session-history-end -->

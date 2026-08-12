@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-06T04:32:24.356Z",
+  "updatedAt": "2026-08-11T15:00:22.439Z",
   "hot": {
     "feedback": [
       {
@@ -46,10 +46,10 @@
       {
         "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
         "kind": "feedback",
-        "description": "2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**错误地把\"orchestrator 不能直接 Edit/Write source c...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> 2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-code-orchestrator-capability-misjudgment.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-08-05"
+        "updatedAt": "2026-08-06"
       },
       {
         "name": "active-skill-cli-routing",
@@ -548,6 +548,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-slice-check-windows-typecheck-bug.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
         "updatedAt": "2026-06-30"
+      },
+      {
+        "name": "perf-slice3-revert-2026-08-07",
+        "kind": "lesson",
+        "description": "Perf slice 3 — speculative optimization REVERTED (2026-08-07) TL;DR Three \"easy perf wins\" from RD-016 (vitest cache,...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-07-perf-slice3-revert.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-07"
       },
       {
         "name": "polyrepo-root-child-peaks-lazy",
@@ -1242,12 +1250,44 @@
         "updatedAt": "2026-08-05"
       },
       {
+        "name": "2026-08-06-rotation-guards-and-caller-binding-sediment",
+        "kind": "project",
+        "description": "2026-08-06 rotation-guards-and-caller-binding slice sediment **Session:** 2026-08-06-session-cacde8 (peaks-code, full...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-06-rotation-guards-and-caller-binding-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-06"
+      },
+      {
         "name": "2026-08-06-session-outer-cache-and-meta-coverage-sediment",
         "kind": "project",
         "description": "2026-08-06 session-outer-cache-and-meta-coverage slice sediment **Session:** 2026-08-04-session-3fe1be (peaks-code, f...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-06-session-outer-cache-and-meta-coverage-sediment.md",
         "sourceArtifact": null,
         "updatedAt": "2026-08-06"
+      },
+      {
+        "name": "2026-08-10-4-0-18-release-pending-verification",
+        "kind": "project",
+        "description": "4.0.18 release — pending GitHub Actions verification 状态 ✅ **本地完成**： — root + 3 sub-packages lockstep +  rebuild share...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-4-0-18-release-pending-verification.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
+      },
+      {
+        "name": "2026-08-10-rid-statusline-24h-overlay-sediment",
+        "kind": "project",
+        "description": "rid-statusline-24h-overlay — full sediment 摘要 修复 bug：用户告诉 LLM \"切换成 24h\" 后，LLM 跑了  命令成功，但 statusline 还显示旧 base mode。修复...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-rid-statusline-24h-overlay-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
+      },
+      {
+        "name": "2026-08-10-rid-statusline-stale-ux-sediment",
+        "kind": "project",
+        "description": "rid-statusline-stale-ux — full sediment 摘要 修复 statusline 在新会话看到  的 UX 误读。根因： 没有 SessionStart hook，peaks workspace ini...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-rid-statusline-stale-ux-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
       },
       {
         "name": "24h-loop-audit-2026-07-28",
@@ -1530,6 +1570,14 @@
         "updatedAt": "2026-08-01"
       },
       {
+        "name": "peaks-loop-mac-esm-defense-audit",
+        "kind": "project",
+        "description": "Slice 8 — Mac auto-compact ESM anti-fake-green defense audit (2026-08-07) Audit result **5/5 defenses present.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-07-mac-esm-defense-audit.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-07"
+      },
+      {
         "name": "peaks-loop-prd-template-design",
         "kind": "project",
         "description": "peaks-prd 模板设计 > 适用: 当 LLM 解释 prd 模板 / 脑暴必填项 / slice 切分依据时。 1.",
@@ -1552,6 +1600,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-user-role-and-tech-decision.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "phase-A-baseline-stub-2026-08-10",
+        "kind": "project",
+        "description": "Phase A baseline — STUB (fill before ship) Gate items per spec §5.2: | Gate | Target | Actual | |---|---|---| | orche...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-runtime-detached-phase-A-baseline.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
       },
       {
         "name": "plan-2-ship-state",
@@ -1648,6 +1704,30 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-033-spillover-lstat-shipped.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-28"
+      },
+      {
+        "name": "runtime-detached-24h-user-confirm-2026-08-10",
+        "kind": "project",
+        "description": "2026-08-10 24h USER_CONFIRM — runtime detached sub-agent > **B3 一次性 user 授权**：user 在 brainstorming 终态显式确认 \"完全授权所有决策，等...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-runtime-detached-24h-user-confirm.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
+      },
+      {
+        "name": "runtime-detached-4-0-20-shipped-2026-08-11",
+        "kind": "project",
+        "description": "peaks-loop 4.0.20 + peaks-loop-internal-runtime 0.0.2 — SHIPPED ✅ State (verified 2026-08-11) →  →  (peaks-loop tarba...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-11-runtime-detached-4-0-20-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
+      },
+      {
+        "name": "runtime-detached-design-2026-08-10",
+        "kind": "project",
+        "description": "peaks-loop detached sub-agent (design sediment) > 5 Phase × 单 publish。 Phase A 含 G8（子进程无限上下文 + 不限费用）。 **Spec**: docs/...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-08-10-runtime-detached-design.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-08-10"
       },
       {
         "name": "token-encrypted-storage-decision",

@@ -1,6 +1,4 @@
-# Peaks-Loop Memory Index
-
-> One-line pointer per memory file. Loaded into context every session. Full content lives in each `.md` file.
+- [2026-08-11-peaks-code-skill-persistence-pause](2026-08-11-peaks-code-skill-persistence-pause.md) — peaks-code 被 superpowers 自动抢占/清除问题已完成根因调查，明日从 spec-locked RD 请求恢复。
 
 ## 4.x sediment-pool
 
