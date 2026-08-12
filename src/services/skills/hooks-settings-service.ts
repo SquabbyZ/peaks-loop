@@ -424,13 +424,43 @@ function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
  * is also the inverse for uninstall: `removeHookInstall` rebuilds the deny
  * list by filtering out anything whose wrapped form matches one of these
  * ids.
+ *
+ * Slice rid-skill-persistence-001 (2026-08-12): four additional skills
+ * denied so the superpowers chain cannot silently override peaks-code.
+ * All four are referenced by `superpowers:using-superpowers` as the
+ * "bug → systematic-debugging / TDD / verification-before-completion /
+ * recursion via using-superpowers" auto-routing pattern — denying the
+ * trigger removes the auto-routing surface while leaving all four
+ * still readable as reference material from
+ * `references/external-skill-invocation.md`.
  */
 export const SUPERPOWERS_DENIED_SKILLS: ReadonlyArray<string> = [
   // superpowers:using-git-worktrees is the chain's "ground zero" — its
   // SKILL.md (lines 47-99) literally instructs the LLM to run
   // `git worktree add`. Denying this Skill at the IDE layer prevents the
   // LLM from ever receiving that prompt.
-  'superpowers:using-git-worktrees'
+  'superpowers:using-git-worktrees',
+  // Slice rid-skill-persistence-001: deny the "bug → systematic-debugging"
+  // auto-route. Without this entry the chain can preempt the current bee
+  // any time a bug report surfaces. Reference-only via
+  // references/external-skill-invocation.md §systematic-debugging.
+  'superpowers:systematic-debugging',
+  // Slice rid-skill-persistence-001: deny the TDD trigger that the chain
+  // pairs with bug reports (write-a-failing-test-first). Reference-only
+  // via references/external-skill-invocation.md §test-driven-development.
+  'superpowers:test-driven-development',
+  // Slice rid-skill-persistence-001: deny the verification-before-
+  // completion trigger that the chain uses to override "declare done"
+  // claims from peaks-code. Reference-only via
+  // references/external-skill-invocation.md §verification-before-completion.
+  'superpowers:verification-before-completion',
+  // Slice rid-skill-persistence-001: deny the recursive chain entrypoint
+  // itself. Without this entry the chain auto-spawns another
+  // "using-superpowers" Skill call right after the previous chain step,
+  // creating the recursive override pattern that peaks-loop's L1 guard
+  // cannot see through. Reference-only via
+  // references/external-skill-invocation.md §using-superpowers.
+  'superpowers:using-superpowers'
 ];
 
 function formatSuperpowersDenyEntry(skillId: string): string {

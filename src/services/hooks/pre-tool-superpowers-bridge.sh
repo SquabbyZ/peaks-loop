@@ -67,10 +67,20 @@ fi
 #   (b) the tool_input.command / tool_input.skill references a superpowers skill name.
 # We deliberately do NOT trigger on Bash commands that merely mention
 # superpowers in a comment — keep the hook intent-focused.
+#
+# Slice rid-skill-persistence-001 (2026-08-12): the deny list widened to
+# four additional superpowers skills (systematic-debugging /
+# test-driven-development / verification-before-completion / using-
+# superpowers). The L3 IDE deny list (`SUPERPOWERS_DENIED_SKILLS` in
+# hooks-settings-service.ts) blocks the Skill tool at the IDE layer,
+# but the bridge hook is the L2 backstop for non-Claude harnesses
+# (Trae / Cursor / Codex) that do NOT enforce L3 deny. Mirror the
+# four new entries in the regex below so the bridge reminder fires
+# for every chain step, regardless of which IDE the user is on.
 NEEDS_BRIDGE=0
 case "${TOOL_NAME}" in
   Skill|skill|mcp__claude_code__Skill)
-    if printf '%s' "${PAYLOAD}" | grep -qE 'superpowers:(brainstorming|writing-plans|executing-plans|subagent-driven-development)'; then
+    if printf '%s' "${PAYLOAD}" | grep -qE 'superpowers:(brainstorming|writing-plans|executing-plans|subagent-driven-development|systematic-debugging|test-driven-development|verification-before-completion|using-superpowers)'; then
       NEEDS_BRIDGE=1
     fi
     ;;
@@ -79,7 +89,7 @@ esac
 if [[ "${NEEDS_BRIDGE}" != "1" ]]; then
   # Also check for a Bash command line that directly references a superpowers
   # planning/execution skill (legacy shape).
-  if printf '%s' "${PAYLOAD}" | grep -qE 'superpowers:(brainstorming|writing-plans|executing-plans|subagent-driven-development)'; then
+  if printf '%s' "${PAYLOAD}" | grep -qE 'superpowers:(brainstorming|writing-plans|executing-plans|subagent-driven-development|systematic-debugging|test-driven-development|verification-before-completion|using-superpowers)'; then
     NEEDS_BRIDGE=1
   fi
 fi

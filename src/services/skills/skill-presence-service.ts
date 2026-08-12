@@ -569,7 +569,31 @@ export function checkStalePresence(opts?: {
  * clearing it prevents peaks-code Step 1 from picking up a stale
  * `mode` field that the user never explicitly chose.
  *
+ * Slice rid-skill-persistence-001 (2026-08-12): added an outerSessionId
+ * intent-source guard at the top of the function. The user constraint
+ * (preserved in `.peaks/memory/2026-08-11-peaks-code-skill-persistence-pause.md`)
+ * requires that "the current bee (peaks-code) can only be replaced or
+ * cleared when the user explicitly asks, or when the user invokes
+ * another non-bee Peaks skill; superpowers auto-hits, plain bug
+ * reports, compact, and outer-session rotations must NOT change the
+ * bee." Per the constraint, the `currentOuterSessionId` argument
+ * doubles as the caller-binding intent source: when the harness env
+ * var is set (`PEAKS_OUTER_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`),
+ * the call was user-explicit and the existing 3-branch logic is
+ * authoritative; when the env var is absent (currentOuterSessionId
+ * is `undefined`), the rotation is system-triggered and MUST NOT
+ * mutate user-explicit presence state.
+ *
+ * The guard is the minimal surface that satisfies the user constraint
+ * while preserving the existing reconnect + live-different-outer +
+ * stale-clear behavior for the user-explicit path. No new arguments,
+ * no signature change — the 2 existing call sites
+ * (`init-command.ts:329-334`, `primer-command.ts:128-133`) keep
+ * working unchanged.
+ *
  * Only clears when:
+ *   - the caller supplies a user-explicit intent source
+ *     (`currentOuterSessionId !== undefined`), AND
  *   - the recorded outer session id does NOT match the current outer
  *     session id (i.e. the presence IS stale), AND
  *   - the recorded outer session id matches the just-rotated-out
@@ -586,6 +610,15 @@ export function clearStalePresenceOnRotation(opts: {
   currentOuterSessionId: string | undefined;
   rotatedOutSessionId: string | null;
 }): { cleared: boolean; reason: string | null; recordedOuter?: string } {
+  // Slice rid-skill-persistence-001 (2026-08-12): user-explicit intent
+  // guard. When the caller has no caller-binding outerSessionId
+  // (env vars unset, system-triggered rotation), refuse the mutation
+  // up-front — the recorded presence may belong to a user-explicit
+  // invocation and auto-clear would silently destroy user intent.
+  // See `.peaks/memory/2026-08-11-peaks-code-skill-persistence-pause.md`.
+  if (opts.currentOuterSessionId === undefined) {
+    return { cleared: false, reason: 'no-intent-source' };
+  }
   const result = readSkillPresenceFromLease(opts.projectRootOverride);
   if (result === null) {
     return { cleared: false, reason: 'no-presence' };
