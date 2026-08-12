@@ -69,7 +69,7 @@ export const ObservabilityEventSchema = z.object({
   category: z.enum(OBSERVABILITY_CATEGORIES),
   sliceRid: z.string().min(1).optional(),
   role: z.enum(OBSERVABILITY_SUBAGENT_ROLES).optional(),
-  detail: z.record(z.unknown())
+  detail: z.record(z.string(), z.unknown())
 });
 
 export type ObservabilityEvent = z.infer<typeof ObservabilityEventSchema>;

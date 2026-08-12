@@ -10,21 +10,32 @@ export const SliceStateSchema = z
     commitSha: z.string().optional(),                       // required when status=done
     finishedAt: z.string().datetime().optional(),
     failureReason: z.string().optional(),                  // required when status=failed
-    repairCycles: z.number().int().nonnegative().default(0),
+    repairCycles: z.number().int().gte(0).default(0),
     blockedReason: z.string().optional(),                  // required when status=blocked
   })
-  .refine(
-    (v) => v.status !== 'done' || !!(v.commitSha && v.commitSha.length >= 7),
-    { message: 'commitSha required (≥7 hex) when status=done', path: ['commitSha'] },
-  )
-  .refine(
-    (v) => v.status !== 'failed' || !!(v.failureReason && v.failureReason.length >= 1),
-    { message: 'failureReason required when status=failed', path: ['failureReason'] },
-  )
-  .refine(
-    (v) => v.status !== 'blocked' || !!(v.blockedReason && v.blockedReason.length >= 1),
-    { message: 'blockedReason required when status=blocked', path: ['blockedReason'] },
-  );
+  .superRefine((v, ctx) => {
+    if (v.status === 'done' && !(v.commitSha && v.commitSha.length >= 7)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['commitSha'],
+        message: 'commitSha required (≥7 hex) when status=done',
+      });
+    }
+    if (v.status === 'failed' && !(v.failureReason && v.failureReason.length >= 1)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['failureReason'],
+        message: 'failureReason required when status=failed',
+      });
+    }
+    if (v.status === 'blocked' && !(v.blockedReason && v.blockedReason.length >= 1)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['blockedReason'],
+        message: 'blockedReason required when status=blocked',
+      });
+    }
+  });
 
 export const JobStateSchema = z.object({
   jobId: z.string(),
@@ -34,8 +45,8 @@ export const JobStateSchema = z.object({
   parallelismHint: z.enum(['serial', 'llm-decides']).default('llm-decides'),
   exitPolicy: z.enum(['strict', 'best-effort']).default('strict'),
   mainLoopStrategy: z.enum(['single', 'rotating']).default('rotating'),
-  rotateEvery: z.number().int().positive().default(3),
-  mainSessionCycle: z.number().int().nonnegative().default(0),
+  rotateEvery: z.number().int().gt(0).default(3),
+  mainSessionCycle: z.number().int().gte(0).default(0),
   mainLoopOverride: z
     .object({
       from: z.literal('rotating'),
@@ -50,8 +61,8 @@ export const JobStateSchema = z.object({
 export const ResourceSnapshotSchema = z.object({
   capturedAt: z.string().datetime(),
   cpuPercent: z.number().min(0).max(100),
-  memMb: z.number().nonnegative(),
-  diskMb: z.number().nonnegative(),
+  memMb: z.number().gte(0),
+  diskMb: z.number().gte(0),
   contextRatio: z.number().min(0).max(1),
 });
 
@@ -83,7 +94,7 @@ export const JobInitInputSchema = z.object({
   parallelismHint: z.enum(['serial', 'llm-decides']).default('llm-decides'),
   exitPolicy: z.enum(['strict', 'best-effort']).default('strict'),
   mainLoopStrategy: z.enum(['single', 'rotating']).default('rotating'),
-  rotateEvery: z.number().int().positive().default(3),
+  rotateEvery: z.number().int().gt(0).default(3),
   project: z.string(),
   json: z.boolean().default(true),
 });
@@ -99,15 +110,25 @@ export const JobCheckpointInputSchema = z
     project: z.string(),
     json: z.boolean().default(true),
   })
-  .refine(
-    (v) => v.state !== 'done' || (v.commitSha && v.commitSha.length >= 7),
-    { message: 'commitSha required (≥7 hex) when state=done', path: ['commitSha'] },
-  )
-  .refine(
-    (v) =>
-      v.state !== 'failed' && v.state !== 'skipped' ? true : !!(v.reason && v.reason.length >= 3),
-    { message: 'reason required (≥3 chars) when state=failed|skipped', path: ['reason'] },
-  );
+  .superRefine((v, ctx) => {
+    if (v.state === 'done' && !(v.commitSha && v.commitSha.length >= 7)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['commitSha'],
+        message: 'commitSha required (≥7 hex) when state=done',
+      });
+    }
+    if (
+      (v.state === 'failed' || v.state === 'skipped') &&
+      !(v.reason && v.reason.length >= 3)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reason'],
+        message: 'reason required (≥3 chars) when state=failed|skipped',
+      });
+    }
+  });
 export type JobCheckpointInput = z.infer<typeof JobCheckpointInputSchema>;
 
 export const JobBlockInputSchema = z.object({

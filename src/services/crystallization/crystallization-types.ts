@@ -127,8 +127,8 @@ export const EvidenceBriefSchema = z
     what_action: BriefSectionSchema,
   })
   .strict()
-  .refine(
-    (b) =>
+  .superRefine((b, ctx) => {
+    const ok =
       typeof b.what_happened === "string" &&
       b.what_happened.trim().length > 0 &&
       typeof b.why_it_matters === "string" &&
@@ -136,13 +136,16 @@ export const EvidenceBriefSchema = z
       typeof b.what_learned === "string" &&
       b.what_learned.trim().length > 0 &&
       typeof b.what_action === "string" &&
-      b.what_action.trim().length > 0,
-    {
-      message:
-        "evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)",
-      path: [],
+      b.what_action.trim().length > 0;
+    if (!ok) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message:
+          "evidence_brief must contain all 4 sections (what_happened, why_it_matters, what_learned, what_action) with non-empty content (spec §4.7 / RL-7)",
+      });
     }
-  );
+  });
 
 export type EvidenceBrief = z.infer<typeof EvidenceBriefSchema>;
 
@@ -186,7 +189,7 @@ const OptionalLoopId = z
 const OptionalBeeId = z
   .number()
   .int()
-  .positive()
+  .gt(0)
   .max(CRYS_BEE_ID_MAX_I32, "bee_release_id out of 32-bit range")
   .optional();
 

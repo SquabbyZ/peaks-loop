@@ -13,7 +13,7 @@ export const ContextJsonSchema = z.object({
     files: z.array(z.object({
       path: z.string(),
       kind: z.enum(['source', 'test', 'config', 'doc']),
-      lines: z.number().int().nonnegative(),
+      lines: z.number().int().gte(0),
       hash: z.string(),
     })),
     gitStatus: z.object({
@@ -43,7 +43,7 @@ export const ContextJsonSchema = z.object({
       contentHash: z.string(),
       sections: z.array(z.object({
         title: z.string(),
-        tokenEstimate: z.number().int().nonnegative(),
+        tokenEstimate: z.number().int().gte(0),
         excerpt: z.string(),
       })),
       stale: z.boolean(),
@@ -67,7 +67,7 @@ export const ContextJsonSchema = z.object({
   renderer: z.object({
     audience: z.enum(['peaks-rd', 'peaks-qa', 'peaks-mut', 'all']),
     renderedAt: z.string().datetime(),
-    sizeBytes: z.number().int().nonnegative(),
+    sizeBytes: z.number().int().gte(0),
     truncated: z.boolean(),
     truncatedReason: z.enum(['doc_budget_exceeded', 'section_count_exceeded']).optional(),
   }),

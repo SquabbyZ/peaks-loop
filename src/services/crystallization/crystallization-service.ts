@@ -98,22 +98,16 @@ export type CrystallizationTaskStatus =
 export const CrystallizationTaskStateSchema = z.object({
   task_id: z.string().trim().min(1).max(256),
   task_status: z.literal("completed", {
-    errorMap: () => ({
-      message:
-        "task_status must be 'completed' for crystallization (AC-4 / RL-2)",
-    }),
+    error: () =>
+      "task_status must be 'completed' for crystallization (AC-4 / RL-2)",
   }),
   gates_passed: z.literal(true, {
-    errorMap: () => ({
-      message:
-        "gates_passed must be true for crystallization (AC-4 / RL-2)",
-    }),
+    error: () =>
+      "gates_passed must be true for crystallization (AC-4 / RL-2)",
   }),
   evidence_collected: z.literal(true, {
-    errorMap: () => ({
-      message:
-        "evidence_collected must be true for crystallization (AC-4 / RL-2)",
-    }),
+    error: () =>
+      "evidence_collected must be true for crystallization (AC-4 / RL-2)",
   }),
 });
 export type CrystallizationTaskState = z.infer<

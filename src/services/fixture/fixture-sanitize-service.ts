@@ -106,7 +106,7 @@ export const SANITIZE_RULES: ReadonlyArray<SanitizeRule> = [
 export const SanitizationIssueSchema = z.object({
   rule: z.string(),
   match: z.string(),
-  position: z.number().int().nonnegative()
+  position: z.number().int().gte(0)
 });
 
 export const SanitizationReportSchema = z.object({

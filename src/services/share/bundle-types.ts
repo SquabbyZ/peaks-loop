@@ -247,20 +247,26 @@ export const BundleManifestSchema = z
     exclusion_manifest: ExclusionManifestSchema,
   })
   .strict()
-  .refine(
-    (m) => {
-      // kind === 'loop' implies loop_release is required.
-      if (m.kind === "loop" && m.loop_release === undefined) return false;
-      // kind === 'bee' implies bee_release is required.
-      if (m.kind === "bee" && m.bee_release === undefined) return false;
-      return true;
-    },
-    {
-      message:
-        "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)",
-      path: [],
+  .superRefine((m, ctx) => {
+    // kind === 'loop' implies loop_release is required.
+    if (m.kind === "loop" && m.loop_release === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [],
+        message:
+          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)",
+      });
     }
-  );
+    // kind === 'bee' implies bee_release is required.
+    if (m.kind === "bee" && m.bee_release === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [],
+        message:
+          "bundle manifest is inconsistent: kind='loop' requires loop_release; kind='bee' requires bee_release (spec §7A.2)",
+      });
+    }
+  });
 
 export type BundleManifest = z.infer<typeof BundleManifestSchema>;
 

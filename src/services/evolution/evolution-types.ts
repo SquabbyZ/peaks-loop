@@ -117,9 +117,9 @@ export const EvolutionProposalInputSchema = z.object({
     .trim()
     .min(1, "optimization_dimension is required (single dimension per round)")
     .max(EVO_OPTIMIZATION_DIMENSION_MAX),
-  before_snapshot: z.record(z.unknown()).default({}),
-  after_snapshot: z.record(z.unknown()).default({}),
-  diff: z.record(z.unknown()).default({}),
+  before_snapshot: z.record(z.string(), z.unknown()).default({}),
+  after_snapshot: z.record(z.string(), z.unknown()).default({}),
+  diff: z.record(z.string(), z.unknown()).default({}),
   before_score: z
     .number()
     .finite("before_score must be a finite number")
@@ -147,10 +147,8 @@ export const EvolutionProposalInputSchema = z.object({
    * `single_object !== true`.
    */
   single_object: z.literal(true, {
-    errorMap: () => ({
-      message:
-        "single_object must be true (multi-object proposals must be split into multiple rounds)",
-    }),
+    error: () =>
+      "single_object must be true (multi-object proposals must be split into multiple rounds)",
   }),
   /**
    * The LLM-side marker that this proposal targets a SINGLE
@@ -158,12 +156,10 @@ export const EvolutionProposalInputSchema = z.object({
    * proposals with `single_optimization_dimension !== true`.
    */
   single_optimization_dimension: z.literal(true, {
-    errorMap: () => ({
-      message:
-        "single_optimization_dimension must be true (multi-dimension proposals must be split into multiple rounds)",
-    }),
+    error: () =>
+      "single_optimization_dimension must be true (multi-dimension proposals must be split into multiple rounds)",
   }),
-  rubric: z.record(z.unknown()).default({}),
+  rubric: z.record(z.string(), z.unknown()).default({}),
   red_lines: z.array(z.string().min(1).max(EVO_RED_LINE_MAX)).default([]),
   source_traces: z.array(z.string().min(1).max(EVO_SOURCE_TRACE_MAX)).default([]),
 });

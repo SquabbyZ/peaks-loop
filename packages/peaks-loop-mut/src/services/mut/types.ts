@@ -92,10 +92,10 @@ export const MutReportSchema = z.object({
   inputSig: z.string().regex(/^[a-f0-9]{64}$/),
   mutation: z.object({
     tool: z.enum(['stryker', 'mutmut', 'go-mutesting']),
-    mutantsTotal: z.number().int().nonnegative(),
-    mutantsKilled: z.number().int().nonnegative(),
-    mutantsSurvived: z.number().int().nonnegative(),
-    mutantsTimeout: z.number().int().nonnegative(),
+    mutantsTotal: z.number().int().gte(0),
+    mutantsKilled: z.number().int().gte(0),
+    mutantsSurvived: z.number().int().gte(0),
+    mutantsTimeout: z.number().int().gte(0),
     killRate: z.number().min(0).max(1),
     byFile: z.array(z.object({
       file: z.string(),
@@ -108,12 +108,12 @@ export const MutReportSchema = z.object({
     })),
   }),
   assertions: z.object({
-    totalAssertions: z.number().int().nonnegative(),
-    weakAssertions: z.number().int().nonnegative(),
+    totalAssertions: z.number().int().gte(0),
+    weakAssertions: z.number().int().gte(0),
     weakRate: z.number().min(0).max(1),
     weakPatterns: z.array(z.object({
       pattern: WeakPatternSchema,
-      count: z.number().int().nonnegative(),
+      count: z.number().int().gte(0),
       examples: z.array(z.object({
         file: z.string(),
         line: z.number().int(),

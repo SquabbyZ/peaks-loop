@@ -17,10 +17,10 @@ import { z } from 'zod';
  */
 export const MigrateResultSchema = z.object({
   ok: z.boolean(),
-  scannedFiles: z.number().int().nonnegative(),
-  modifiedFiles: z.number().int().nonnegative(),
-  keyValueReplacements: z.number().int().nonnegative(),
-  stringReplacements: z.number().int().nonnegative(),
+  scannedFiles: z.number().int().gte(0),
+  modifiedFiles: z.number().int().gte(0),
+  keyValueReplacements: z.number().int().gte(0),
+  stringReplacements: z.number().int().gte(0),
   skipped: z.array(z.string()),
   errors: z.array(z.string()),
 });

@@ -54,8 +54,8 @@ export const SkillSearchInputSchema = z
     query: z.string().min(1).max(500).optional(),
     tag: z.string().min(1).max(100).optional(),
     domain: z.enum(SKILL_DOMAINS).optional(),
-    limit: z.number().int().min(1).max(100).optional().default(20),
-    includeInternal: z.boolean().optional().default(false)
+    limit: z.number().int().min(1).max(100).default(20).optional(),
+    includeInternal: z.boolean().default(false).optional()
   })
   .refine(
     (v) => v.query !== undefined || v.tag !== undefined || v.domain !== undefined,

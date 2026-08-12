@@ -17,10 +17,10 @@ export const BeeManifestSchema = z.object({
     refs: z.array(z.object({ path: z.string(), kind: z.enum(["file", "dir", "script"]) })),
   }),
   promotion: z.object({
-    minCycles: z.number().int().nonnegative(),
+    minCycles: z.number().int().gte(0),
     requiresHumanApproval: z.boolean(),
     requiresSmokeTest: z.boolean(),
-    retireOnMissesInRow: z.number().int().positive().optional(),
+    retireOnMissesInRow: z.number().int().gt(0).optional(),
   }),
   createdBy: z.enum(["human", "llm"]),
   lastTouchedAt: z.string().datetime(),

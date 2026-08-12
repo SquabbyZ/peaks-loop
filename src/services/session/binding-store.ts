@@ -31,7 +31,7 @@ export const InstanceRecordSchema = z.object({
 
 export const BindingSchema = z.object({
   ownerHint: z.string().min(1),
-  pid: z.number().int().positive(),
+  pid: z.number().int().gt(0),
   lastHeartbeat: z.string().datetime(),
   scope: z.string().min(1),
   instances: z.record(z.string(), InstanceRecordSchema)

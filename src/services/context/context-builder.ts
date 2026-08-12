@@ -21,7 +21,7 @@ const BuildInputSchema = z.object({
   project: z.string().min(1),
   audience: z.enum(['peaks-rd', 'peaks-qa', 'peaks-mut', 'all']),
   depsMode: z.enum(['locked', 'latest']),
-  docBudgetTokens: z.number().int().positive().default(8000),
+  docBudgetTokens: z.number().int().gt(0).default(8000),
   out: z.string().min(1),
   fetcher: z.function(),
 });

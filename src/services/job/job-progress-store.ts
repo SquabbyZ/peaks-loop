@@ -29,8 +29,8 @@ export const JOB_PROGRESS_SCHEMA_VERSION = 1 as const;
 export const JobProgressSchema = z.object({
   schemaVersion: z.literal(JOB_PROGRESS_SCHEMA_VERSION),
   jobId: z.string(),
-  done: z.number().int().nonnegative(),
-  total: z.number().int().positive(),
+  done: z.number().int().gte(0),
+  total: z.number().int().gt(0),
   currentSlice: z.string(),
   lastCommitSha: z.string().nullable(),
   updatedAt: z.string().datetime()

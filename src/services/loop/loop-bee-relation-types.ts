@@ -66,7 +66,7 @@ export const LoopBeeRelationInputSchema = z.object({
   bee_release_id: z
     .number()
     .int()
-    .positive()
+    .gt(0)
     .max(2 ** 31 - 1, "bee_release_id out of 32-bit range"),
   role: LoopBeeRelationRoleSchema,
   reason: z
@@ -89,7 +89,7 @@ export type LoopBeeRelationInput = z.input<typeof LoopBeeRelationInputSchema>;
  * read paths.
  */
 export const LoopBeeRelationSchema = LoopBeeRelationInputSchema.extend({
-  id: z.number().int().positive(),
+  id: z.number().int().gt(0),
   schema_version: z
     .literal("peaks.loop-bee-relation/1")
     .default("peaks.loop-bee-relation/1"),
