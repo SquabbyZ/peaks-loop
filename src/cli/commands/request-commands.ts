@@ -21,6 +21,7 @@ import { lintRequestArtifact } from '../../services/artifacts/artifact-lint-serv
 import { getRepairCycleStatus } from '../../services/artifacts/repair-cycle-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
+import { triggerBestPracticeScan } from '../../services/prd/best-practice-auto-trigger.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -513,6 +514,10 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
       // Only fires when the handoff is missing; existing handoffs are not overwritten.
+      // Slice 2026-08-12 best-practice-scan (Slice F) — auto-trigger BPS as a
+      // post-step after peaks-prd's businessGoal artifact transitions to
+      // `handed-off` (the canonical "complete" state in the prd state machine).
+      // The trigger is fire-and-forget: failure NEVER blocks the transition.
       if (role === 'prd' && newState === 'handed-off' && options.sessionId !== undefined) {
         const { autoRegenPrdHandoff } = await import('../../services/prd/handoff-auto-regen.js');
         const regen = await autoRegenPrdHandoff({
@@ -521,21 +526,32 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           requestId,
           role: 'prd'
         });
-        if (regen.status === 'created') {
-          // Stitch into the result envelope
-          printResult(
-            io,
-            ok('request.transition', { ...result, handoffAutoRegen: { status: 'created', path: regen.path, sha256: regen.sha256 } }),
-            options.json
-          );
-          return;
+        const bpsTrigger = await triggerBestPracticeScan({
+          projectRoot: options.project,
+          sessionId: result.sessionId,
+          requestId
+        });
+        const handoffAutoRegen = regen.status === 'created'
+          ? { status: 'created', path: regen.path, sha256: regen.sha256 }
+          : regen.status === 'skipped-exists'
+            ? { status: 'skipped-exists', path: regen.path }
+            : { status: 'failed', reason: regen.reason };
+        const notes: string[] = [];
+        if (regen.status === 'failed') {
+          notes.push(`prd handoff auto-regen failed: ${regen.reason}`);
         }
-        if (regen.status === 'skipped-exists') {
-          printResult(io, ok('request.transition', { ...result, handoffAutoRegen: { status: 'skipped-exists', path: regen.path } }), options.json);
-          return;
+        if (bpsTrigger.status === 'failed') {
+          notes.push(`best-practice-scan auto-trigger failed: ${bpsTrigger.reason ?? 'unknown'}`);
         }
-        // status === 'failed' — surface a warning but don't block the transition
-        printResult(io, ok('request.transition', { ...result, handoffAutoRegen: { status: 'failed', reason: regen.reason } }, [`prd handoff auto-regen failed: ${regen.reason}`]), options.json);
+        printResult(
+          io,
+          ok(
+            'request.transition',
+            { ...result, handoffAutoRegen, bestPracticeScanTrigger: bpsTrigger },
+            notes
+          ),
+          options.json
+        );
         return;
       }
       // Slice 2026-07-01-strategic-compact-cli: stitch the pre-compact
