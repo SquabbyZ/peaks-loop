@@ -1,5 +1,48 @@
 # Changelog
 
+## 4.0.24 — 2026-08-12 (zod v4 + Context7 + Step 2.5 best-practice scan)
+
+**6 atomic commits from session 2026-08-12-session-4aaf2b** (5 functional + 1 sediment):
+
+- `545a7d15` feat(peaks-prd): auto-trigger best-practice-scan on prd → handed-off transition (Slice F, 3 files, +446/-13)
+- `3d866138` docs(peaks-code): wire Step 2.5 best-practice scan sub-step into workflow narrative (Slice D, 3 files, +48/-4)
+- `a0f3efc0` feat(peaks-code): add Step 2.5 best-practice scan core (Slice C, 8 files, +947/-1)
+- `a8f31b1b` chore(deps): add @upstash/context7-mcp@^4.0.2 for downstream best-practice docs (Slice B, 2 files, +490/-2)
+- `24dfd8da` refactor(zod): bump zod 3.25.76 → 4.4.3 across monorepo (Slice A, 21 files, +148/-132)
+- `f2fc76de` chore(memory): sediment pre-existing dirty — .peaks/PROJECT.md + .peaks/memory/index.json
+
+**Highlights**:
+
+1. **zod v3 → v4 upgrade** — 21 src files migrated, 4 v3 API families fixed (`.nonnegative/.positive`, `z.record` 1-arg, `errorMap`, `.refine()` path). Lockstep peaks-loop-shared + peaks-loop-internal-runtime bump. D-2 deviation (RD fabrication) caught by QA and fixed in same session — `zod-to-json-schema` replaced by zod v4 native `z.toJSONSchema()`.
+
+2. **`@upstash/context7-mcp@^4.0.2` added** as production dep — Context7's zod v4 peer dep is now satisfied. 8 transitive deps resolved (express/jose/undici/MCP packages). Downstream projects consuming peaks-loop now have Context7 transitively available.
+
+3. **peak-code Step 2.5 best-practice scan (BPS)** shipped — new sub-step between Step 2 (PRD) and Step 3 (RD). Auto-triggered on prd → handed-off transition. 8-row markdown table output with ★-marked LLM recommendation + mandatory ⚠️ catch-gate. 5-lang detector (TS/JS/Python/Go/Java). 53 vitest cases (44 core + 9 auto-trigger). 0 forbidden-token regressions. All 8 ACs PASS.
+
+**Lockstep contract** (per peaks-cli-version-shared-chicken-egg):
+- peaks-loop root `package.json#version`: 4.0.23 → **4.0.24**
+- peaks-loop-shared `src/version.ts` `CLI_VERSION`: 4.0.23 → **4.0.24**
+- peaks-loop-shared `package.json#version`: 0.0.57 → **0.0.58**
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_VERSION`: 4.0.23 → **4.0.24**
+- peaks-loop-internal-runtime `src/index.ts` `RUNTIME_NPM_VERSION`: 0.0.8 → **0.0.9**
+- peaks-loop-internal-runtime `package.json#version`: 0.0.8 → **0.0.9**
+
+**Pre-publish registry state**:
+- `peaks-loop@4.0.23` ✓ on registry (current latest)
+- `peaks-loop@4.0.22` ✗ unpublished + in 24-72h grace (out of scope)
+- `peaks-loop-shared@0.0.57` ✓ on registry
+- `peaks-loop-internal-runtime@0.0.8` ✓ on registry
+
+**Sister subpackages NOT bumped** (out of Step 2.5 scope):
+- peaks-loop-mut: 0.1.22 (unchanged; only its zod dep was bumped in Slice A)
+- peaks-loop-shared-channel: 0.0.26 (unchanged)
+
+**Pending follow-ups** (out of 4.0.24 scope):
+- real MCP wiring for Context7 (replace v1 stubs in `src/services/best-practice/scan-orchestrator.ts`)
+- per-language libraries lookup (currently `...` in non-parallel rows)
+- `startup-sequence.md:100` legacy "Step 2.5: Set session title" → 2.5a rename (Slice D deviation #1)
+- 4 unit pre-existing failures unrelated to this release (verified against pre-migration main)
+
 ## 4.0.23 — 2026-08-11 (Bump to NEW version — per Rule 3 unpublish 24-72h grace)
 
 **1 atomic commits from session 2026-08-11** + Layer 3 fix verify (publish.yml no auto-bump):
