@@ -1,6 +1,6 @@
-# Step 2 + 2.5 — Skill presence and session title
+# Step 2 + 2.5a — Skill presence and session title
 
-> Combined body for `### Peaks-Loop Step 2: Re-set skill presence with the chosen mode` and `### Peaks-Loop Step 2.5: Set session title`.
+> Combined body for `### Peaks-Loop Step 2: Re-set skill presence with the chosen mode` and `### Peaks-Loop Step 2.5a: Set session title`.
 
 ## Step 2 — Re-set skill presence
 
@@ -20,7 +20,7 @@ Then display the compact status header: `Peaks-Loop Skill: peaks-code | Peaks-Lo
 
 Update with `peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — clear is owned by workflow terminalize; follow-up workflows re-claim via new workflow init.
 
-## Step 2.5 — Set session title
+## Step 2.5a — Set session title
 
 Extract a short (8-20 Chinese characters, or 4-10 English words) descriptive title from the user's first request. The title should capture the core task — e.g. "修复登录页OAuth回调异常", "添加暗色模式开关", "搭建项目基础架构". Then run:
 

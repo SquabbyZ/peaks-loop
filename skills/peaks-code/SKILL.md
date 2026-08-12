@@ -189,7 +189,7 @@ See also: references/session-overload-signal-index.md for the 7-signal lookup ta
 | Drift ID | Step | Symptom | Fix | Inline location |
 |---|---|---|---|---|
 | **D-001** | 0.8 | `peaks code detect-job --is-job ...` rejected with `error: unknown option '--is-job'` | Use `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single\|rotating>` | §Step 0.8 first paragraph |
-| **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` (this is the bare `<sid>` anti-pattern) | sid is positional: `peaks session title <sessionId> "<title>" --json` | §Step 2.5 |
+| **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` (this is the bare `<sid>` anti-pattern) | sid is positional: `peaks session title <sessionId> "<title>" --json` | §Step 2.5a |
 | **D-003** | 0.8 | `JOB_SHAPE_NOT_DECIDED` exception expected but never thrown | Current behavior is `peaks job status` reports `done: 0` passively — treat as recoverable miss, not hard error | §Step 0.8 third paragraph |
 | **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. Bare `peaks-memory:start` is parsed silently but produces no writes | §Step 11c + 11d |
 
@@ -212,6 +212,33 @@ Before handing off to `peaks-rd`, scan the project and record findings to `.peak
 ## Peaks-Loop Frontend-only development mode
 
 When the project has no live backend (no swagger.json, no API server), Code must activate frontend-only mode. The CLI is authoritative — read `frontendOnly` and `frontendOnlyReason` from `peaks scan archetype --json`. → `references/frontend-only-mode.md`.
+
+## Peaks-Loop Step 2.5: Best-practice scan (BPS) (NEW 2026-08-12)
+
+Inserted between current Step 2 (PRD) and Step 3 (RD). Sub-step does a **business-aware,
+language-aware, LLM-recommended best-practice scan** before RD kicks off.
+
+**Trigger:** Fires at peak-prd exit when business-goal is non-empty + sub-step not yet
+triggered for this intent.
+
+**Action sequence:**
+1. Detect project language (TS / JS / Python / Go / Java) via `language-detector` (5-lang
+   priority chain).
+2. Query Context7 (`@upstash/context7-mcp@^4.0.2`, installed as peaks-loop production dep)
+   priority-1 with 30s timeout.
+3. WebSearch fallback when Context7 returns empty / errors.
+4. Synthesize 8-row markdown comparison table per `output-formatter`.
+5. LLM picks one recommendation (★ marker) with reasoning block.
+6. **Mandatory ⚠️ catch gate** — user explicitly acks / picks alt / rejects + reason.
+
+**Out of scope for this sub-step:**
+- ❌ No changes to RD dispatch Karpathy prose (Step 3 unchanged)
+- ❌ No changes to QA / SC / TXT skills
+- ❌ No new `peaks-best-practice` standalone skill (sub-step inside peaks-prd only)
+- ❌ No framework-knowledge persistent index (future slice)
+
+**Reference:** Spec at `.peaks/_runtime/<sessionId>/sc/spec-step-2-5-best-practice-scan.md`
+§4-7. Implementation: `src/cli/commands/best-practice-scan-command.ts` + `src/services/best-practice/`.
 
 ## Peaks-Loop Request type classification + Workflow order + Transition verification gates
 
