@@ -134,6 +134,7 @@
   "dependencies": {
     "@alibaba-group/open-code-review": "^1.8.9",
     "@colbymchenry/codegraph": "0.7.10",
+    "@upstash/context7-mcp": "^4.0.2",
     "better-sqlite3": "^12.11.1",
     "commander": "^12.1.0",
     "fzf": "^0.5.2",
