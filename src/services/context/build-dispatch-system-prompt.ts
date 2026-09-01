@@ -96,10 +96,10 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
  *      index, race the worktree release, and can corrupt the
  *      caller's working branch.
  *
- * These rules are appended to the system prompt on top of the L1
- * worktree governance block so the sub-agent sees them last (i.e.
- * most-recently-read), which is the strongest prompt position in
- * transformer attention.
+ * These rules are placed immediately after the L1 worktree governance
+ * block so every stable boilerplate block is contiguous at the prompt
+ * start, maximizing Anthropic prompt-cache prefix reuse (stable-first
+ * ordering).
  */
 export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
 
@@ -132,9 +132,9 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
   const { taskBody, memoryBlock, contextProbe } = input;
   const contextBlock = renderContextBlock(contextProbe ?? null);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}\n${LIFECYCLE_RULES}`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${contextBlock}${taskBody}\n${LIFECYCLE_RULES}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${taskBody}`;
 }
 
 /**
