@@ -38,15 +38,12 @@ import { evaluatePromptSize } from '../../services/context/context-guard.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
-import { compressPrompt, type HeadroomResult } from '../../services/context/headroom-client.js';
-import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
 import { playwrightProfilePaths } from '../../services/worktree/playwright-profile.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 import { DEFAULT_PREFERENCES } from '../../services/preferences/preferences-types.js';
 import { writeLogEntry } from '../../services/log/logger.js';
 import {
   DispatchOptions,
-  HEADROOM_MODES,
   PROMPT_LIMIT_BYTES,
   RECOMMENDED_ROLES,
   validateRole
@@ -72,7 +69,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .description(
         'Build an IDE-specific tool-call descriptor for a sub-agent dispatch. ' +
         'Dry-run by design; the LLM executes the returned toolCall in its own ' +
-        'environment. Flags: --write-artifact (G7), --use-headroom (G7.7), ' +
+        'environment. Flags: --write-artifact (G7), ' +
         '--force (G9 CLI 兜底). ' +
         'See skills/peaks-code/references/sub-agent-dispatch.md for the ' +
         'orchestrator contract.'
@@ -90,8 +87,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root (defaults to cwd)')
       .option('--batch-id <uuid>', 'batch id for the dispatch (default: auto-generated UUID)')
       .option('--write-artifact <path>', 'G7: register an artifact file at <path>; CLI computes sha256 + size + writes ArtifactMeta to the dispatch record')
-      .option('--use-headroom', 'G7.7/G9: compress the prompt via headroom-ai before dispatch (opt-in; falls back to G7 metadata-only if headroom unavailable)')
-      .option('--headroom-mode <mode>', `G7.7: headroom mode (${HEADROOM_MODES.join(' | ')}); default balanced`)
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
       .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
       .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.')
@@ -387,34 +382,13 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       }
 
 
-      // G7.7 / G9: resolve headroom options from preferences + CLI overrides.
-      // Preferences hard-block when headroom.enabled=false (returns HEADROOM_DISABLED_BY_PREFERENCE).
-      // loadPreferences can throw on schema mismatch; we fall back to defaults to avoid
-      // breaking the dispatch on a stale preferences.json file.
+      // loadPreferences can throw on schema mismatch; we fall back to defaults
+      // to avoid breaking the dispatch on a stale preferences.json file.
       let projectPrefs = DEFAULT_PREFERENCES;
-      let headroomPrefs = DEFAULT_PREFERENCES.headroom;
       try {
         projectPrefs = loadPreferences(projectRoot);
-        headroomPrefs = projectPrefs.headroom;
       } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // Keep default preferences; the user can re-run with explicit --headroom-mode
-        // if they want to override the fallback.
-      }
-      const headroomResolved = resolveHeadroomOptions(headroomPrefs, {
-        useHeadroom: options.useHeadroom === true,
-        ...(options.headroomMode !== undefined ? { headroomMode: options.headroomMode } : {})
-      });
-      if (headroomResolved.blocked !== null) {
-        printResult(io, fail('sub-agent.dispatch', headroomResolved.blocked, `headroom integration is disabled in preferences (headroom.enabled=false); pass --headroom-mode and update preferences first, or run without --use-headroom`, {
-          role,
-          toolCall: null,
-          dispatchRecordPath: null
-        } as never, [
-          'Edit .peaks/preferences.json: set headroom.enabled = true (per-touchpoint mode is headroom.perTouchpoint.subAgentDispatch).',
-          'Or re-run without --use-headroom to dispatch without compression.'
-        ]), asJson);
-        process.exitCode = 1;
-        return;
+        // Keep default preferences.
       }
 
       const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
@@ -427,12 +401,9 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         return;
       }
 
-      // G7.7 headroom compress (opt-in). If headroom fails or is unavailable,
-      // fall back to the original prompt + emit warning.
       // Slice 2026-07-22-orchestrator-memory-preflight (Task 5): prepend the
       // memory preflight block (or silently skip when unavailable) via the
-      // pure-function builder, BEFORE the headroom-ai compress step so the
-      // compressor sees the augmented payload.
+      // pure-function builder.
       const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
       const memoryBlock = await preflightService.fetchBlock(role);
       // Slice 2026-07-29-context-evaluation-accuracy: capture the
@@ -464,9 +435,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         contextProbe
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
-      // block so the sub-agent sees the lease id + worktree path BEFORE
-      // headroom-ai compress. The block is short (a few lines) and the
-      // compressor is expected to keep it. We deliberately do NOT set
+      // block so the sub-agent sees the lease id + worktree path. The block
+      // is short (a few lines). We deliberately do NOT set
       // process.env.PEAKS_WORKTREE_LEASE_ID here — sub-agents are spawned
       // by the LLM in its own environment, not as children of this CLI;
       // the lease id travels through the dispatch record + prompt body.
@@ -501,21 +471,8 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           `confirm the file exists. Anti-fake-green rule (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure §Lesson 1): ` +
           `if the file does not exist, your verdict MUST be \`status: "blocked"\` with reason "must_ls_files_failed". Do NOT silently skip this step.\n`;
       }
-      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
-      let headroomCompressed = false;
-      let headroomResult: HeadroomResult | null = null;
+      const effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
       const warnings: string[] = [...decision.warnings];
-
-      if (headroomResolved.mode !== null) {
-        headroomResult = await compressPrompt(effectivePrompt, headroomResolved.mode);
-        if (headroomResult.warning !== null) {
-          warnings.push(headroomResult.warning);
-        }
-        if (headroomResult.compressed && headroomResult.compressedPrompt !== null) {
-          effectivePrompt = headroomResult.compressedPrompt;
-          headroomCompressed = true;
-        }
-      }
 
       let toolCall: SubAgentToolCall;
       try {
@@ -592,8 +549,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           detail: {
             requestId: rid,
             ide: adapter.subAgentDispatcher.label,
-            promptBytes: effectivePrompt.length,
-            headroomCompressed
+            promptBytes: effectivePrompt.length
           }
         }, { projectRoot });
       } catch (error: unknown) {
@@ -665,9 +621,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       if (counter.warning) {
         nextActions.push(`Batch is over the RL-1 limit (${BATCH_LIMIT}); consider splitting into multiple batches.`);
       }
-      if (headroomResult && headroomResult.warning === 'HEADROOM_UNAVAILABLE') {
-        nextActions.push('Headroom daemon unavailable; dispatched with G7 metadata-only fallback.');
-      }
       const expectedCompletionSeconds = 45;
       const artifactsPublicPaths = typeof options.writeArtifact === 'string' && options.writeArtifact.length > 0
         ? [options.writeArtifact]
@@ -687,7 +640,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // disk (gitignored under .peaks/_sub_agents/) keeps the prompt
         // for the sub-agent to read; CLI stdout stays metadata-only.
         // Surface promptSize + originalPromptSize so the LLM-side
-        // runner can still reason about headroom without seeing the
+        // runner can reason about the size delta without seeing the
         // content.
         originalPromptSize: options.prompt.length,
         promptSize: effectivePrompt.length,
@@ -695,16 +648,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         dispatchRecordPath,
         batchId,
         dispatchedInBatch: counter.count,
-        headroomCompressed,
-        headroomResult: headroomResult
-          ? {
-              mode: headroomResult.mode,
-              compressed: headroomResult.compressed,
-              compressionRatio: headroomResult.compressionRatio,
-              tokensSaved: headroomResult.tokensSaved,
-              warning: headroomResult.warning
-            }
-          : null,
         forcedAt: decision.forcedAt,
         contextImpact,
         artifactMetas: artifactMeta ? [artifactMeta] : [],
@@ -743,7 +686,6 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             role,
             batchId,
             dispatchedInBatch: counter.count,
-            headroomCompressed,
             forcedAt: decision.forcedAt
           }
         });

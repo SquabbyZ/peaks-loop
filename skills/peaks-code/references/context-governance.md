@@ -1,7 +1,7 @@
-# Context Governance — G7 + G7.7 + G8 + G9 protocol details
+# Context Governance — G7 + G8 + G9 protocol details
 
-> Slice #010 (G7 + G7.7 + G8 + G9 context-governance push).
-> See: `.peaks/memory/sub-agent-context-minimal-occupation.md` + `sub-agent-shared-channel-cross-completion.md` + `sub-agent-headroom-forced-compression-gate.md` for the red lines.
+> Slice #010 (G7 + G8 + G9 context-governance push).
+> See: `.peaks/memory/sub-agent-context-minimal-occupation.md` + `sub-agent-shared-channel-cross-completion.md` for the red lines.
 
 ## G7 — sub-agent context minimal-occupation (metadata-only + 按需 Read)
 
@@ -55,26 +55,6 @@ On completion:
 | **G7 metadata-only (this slice)** | ~200 chars | **600 chars** | **1.2KB** |
 
 3000-5000× improvement. Main LLM full-slice context net increase: < 10KB for 5 batches × 6 sub-agents.
-
-## G7.7 — headroom-ai integration (opt-in)
-
-### `--use-headroom` flag
-
-Opt-in flag on `peaks sub-agent dispatch`. Default `false` (G7 metadata-only remains the default).
-
-### Mode table
-
-| Mode | tokenBudget | Use case |
-|---|---|---|
-| `balanced` (default) | promptSize * 0.40 / 4 | General sub-agent dispatch |
-| `aggressive` | promptSize * 0.20 / 4 | Last-resort large prompt |
-| `conservative` | promptSize * 0.70 / 4 | Sensitive code analysis |
-
-### Failure mode (RL-22d / RL-32)
-
-- headroom daemon dead / proxy unreachable / times out
-- → `code: "HEADROOM_UNAVAILABLE"` warning + G7 metadata-only fallback
-- → NOT blocking (warn, then continue dispatch)
 
 ## G8 — cross sub-agent shared channel
 
@@ -132,8 +112,8 @@ PROTOCOL (mandatory):
 
 | Threshold | Prompt size | Behavior |
 |---|---|---|
-| 50% (early warn) | ≥ 128KB | Soft warning, suggest `--use-headroom` |
-| **75% (user red line)** | ≥ 192KB | Soft warn + mandatory suggest `--use-headroom`; `warnings: ["CONTEXT_NEAR_LIMIT"]` |
+| 50% (early warn) | ≥ 128KB | Soft warning, suggest trimming the prompt |
+| **75% (user red line)** | ≥ 192KB | Soft warn + mandatory trim/split suggestion; `warnings: ["CONTEXT_NEAR_LIMIT"]` |
 | **80% (hard reject)** | ≥ 204KB | Hard reject `code: "PROMPT_TOO_LARGE"`; `--force` allowed at CLI |
 | **90% (emergency)** | ≥ 230KB | Hard reject `code: "PROMPT_EMERGENCY"`; `--force` STILL rejects at 90% (no override) |
 
@@ -149,7 +129,7 @@ PROTOCOL (mandatory):
 
 ## AC mapping
 
-- AC-38..AC-43 (G7) + AC-44..AC-46 (G7.7) + AC-47..AC-49 (G8) + AC-50..AC-65 (G9)
+- AC-38..AC-43 (G7) + AC-47..AC-49 (G8) + AC-50..AC-65 (G9)
 - See PRD §Acceptance criteria.
 
 ---
@@ -171,13 +151,6 @@ Main LLM view format (G7.4.e):
 - qa-perf → .../artifacts/003-qa-perf-001.md (5KB, sha256:ghi789) summary: "p95 latency target ≤ 200ms"
 ```
 
-### G7.7 — headroom-ai integration (opt-in compression)
-
-> Body of `### G7.7`. If a sub-agent prompt is too large even after G7 metadata-only (e.g. 1MB artifact description, 5MB mid-prompt analysis), use `--use-headroom`:
-- Default `false` (G7 remains default).
-- Modes: `balanced` (default) | `aggressive` | `conservative`.
-- Failure: `HEADROOM_UNAVAILABLE` warning + G7 metadata-only fallback (NOT blocking).
-
 ### G8 — cross sub-agent shared channel (dispatcher-mediated indirect signal)
 
 > Body of `### G8`. Sub-agent A's completion **immediately** writes a shared entry; sub-agent B (still in flight) can read shared entries from sibling sub-agents. **This is NOT peer-to-peer messaging.** The dispatcher stores, the sub-agents read/write; A and B never directly talk.
@@ -192,7 +165,7 @@ Main LLM view format (G7.4.e):
 
 | Threshold | Prompt size | Behavior |
 |---|---|---|
-| 50% (early warn) | ≥ 128KB | Soft warning, suggest `--use-headroom` |
+| 50% (early warn) | ≥ 128KB | Soft warning, suggest trimming the prompt |
 | **75% (user red line)** | ≥ 192KB | Soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` |
 | **80% (hard reject)** | ≥ 204KB | Hard reject `code: "PROMPT_TOO_LARGE"`; `--force` allowed at CLI |
 | 90% (emergency) | ≥ 230KB | Hard reject + `contextWarning: 'high'` |

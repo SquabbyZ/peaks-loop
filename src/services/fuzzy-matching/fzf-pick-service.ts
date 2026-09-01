@@ -1,5 +1,5 @@
 /**
- * Generic fzf binary picker (slice 2026-06-14-fzf-headroom-rollout).
+ * Generic fzf binary picker (slice 2026-06-14-fzf-rollout).
  *
  * Promoted from `src/services/slice/slice-pick-service.ts` (which is
  * the only prior caller). Encapsulates the canonical fzf integration

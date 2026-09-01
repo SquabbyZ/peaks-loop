@@ -5,7 +5,6 @@ import {
   FANOUT_MODES,
   isFanoutMode,
   PREFERENCES_SCHEMA_VERSION,
-  type HeadroomPreferences,
   type ProjectPreferences,
 } from './preferences-types.js';
 
@@ -151,14 +150,11 @@ function mergePreferences(
  * current shape. Returns the migrated object + a list of changes
  * applied (for surfacing in the CLI envelope and the migration log).
  *
- * The v1 → v2 mapping fills in the `headroom.perTouchpoint` sub-keys
- * that v1 didn't track: each touchpoint gets the v1 `headroom.defaultMode`
- * (or 'balanced' if absent), and `compressMinBytes` is preserved
- * verbatim. v1's `agentShieldPrompt` and `loopAutonomousEnabled` were
- * already present, so they carry through unchanged. The `fanout` field
- * is new in v2 — it defaults to `{ defaultMode: 'fan-out' }` so the
- * pre-v2 behavior (peak-code SKILL instructed fan-out when ≥ 2 leaves)
- * is preserved.
+ * v1's `agentShieldPrompt` and `loopAutonomousEnabled` were already
+ * present, so they carry through unchanged. The `fanout` field is new
+ * in v2 — it defaults to `{ defaultMode: 'fan-out' }` so the pre-v2
+ * behavior (peak-code SKILL instructed fan-out when ≥ 2 leaves) is
+ * preserved.
  */
 export type MigrateResult = {
   readonly fromVersion: string;
@@ -198,26 +194,6 @@ export function migratePreferences(
   }
 
   const changes: string[] = [];
-  // v1 → v2: headroom.perTouchpoint fill-in (v1 only had defaultMode).
-  const headroomRaw = (raw.headroom ?? {}) as Record<string, unknown>;
-  const defaultMode = isHeadroomModeString(headroomRaw.defaultMode)
-    ? headroomRaw.defaultMode
-    : 'balanced';
-  const perTouchpoint: HeadroomPreferences['perTouchpoint'] = {
-    subAgentDispatch: defaultMode,
-    memorySearch: defaultMode,
-    retrospectiveSearch: defaultMode,
-    doctorScan: defaultMode,
-    doctorRoute: 'conservative'
-  };
-  changes.push(
-    `headroom.perTouchpoint filled in with defaultMode='${defaultMode}' (v1 lacked per-touchpoint overrides)`
-  );
-  if (typeof headroomRaw.compressMinBytes === 'number') {
-    changes.push(`headroom.compressMinBytes preserved at ${headroomRaw.compressMinBytes}`);
-  } else {
-    changes.push(`headroom.compressMinBytes defaulted to 4096`);
-  }
   // v1 → v2: fanout block was absent; v2 needs it. Default to the
   // pre-v2 behavior (fan-out when ≥ 2 leaves).
   if (raw.fanout === undefined) {
@@ -243,14 +219,6 @@ export function migratePreferences(
   // fully-valid v2 ProjectPreferences.
   const migrated = mergePreferences(DEFAULT_PREFERENCES, {
     ...(raw as Partial<ProjectPreferences>),
-    headroom: {
-      enabled: typeof headroomRaw.enabled === 'boolean' ? headroomRaw.enabled : true,
-      defaultMode,
-      perTouchpoint,
-      compressMinBytes: typeof headroomRaw.compressMinBytes === 'number'
-        ? headroomRaw.compressMinBytes
-        : 4096
-    },
     fanout: typeof raw.fanout === 'object' && raw.fanout !== null && !Array.isArray(raw.fanout)
       ? ((raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
           ? { defaultMode: 'fan-out' as const }
@@ -270,8 +238,4 @@ export function migratePreferences(
     changes,
     written
   };
-}
-
-function isHeadroomModeString(value: unknown): value is 'balanced' | 'aggressive' | 'conservative' {
-  return value === 'balanced' || value === 'aggressive' || value === 'conservative';
 }

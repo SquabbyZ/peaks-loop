@@ -26,29 +26,6 @@ export type UaPromptDecision = 'unset' | 'skip-this-session' | 'skip-forever';
  */
 export type ClassifyConservatism = 'default' | 'strict' | 'lax';
 
-/**
- * Per-touchpoint headroom-AI mode override.
- * Spec §7.4 — default 'balanced'.
- */
-export type HeadroomMode = 'balanced' | 'aggressive' | 'conservative';
-
-export interface HeadroomPreferences {
-  /** Whether headroom integration is enabled globally. Default: true */
-  readonly enabled: boolean;
-  /** Default mode if a touchpoint doesn't override. Default: 'balanced' */
-  readonly defaultMode: HeadroomMode;
-  /** Per-touchpoint mode overrides */
-  readonly perTouchpoint: {
-    subAgentDispatch: HeadroomMode;
-    memorySearch: HeadroomMode;
-    retrospectiveSearch: HeadroomMode;
-    doctorScan: HeadroomMode;
-    doctorRoute: HeadroomMode;
-  };
-  /** Minimum joined-result byte count before search-touchpoint compression runs. Default: 4096. */
-  readonly compressMinBytes: number;
-}
-
 export interface ClassifyRuleOverrides {
   // All fields are optional: a partial override is merged over DEFAULT_PREFERENCES.classifyRules
   // by preferences-service.ts::mergePreferences (load + save). Missing fields fall back to the
@@ -113,7 +90,6 @@ export interface ProjectPreferences {
   readonly agentShieldPrompt: UaPromptDecision;
   readonly classifyConservatism: ClassifyConservatism;
   readonly classifyRules: ClassifyRuleOverrides;
-  readonly headroom: HeadroomPreferences;
   readonly swarmSpeculative: SwarmSpeculativePreferences;
   /** Loop Autonomous (L4 14.5) toggle. Default: false — never auto-enable. */
   readonly loopAutonomousEnabled: boolean;
@@ -188,18 +164,6 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     feature_threshold_files: 10,
     feature_threshold_lines: 100,
     runtime_clean_grace_hours: 24,
-  },
-  headroom: {
-    enabled: true,
-    defaultMode: 'balanced',
-    perTouchpoint: {
-      subAgentDispatch: 'balanced',
-      memorySearch: 'balanced',
-      retrospectiveSearch: 'balanced',
-      doctorScan: 'balanced',
-      doctorRoute: 'conservative',
-    },
-    compressMinBytes: 4096,
   },
   swarmSpeculative: {
     enabled: true,

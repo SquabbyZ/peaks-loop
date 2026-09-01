@@ -305,7 +305,7 @@ The TXT handoff summarizes the slice by listing the artifact metas + the share e
 
 ### G9 — TXT prompt size self-check
 
-Same G9 threshold table. TXT handoff messages can grow large when the slice has many batches; use `--use-headroom` proactively for handoff prompts > 50%.
+Same G9 threshold table. TXT handoff messages can grow large when the slice has many batches; trim or split the handoff prompt proactively for prompts > 50%.
 
 
 ## L2 surface reference (post rid-l2-extended)

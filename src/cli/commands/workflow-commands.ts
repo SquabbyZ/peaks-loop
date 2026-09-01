@@ -39,12 +39,12 @@ import { registerWorkflowLifecycleCommand } from './workflow-lifecycle-commands.
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
 import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
-import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
+import { createDocCacheFetcher } from '../../services/context/doc-cache-fetcher.js';
 
-function buildHeadroomFetcher(sid: string): import('../../services/context/doc-retriever.js').DocFetcher {
-  return createHeadroomFetcher({
+function buildDocFetcher(sid: string): import('../../services/context/doc-retriever.js').DocFetcher {
+  return createDocCacheFetcher({
     cacheDir: `.peaks/_runtime/${sid}/doc-cache`,
-    // remoteFetcher wired in a future slice (headroom-ai programmatic API).
+    // remoteFetcher wired in a future slice.
   });
 }
 
@@ -58,7 +58,7 @@ async function ensureContextForRd(goal: string, project: string, sid: string): P
       depsMode: 'locked',
       docBudgetTokens: 8000,
       out,
-      fetcher: buildHeadroomFetcher(sid),
+      fetcher: buildDocFetcher(sid),
     });
   } catch (error) {
     // Plan 1 / Task 9 — context is a pre-step, not a precondition.

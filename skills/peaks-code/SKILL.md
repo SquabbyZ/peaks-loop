@@ -302,7 +302,7 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 `peaks codegraph affected` is an optional project-analysis enhancement (untrusted supporting evidence) for role handoff. Code must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings / hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/_runtime/<sessionId>/rd/codegraph-context.md`; QA / TXT consume the same envelope. → `references/codegraph-orchestration.md`.
 
-## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+## Sub-agent context governance (G7 + G8 + G9 — slice #010)
 
 Main LLM reducer sees metadata-only view (~200 chars/sub-agent); on-demand `Read` for full content. Threshold table: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject (CLI + hook double-guard). → `references/context-governance.md`.
 

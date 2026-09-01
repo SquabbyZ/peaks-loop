@@ -1,6 +1,7 @@
 /**
- * Production DocFetcher. Uses existing headroom-ai dependency for remote
- * fetch; local cache (per-session, per-dep markdown) preferred when version matches.
+ * Production DocFetcher. Local cache (per-session, per-dep markdown)
+ * preferred when version matches; otherwise delegates to an injected
+ * remote fetcher.
  *
  * Hard constraint H2 (locked version): never returns a doc whose version
  * differs from the requested locked version.
@@ -14,12 +15,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DocFetcher, FetcherPayload } from './doc-retriever.js';
 
-export interface HeadroomFetcherOptions {
+export interface DocCacheFetcherOptions {
   readonly cacheDir: string;
   readonly remoteFetcher?: DocFetcher;
 }
 
-export function createHeadroomFetcher(opts: HeadroomFetcherOptions): DocFetcher {
+export function createDocCacheFetcher(opts: DocCacheFetcherOptions): DocFetcher {
   return async (dep, version) => {
     const cachePath = join(opts.cacheDir, `${dep}@${version}.md`);
     try {

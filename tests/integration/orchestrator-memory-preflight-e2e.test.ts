@@ -7,15 +7,11 @@
  *
  * Black-box integration test against Tasks 1-5. No mocks — exercises the real
  * MemoryPreflightService (Task 4) and real buildDispatchSystemPrompt (Task 5)
- * end-to-end, and the real headroom-client.js compressPrompt (which falls back
- * gracefully when the proxy is unavailable, so the assertion contract still
- * holds in CI).
+ * end-to-end.
  *
- * Diff vs. Task 4 unit test (tests/unit/services/context/memory-preflight-service.test.ts):
- *   - Task 4 mocks headroom-client.js so the assertions only see what the
- *     service decides to emit. Task 6 lets the real compressPrompt run, so
- *     assertions hold even if headroom returns a degraded (HEADROOM_UNAVAILABLE)
- *     result — the service preserves the original composed text in that case.
+ * Task 6 lets the real truncation path run, so the assertions hold even
+ * when the composed block exceeds the cap — the service truncates the
+ * block to fit, or preserves the original composed text when it fits.
  *
  * Acceptance cases (brief):
  *   1. Sub-agent prompt embeds feedback/A memory items by default.

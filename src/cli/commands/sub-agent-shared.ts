@@ -12,7 +12,6 @@
  * Everything else is internal to the `peaks sub-agent` group.
  */
 import type { SubAgentBatchResult } from '../../services/dispatch/sub-agent-dispatcher.js';
-import type { HeadroomMode } from '../../services/context/headroom-client.js';
 import type { HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
 // Slice 2026-07-29-dispatch-stall-governance / S6 — `probeShell` is
 // re-exported here so the dispatch chokepoint (`dispatch-commands.ts`)
@@ -44,8 +43,6 @@ export const HEARTBEAT_STATUSES: readonly HeartbeatStatus[] = [
   'unreadable'
 ];
 
-export const HEADROOM_MODES: readonly HeadroomMode[] = ['balanced', 'aggressive', 'conservative'];
-
 export const PROMPT_LIMIT_BYTES = 256 * 1024;
 
 export type DispatchOptions = {
@@ -56,8 +53,6 @@ export type DispatchOptions = {
   project?: string;
   batchId?: string;
   writeArtifact?: string;
-  useHeadroom?: boolean;
-  headroomMode?: string;
   force?: boolean;
   fromDag?: string;
   /**
@@ -217,17 +212,3 @@ export function summarizeBatchResults(results: readonly SubAgentBatchResult[]): 
   }
   return { total: results.length, done, failed, cancelled, timeout };
 }
-
-// Note: `isHeadroomMode` and `RegisterSubCommand` used to live here as
-// duplicate exports. Removed in slice 2026-06-23-audit-p0-cleanup:
-//   - `isHeadroomMode` is exported by `src/services/context/headroom-prefs.ts`
-//     and that is the canonical source — dispatch consumer imports from
-//     there directly.
-//   - `RegisterSubCommand` was never used as a type anywhere; the entry
-//     point (`sub-agent-commands.ts`) calls each register function with
-//     `(program, io)` directly.
-//   - `deriveProjectRoot` (audit-p0-reaudit) was removed in slice
-//     2026-06-23-audit-3rd: it trusted the record path's `.peaks` segment,
-//     letting a caller point `--record` at any project's record tree. The
-//     heartbeat command now trusts `--project` (or `process.cwd()`) and
-//     leaves the relative() backstop to the R-2 guard.

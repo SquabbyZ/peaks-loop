@@ -8,7 +8,7 @@
  *   - MemoryIndexReader (Task 3)            — reads .peaks/memory/index.json + layer=A filter
  *   - MemoryLruCache (Task 2)               — constructed for capacity parity, but NOT used
  *                                            for memo content (see deviation note below)
- *   - compressPrompt (existing)             — headroom-ai wrapper for hard-cap compression
+ *   - truncateToCap                         — byte-cap truncation of the composed block
  *
  * Deviation from brief — controller-accepted (pre-task 4):
  *   The brief mandated use of `MemoryLruCache` for memo content caching. The
@@ -20,7 +20,6 @@
  *   `MemoryLruCache` class remains as a separate, reusable LRU primitive
  *   (Task 2) and is not consumed by this service.
  */
-import { compressPrompt } from './headroom-client.js';
 import { MemoryIndexReader } from './memory-index-reader.js';
 import {
   resolveMemoryPreflightConfig,
@@ -40,27 +39,15 @@ export interface MemoryPreflightResult {
   droppedCount?: number | undefined;
 }
 
-type HeadroomMode = 'balanced' | 'aggressive' | 'conservative';
-
-async function compressToCap(
+function truncateToCap(
   text: string,
   capBytes: number,
-  mode: HeadroomMode,
-): Promise<{ text: string; truncated: boolean }> {
-  try {
-    const result = await compressPrompt(text, mode);
-    if (result.warning !== null || result.compressedPrompt === null) {
-      return { text, truncated: false };
-    }
-    const compressed = result.compressedPrompt;
-    if (Buffer.byteLength(compressed, 'utf8') > capBytes) {
-      const sliced = compressed.slice(0, Math.max(0, capBytes - 64)) + '\n…[truncated]';
-      return { text: sliced, truncated: true };
-    }
-    return { text: compressed, truncated: false };
-  } catch {
+): { text: string; truncated: boolean } {
+  if (Buffer.byteLength(text, 'utf8') <= capBytes) {
     return { text, truncated: false };
   }
+  const sliced = text.slice(0, Math.max(0, capBytes - 64)) + '\n…[truncated]';
+  return { text: sliced, truncated: true };
 }
 
 export class MemoryPreflightService {
@@ -111,7 +98,7 @@ export class MemoryPreflightService {
     const composed = `${header}${listLines}${tail}`;
 
     const capBytes = Math.max(64, this.config.maxTokens * 4);
-    const { text, truncated } = await compressToCap(composed, capBytes, 'balanced');
+    const { text, truncated } = truncateToCap(composed, capBytes);
     const droppedCount = truncated ? selected.length - countItemsInBlock(text) : 0;
 
     return {

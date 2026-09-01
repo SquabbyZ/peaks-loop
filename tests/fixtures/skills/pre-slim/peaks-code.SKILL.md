@@ -658,9 +658,9 @@ Do not run upstream installer flows, mutate agent settings, or commit `.codegrap
 
 Detailed rules: `references/external-skill-invocation.md`, `references/openspec-mcp-workflow.md`, `references/workflow.md`, `references/existing-system-extraction.md`. For an informational mapping of peaks artefact paths to the A2A (Agent2Agent) protocol's Task / Artifact / Part / Message / AgentCard vocabulary (no A2A implementation, just a shared naming layer), see `references/a2a-artifact-mapping.md`.
 
-## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+## Sub-agent context governance (G7 + G8 + G9 — slice #010)
 
-> Slice #010 adds the **layer 3.5** context-governance push to the slice #009 sub-agent dispatch primitives. This section is the MANDATORY reference for the main LLM reducer. Detailed protocol: `references/context-governance.md` + `references/headroom-integration.md`.
+> Slice #010 adds the **layer 3.5** context-governance push to the slice #009 sub-agent dispatch primitives. This section is the MANDATORY reference for the main LLM reducer. Detailed protocol: `references/context-governance.md`.
 
 ### G7 — sub-agent context minimal-occupation (metadata-only + 按需 Read)
 
@@ -679,13 +679,6 @@ Main LLM view format (G7.4.e):
 - qa-perf → .../artifacts/003-qa-perf-001.md (5KB, sha256:ghi789) summary: "p95 latency target ≤ 200ms"
 ```
 
-### G7.7 — headroom-ai integration (opt-in compression)
-
-If a sub-agent prompt is too large even after G7 metadata-only (e.g. 1MB artifact description, 5MB mid-prompt analysis), use `--use-headroom`:
-- Default `false` (G7 remains default).
-- Modes: `balanced` (default) | `aggressive` | `conservative`.
-- Failure: `HEADROOM_UNAVAILABLE` warning + G7 metadata-only fallback (NOT blocking).
-
 ### G8 — cross sub-agent shared channel (dispatcher-mediated indirect signal)
 
 Sub-agent A's completion **immediately** writes a shared entry; sub-agent B (still in flight) can read shared entries from sibling sub-agents. **This is NOT peer-to-peer messaging.** The dispatcher stores, the sub-agents read/write; A and B never directly talk.
@@ -700,7 +693,7 @@ Threshold table (256K default context capacity):
 
 | Threshold | Prompt size | Behavior |
 |---|---|---|
-| 50% (early warn) | ≥ 128KB | Soft warning, suggest `--use-headroom` |
+| 50% (early warn) | ≥ 128KB | Soft warning, suggest trimming the prompt |
 | **75% (user red line)** | ≥ 192KB | Soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` |
 | **80% (hard reject)** | ≥ 204KB | Hard reject `code: "PROMPT_TOO_LARGE"`; `--force` allowed at CLI |
 | 90% (emergency) | ≥ 230KB | Hard reject + `contextWarning: 'high'` |

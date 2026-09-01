@@ -8,13 +8,11 @@
  *
  * Decision codes:
  *   - `OK`                          — under 50%
- *   - `CONTEXT_SOFT_WARN`           — 50-75%, suggest --use-headroom
- *   - `CONTEXT_NEAR_LIMIT`          — 75-80%, mandatory --use-headroom suggestion
+ *   - `CONTEXT_SOFT_WARN`           — 50-75%, prompt is large
+ *   - `CONTEXT_NEAR_LIMIT`          — 75-80%, prompt is near the limit
  *   - `PROMPT_TOO_LARGE`            — 80-90%, hard reject (allow = false)
  *   - `PROMPT_EMERGENCY`            — ≥ 90%, hard reject + emergency
  *   - `FORCED_OVER_THRESHOLD`       — user passed --force at CLI; allow = true
- *
- * See: `.peaks/memory/sub-agent-headroom-forced-compression-gate.md`.
  */
 import {
   CONTEXT_CAPACITY_DEFAULT_BYTES,
@@ -49,8 +47,8 @@ export interface ContextGuardOptions {
   readonly capacityBytes?: number;
 }
 
-const NEAR_LIMIT_SUGGEST = 'Consider --use-headroom to compress prompt.';
-const SOFT_WARN_SUGGEST = 'Use --use-headroom to compress prompt proactively.';
+const NEAR_LIMIT_SUGGEST = 'Prompt is near the context limit; trim the prompt or split into multiple dispatches.';
+const SOFT_WARN_SUGGEST = 'Prompt is large; trim or split into multiple dispatches to stay within context budget.';
 const HARD_REJECT_SUGGEST =
   'Trim prompt to < 80% of context capacity. Pass --force at CLI to override (NOT allowed at hook layer).';
 const EMERGENCY_SUGGEST =

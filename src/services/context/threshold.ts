@@ -4,9 +4,6 @@
  * 256K default context capacity is a conservative proxy. The LLM's real
  * capacity is its private business (R-1 / R-8 / R-10 / R-13 boundary
  * inherited from slice #009); we use prompt size as the gate signal.
- *
- * See: `.peaks/memory/sub-agent-headroom-forced-compression-gate.md`
- * for the full G9 rule (RL-27..RL-32, AC-50..AC-65).
  */
 
 export const CONTEXT_CAPACITY_DEFAULT_BYTES = 256 * 1024;  // 256K

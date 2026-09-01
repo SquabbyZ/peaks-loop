@@ -51,8 +51,8 @@ peaks sub-agent dispatch <role> --prompt <text> [--request-id <rid>] [--session-
 > scrollback. The dispatch record on disk (gitignored under
 > `.peaks/_sub_agents/`) keeps the prompt for the sub-agent to read;
 > CLI stdout stays metadata-only. Surface `originalPromptSize` +
-> `promptSize` so the LLM-side runner can still reason about headroom
-> without seeing the content. The prompt content the LLM should pass
+> `promptSize` so the LLM-side runner can still reason about the size
+> delta without seeing the content. The prompt content the LLM should pass
 > through lives in `data.toolCall.args.prompt` (the IDE-arg the
 > consumer passes to the tool), NOT in the outer envelope.
 
@@ -77,8 +77,6 @@ peaks sub-agent dispatch <role> --prompt <text> [--request-id <rid>] [--session-
     "dispatchRecordPath": ".peaks/_sub_agents/2026-06-06-session-5b1095/dispatch-002-2026-06-07-...-...json",
     "batchId": "<uuid>",
     "dispatchedInBatch": 3,
-    "headroomCompressed": false,
-    "headroomResult": null,
     "forcedAt": null,
     "contextImpact": {
       "promptBytes": 4321,

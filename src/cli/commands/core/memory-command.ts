@@ -82,12 +82,11 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     memory
       .command('search <query>')
-      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6. Pass --compress-results to also emit a headroom-compressed text view of the matches for LLM-side prompt assembly.')
+      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
       .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
       .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
-      .option('--compress-results', 'compress joined match text via headroom-ai (uses preferences.headroom.perTouchpoint.memorySearch mode)')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((query: string, options: { kind?: string; limit?: number; compressResults?: boolean; project?: string; json?: boolean }) => {
+  ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {
     // Lazy import avoids a top-of-file import cycle (memory-commands.ts
     // imports services that the rest of this file may also touch).
     void import('../memory-commands.js').then(({ runMemorySearch }) => {
@@ -95,7 +94,6 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
         query,
         ...(options.kind !== undefined ? { kind: options.kind } : {}),
         ...(options.limit !== undefined ? { limit: options.limit } : {}),
-        ...(options.compressResults === true ? { compressResults: true } : {}),
         ...(options.project !== undefined ? { project: options.project } : {}),
         ...(options.json !== undefined ? { json: options.json } : {}),
       });

@@ -1,7 +1,7 @@
 /**
  * Slice Pick Service — thin wrapper around the generic fzf picker.
  *
- * v2 (slice 2026-06-14-fzf-headroom-rollout): the actual fzf
+ * v2 (slice 2026-06-14-fzf-rollout): the actual fzf
  * integration is now in `src/services/fuzzy-matching/fzf-pick-service.ts`.
  * This file only knows how to format / parse SliceCandidate rows and
  * pick the output path. The algorithm itself (slice-decompose-service)

@@ -44,15 +44,15 @@ import { BROWSER_REUSE_HINT } from '../../services/qa/browser-reuse-hint.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-qa runs.
 import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
-import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
+import { createDocCacheFetcher } from '../../services/context/doc-cache-fetcher.js';
 import type { DocFetcher } from '../../services/context/doc-retriever.js';
 // Plan 2 / Task 8 — consume MUT.sig from peaks-mut into verdict envelope.
 import { loadMutReport, mutReportPath, type MutReportJson } from 'peaks-loop-mut';
 
-function buildHeadroomFetcher(sid: string): DocFetcher {
-  return createHeadroomFetcher({
+function buildDocFetcher(sid: string): DocFetcher {
+  return createDocCacheFetcher({
     cacheDir: `.peaks/_runtime/${sid}/doc-cache`,
-    // remoteFetcher wired in a future slice (headroom-ai programmatic API).
+    // remoteFetcher wired in a future slice.
   });
 }
 
@@ -66,7 +66,7 @@ async function ensureContextForQa(goal: string, project: string, sid: string): P
       depsMode: 'locked',
       docBudgetTokens: 8000,
       out,
-      fetcher: buildHeadroomFetcher(sid),
+      fetcher: buildDocFetcher(sid),
     });
   } catch (error) {
     // Plan 1 / Task 9 — context is a pre-step, not a precondition.

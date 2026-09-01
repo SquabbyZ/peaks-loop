@@ -364,40 +364,39 @@ describe('peaks preferences round-trip (P2-B.2 modify e2e)', () => {
     const project = makeProject('peaks-p2b2-pref-');
     // Sanity: --get on default key reports source:default.
     const initial = parseEnvelope<{ key: string; source: string }>(runCli([
-      'preferences', 'get', '--key', 'headroom', '--project', project, '--json'
+      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
     ], project));
     expect(initial.ok).toBe(true);
     expect(initial.data.source).toBe('default');
 
     // --set writes the override.
     const setResult = parseEnvelope<{ key: string; value: unknown }>(runCli([
-      'preferences', 'set', '--key', 'headroom',
-      '--value', JSON.stringify({ enabled: false, defaultMode: 'conservative' }),
+      'preferences', 'set', '--key', 'economyMode',
+      '--value', 'false',
       '--project', project, '--json'
     ], project));
     expect(setResult.ok).toBe(true);
-    expect(setResult.data.key).toBe('headroom');
+    expect(setResult.data.key).toBe('economyMode');
     expect(existsSync(join(project, '.peaks', 'preferences.json'))).toBe(true);
 
     // --get now returns source:override.
     const afterSet = parseEnvelope<{ key: string; value: unknown; source: string }>(runCli([
-      'preferences', 'get', '--key', 'headroom', '--project', project, '--json'
+      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
     ], project));
     expect(afterSet.ok).toBe(true);
     expect(afterSet.data.source).toBe('override');
-    const afterValue = afterSet.data.value as { enabled: boolean };
-    expect(afterValue.enabled).toBe(false);
+    expect(afterSet.data.value).toBe(false);
 
     // --reset removes the override (CLI exposes `reset`, NOT `unset`).
     const resetResult = parseEnvelope<{ key: string; removed: boolean }>(runCli([
-      'preferences', 'reset', '--key', 'headroom', '--project', project, '--json'
+      'preferences', 'reset', '--key', 'economyMode', '--project', project, '--json'
     ], project));
     expect(resetResult.ok).toBe(true);
     expect(resetResult.data.removed).toBe(true);
 
     // After reset, --get returns source:default again.
     const afterReset = parseEnvelope<{ key: string; source: string }>(runCli([
-      'preferences', 'get', '--key', 'headroom', '--project', project, '--json'
+      'preferences', 'get', '--key', 'economyMode', '--project', project, '--json'
     ], project));
     expect(afterReset.ok).toBe(true);
     expect(afterReset.data.source).toBe('default');
@@ -430,7 +429,7 @@ describe('peaks preferences list / unset subcommand forms (P2-B.2 modify e2e)', 
 
   test('positional "unset" is NOT registered — use "reset" instead (drift pointer)', () => {
     const project = makeProject('peaks-p2b2-pref-unset-');
-    const result = runCli(['preferences', 'unset', '--key', 'headroom', '--project', project, '--json'], project);
+    const result = runCli(['preferences', 'unset', '--key', 'economyMode', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/unknown command.*unset|reset, set/);

@@ -16,7 +16,6 @@ const ALLOWED_KEYS: ReadonlySet<keyof ProjectPreferences> = new Set<keyof Projec
   'agentShieldPrompt',
   'classifyConservatism',
   'classifyRules',
-  'headroom',
   'swarmSpeculative',
   'loopAutonomousEnabled',
 ]);

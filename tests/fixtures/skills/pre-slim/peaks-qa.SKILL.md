@@ -618,5 +618,5 @@ PROTOCOL (mandatory):
 
 ### G9 — QA prompt size self-check
 
-Same as RD: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject unless `--force`. QA test plans can grow large; prefer `--use-headroom balanced` for plans > 75%.
+Same as RD: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject unless `--force`. QA test plans can grow large; trim or split into multiple dispatches for plans > 75%.
 

@@ -10,7 +10,7 @@
  *
  * Threshold: 1h (configurable). Rationale: the longest empirical
  * peaks-rd / peaks-qa fan-out + reducer cycle is < 60s; the threshold
- * gives slow slices headroom without hiding leaks for the next session.
+ * gives slow slices margin without hiding leaks for the next session.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

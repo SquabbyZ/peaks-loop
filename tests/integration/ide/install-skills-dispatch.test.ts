@@ -90,7 +90,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // Slice 019 — bumped from 120s to 240s. Measured 127159ms under
     // pnpm test:full (real CLI binary spawn + IDE dispatch + skills
     // writeFileSync in a tmpdir, no parallelism can help). 240s = 2x
-    // headroom over observed; well below vitest's 600s hard limit.
+    // margin over observed; well below vitest's 600s hard limit.
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-custom-'));
     try {
       const result = await runInstallSkills(

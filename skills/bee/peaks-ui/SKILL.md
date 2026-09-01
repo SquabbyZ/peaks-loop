@@ -361,7 +361,7 @@ PROTOCOL (mandatory):
 
 ### G9 — UI prompt size self-check
 
-Same as RD/QA. Use `--use-headroom` proactively.
+Same as RD/QA. Trim or split the prompt proactively.
 
 
 ## L2 surface reference (post rid-l2-extended)

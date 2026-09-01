@@ -35,10 +35,9 @@
  *
  * Why 4-bytes-per-token:
  *
- *   - `headroom-client.ts:60` already uses `BYTES_PER_TOKEN = 4` as
- *     its rough English-text approximation. Reusing the same constant
- *     keeps token estimates comparable across the headroom + rerank
- *     pipelines in the AC-ZA-5 benchmark.
+ *   - `BYTES_PER_TOKEN = 4` is the standard rough English-text
+ *     approximation (1 token ≈ 4 bytes). It keeps token estimates
+ *     stable and comparable in the AC-ZA-5 benchmark.
  *
  * Out of scope (YAGNI per Karpathy #2 Simplicity First):
  *
@@ -52,9 +51,8 @@
 
 import type { MemorySearchResult } from './memory-search-service.js';
 
-// Approximate 1 token = 4 bytes for English text. Matches
-// `headroom-client.ts:60` so the AC-ZA-5 benchmark can compare
-// rerank input cost against headroom compressed cost directly.
+// Approximate 1 token = 4 bytes for English text. Standard rough
+// approximation used across the pipeline (AC-ZA-5 benchmark).
 const BYTES_PER_TOKEN = 4;
 
 // Hard caps so a pathological query / 60-candidate list cannot blow
@@ -135,7 +133,7 @@ export interface RerankResult {
 
 /**
  * Estimate token count for a string. `1 token ≈ 4 bytes` for English
- * text — same approximation as `headroom-client.ts:60`.
+ * text (standard rough approximation).
  */
 export function estimateTokens(text: string): number {
   return Math.ceil(Buffer.byteLength(text, 'utf8') / BYTES_PER_TOKEN);

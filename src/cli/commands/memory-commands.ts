@@ -1,6 +1,6 @@
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
-import { loadMemoryIndex, searchMemory, searchMemoryWithResults, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
+import { loadMemoryIndex, searchMemory, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -24,8 +24,6 @@ export interface MemorySearchCommandOptions {
   limit?: number;
   project?: string;
   json?: boolean;
-  /** When true, call headroom-ai to compress joined match text for LLM-side prompt assembly. */
-  compressResults?: boolean;
 }
 
 export interface MemoryListCommandOptions {
@@ -136,13 +134,11 @@ export async function runMemorySearch(io: ProgramIO, options: MemorySearchComman
     : undefined;
 
   try {
-    const out = await searchMemoryWithResults({
+    const matches = searchMemory({
       query: options.query,
       projectRoot,
       ...(options.limit !== undefined ? { limit: options.limit } : {}),
       ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
-    }, {
-      ...(options.compressResults === true ? { compressResults: true } : {})
     });
 
     printResult(
@@ -151,9 +147,8 @@ export async function runMemorySearch(io: ProgramIO, options: MemorySearchComman
         'memory.search',
         {
           query: options.query,
-          total: out.matches.length,
-          matches: out.matches,
-          ...(out.compressedResults !== null ? { compressedResults: out.compressedResults } : {}),
+          total: matches.length,
+          matches,
           warnings: [],
         },
         []

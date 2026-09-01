@@ -1,5 +1,5 @@
 /**
- * Slice benchmark wrapper (slice 2026-06-14-fzf-headroom-rollout).
+ * Slice benchmark wrapper (slice 2026-06-14-fzf-rollout).
  *
  * Wraps `decomposeSlices` with a thin observability layer that records
  * total wall time, codegraph call count, confidence distribution, and

@@ -33,19 +33,14 @@ Top-level fields (post-2.1.0):
 - `envelopeVersion: '2.1.0'`
 - `role: string` — sub-agent role string
 - `ide: string` — detected IDE label (`claude-code` etc.)
-- `originalPromptSize: number` — bytes of the un-compressed prompt
-- `promptSize: number` — bytes after headroom compression (or
-  equal to `originalPromptSize` when `--use-headroom` is off or
-  unavailable)
+- `originalPromptSize: number` — bytes of the caller-supplied prompt
+- `promptSize: number` — bytes of the composed dispatch prompt
 - `toolCall: { name: string; args: Record<string, unknown> }` —
   the per-IDE tool-call descriptor the LLM must execute
 - `dispatchRecordPath: string` — absolute path to the dispatch
   record on disk
 - `batchId: string` — uuid-like opaque token grouping one batch
 - `dispatchedInBatch: number` — current count after this dispatch
-- `headroomCompressed: boolean` — true if headroom-ai actually
-  reduced the prompt
-- `headroomResult: { mode, compressed, compressionRatio, tokensSaved, warning } | null`
 - `forcedAt: string | null` — ISO8601 when `--force` overrode
   the G9 hard-reject tier
 - `contextImpact: { promptBytes, artifactBytes, totalBytes }`

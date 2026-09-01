@@ -698,9 +698,9 @@ Do not bypass the parallel review fan-out when the slice has a code-review / sec
 
 Reference: `references/refactor-workflow.md`.
 
-## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+## Sub-agent context governance (G7 + G8 + G9 — slice #010)
 
-> Slice #010 implements the G7 + G7.7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md` + `skills/peaks-code/references/headroom-integration.md`.
+> Slice #010 implements the G7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md`.
 
 ### G7 — RD sub-agent protocol
 
@@ -731,7 +731,7 @@ PROTOCOL (mandatory):
 
 Before dispatching a sub-agent, RD self-checks prompt size:
 - < 50%: pass through.
-- 50-75%: soft warn (consider `--use-headroom`).
-- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (mandatory suggest `--use-headroom`).
+- 50-75%: soft warn (consider trimming the prompt).
+- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (trim or split into multiple dispatches).
 - 80%+: reject (CLI 兜底 returns `code: "PROMPT_TOO_LARGE"`). Use `--force` at CLI only when overriding; hook layer will still reject (RL-30).
 

@@ -235,9 +235,9 @@ The `karpathy-reviewer` sub-agent now reports its own runtime cost in the JSON e
 
 The main RD loop MUST call `peaks job karpathy-cost-check` after every `peaks request transition --state qa-handoff` and before the next-slice work begins. If the decision kind is `downgraded`, the LLM MUST honor the downgraded `warn` and proceed to the next slice; the `'block'` was an artifact of the reviewer's own cost, not the slice's quality. If the decision kind is `reported` (costRatio > 50, gate not `'block'`), the LLM MAY continue; the sediment will be appended by `peaks memory extract` at handoff time. The full design lives in `.peaks/memory/2026-07-30-karpathy-evaluation-cost-self-review-design.md` (sediment locked 2026-07-30).
 
-## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+## Sub-agent context governance (G7 + G8 + G9 — slice #010)
 
-RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md` + `skills/peaks-code/references/headroom-integration.md`.
+RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md`.
 
 → see `references/rd-context-governance.md` for the full G7 / G8.6 / G9 protocol + RD sub-agent prompt template.
 

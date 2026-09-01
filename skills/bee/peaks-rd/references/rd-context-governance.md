@@ -31,6 +31,6 @@ PROTOCOL (mandatory):
 
 Before dispatching a sub-agent, RD self-checks prompt size:
 - < 50%: pass through.
-- 50-75%: soft warn (consider `--use-headroom`).
-- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (mandatory suggest `--use-headroom`).
+- 50-75%: soft warn (consider trimming the prompt).
+- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (trim or split into multiple dispatches).
 - 80%+: reject (CLI 兜底 returns `code: "PROMPT_TOO_LARGE"`). Use `--force` at CLI only when overriding; hook layer will still reject (RL-30).
