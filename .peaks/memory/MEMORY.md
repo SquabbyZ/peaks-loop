@@ -1,4 +1,5 @@
 - [2026-08-11-peaks-code-skill-persistence-pause](2026-08-11-peaks-code-skill-persistence-pause.md) — peaks-code 被 superpowers 自动抢占/清除问题已完成根因调查，明日从 spec-locked RD 请求恢复。
+- [2026-09-01-headroom-half-baked-integration](2026-09-01-headroom-half-baked-integration.md) — headroom-ai 半成品集成（N-7 proxy 未接，0 token 节省）；省 token 主杠杆是 G7 metadata-only + auto-compact + cache 对齐（2026-09-01 user 反馈第 4 条）。
 
 ## 4.x sediment-pool
 

@@ -74,6 +74,22 @@ function printCodegraphFailure(io: ProgramIO, command: string, error: unknown, a
   process.exitCode = exitCode;
 }
 
+/**
+ * Rewrites bare upstream `codegraph <subcommand>` hints to the peaks-loop
+ * equivalent (`peaks codegraph <subcommand>`). The upstream binary is a
+ * nested transitive dependency and is NOT on PATH, so an LLM that follows
+ * a bare hint like `Run "codegraph init" to initialize` would hit
+ * "command not found". Already-prefixed `peaks codegraph ...` hints and
+ * other `codegraph` references (e.g. `@colbymchenry/codegraph`) are left
+ * untouched.
+ */
+export function rewriteBareCodegraphHints(text: string): string {
+  return text.replace(
+    /(?<![\w-])(?<!peaks\s)codegraph(?=\s+(?:status|init|index|query|files|context|affected)\b)/g,
+    'peaks codegraph'
+  );
+}
+
 async function runCodegraphCommand(io: ProgramIO, command: string, options: CodegraphInvocationOptions, asJson?: boolean): Promise<void> {
   try {
     const invocation = createCodegraphInvocation(options);
@@ -85,13 +101,15 @@ async function runCodegraphCommand(io: ProgramIO, command: string, options: Code
     }
 
     const didFail = result.exitCode !== null && result.exitCode !== 0;
+    const stdout = rewriteBareCodegraphHints(result.stdout);
+    const stderr = rewriteBareCodegraphHints(result.stderr);
 
-    if (result.stdout.length > 0) {
-      io.stdout((didFail ? redactSensitiveErrorMessage(result.stdout) : result.stdout).trimEnd());
+    if (stdout.length > 0) {
+      io.stdout((didFail ? redactSensitiveErrorMessage(stdout) : stdout).trimEnd());
     }
 
-    if (result.stderr.length > 0) {
-      io.stderr((didFail ? redactSensitiveErrorMessage(result.stderr) : result.stderr).trimEnd());
+    if (stderr.length > 0) {
+      io.stderr((didFail ? redactSensitiveErrorMessage(stderr) : stderr).trimEnd());
     }
 
     if (didFail) {

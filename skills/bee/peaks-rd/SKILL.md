@@ -189,6 +189,12 @@ When RD work creates a frontend application and the user has not specified a tec
 
 → see `references/frontend-project-generation.md` for the scaffold protocol.
 
+## Frontend anti-corruption layer (ACL)
+
+When RD work touches the frontend (pure frontend or full-stack), enforce the ACL discipline: the frontend's internal model is never polluted by external / API shapes. DTO ↔ ViewModel mapping converts external fields to internal fields at the boundary, and all conversion logic lives in one mapper file per domain (e.g. `mappers/user.mapper.ts`) — never scattered across pages. Hard constraint, verified by QA / code-review.
+
+→ see `references/frontend-acl-mapper.md` for the three rules + reference shape + verification.
+
 ## Artifact and standards output
 
 When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Loop artifact workspace (default: `.peaks/_runtime/<sessionId>/rd/`). Do not default to a git-backed artifact repository or external artifact sync. Route standards mutations through `peaks standards init/update`; do not hand-write. Do not update user-global `~/.claude/rules/**` from this workflow.
@@ -267,6 +273,7 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/compact-handoff.md` | RD compact handoff capsule. |
 | `references/external-references.md` | External 3rd-party inventory. |
 | `references/frontend-project-generation.md` | React + Vite + shadcn/ui default. |
+| `references/frontend-acl-mapper.md` | 前端防腐层 ACL + DTO↔VM 映射 + Mapper 聚合硬约束. |
 | `references/library-version-awareness.md` | Breaking-change gate + freshness check. |
 | `references/mandatory-perf-baseline.md` | RD-side perf baseline + `peaks perf baseline` workflow. |
 | `references/matt-pocock-integration.md` | Matt Pocock skills as references. |
