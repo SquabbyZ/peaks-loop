@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.0.25 — 2026-09-01 (codegraph hint fix + post-slice re-index + frontend ACL)
+
+**1 atomic commit from session 2026-09-01-session-fdd7aa** (user feedback batch):
+
+- `70184e1f` feat(peaks-code): apply feedback batch — codegraph hint fix + post-slice re-index + frontend ACL + headroom sediment
+
+**Highlights**:
+
+1. **codegraph 提示泄漏修复** — `peaks codegraph <subcommand>` 透传上游 stdout/stderr 前，新增 `rewriteBareCodegraphHints` 纯函数，把上游裸 `codegraph <sub>` 提示改写为 `peaks codegraph <sub>`（上游 binary 是嵌套传递依赖、不在 PATH，裸命令提示会误导 LLM 敲 "command not found"）。8 个 vitest 用例：quoted/backtick hint、7 子命令全量、幂等、`@colbymchenry/codegraph` 包名不误伤。
+
+2. **codegraph post-slice 增量刷新** — peaks-code 编排规范：每个 slice/task 完成后主动 `peaks codegraph index`，让下一 slice 的 affected/query/context 基于最新代码图，而不是过期的 pre-slice 图。
+
+3. **前端防腐层 ACL 标准** — peaks-rd 新增硬约束：前端内部模型不被外部/API 形状污染；DTO ↔ ViewModel 映射（外部字段 → 内部字段）；Mapper 聚合单文件（如 `mappers/user.mapper.ts`），不散落各页面。QA / code-review 校验。
+
+4. **headroom-ai 半成品 finding sediment** — 记录 headroom proxy 后端（N-7）未接、当前 0 token 节省；省 token 主杠杆是 G7 metadata-only + auto-compact + cache 对齐。
+
 ## 4.0.24 — 2026-08-12 (zod v4 + Context7 + Step 2.5 best-practice scan)
 
 **6 atomic commits from session 2026-08-12-session-4aaf2b** (5 functional + 1 sediment):
