@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.27 — 2026-09-01 (auto-compact context probe fix)
+
+**1 atomic commit from session 2026-09-01-session-fdd7aa**:
+
+- `7f0f4ca2` perf(auto-compact): vendor-neutral context probe + token-based transcript calibration
+
+**Highlights**:
+
+1. **auto-compact 根因修复（三级链）** — context 比例探针之前永远返回 `conservative-fallback`（ratio 0），auto-compact 从不触发。三处修复：(a) vendor-neutral：Claude transcript/statusline fallback 收进 claude-code-adapter 的 `IdeCompactProfile.readContextPercentFallback`，通用 reader 不再硬编码 `~/.claude`；(b) session-id：transcript 查找改用 `outerSessionId`（Claude Code 真 UUID）而非 peaks `sessionId`；(c) 校准：`ratio = contextTokens / contextWindowTokens`，contextTokens 从最新 `message.usage`（input + cache_read + cache_creation）读取，contextWindowTokens 模型感知（1M vs 200K 默认），替换错误的 `bytes/256KB`（永远 100%）。
+
 ## 4.0.26 — 2026-09-01 (headroom removal + prompt-cache prefix alignment)
 
 **2 atomic commits from session 2026-09-01-session-fdd7aa**:
