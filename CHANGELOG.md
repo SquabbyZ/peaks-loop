@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.0.26 — 2026-09-01 (headroom removal + prompt-cache prefix alignment)
+
+**2 atomic commits from session 2026-09-01-session-fdd7aa**:
+
+- `3d8c911a` refactor(context): remove headroom-ai half-baked integration
+- `2086074b` perf(dispatch): stabilize sub-agent prompt prefix for prompt-cache alignment
+
+**Highlights**:
+
+1. **移除 headroom-ai 半成品集成** — headroom-ai 的 TS SDK 已接但 Python proxy 后端（N-7）从未集成，`--use-headroom` / `--compress-results` 是静默 no-op。删除依赖 + headroom-client/prefs + G7.7 opt-in 路径 + HeadroomPreferences；保留 G7 metadata-only + auto-compact + prompt-cache 对齐作为省 token 主杠杆。通用 DocFetcher 保留为 doc-cache-fetcher.ts。42 文件，+100/−909。
+
+2. **dispatch 前缀稳定化（prompt-cache 对齐）** — 把 LIFECYCLE_RULES 从 prompt 尾部挪到 L1 worktree 块之后，让所有稳定 boilerplate 连续排在最前，最大化 Anthropic prompt-cache 前缀复用（缓存读价约 90% 折扣）。变量块（context % / project memory / task）留在最后。
+
 ## 4.0.25 — 2026-09-01 (codegraph hint fix + post-slice re-index + frontend ACL)
 
 **1 atomic commit from session 2026-09-01-session-fdd7aa** (user feedback batch):
