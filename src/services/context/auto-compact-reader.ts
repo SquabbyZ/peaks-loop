@@ -3,28 +3,29 @@
  *
  * Reads the current AI CLI context-fill ratio without requiring the
  * LLM to pass `--prompt-size <bytes>` manually. Strategy: ask the
- * registered `IdeAdapter.compact` profile which env-var to read;
+ * registered `IdeAdapter.compact` profile which env-var to read and,
+ * when that misses, ask the adapter for a vendor-specific fallback —
  * no hard-coded IDE names. Per-adapter:
  *
- *   - claude-code: `CLAUDE_CONTEXT_USAGE_PERCENT` (MVP)
+ *   - claude-code: its adapter-declared env-var (MVP) + a
+ *     `readContextPercentFallback` that polls the statusline /
+ *     transcript (see claude-code-adapter.ts).
  *   - trae / codex / cursor / qoder / tongyi-lingma / hermes /
- *     openclaw: each adapter fills its own env-var; until L2-dogfood
- *     verifies each surface, adapters may omit `compact` and the
- *     probe returns `source: 'conservative-fallback'`.
+ *     openclaw / zcode: each adapter fills its own env-var; until
+ *     L2-dogfood verifies each surface, adapters may omit `compact`
+ *     and the probe returns `source: 'conservative-fallback'`.
  *
- * Fallback chain (when adapter.compact is undefined OR the env-var
- * is missing):
- *   1. statusline poll (`~/.claude/statusline-state.json` for
- *      Claude Code MVP; other IDEs register their own poll path
- *      by exposing `compact.postCompactDetectCommand`).
- *   2. Conservative transcript-size estimate
- *      (`~/.claude/projects/<hash>/<sid>.jsonl` for Claude Code).
- *   3. `ratio: 0` with `source: 'conservative-fallback'` — the
+ * Resolution order (user-overridden → env-var → adapter fallback →
+ * conservative-fallback):
+ *   1. `promptSizeBytes` (P0 `--prompt-size <bytes>` escape hatch) →
+ *      `source: 'user-overridden'`.
+ *   2. `adapter.compact.envVarForContextPercent` env-var →
+ *      `source: '<ideId>-env'`.
+ *   3. `adapter.compact.readContextPercentFallback?.(input)` — the
+ *      adapter owns any vendor-specific statusline / transcript probe.
+ *   4. `ratio: 0` with `source: 'conservative-fallback'` — the
  *      orchestrator MUST NOT auto-fire compact on this signal.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import type { ContextPercentProbe } from './auto-compact-types.js';
 import { detectIdeFromEnv } from './ide-detect.js';
 import { getAdapter } from '../ide/ide-registry.js';
@@ -33,13 +34,21 @@ import type { IdeId } from '../ide/ide-types.js';
 export interface ReadContextPercentInput {
   readonly projectRoot: string;
   readonly sessionId: string;
+  /**
+   * Outer (harness / IDE) session id — the id the IDE uses to name its
+   * transcript / session files. Resolved by the caller (env signal → bound
+   * session meta) and passed through to the adapter's
+   * `readContextPercentFallback`. Optional: when unresolved, the adapter
+   * fallback returns null → conservative-fallback.
+   */
+  readonly outerSessionId?: string | undefined;
   readonly env?: NodeJS.ProcessEnv | undefined;
   /**
    * Slice 2026-07-31-rid-002: explicit byte count from `--prompt-size <bytes>`.
    * When set to a finite non-negative number, short-circuits the entire
    * env / statusline / transcript chain with `source: 'user-overridden'`.
-   * Mac escape hatch — Claude Code Mac does NOT inject
-   * `CLAUDE_CONTEXT_USAGE_PERCENT` into PreToolUse sub-shells, so the
+   * Mac escape hatch — some IDEs (e.g. Claude Code on macOS) do NOT
+   * inject their context-percent env-var into PreToolUse sub-shells, so the
    * user (or a hook wrapper) can inject the bytes they observed themselves.
    * Priority P0 — above everything else.
    */
@@ -62,100 +71,15 @@ function readEnvPercent(env: NodeJS.ProcessEnv, varName: string): number | null 
 }
 
 /**
- * Read the IDE-specific statusline state. MVP path is Claude Code's
- * `~/.claude/statusline-state.json`; other IDEs are intentionally
- * left for future slices (each IDE will expose its own
- * `compact.postCompactDetectCommand` to drive this).
- */
-function readClaudeStatuslinePercent(): number | null {
-  const path = join(homedir(), '.claude', 'statusline-state.json');
-  if (!existsSync(path)) return null;
-  try {
-    const json = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-    const candidates = ['contextPercent', 'context_usage_percent', 'contextPercentUsed'];
-    for (const key of candidates) {
-      const raw = json[key];
-      if (typeof raw === 'number' && Number.isFinite(raw)) {
-        return raw > 1.5 ? raw / 100 : Math.max(0, Math.min(1, raw));
-      }
-    }
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs (e.g. broken statusline JSON)
-    return null;                                    // only swallow IO errors
-  }
-  return null;
-}
-
-/**
- * Recursive search for `<sessionId>.jsonl` under `projectsDir`. Used by
- * `readClaudeTranscriptFallback` and exported via `_internal` so unit
- * tests can drive it without monkey-patching `os.homedir` (which is
- * non-configurable in ESM module namespaces).
- *
- * The Mac layout encodes the cwd as a single hash directory; on Mac
- * Claude Code nests the transcript under that hash with an extra level
- * of subdirectory we cannot predict ahead of time. A flat readdir misses
- * that branch and returns null — the silent-failure mode that this fix
- * closes.
- */
-function findTranscriptJsonl(
-  projectsDir: string,
-  sessionId: string,
-): { path: string; bytes: number } | null {
-  if (!existsSync(projectsDir)) return null;
-  try {
-    const stack: string[] = [projectsDir];
-    while (stack.length > 0) {
-      const dir = stack.pop();
-      if (dir === undefined) break;
-      const entries = readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          stack.push(full);
-        } else if (entry.isFile() && entry.name === `${sessionId}.jsonl`) {
-          const bytes = statSync(full).size;
-          return { path: full, bytes };
-        }
-      }
-    }
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return null;                                    // only swallow IO errors
-  }
-  return null;
-}
-
-/**
- * Conservative transcript-size fallback. Recursively searches
- * `~/.claude/projects/<hash>/<sid-or-nested>.jsonl` (Mac may nest
- *  the jsonl under an
- * extra directory we cannot predict ahead of time) and estimates
- * `ratio = bytesUsed / 256K`. Returns the bytes seen so the
- * orchestrator can show "estimated from 124KB of 256KB transcript"
- * in the envelope. Tagged `'transcript-estimate'` (v2.14.0) so callers
- * know it is a real signal, NOT a hard gate.
- */
-function readClaudeTranscriptFallback(sessionId: string): { ratio: number; bytes: number } | null {
-  const projectsDir = join(homedir(), '.claude', 'projects');
-  const hit = findTranscriptJsonl(projectsDir, sessionId);
-  if (hit === null) return null;
-  const ratio = Math.min(1, hit.bytes / (256 * 1024));
-  return { ratio, bytes: hit.bytes };
-}
-
-/**
  * Probe the current AI CLI's context-fill ratio. Adapter-driven:
  * looks up the registered `IdeAdapter.compact` profile via
- * `getIdeAdapter(detectIdeFromEnv(env))` and reads the
- * adapter-declared env-var. Falls back to statusline poll +
- * transcript estimate ONLY for adapters that opt in
- * (`adapter.id === 'claude-code'` for the MVP); other adapters
- * without an env-var hit return `source: 'conservative-fallback'`
- * with `ratio: 0` so the orchestrator never auto-fires on a
- * missing signal.
+ * `getAdapter(detectIdeFromEnv(env))` and reads the
+ * adapter-declared env-var. When that misses, delegates to the
+ * adapter's optional `readContextPercentFallback` (which owns any
+ * vendor-specific statusline / transcript probe). Adapters without a
+ * fallback (or a fallback that returns null) yield
+ * `source: 'conservative-fallback'` with `ratio: 0` so the
+ * orchestrator never auto-fires on a missing signal.
  */
 export function readContextPercent(input: ReadContextPercentInput): ContextPercentProbe {
   const env = input.env ?? process.env;
@@ -171,7 +95,7 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
   const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
   const adapter = getAdapter(ideId);
 
-  // P0 user-overridden takes priority over env / statusline / transcript.
+  // P0 user-overridden takes priority over env / fallback / transcript.
   // Mac escape hatch: when the CLI/helper passes `--prompt-size <bytes>`,
   // honor that number directly. Do NOT read env, statusline, or transcript
   // — user intent always wins. Negative / non-finite values are ignored
@@ -192,8 +116,8 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     };
   }
 
-  // Primary: read the adapter-declared env-var (no hard-coded IDE names).
   if (adapter.compact) {
+    // Primary: read the adapter-declared env-var (no hard-coded IDE names).
     const primary = readEnvPercent(env, adapter.compact.envVarForContextPercent);
     if (primary !== null) {
       return {
@@ -204,28 +128,17 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
         capturedAt
       };
     }
-  }
 
-  // MVP-only fallback chain: statusline poll + transcript estimate.
-  // Non-MVP adapters that don't fill `compact` skip this and return
-  // a conservative-zero probe (the orchestrator will stay in
-  // 'none' / 'soft-warn' zone and never auto-fire compact).
-  if (ideId === 'claude-code') {
-    const statusline = readClaudeStatuslinePercent();
-    if (statusline !== null) {
-      return { ratio: statusline, source: 'statusline-poll', capacityBytes, ide: ideId, capturedAt };
-    }
-    const fallback = readClaudeTranscriptFallback(input.sessionId);
-    if (fallback !== null) {
-      return {
-        ratio: fallback.ratio,
-        source: 'transcript-estimate',
-        rawBytes: fallback.bytes,
-        capacityBytes,
-        ide: ideId,
-        capturedAt
-      };
-    }
+    // Fallback: the adapter owns any vendor-specific statusline /
+    // transcript probe. When it returns a probe, honor it; otherwise
+    // fall through to conservative-fallback.
+    const fallback = adapter.compact.readContextPercentFallback?.({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      outerSessionId: input.outerSessionId,
+      env
+    });
+    if (fallback) return fallback;
   }
 
   // No signal available — return `ratio: 0` so the orchestrator
@@ -235,4 +148,4 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
 }
 
 /** Re-export the env-var probe for unit tests. */
-export const _internal = { readEnvPercent, readClaudeStatuslinePercent, readClaudeTranscriptFallback, findTranscriptJsonl };
+export const _internal = { readEnvPercent };

@@ -36,6 +36,7 @@ import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-count
 import { writeInitialDispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
+import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
 import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
 import { playwrightProfilePaths } from '../../services/worktree/playwright-profile.js';
@@ -418,9 +419,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let contextProbe: ContextPercentProbe | null = null;
       try {
         const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        const outerSessionId = resolveOuterSessionId(projectRoot, sid);
         contextProbe = readContextPercent({
           projectRoot,
           sessionId: sid,
+          outerSessionId,
           env: process.env
         });
       } catch {

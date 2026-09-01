@@ -160,8 +160,10 @@ export interface ContextPercentProbe {
    *   - `transcript-estimate`     (v2.14.0 Mac-aware: recursive
    *                                readdir under ~/.claude/projects/
    *                                finds <sid>.jsonl and reports
-   *                                bytes/256K; a real signal, NOT
-   *                                a hard gate)
+   *                                contextTokens / contextWindowTokens
+   *                                from the LATEST message.usage entry —
+   *                                token-based + model-aware; a real
+   *                                signal, NOT a hard gate)
    *   - `conservative-fallback`   (no signal available — caller
    *                                MUST NOT treat as hard gate)
    * Future IDEs may add per-ide sources; the type accepts any
@@ -170,6 +172,19 @@ export interface ContextPercentProbe {
   readonly source: string;
   readonly rawBytes?: number;
   readonly capacityBytes?: number;
+  /**
+   * Token-based numerator for `transcript-estimate`: the observed
+   * `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`
+   * from the LATEST transcript `message.usage` entry. Undefined for byte /
+   * percent sources (`user-overridden`, `${ideId}-env`, `statusline-poll`).
+   */
+  readonly rawTokens?: number;
+  /**
+   * Token-based denominator for `transcript-estimate`: the model's context
+   * window in tokens (`modelContextWindowTokens`). Undefined for byte /
+   * percent sources.
+   */
+  readonly capacityTokens?: number;
   readonly ide: string;
   readonly capturedAt: string;
 }

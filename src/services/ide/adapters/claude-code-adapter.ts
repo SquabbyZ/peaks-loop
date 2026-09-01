@@ -1,6 +1,8 @@
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { IdeAdapter } from '../ide-types.js';
+import type { ContextPercentFallbackInput, IdeAdapter } from '../ide-types.js';
+import type { ContextPercentProbe } from '../../context/auto-compact-types.js';
 import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
@@ -19,6 +21,280 @@ import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatche
  *
  * 不可消除的 per-IDE 字段(见 tech-doc.md §1.3)。
  */
+
+/**
+ * Read Claude Code's statusline state file
+ * (`~/.claude/statusline-state.json`) and parse a context-percent key.
+ * Moved from the generic reader in slice
+ * 2026-09-02-vendor-neutral-context-probe — Claude-specific paths now live
+ * only in the Claude Code adapter.
+ */
+function readClaudeStatuslinePercent(): number | null {
+  const path = join(homedir(), '.claude', 'statusline-state.json');
+  if (!existsSync(path)) return null;
+  try {
+    const json = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    const candidates = ['contextPercent', 'context_usage_percent', 'contextPercentUsed'];
+    for (const key of candidates) {
+      const raw = json[key];
+      if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return raw > 1.5 ? raw / 100 : Math.max(0, Math.min(1, raw));
+      }
+    }
+  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs (e.g. broken statusline JSON)
+    return null;                                    // only swallow IO errors
+  }
+  return null;
+}
+
+/**
+ * Recursive search for `<outerSessionId>.jsonl` under `projectsDir`. The
+ * Mac layout encodes the cwd as a single hash directory; on Mac Claude Code
+ * nests the transcript under that hash with an extra level of subdirectory we
+ * cannot predict ahead of time. A flat readdir misses that branch and returns
+ * null — the silent-failure mode this recursion closes.
+ *
+ * Moved from the generic reader in slice
+ * 2026-09-02-vendor-neutral-context-probe. The lookup key is the OUTER
+ * session id (Claude Code names its transcript by the outer session UUID),
+ * NOT the peaks session id.
+ */
+function findTranscriptJsonl(
+  projectsDir: string,
+  outerSessionId: string,
+): string | null {
+  if (!existsSync(projectsDir)) return null;
+  try {
+    const stack: string[] = [projectsDir];
+    while (stack.length > 0) {
+      const dir = stack.pop();
+      if (dir === undefined) break;
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(full);
+        } else if (entry.isFile() && entry.name === `${outerSessionId}.jsonl`) {
+          return full;
+        }
+      }
+    }
+  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
+    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
+    if (err instanceof SyntaxError) throw err;     // surface parse bugs
+    return null;                                    // only swallow IO errors
+  }
+  return null;
+}
+
+/** 1M-context window size in tokens (documented single choice: 1,000,000). */
+const ONE_MILLION_CONTEXT_TOKENS = 1_000_000;
+/** Safe-default (non-1M) context window size in tokens. */
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 200_000;
+/** Reverse-scan chunk size in bytes (keeps memory bounded on multi-MB transcripts). */
+const TRANSCRIPT_SCAN_CHUNK_BYTES = 64 * 1024;
+/**
+ * Known 1M-context Claude model id prefixes whose ids do NOT carry a `1m`
+ * suffix (e.g. `claude-sonnet-4-5-20250929`). The substring match is
+ * intentionally generous — every `claude-sonnet-4*` / `claude-opus-4*`
+ * variant is 1M-context.
+ */
+const ONE_MILLION_CONTEXT_MODELS: readonly string[] = ['claude-opus-4', 'claude-sonnet-4'];
+
+/**
+ * Model-aware context-window size in tokens.
+ *
+ * Detection rule (documented):
+ *   1. Empty / unknown model → DEFAULT_CONTEXT_WINDOW_TOKENS (200_000).
+ *   2. Suffix heuristic — a model id containing `1m` (case-insensitive) is
+ *      treated as 1M-context.
+ *   3. Explicit allowlist — known 1M Claude model ids
+ *      (ONE_MILLION_CONTEXT_MODELS).
+ *   4. Everything else → 200_000 (the safe default).
+ *
+ * Callers MAY additionally infer ≥1M from the observed token count: if
+ * `contextTokens > DEFAULT_CONTEXT_WINDOW_TOKENS`, the model cannot be a
+ * 200K model and must be ≥1M (see `readClaudeTranscriptEstimate`).
+ */
+export function modelContextWindowTokens(model: string): number {
+  const m = model.trim().toLowerCase();
+  if (m.length === 0) return DEFAULT_CONTEXT_WINDOW_TOKENS;
+  if (m.includes('1m')) return ONE_MILLION_CONTEXT_TOKENS;
+  for (const known of ONE_MILLION_CONTEXT_MODELS) {
+    if (m.includes(known)) return ONE_MILLION_CONTEXT_TOKENS;
+  }
+  return DEFAULT_CONTEXT_WINDOW_TOKENS;
+}
+
+/** A non-negative finite number, or null when the value is not numeric. */
+function numericTokenCount(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value;
+  return null;
+}
+
+/**
+ * Parse a single jsonl line into its token count + model id. Returns null
+ * when the line has no `message.usage` object with numeric token fields.
+ */
+function parseTranscriptUsageLine(line: string): { contextTokens: number; model: string } | null {
+  if (line.length === 0) return null;
+  let json: unknown;
+  try {
+    json = JSON.parse(line);
+  } catch {
+    return null; // non-JSON line (blank / corrupt) — skip
+  }
+  if (typeof json !== 'object' || json === null) return null;
+  const record = json as Record<string, unknown>;
+  const message = record.message;
+  if (typeof message !== 'object' || message === null) return null;
+  const msg = message as Record<string, unknown>;
+  const usage = msg.usage;
+  if (typeof usage !== 'object' || usage === null) return null;
+  const u = usage as Record<string, unknown>;
+
+  const inputTokens = numericTokenCount(u.input_tokens);
+  const cacheRead = numericTokenCount(u.cache_read_input_tokens);
+  const cacheCreation = numericTokenCount(u.cache_creation_input_tokens);
+  if (inputTokens === null && cacheRead === null && cacheCreation === null) return null;
+
+  const contextTokens = (inputTokens ?? 0) + (cacheRead ?? 0) + (cacheCreation ?? 0);
+  // Model id lives at `message.model`, falling back to a top-level `model`.
+  const model = typeof msg.model === 'string'
+    ? msg.model
+    : typeof record.model === 'string' ? record.model : '';
+  return { contextTokens, model };
+}
+
+/**
+ * Reverse-scan the transcript jsonl (from the END) for the LATEST entry that
+ * carries a numeric `message.usage`. The file can be many MB; it is read in
+ * backward chunks of TRANSCRIPT_SCAN_CHUNK_BYTES — never fully into memory —
+ * and stops at the first (newest) usable entry.
+ */
+function findLatestTranscriptUsage(filePath: string): { contextTokens: number; model: string } | null {
+  let fd: number | null = null;
+  try {
+    const size = statSync(filePath).size;
+    if (size === 0) return null;
+    fd = openSync(filePath, 'r');
+    let position = size;
+    let carry = ''; // partial line head carried into the next (older) chunk
+    while (position > 0) {
+      const readLen = Math.min(TRANSCRIPT_SCAN_CHUNK_BYTES, position);
+      position -= readLen;
+      const buf = Buffer.alloc(readLen);
+      const bytesRead = readSync(fd, buf, 0, readLen, position);
+      if (bytesRead <= 0) break;
+      const lines = (buf.toString('utf8', 0, bytesRead) + carry).split('\n');
+      carry = lines[0] ?? '';
+      for (let i = lines.length - 1; i >= 1; i--) {
+        const line = lines[i];
+        if (line === undefined) continue;
+        const parsed = parseTranscriptUsageLine(line);
+        if (parsed !== null) return parsed;
+      }
+    }
+    // The final carry is the first line of the file (complete, since it starts at byte 0).
+    if (carry.length > 0) {
+      const parsed = parseTranscriptUsageLine(carry);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  } catch (err) {
+    // Narrow: surface module-load / parse bugs, swallow IO errors only
+    // (mirrors the other adapter read helpers' catch discipline).
+    if (err instanceof ReferenceError) throw err;
+    if (err instanceof SyntaxError) throw err;
+    return null;
+  } finally {
+    if (fd !== null) {
+      try { closeSync(fd); } catch { /* best-effort */ }
+    }
+  }
+}
+
+/**
+ * Resolve the context window for a transcript usage entry. Prefers the
+ * explicit `modelContextWindowTokens(model)` mapping; when the observed token
+ * count contradicts it (tokens exceed the mapped window), the model must be
+ * ≥1M, so bump to the 1M window.
+ */
+function resolveContextWindowTokens(model: string, contextTokens: number): number {
+  const window = modelContextWindowTokens(model);
+  return contextTokens > window ? ONE_MILLION_CONTEXT_TOKENS : window;
+}
+
+/**
+ * Conservative transcript-estimate fallback. Recursively searches
+ * `~/.claude/projects/<hash>/<outerSessionId-or-nested>.jsonl` (Mac may nest
+ * the jsonl under an extra directory we cannot predict ahead of time) and
+ * estimates `ratio = contextTokens / contextWindowTokens` from the LATEST
+ * `message.usage` entry — token-based + model-aware, NOT the old
+ * `bytes / 256KB` (which over-fired because the transcript grows unboundedly).
+ * Tagged `'transcript-estimate'` (v2.14.0) so callers know it is a real
+ * signal, NOT a hard gate.
+ */
+function readClaudeTranscriptEstimate(
+  outerSessionId: string,
+): { ratio: number; contextTokens: number; contextWindowTokens: number } | null {
+  const projectsDir = join(homedir(), '.claude', 'projects');
+  const path = findTranscriptJsonl(projectsDir, outerSessionId);
+  if (path === null) return null;
+  const latest = findLatestTranscriptUsage(path);
+  if (latest === null) return null;
+  const contextWindowTokens = resolveContextWindowTokens(latest.model, latest.contextTokens);
+  const ratio = Math.min(1, latest.contextTokens / contextWindowTokens);
+  return { ratio, contextTokens: latest.contextTokens, contextWindowTokens };
+}
+
+/**
+ * Claude Code's vendor-specific context-percent fallback, exposed as
+ * `IdeCompactProfile.readContextPercentFallback`. The generic reader calls
+ * this only when the primary env-var probe misses; only the adapter knows the
+ * Claude-specific statusline + transcript paths. Resolution order:
+ *   1. statusline poll (`~/.claude/statusline-state.json`)
+ *   2. transcript estimate — looks up `<outerSessionId>.jsonl` under
+ *      `~/.claude/projects/<hash>/...` using the OUTER session id (Claude
+ *      names its transcript by the outer session UUID, not the peaks sid),
+ *      and estimates `contextTokens / contextWindowTokens` from the LATEST
+ *      `message.usage` entry (token-based + model-aware).
+ * Returns `null` when neither yields a signal → the reader emits
+ * `conservative-fallback`.
+ */
+function readContextPercentFallback(input: ContextPercentFallbackInput): ContextPercentProbe | null {
+  const capturedAt = new Date().toISOString();
+  // Byte-based capacity is carried only for the percent path (statusline-poll
+  // returns a 0..1 ratio; capacityBytes is metadata there). The
+  // transcript-estimate path is token-based and surfaces `capacityTokens`
+  // (the model window) instead — see readClaudeTranscriptEstimate.
+  const capacityBytes = 256 * 1024;
+  const ide = 'claude-code';
+
+  const statusline = readClaudeStatuslinePercent();
+  if (statusline !== null) {
+    return { ratio: statusline, source: 'statusline-poll', capacityBytes, ide, capturedAt };
+  }
+
+  if (typeof input.outerSessionId === 'string' && input.outerSessionId.length > 0) {
+    const estimate = readClaudeTranscriptEstimate(input.outerSessionId);
+    if (estimate !== null) {
+      return {
+        ratio: estimate.ratio,
+        source: 'transcript-estimate',
+        rawTokens: estimate.contextTokens,
+        capacityTokens: estimate.contextWindowTokens,
+        ide,
+        capturedAt
+      };
+    }
+  }
+
+  return null;
+}
+
 export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   id: 'claude-code',
   displayName: 'Claude Code',
@@ -73,7 +349,8 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
-    postCompactDetectCommand: 'peaks compact auto --json'
+    postCompactDetectCommand: 'peaks compact auto --json',
+    readContextPercentFallback
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror

@@ -23,6 +23,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readBinding, type Binding, type InstanceRecord } from './binding-store.js';
+import { getSessionMeta } from './session-manager.js';
 
 export type BindingStatusFormat = 'table' | 'json';
 
@@ -57,12 +58,37 @@ export function loadBindingStatus(projectRoot: string): BindingStatusView {
   return { binding, source, projectRoot, stale, outerSessionId };
 }
 
-function readOuterSessionId(): string {
-  const peaks = process.env.PEAKS_OUTER_SESSION_ID;
+export function readOuterSessionId(): string {
+  return readOuterSessionIdFromEnv(process.env) ?? 'unknown';
+}
+
+/** Pure env read (no process.env dependency) so callers can inject an env. */
+function readOuterSessionIdFromEnv(env: NodeJS.ProcessEnv): string | undefined {
+  const peaks = env.PEAKS_OUTER_SESSION_ID;
   if (typeof peaks === 'string' && peaks.length > 0) return peaks;
-  const claude = process.env.CLAUDE_CODE_SESSION_ID;
+  const claude = env.CLAUDE_CODE_SESSION_ID;
   if (typeof claude === 'string' && claude.length > 0) return claude;
-  return 'unknown';
+  return undefined;
+}
+
+/**
+ * Resolve the outer (harness / IDE) session id for the auto-compact
+ * context-percent probe. Order: env signal first (PEAKS_OUTER_SESSION_ID /
+ * CLAUDE_CODE_SESSION_ID), then the bound peaks session's recorded
+ * `outerSessionId` (`session.json` meta). Returns `undefined` when neither is
+ * available — the caller passes `undefined` through and the adapter's fallback
+ * returns null → conservative-fallback. Vendor-neutral: this helper has no
+ * IDE-specific naming; the env-var read lives alongside the binding layer.
+ */
+export function resolveOuterSessionId(
+  projectRoot: string,
+  sessionId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const envOuter = readOuterSessionIdFromEnv(env);
+  if (envOuter !== undefined) return envOuter;
+  const recorded = getSessionMeta(projectRoot, sessionId)?.outerSessionId;
+  return typeof recorded === 'string' && recorded.length > 0 ? recorded : undefined;
 }
 
 /**

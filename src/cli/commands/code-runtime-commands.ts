@@ -31,6 +31,7 @@ import {
 } from '../../services/code/job-shape-decision.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { probeInFlightBatch } from '../../services/workflow/workflow-inflight-probe.js';
+import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
 
 export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void {
   addJsonOption(
@@ -233,9 +234,12 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             // missing/malformed decision file is fine — fall back to advisory.
           }
         }
+        const sessionId = opts.sessionId ?? readActiveSid(opts.project) ?? 'unknown';
+        const outerSessionId = resolveOuterSessionId(opts.project, sessionId);
         const probe = readContextPercent({
           projectRoot: opts.project,
-          sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? 'unknown',
+          sessionId,
+          outerSessionId,
           env: process.env,
           promptSizeBytes
         });
@@ -276,6 +280,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             ide: probe.ide,
             capacityBytes: probe.capacityBytes,
             rawBytes: probe.rawBytes ?? null,
+            rawTokens: probe.rawTokens ?? null,
+            capacityTokens: probe.capacityTokens ?? null,
             bytesPrompt: promptSizeBytes ?? null,
             capturedAt: probe.capturedAt
           }, [], [

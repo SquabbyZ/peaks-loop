@@ -2,283 +2,138 @@
 //
 // 4-dimension unit test for src/services/context/auto-compact-reader.ts.
 //
-// Slice 2026-07-31-rid-001-mac-auto-compact-reader-fix closes the bug where
-// `readClaudeTranscriptFallback` walks `~/.claude/projects/<hash>/<sid>.jsonl`
-// with `readdirSync` (non-recursive) and therefore misses the Mac layout
-// where Claude Code nests the transcript under an extra dir. Mac auto-compact
-// silently stayed at `ratio: 0` → orchestrator stays in `none` zone → no
-// `/compact` ever fires.
+// Slice 2026-09-02-vendor-neutral-context-probe: the generic reader no longer
+// hard-codes Claude Code's statusline / transcript paths. It reads the
+// adapter-declared env-var first, then delegates any vendor-specific fallback
+// to `IdeCompactProfile.readContextPercentFallback`. This file pins the generic
+// resolution order (user-overridden → env-var → adapter fallback →
+// conservative-fallback) using controllable fake adapters via the registry test
+// seam (`_setAdapterForTesting` / `_resetAdaptersForTesting`).
 //
-// The fix is one surgical change to `readClaudeTranscriptFallback`: recurse
-// with a depth-first walk via `_internal.findTranscriptJsonl`, then emit
-// `source: 'transcript-estimate'`. The test pins the post-fix behaviour
-// across Mac / Windows / Linux by driving `findTranscriptJsonl` directly
-// against a tmp workspace (no os.homedir spy — that namespace is frozen in
-// ESM).
+// The Claude-specific statusline + transcript cases moved to
+// tests/unit/ide/claude-code-adapter-compact.test.ts.
 //
 // Dimensions covered:
-//   - render:    ContextPercentProbe shape + source string per branch
-//   - behavior:  env path, statusline path, transcript-estimate branch,
-//                conservative-fallback branch
-//   - integration: real fs read of synthetic `.claude/projects/<hash>/<sid>.jsonl`
-//                  (recursive dir layout to mimic Mac truth)
-//   - a11y:      not applicable — no user-visible text in this module
+//   - render:      ContextPercentProbe shape + source string per branch
+//   - behavior:    promptSizeBytes P0, env-var primary, adapter-fallback
+//                  delegation, conservative-fallback when adapter has no fallback
+//   - integration: registry test seam (real `getAdapter` lookup path)
+//   - a11y:        not applicable — no user-visible text in this module
 //
 // Run with: pnpm vitest run tests/unit/context/auto-compact-reader.test.ts
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
-import { withTmpWorkspacePerTest, getActiveTmpWorkspace } from '../_setup/tmp-workspace.js';
-
-// Slice 2026-07-31-rid-001-r2-silent-catch-guard needs to verify that a
-// ReferenceError raised inside the walk loop SURFACES to the caller instead
-// of being silently swallowed. ESM module namespaces are frozen, so
-// `vi.spyOn(fsModule, 'readdirSync')` fails at runtime with
-// "Cannot redefine property: readdirSync" — the same constraint already
-// documented for `os.homedir`. The accepted workaround is a per-file
-// `vi.mock('node:fs', …)` with a hoisted, controllable replacement.
-//
-// `vi.hoisted` is required because `vi.mock` is hoisted to the top of the
-// file BEFORE all imports, and the factory must reference a value that
-// exists at hoist time. The mutable `__fsMocks` bag is shared between the
-// factory (read by the mocked module) and the per-test setup (mutated via
-// `__fsMocks.readdirSync = …`).
-const __fsMocks = vi.hoisted(() => ({
-  // Default: pass-through to real implementation. Each test can override
-  // before triggering the call. We grab the real impl lazily inside the
-  // factory below.
-  readdirSync: null as unknown as ((...args: unknown[]) => unknown) | null,
-  // rid-001-r3: readClaudeStatuslinePercent reads ~/.claude/statusline-state.json
-  // through readFileSync. Mock existsSync + readFileSync so a broken JSON file
-  // can be injected without touching real homedir (ESM namespace is frozen).
-  existsSync: null as unknown as ((...args: unknown[]) => unknown) | null,
-  readFileSync: null as unknown as ((...args: unknown[]) => unknown) | null,
-}));
-
-vi.mock('node:fs', async () => {
-  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
-  return {
-    ...actual,
-    readdirSync: (...args: unknown[]) => {
-      if (__fsMocks.readdirSync) {
-        return __fsMocks.readdirSync(...args);
-      }
-      return (actual.readdirSync as (...a: unknown[]) => unknown)(...args);
-    },
-    existsSync: (...args: unknown[]) => {
-      if (__fsMocks.existsSync) {
-        return __fsMocks.existsSync(...args);
-      }
-      return (actual.existsSync as (...a: unknown[]) => unknown)(...args);
-    },
-    readFileSync: (...args: unknown[]) => {
-      if (__fsMocks.readFileSync) {
-        return __fsMocks.readFileSync(...args);
-      }
-      return (actual.readFileSync as (...a: unknown[]) => unknown)(...args);
-    },
-  };
-});
+import {
+  _resetAdaptersForTesting,
+  _setAdapterForTesting
+} from '~/src/services/ide/ide-registry';
+import { CLAUDE_CODE_ADAPTER } from '~/src/services/ide/adapters/claude-code-adapter';
+import type { IdeAdapter } from '~/src/services/ide/ide-types';
+import { readContextPercent } from '~/src/services/context/auto-compact-reader';
 
 declareDimensions(
   'tests/unit/context/auto-compact-reader.test.ts',
   ['render', 'behavior', 'integration'],
-  [{ dim: 'a11y', reason: 'pure fs/env probe; no user-visible text emitted' }],
+  [{ dim: 'a11y', reason: 'pure env/adapter probe; no user-visible text emitted' }],
 );
-
-import {
-  _internal,
-  readContextPercent,
-  type ReadContextPercentInput,
-} from '~/src/services/context/auto-compact-reader';
 
 const SID = '2026-07-31-mac-rid-001';
 
-describe("Scenario: render — readContextPercent shape + source tags", () => {
-  // These tests do not touch the fs; they only assert the public probe
-  // shape on the empty-signal path.
-  it("when invoked, should returns ratio:0 + source:conservative-fallback when no signal is available", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const out = readContextPercent({
-      projectRoot: '/tmp/peaks-test',
-      sessionId: SID,
-      env: {},
-    });
+/** A claude-code-shaped adapter with an env-var but NO fallback hook. */
+function noFallbackAdapter(): IdeAdapter {
+  return {
+    ...CLAUDE_CODE_ADAPTER,
+    compact: {
+      envVarForContextPercent: 'PEAKS_TEST_CONTEXT_PCT',
+      compactCommand: 'claude --compact',
+      compactPathway: 'ide-native'
+    }
+  };
+}
+
+beforeEach(() => {
+  _resetAdaptersForTesting();
+});
+
+afterEach(() => {
+  _resetAdaptersForTesting();
+});
+
+describe('Scenario: render — readContextPercent conservative-fallback shape', () => {
+  it('when adapter has no fallback, should return ratio:0 + source:conservative-fallback', () => {
+    _setAdapterForTesting('claude-code', noFallbackAdapter());
+    const out = readContextPercent({ projectRoot: '/tmp/peaks-test', sessionId: SID, env: {} });
     expect(typeof out.capturedAt).toBe('string');
     expect(out.capturedAt.length).toBeGreaterThan(0);
-    // No env var (real process.env may or may not have CLAUDE_CONTEXT_USAGE_PERCENT,
-    // but the test passes env: {} explicitly), no statusline, no transcript jsonl.
     expect(out.source).toBe('conservative-fallback');
     expect(out.ratio).toBe(0);
     expect(out.ide).toBe('claude-code');
   });
 });
 
-describe("Scenario: behavior — findTranscriptJsonl pure walk", () => {
-  // The helper takes an explicit projectsDir so we don't need to spy on
-  // os.homedir (which is non-configurable in ESM).
-  it("when invoked, should returns null when projectsDir does not exist", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const out = _internal.findTranscriptJsonl('/tmp/peaks-no-such-dir-xyz', SID);
-    expect(out).toBeNull();
-  });
-
-  it("when invoked, should returns null when projectsDir exists but has no matching sid", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const dir = '/tmp/peaks-behavior-stub';
-    mkdirSync(join(dir, 'fakehash'), { recursive: true });
-    writeFileSync(join(dir, 'fakehash', 'wrong.jsonl'), 'x', 'utf8');
-    try {
-      const out = _internal.findTranscriptJsonl(dir, SID);
-      expect(out).toBeNull();
-    } finally {
-      // Best-effort cleanup; tmp dir leakage is harmless for unit tests.
-    }
+describe('Scenario: behavior — env-var primary (adapter-declared)', () => {
+  it('when env carries the adapter env-var, should return source <ide>-env', () => {
+    const out = readContextPercent({
+      projectRoot: '/tmp/peaks-test',
+      sessionId: SID,
+      env: { CLAUDE_CONTEXT_USAGE_PERCENT: '0.62' }
+    });
+    expect(out.source).toBe('claude-code-env');
+    expect(out.ratio).toBeCloseTo(0.62);
+    expect(out.ide).toBe('claude-code');
   });
 });
 
-describe("Scenario: integration — Mac-style nested transcript glob (recursive readdir)", () => {
-  withTmpWorkspacePerTest();
-
-  let projectsDir = '';
-
-  beforeEach(() => {
-    projectsDir = join(getActiveTmpWorkspace().path, '.claude', 'projects');
+describe('Scenario: behavior — adapter fallback delegation (vendor-neutral)', () => {
+  it('when adapter.compact.readContextPercentFallback returns a probe, should return it (not hardcoded)', () => {
+    _setAdapterForTesting('claude-code', {
+      ...CLAUDE_CODE_ADAPTER,
+      compact: {
+        envVarForContextPercent: 'PEAKS_TEST_CONTEXT_PCT',
+        compactCommand: 'claude --compact',
+        compactPathway: 'ide-native',
+        readContextPercentFallback: () => ({
+          ratio: 0.5,
+          source: 'adapter-fallback-probe',
+          ide: 'claude-code',
+          capturedAt: '2026-01-01T00:00:00.000Z'
+        })
+      }
+    });
+    const out = readContextPercent({ projectRoot: '/tmp/peaks-test', sessionId: SID, env: {} });
+    expect(out.source).toBe('adapter-fallback-probe');
+    expect(out.ratio).toBe(0.5);
   });
 
-  afterEach(() => {
-    projectsDir = '';
-  });
-
-  it("when invoked, should finds transcript under nested hash dir (200KB → ratio ≥ 0.5, source transcript-estimate)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Mac Claude Code stores transcripts in a layout where the jsonl is NOT
-    // a direct sibling of the hash — it can be one level deeper. Build the
-    // nested layout to match that real-world path encoding.
-    const hashDir = join(projectsDir, '-Users-foo-bar');
-    mkdirSync(hashDir, { recursive: true });
-    const transcript = join(hashDir, `${SID}.jsonl`);
-    // 200KB of synthetic content → ratio = 200*1024 / (256*1024) ≈ 0.78125
-    writeFileSync(transcript, 'x'.repeat(200 * 1024), 'utf8');
-
-    const hit = _internal.findTranscriptJsonl(projectsDir, SID);
-    expect(hit).not.toBeNull();
-    if (hit !== null) {
-      expect(hit.bytes).toBe(200 * 1024);
-      expect(hit.path).toBe(transcript);
-    }
-
-    // Drive the public probe through the reader's _internal wrapper too —
-    // this exercises the full ratio math (capped at 1).
-    const ratio = hit === null ? null : Math.min(1, hit.bytes / (256 * 1024));
-    expect(ratio).not.toBeNull();
-    expect(ratio!).toBeGreaterThanOrEqual(0.5);
-    expect(ratio!).toBeLessThanOrEqual(1);
-  });
-
-  it("when invoked, should source tag in public probe is transcript-estimate (acceptance criterion for Mac)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // The Mac acceptance criterion lives at the readContextPercent surface:
-    // when env var is absent AND no statusline-state.json is present, the
-    // reader MUST emit `source: 'transcript-estimate'` so the CLI can label
-    // it correctly. (Before the fix it returned `conservative-fallback`
-    // with ratio: 0 because readdirSync was non-recursive.)
-    //
-    // We can't easily stub os.homedir (ESM namespace is frozen), but the
-    // _internal helpers are the source of truth for the probe branches:
-    // a missing projects dir under real homedir → conservative-fallback;
-    // a present projects dir with matching jsonl → transcript-estimate.
-    // The dedicated behavior case above pins both helpers' return shapes,
-    // which together fully pin the public probe's source field.
-    //
-    // What we CAN assert at the public surface without homedir mocking is
-    // that the empty-env path emits the documented `conservative-fallback`
-    // source string — the value the slice changes is the new
-    // `transcript-estimate` value the helper emits.
-    const out: ReadContextPercentInput = {
-      projectRoot: process.cwd(),
-      sessionId: SID,
-      env: {},
-    };
-    const probe = readContextPercent(out);
-    // Either path is acceptable here: the host may have a real ~/.claude
-    // tree and hit the transcript branch, or it may not and hit the
-    // conservative-fallback branch. Both branches are covered above.
-    expect(['transcript-estimate', 'conservative-fallback']).toContain(probe.source);
-  });
-
-  it("when invoked, should finds transcript regardless of host platform (platform-agnostic recursion)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // The recursive glob is platform-agnostic; the production
-    // readClaudeTranscriptFallback has no platform branch. The test only
-    // exercises the helper, so we don't gate on process.platform — the
-    // Mac-acceptance criterion was already pinned by the previous case.
-    const hashDir = join(projectsDir, '-Users-test-projects');
-    mkdirSync(hashDir, { recursive: true });
-    const transcript = join(hashDir, `${SID}.jsonl`);
-    writeFileSync(transcript, 'x'.repeat(200 * 1024), 'utf8');
-    const out = _internal.findTranscriptJsonl(projectsDir, SID);
-    expect(out).not.toBeNull();
-    if (out !== null) {
-      expect(out.bytes).toBe(200 * 1024);
-      expect(Math.min(1, out.bytes / (256 * 1024))).toBeGreaterThanOrEqual(0.5);
-    }
+  it('when adapter has no readContextPercentFallback, should fall through to conservative-fallback', () => {
+    _setAdapterForTesting('claude-code', noFallbackAdapter());
+    const out = readContextPercent({ projectRoot: '/tmp/peaks-test', sessionId: SID, env: {} });
+    expect(out.source).toBe('conservative-fallback');
+    expect(out.ratio).toBe(0);
   });
 });
 
 // Slice 2026-07-31-rid-002-prompt-size-context-now-override — `promptSizeBytes`
 // P0 short-circuit. Mac users (and any IDE wrapper) inject context bytes
-// explicitly via `peaks code context-now --prompt-size <bytes>` to bypass
-// the silent `CLAUDE_CONTEXT_USAGE_PERCENT` failure mode. The reader must
-// honor `--prompt-size` ABOVE every other source: env / statusline /
-// transcript-estimate / conservative-fallback.
-describe("Scenario: behavior — readContextPercent promptSizeBytes P0 short-circuit", () => {
-  it("when invoked, should promptSizeBytes=200000 short-circuits to source user-overridden with ratio ~0.762", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Acceptance criterion: Mac escape hatch returns ratio=200000/262144≈0.762
-    // AND source='user-overridden' even when env + statusline + transcript
-    // would all be absent. The CLI example given to the user is:
-    //   `peaks code context-now --project . --prompt-size 200000 --json`
+// explicitly via `peaks code context-now --prompt-size <bytes>` to bypass the
+// silent `CLAUDE_CONTEXT_USAGE_PERCENT` failure mode. The reader must honor
+// `--prompt-size` ABOVE every other source: env / fallback / conservative.
+describe('Scenario: behavior — readContextPercent promptSizeBytes P0 short-circuit', () => {
+  it('when promptSizeBytes=200000, should short-circuit to user-overridden ratio ~0.762', () => {
     const out = readContextPercent({
       projectRoot: '/tmp/peaks-test',
       sessionId: SID,
-      env: {}, // env explicitly empty
+      env: {},
       promptSizeBytes: 200_000
     });
     expect(out.source).toBe('user-overridden');
     expect(out.ratio).toBeCloseTo(200_000 / (256 * 1024), 5);
-    expect(out.ratio).toBeGreaterThanOrEqual(0.75);
-    expect(out.ratio).toBeLessThan(0.8);
-    // rawBytes should reflect what the user injected so the CLI can label it.
     expect(out.rawBytes).toBe(200_000);
     expect(out.capacityBytes).toBe(256 * 1024);
-    expect(out.ide).toBe('claude-code');
   });
 
-  it("when invoked, should promptSizeBytes=0 is a legal edge case (ratio 0, source user-overridden)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // 0 bytes is allowed. The user is asserting "empty prompt" — the
-    // probe correctly reports ratio 0 / source user-overridden rather
-    // than falling through to the conservative-fallback sentinel.
+  it('when promptSizeBytes=0, should return ratio 0 with source user-overridden', () => {
     const out = readContextPercent({
       projectRoot: '/tmp/peaks-test',
       sessionId: SID,
@@ -290,16 +145,8 @@ describe("Scenario: behavior — readContextPercent promptSizeBytes P0 short-cir
     expect(out.rawBytes).toBe(0);
   });
 
-  it("when invoked, should promptSizeBytes=-1 is rejected by reader guard and falls through to existing fallback chain", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // The CLI layer validates `>= 0`, but the reader is defensive: a
-    // negative value MUST NOT be silently accepted (ratio would go
-    // negative via Math.min and break the orchestrator's ladder). It
-    // MUST fall through to the env/statusline/transcript chain instead
-    // of throwing. With env = {}, statusline absent, no transcript jsonl
-    // under real homedir → conservative-fallback.
+  it('when promptSizeBytes=-1, should be rejected and fall through to conservative-fallback', () => {
+    _setAdapterForTesting('claude-code', noFallbackAdapter());
     const out = readContextPercent({
       projectRoot: '/tmp/peaks-test',
       sessionId: SID,
@@ -307,141 +154,17 @@ describe("Scenario: behavior — readContextPercent promptSizeBytes P0 short-cir
       promptSizeBytes: -1
     });
     expect(out.source).not.toBe('user-overridden');
-    // Either transcript-estimate or conservative-fallback is acceptable
-    // here — what matters is that we did NOT short-circuit on negative.
-    expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
+    expect(out.source).toBe('conservative-fallback');
   });
 
-  it("when invoked, should promptSizeBytes=undefined preserves backward-compat (no implicit override)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Backward-compat: callers that don't pass promptSizeBytes see the
-    // exact same behaviour as rid-001-r1. With env = {}, no statusline,
-    // no transcript jsonl expected under real homedir → conservative-fallback.
+  it('when promptSizeBytes=undefined, should preserve backward-compat (no implicit override)', () => {
+    _setAdapterForTesting('claude-code', noFallbackAdapter());
     const out = readContextPercent({
       projectRoot: '/tmp/peaks-test',
       sessionId: SID,
       env: {}
-      // promptSizeBytes intentionally omitted
     });
     expect(out.source).not.toBe('user-overridden');
-    expect(['transcript-estimate', 'conservative-fallback']).toContain(out.source);
-  });
-});
-
-// Slice 2026-07-31-rid-001-r2-silent-catch-guard narrows the silent catch in
-// `findTranscriptJsonl`. Pre-r2 it swallowed ALL errors (including
-// ReferenceError, SyntaxError), which hid the rid-001-r1 ESM `require is not
-// defined` regression until production. Post-r2 it surfaces ReferenceError /
-// SyntaxError to the caller (so a future module-load bug fails loudly) while
-// still returning null for IO errors (ENOENT, EACCES, etc.) — the original
-// "transcript not found" semantic.
-//
-// The tests below pin both halves of the contract:
-//
-//   Case A: ReferenceError raised inside the walk bubbles up (NOT swallowed)
-//   Case B: a missing projectsDir still returns null (IO error → silent)
-describe("Scenario: behavior — findTranscriptJsonl catch narrows to IO errors only", () => {
-  it("when invoked, should Case A: ReferenceError raised by readdirSync surfaces to caller (NOT swallowed)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Inject a ReferenceError via the hoisted `__fsMocks` bag (set up at
-    // the top of this file because `vi.mock('node:fs', …)` is hoisted to
-    // run before any import). The post-r2 catch MUST re-throw instead of
-    // returning null — the rid-001-r1 regression hid because the silent
-    // catch swallowed the same exact ReferenceError.
-    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-r2-ref-'));
-    __fsMocks.readdirSync = () => {
-      throw new ReferenceError('require is not defined in ES module scope');
-    };
-    try {
-      expect(() => _internal.findTranscriptJsonl(tmpDir, SID)).toThrow(ReferenceError);
-    } finally {
-      __fsMocks.readdirSync = null;
-    }
-  });
-
-  it("when invoked, should Case B: missing projectsDir returns null (IO error → silent)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Backward-compat: the original "transcript not found" semantic MUST
-    // be preserved. existsSync short-circuits to null BEFORE the try block
-    // for a non-existent dir, so this case is the real IO-error swallowing
-    // path: ENOENT when readdirSync hits a race-deleted dir.
-    //
-    // We simulate it by pointing at a path that does not exist; existsSync
-    // returns false → null. This pins the IO-error swallow contract from
-    // the OTHER side of the catch (no readdirSync call, but if it WERE
-    // called against a missing parent, ENOENT would still be swallowed).
-    const out = _internal.findTranscriptJsonl(
-      `/tmp/peaks-r2-no-such-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      SID,
-    );
-    expect(out).toBeNull();
-  });
-});
-
-// Slice 2026-07-31-rid-001-r3-statusline-catch-guard narrows the silent catch
-// in `readClaudeStatuslinePercent`. Sibling of rid-001-r2 (which fixed the
-// same anti-pattern in `findTranscriptJsonl`). Pre-r3 the catch swallowed ALL
-// errors including SyntaxError from `JSON.parse` on a broken statusline JSON
-// file — a real-world failure mode when Claude Code crashes mid-write of
-// `~/.claude/statusline-state.json`. Post-r3 SyntaxError surfaces (so the
-// orchestrator can degrade gracefully) while IO errors (`ENOENT` from a
-// missing file, etc.) still return null.
-//
-// The tests pin both halves of the contract:
-//
-//   Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces
-//           to the caller (NOT silently returned null)
-//   Case D: IO error (readFileSync throws ENOENT) still returns null
-//           (backward-compat: missing file is a normal "no signal" signal)
-describe("Scenario: behavior — readClaudeStatuslinePercent catch narrows to IO errors only", () => {
-  it("when invoked, should Case C: SyntaxError from JSON.parse on broken statusline JSON surfaces to caller (NOT swallowed)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Inject broken JSON via the hoisted `__fsMocks` bag. The catch in
-    // readClaudeStatuslinePercent must re-throw SyntaxError instead of
-    // returning null — the same anti-pattern that hid rid-001-r1 in
-    // findTranscriptJsonl. Production impact: a Claude Code crash that
-    // leaves ~/.claude/statusline-state.json half-written would have
-    // silently turned context-percent into a `null` source rather than
-    // surfacing the file-corruption bug.
-    __fsMocks.existsSync = () => true;
-    __fsMocks.readFileSync = () => '{ broken json'; // unparseable → SyntaxError
-    try {
-      expect(() => _internal.readClaudeStatuslinePercent()).toThrow(SyntaxError);
-    } finally {
-      __fsMocks.existsSync = null;
-      __fsMocks.readFileSync = null;
-    }
-  });
-
-  it("when invoked, should Case D: IO error from readFileSync (ENOENT) still returns null (IO error → silent)", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    // Backward-compat: an IO failure (ENOENT race-delete, EACCES, EBUSY) MUST
-    // still be swallowed and return null — the original "no statusline"
-    // semantic. The catch narrows to IO errors only; SyntaxError /
-    // ReferenceError now bubble (Case C / sibling of rid-001-r2 Case A),
-    // but the null return for IO failures is preserved.
-    __fsMocks.existsSync = () => true; // bypass the existence short-circuit
-    __fsMocks.readFileSync = () => {
-      const err = new Error('ENOENT: no such file or directory');
-      (err as NodeJS.ErrnoException).code = 'ENOENT';
-      throw err;
-    };
-    try {
-      const out = _internal.readClaudeStatuslinePercent();
-      expect(out).toBeNull();
-    } finally {
-      __fsMocks.existsSync = null;
-      __fsMocks.readFileSync = null;
-    }
+    expect(out.source).toBe('conservative-fallback');
   });
 });

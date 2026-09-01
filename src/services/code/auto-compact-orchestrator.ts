@@ -31,6 +31,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
+import { resolveOuterSessionId } from '../session/binding-status-service.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
@@ -716,9 +717,11 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot, sessionId);
   // Lazy import to avoid the AC-1 module depending on the orchestrator.
   const { readContextPercent } = await import('../context/auto-compact-reader.js');
+  const outerSessionId = resolveOuterSessionId(input.projectRoot, sessionId, input.env ?? process.env);
   const probe = readContextPercent({
     projectRoot: input.projectRoot,
     sessionId,
+    outerSessionId,
     env: input.env
   });
 

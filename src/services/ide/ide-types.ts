@@ -12,6 +12,7 @@
  * 其他全部归一化到 peaks 内部模型(见 hook-protocol.ts)。
  */
 import type { SubAgentDispatcher } from '../dispatch/sub-agent-dispatcher.js';
+import type { ContextPercentProbe } from '../context/auto-compact-types.js';
 
 export type IdeId =
   | 'claude-code'
@@ -214,6 +215,47 @@ export interface IdeCompactProfile {
    * the orchestrator polls `envVarForContextPercent` directly.
    */
   readonly postCompactDetectCommand?: string;
+  /**
+   * Optional vendor-specific fallback the generic `readContextPercent`
+   * reader calls when the primary env-var probe misses. Returns a
+   * completed `ContextPercentProbe` (e.g. `statusline-poll` /
+   * `transcript-estimate`) or `null` when the adapter has no signal —
+   * the reader then falls through to `conservative-fallback`.
+   *
+   * Keeps IDE-specific filesystem / env knowledge (Claude Code's
+   * `~/.claude/statusline-state.json` + `~/.claude/projects` transcript
+   * layout, etc.) inside the adapter, not the generic reader. Adapters
+   * that do not opt in simply omit the field; new IDEs are addable
+   * without touching the generic reader.
+   *
+   * Added in slice 2026-09-02-vendor-neutral-context-probe.
+   */
+  readonly readContextPercentFallback?: (
+    input: ContextPercentFallbackInput,
+  ) => ContextPercentProbe | null;
+}
+
+/**
+ * Input the generic `readContextPercent` reader passes to an adapter's
+ * optional `IdeCompactProfile.readContextPercentFallback` hook. The adapter
+ * owns the vendor-specific fallback logic (statusline poll, transcript
+ * lookup, etc.); the generic reader stays IDE-agnostic.
+ *
+ * Added in slice 2026-09-02-vendor-neutral-context-probe.
+ */
+export interface ContextPercentFallbackInput {
+  /** Project root (the probe's `--project` anchor). */
+  readonly projectRoot: string;
+  /** Peaks session id (NOT the harness / IDE transcript id). */
+  readonly sessionId: string;
+  /**
+   * Outer (harness / IDE) session id — the id the IDE uses to name its
+   * transcript / session files (e.g. a UUID). Optional: when unresolved,
+   * adapters whose fallback depends on it should return `null`.
+   */
+  readonly outerSessionId?: string | undefined;
+  /** Injectable env (defaults to process.env in the reader). */
+  readonly env?: NodeJS.ProcessEnv | undefined;
 }
 
 /**
