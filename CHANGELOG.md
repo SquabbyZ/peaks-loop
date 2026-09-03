@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.0.29 — 2026-09-03 (codegraph 生命周期闭环 — pre-read + auto-refresh)
+
+**3 atomic commits from session 2026-09-03-session-d49394** (user feedback #3):
+
+- `7b9fe627` feat(codegraph): auto-refresh index after slice completion (CLI-internal trigger)
+- `b6599b56` feat(codegraph): preflight project structure into RD dispatch prompts
+- `dfbd229e` docs(memory): sediment codegraph lifecycle closure (pre-read + auto-refresh)
+
+**Highlights**:
+
+1. **slice/request 完成后自动刷新 codegraph** — `job checkpoint --state done` / `request transition --state qa-handoff` 成功后自动 `peaks codegraph index`。CLI-internal 触发（vendor-neutral、不可绕过、恰在 slice 边界 fire 一次），best-effort fail-silent（codegraph 失败不阻塞 checkpoint）。16 个新 BDD 测试。
+
+2. **RD 规划前强制读 codegraph 结构** — peaks-code dispatch RD 前 preflight：确保 index（无则 init+index，fresh 则跳过，foreign-schema fail-soft）+ 读有界 `codegraph files --json` 结构（cap 40 dirs / 12 root files）渲染 `## Codegraph structure` 块注入 RD prompt。codegraph 不可用 → 优雅降级 note，dispatch 照常。13 个新 BDD 测试。
+
+3. 闭环成型：规划前 pre-read（Slice B）→ 实现 → 完成后 auto-refresh（Slice A）→ 下一 slice 读到新图。
+
 ## 4.0.28 — 2026-09-03 (codegraph 目录回根 + env-first 1M 窗口识别)
 
 **3 atomic commits from session 2026-09-03-session-d49394** (user feedback batch):
