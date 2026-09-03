@@ -407,6 +407,25 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // pure-function builder.
       const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
       const memoryBlock = await preflightService.fetchBlock(role);
+      // Slice 2026-09-03-codegraph-preread (Option A): pre-dispatch
+      // codegraph preflight for RD planning. BEFORE the RD sub-agent's
+      // prompt is composed, ensure the codegraph index exists (init +
+      // index best-effort when `.codegraph/` is absent; skip when already
+      // fresh) and read a BOUNDED project-structure summary. The block is
+      // only requested for the `rd` role — other roles keep the legacy
+      // prompt byte-identical. Fail-soft: any codegraph failure degrades
+      // to a null block (builder renders the "codegraph unavailable" note)
+      // and the dispatch proceeds; we never hard-block RD dispatch here.
+      let codegraphBlock: string | null | undefined;
+      if (role === 'rd') {
+        try {
+          const { buildCodegraphPreflightBlock } = await import('../../services/codegraph/codegraph-preflight-service.js');
+          const preflight = await buildCodegraphPreflightBlock(projectRoot);
+          codegraphBlock = preflight.available ? preflight.block : null;
+        } catch {
+          codegraphBlock = null; // fail-soft: never block RD dispatch
+        }
+      }
       // Slice 2026-07-29-context-evaluation-accuracy: capture the
       // authoritative context-fill probe before composing the
       // dispatch prompt. The probe is token-counted (IDE adapter's
@@ -435,7 +454,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         taskTitle: role,
         taskBody: options.prompt,
         memoryBlock,
-        contextProbe
+        contextProbe,
+        // exactOptionalPropertyTypes: only set codegraphBlock when the rd
+        // preflight actually produced a value (null = attempted-unavailable,
+        // undefined = not requested → legacy prompt unchanged).
+        ...(codegraphBlock !== undefined ? { codegraphBlock } : {})
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
       // block so the sub-agent sees the lease id + worktree path. The block

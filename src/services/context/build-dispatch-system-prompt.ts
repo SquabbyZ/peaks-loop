@@ -29,6 +29,20 @@ export interface DispatchPromptInput {
    * a byte-counted estimate.
    */
   contextProbe?: ContextPercentProbe | null;
+  /**
+   * Slice 2026-09-03-codegraph-preread (Option A): pre-composed
+   * `## Codegraph structure` markdown block, read from the codegraph
+   * index BEFORE the RD sub-agent's task body is composed so the RD
+   * plans against real module/file topology, not LLM memory.
+   *
+   * - `undefined` → no codegraph block (legacy callers unchanged).
+   * - `null` → codegraph was attempted but is unavailable; the composer
+   *   renders a fixed "codegraph unavailable — proceeding on project-scan
+   *   only" note (fail-soft; never hard-blocks a dispatch).
+   * - `string` → the block, rendered verbatim between the context window
+   *   and the memory/task content.
+   */
+  codegraphBlock?: string | null;
 }
 
 /**
@@ -118,6 +132,10 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * `${formatTestToolDetection()}\n\n${taskBody}`. Today's pre-change behavior
  * produced the same string from `src/cli/commands/dispatch-commands.ts:220`,
  * so the unavailable branch MUST return `taskBody` (NOT a `# title\n\n` wrap).
+ * The contract holds for callers that do not pass `codegraphBlock` (all
+ * non-RD roles). Slice 2026-09-03-codegraph-preread deliberately inserts a
+ * codegraph structure block (or its fail-soft unavailable note) for RD
+ * dispatches between the context window and the memory/task content.
  *
  * Available branch prepends the memory block before the `## Task` heading so
  * `## Project memory …` always sits above the task brief (never pushed below
@@ -129,12 +147,42 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * refusal is in scope before any task-specific prose arrives.
  */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskBody, memoryBlock, contextProbe } = input;
+  const { taskBody, memoryBlock, contextProbe, codegraphBlock } = input;
   const contextBlock = renderContextBlock(contextProbe ?? null);
+  const codegraphText = renderCodegraphBlock(codegraphBlock);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${taskBody}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${taskBody}`;
+}
+
+/**
+ * Slice 2026-09-03-codegraph-preread: fixed degradation string emitted
+ * when the RD dispatch preflight requested a codegraph structure read but
+ * the index could not be resolved (absent + init failure, foreign schema,
+ * unparseable output). Kept as a constant so the unavailable branch is
+ * byte-stable and trivially testable.
+ */
+export const CODEGRAPH_UNAVAILABLE_BLOCK =
+  '## Codegraph structure\n\ncodegraph unavailable — proceeding on project-scan only.\n';
+
+/**
+ * Render the codegraph insertion for a dispatch prompt.
+ *
+ * - `undefined` → empty (the composer is byte-identical to the legacy
+ *   shape for callers that did not opt into a codegraph pre-read).
+ * - `null` → the fixed CODEGRAPH_UNAVAILABLE_BLOCK note.
+ * - `string` → the pre-composed block from the codegraph preflight
+ *   service, verbatim.
+ *
+ * Every non-empty variant is normalized to end on its own paragraph
+ * (`\n\n`) so the following block (project memory or task body) starts
+ * cleanly regardless of the caller's trailing newline habits.
+ */
+function renderCodegraphBlock(codegraphBlock: string | null | undefined): string {
+  if (codegraphBlock === undefined) return '';
+  const text = codegraphBlock === null ? CODEGRAPH_UNAVAILABLE_BLOCK : codegraphBlock;
+  return `${text.replace(/\s+$/, '')}\n\n`;
 }
 
 /**
