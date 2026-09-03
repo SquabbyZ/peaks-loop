@@ -5,7 +5,7 @@ kind: lesson
 date: 2026-09-03
 session: 2026-09-03-session-d49394
 rids: [rid-2026-09-03-codegraph-root, rid-2026-09-03-model-1m-detect]
-commits: [c0721d3a, 7011e64c]
+commits: [c0721d3a, 7011e64c, 5289a9b3, 10ec36ad]
 ---
 
 # codegraph 数据目录回根 + env 优先 1M 窗口识别
@@ -56,8 +56,23 @@ rid-CG-003（4.0.20，commit 0e3b1bed）把 `.peaks/.codegraph/` 设为 preferre
 - 无 `Co-Authored-By: Claude/Anthropic` trailer；SquabbyZ 唯一作者
 - 编排器未直接 Edit/Write src/**；全部经 `peaks sub-agent dispatch rd` / `qa`
 
+## Lesson 3 — 发版必须手工同步 `peaks-loop-internal-runtime/src/index.ts` 的 RUNTIME_VERSION + RUNTIME_NPM_VERSION
+
+**现象**：4.0.28 首次发版 CI 失败（用户发现 Actions 报错）。根因：`scripts/bump-version.mjs` 只 bump 各 `package.json`，**不碰** `packages/peaks-loop-internal-runtime/src/index.ts`。该文件顶部的 `RUNTIME_VERSION = '4.0.27'` / `RUNTIME_NPM_VERSION = '0.0.12'` 需手工随 release commit 同步到 `'4.0.28'` / `'0.0.13'`。publish.yml `gate-cli-version` 的 (A) on-disk 段读 `src/index.ts` RUNTIME_VERSION 与 root version 比对 → drift → abort。
+
+**Why**：4.0.27 release commit（9fa8ef06）当时手工包含了 index.ts 的 +4/−4 改动，我照 bump-version 的输出以为只改 package.json 即可，漏了它。CI gate 是 fail-closed 的 —— 它拦下了这次，但也意味着"照 bump-version.mjs 走一遍就 push"是不够的。
+
+**How to apply**：每次发版在 `git commit --amend` 前跑一个 3-literal 一致性检查：
+```bash
+node -e "const p=require('./package.json'); console.log('root',p.version)"
+grep -oE "RUNTIME_VERSION = '[^']+'" packages/peaks-loop-internal-runtime/src/index.ts
+grep -oE "CLI_VERSION = \"[^\"]+\"" packages/peaks-loop-shared/src/version.ts
+```
+三者必须全等 root version；同时 `RUNTIME_NPM_VERSION` 要等于 internal-runtime package.json version。任何不匹配 → amend + re-tag + force-push（runbook rule 6，`.peaks/memory/2026-08-02-publish-runbook.md`）。**CI 的 ci.yml `pnpm/action-setup@v4` 步骤是 pre-existing 失败**（base 203208a 同样红，publish.yml 用 corepack 绕开，ci.yml 未修）——不是本次改动引入，不阻塞 publish。
+
 ## 反模式（不要做）
 - 不要从 transcript 单独推断窗口 —— env 有 `[1M]` 时以 env 为准
 - 不要把已回根的 codegraph 目录再搬回 `.peaks/`
 - 不要把 env 专属模型解析放到 vendor-neutral 服务（如 auto-compact-reader.ts）里
+- 不要以为 bump-version.mjs 输出全量覆盖版本面 —— `internal-runtime/src/index.ts` 的 RUNTIME_VERSION / RUNTIME_NPM_VERSION 需手工随 release commit 同步（本次 4.0.28 首轮 CI 失败的根因）
 <!-- peaks-memory:end -->
