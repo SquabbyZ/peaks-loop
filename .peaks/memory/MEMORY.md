@@ -1,6 +1,7 @@
 - [2026-08-11-peaks-code-skill-persistence-pause](2026-08-11-peaks-code-skill-persistence-pause.md) — peaks-code 被 superpowers 自动抢占/清除问题已完成根因调查，明日从 spec-locked RD 请求恢复。
 - [2026-09-01-headroom-half-baked-integration](2026-09-01-headroom-half-baked-integration.md) — headroom-ai 半成品集成（N-7 proxy 未接，0 token 节省）；省 token 主杠杆是 G7 metadata-only + auto-compact + cache 对齐（2026-09-01 user 反馈第 4 条）。
 - [2026-09-01-auto-compact-context-probe-root-cause](2026-09-01-auto-compact-context-probe-root-cause.md) — auto-compact 根因：context 探针三级链全断（env-var/statusline/transcript session-id 错）；修 = vendor-neutral adapter 化 + outerSessionId + token-based 模型感知校准（1M/非 1M）。
+- [2026-09-03-codegraph-root-revert-and-env-1m-window](2026-09-03-codegraph-root-revert-and-env-1m-window.md) — codegraph 数据目录从 `.peaks/.codegraph/` 完全回根 `.codegraph/`；1M 窗口识别改 env 优先（`ANTHROPIC_MODEL` 的 `[1M]` 后缀）+ transcript 兜底（2026-09-03 user 反馈 1+2）。
 
 ## 4.x sediment-pool
 
