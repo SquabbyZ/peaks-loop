@@ -104,6 +104,50 @@ const TRANSCRIPT_SCAN_CHUNK_BYTES = 64 * 1024;
 const ONE_MILLION_CONTEXT_MODELS: readonly string[] = ['claude-opus-4', 'claude-sonnet-4'];
 
 /**
+ * Claude Code runtime env vars that may carry the currently-active model id,
+ * in documented precedence order (first non-empty value wins):
+ *   1. ANTHROPIC_MODEL                — explicit per-run model override
+ *   2. ANTHROPIC_DEFAULT_OPUS_MODEL   — default Opus fallback
+ *   3. ANTHROPIC_DEFAULT_SONNET_MODEL — default Sonnet fallback
+ *   4. ANTHROPIC_DEFAULT_HAIKU_MODEL  — default Haiku fallback
+ *   5. ANTHROPIC_DEFAULT_FABLE_MODEL  — default Fable fallback
+ *   6. CLAUDE_CODE_SUBAGENT_MODEL     — sub-agent model (used when the others
+ *                                       are absent, e.g. a sub-agent-only env)
+ *
+ * Why env-first: the transcript's `message.model` often drops Claude Code's
+ * `[1M]` / `[200K]` suffix marker (observed: `deepseek-v4-flash`), while the
+ * runtime env vars above carry it (`deepseek-v4-flash[1M]`). Reading them
+ * first lets the window resolver see the true context window. This family is
+ * vendor-specific, so it lives ONLY in the claude-code adapter.
+ */
+const CLAUDE_CODE_MODEL_ENV_VARS: readonly string[] = [
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL',
+  'CLAUDE_CODE_SUBAGENT_MODEL',
+];
+
+/**
+ * Resolve the currently-active Claude Code model id from a runtime env map.
+ * Returns the first non-empty `CLAUDE_CODE_MODEL_ENV_VARS` value (trimmed), or
+ * `undefined` when none is present. Pure + exported for tests; the caller falls
+ * back to the transcript `message.model` when this returns undefined.
+ */
+export function resolveClaudeModelFromEnv(env: NodeJS.ProcessEnv | undefined): string | undefined {
+  if (!env) return undefined;
+  for (const name of CLAUDE_CODE_MODEL_ENV_VARS) {
+    const value = env[name];
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) return trimmed;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Model-aware context-window size in tokens.
  *
  * Detection rule (documented):
@@ -236,16 +280,22 @@ function resolveContextWindowTokens(model: string, contextTokens: number): numbe
  * `bytes / 256KB` (which over-fired because the transcript grows unboundedly).
  * Tagged `'transcript-estimate'` (v2.14.0) so callers know it is a real
  * signal, NOT a hard gate.
+ *
+ * Window model resolution is env-first: when `envModel` is present, its id
+ * (which Claude Code stamps with the `[1M]` / `[200K]` suffix) drives the
+ * window; otherwise the transcript `message.model` is used.
  */
 function readClaudeTranscriptEstimate(
   outerSessionId: string,
+  envModel?: string,
 ): { ratio: number; contextTokens: number; contextWindowTokens: number } | null {
   const projectsDir = join(homedir(), '.claude', 'projects');
   const path = findTranscriptJsonl(projectsDir, outerSessionId);
   if (path === null) return null;
   const latest = findLatestTranscriptUsage(path);
   if (latest === null) return null;
-  const contextWindowTokens = resolveContextWindowTokens(latest.model, latest.contextTokens);
+  const model = envModel !== undefined && envModel.trim().length > 0 ? envModel : latest.model;
+  const contextWindowTokens = resolveContextWindowTokens(model, latest.contextTokens);
   const ratio = Math.min(1, latest.contextTokens / contextWindowTokens);
   return { ratio, contextTokens: latest.contextTokens, contextWindowTokens };
 }
@@ -260,7 +310,10 @@ function readClaudeTranscriptEstimate(
  *      `~/.claude/projects/<hash>/...` using the OUTER session id (Claude
  *      names its transcript by the outer session UUID, not the peaks sid),
  *      and estimates `contextTokens / contextWindowTokens` from the LATEST
- *      `message.usage` entry (token-based + model-aware).
+ *      `message.usage` entry (token-based + model-aware). The window model
+ *      resolves env-first via `resolveClaudeModelFromEnv(input.env)` (which
+ *      carries the `[1M]` suffix the transcript often drops), falling back to
+ *      the transcript `message.model` when env is empty.
  * Returns `null` when neither yields a signal → the reader emits
  * `conservative-fallback`.
  */
@@ -279,7 +332,8 @@ function readContextPercentFallback(input: ContextPercentFallbackInput): Context
   }
 
   if (typeof input.outerSessionId === 'string' && input.outerSessionId.length > 0) {
-    const estimate = readClaudeTranscriptEstimate(input.outerSessionId);
+    const envModel = resolveClaudeModelFromEnv(input.env);
+    const estimate = readClaudeTranscriptEstimate(input.outerSessionId, envModel);
     if (estimate !== null) {
       return {
         ratio: estimate.ratio,

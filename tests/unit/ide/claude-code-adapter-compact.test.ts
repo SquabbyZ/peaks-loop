@@ -14,6 +14,11 @@
 //   - the session-id-mismatch fix: the transcript is named by the OUTER
 //     session id (e.g. `12e57453-...`), NOT the peaks `sessionId` — outer
 //     present → found; outer absent → null.
+//   - env-first model window resolution: resolveClaudeModelFromEnv reads the
+//     running model id from the Claude Code env var family (documented
+//     precedence); a `[1M]` env model drives capacityTokens = 1_000_000 even
+//     when the transcript message.model drops the suffix; empty env falls
+//     back to the transcript model.
 //
 // os.homedir is mocked via `vi.mock('node:os')` (the ESM namespace is frozen,
 // so a spy is impossible; a full module mock is the accepted workaround, the
@@ -94,7 +99,11 @@ declareDimensions(
   ],
 );
 
-import { CLAUDE_CODE_ADAPTER } from '~/src/services/ide/adapters/claude-code-adapter';
+import {
+  CLAUDE_CODE_ADAPTER,
+  modelContextWindowTokens,
+  resolveClaudeModelFromEnv,
+} from '~/src/services/ide/adapters/claude-code-adapter';
 
 const fallback = () => CLAUDE_CODE_ADAPTER.compact!.readContextPercentFallback!;
 
@@ -236,6 +245,36 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     expect(probe!.ratio).toBeCloseTo(100_000 / 1_000_000, 5);
   });
 
+  it('when env ANTHROPIC_MODEL carries a [1M] suffix but the transcript model drops it, should use the 1M window env-first', () => {
+    // given: a transcript whose message.model is the suffix-less id, and env ANTHROPIC_MODEL=<model>[1M]
+    // when: the transcript fallback runs with that env
+    // then: capacityTokens is 1_000_000 (env-first), not the 200_000 the transcript model alone would imply
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: { ANTHROPIC_MODEL: 'deepseek-v4-flash[1M]' }
+    });
+    expect(probe).not.toBeNull();
+    expect(probe!.source).toBe('transcript-estimate');
+    expect(probe!.capacityTokens).toBe(1_000_000);
+    expect(probe!.ratio).toBeCloseTo(100_000 / 1_000_000, 5);
+  });
+
+  it('when env has no model vars, should fall back to the transcript message.model window', () => {
+    // given: a transcript whose message.model is a known 1M allowlist model, and an env with no model vars
+    // when: the transcript fallback runs with an empty env map
+    // then: the transcript model drives the window (1_000_000), preserving the pre-env behavior
+    writeTranscript(outer, [
+      usageLine('claude-sonnet-4-5-20250929', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    expect(probe).not.toBeNull();
+    expect(probe!.capacityTokens).toBe(1_000_000);
+    expect(probe!.ratio).toBeCloseTo(500_000 / 1_000_000, 5);
+  });
+
   it('when tokens exceed 200K on an unknown model, should infer a ≥1M window', () => {
     writeTranscript(outer, [
       usageLine('unknown-future-model', { input_tokens: 300_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
@@ -333,5 +372,68 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     } finally {
       __fsMocks.readdirSync = null;
     }
+  });
+});
+
+describe('Scenario: behavior — env-model resolver precedence + [1M] suffix window', () => {
+  it('when ANTHROPIC_MODEL is set alongside later candidates, should resolve it first', () => {
+    // given: env carries ANTHROPIC_MODEL plus later-precedence candidate vars
+    // when: resolveClaudeModelFromEnv runs
+    // then: the ANTHROPIC_MODEL value wins (documented precedence #1)
+    expect(resolveClaudeModelFromEnv({
+      ANTHROPIC_MODEL: 'deepseek-v4-flash[1M]',
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5',
+      CLAUDE_CODE_SUBAGENT_MODEL: 'claude-haiku-4-5'
+    })).toBe('deepseek-v4-flash[1M]');
+  });
+
+  it('when ANTHROPIC_MODEL is absent, should resolve the first non-empty default', () => {
+    // given: only ANTHROPIC_DEFAULT_SONNET_MODEL is set
+    // when: resolveClaudeModelFromEnv runs
+    // then: returns the sonnet default id
+    expect(resolveClaudeModelFromEnv({
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5[1M]'
+    })).toBe('claude-sonnet-4-5[1M]');
+  });
+
+  it('when only CLAUDE_CODE_SUBAGENT_MODEL is set, should resolve it', () => {
+    // given: only the sub-agent model var is present
+    // when: resolveClaudeModelFromEnv runs
+    // then: returns the sub-agent model id
+    expect(resolveClaudeModelFromEnv({
+      CLAUDE_CODE_SUBAGENT_MODEL: 'deepseek-v4-flash[1M]'
+    })).toBe('deepseek-v4-flash[1M]');
+  });
+
+  it('when a higher-precedence value is whitespace-only, should skip to the next non-empty candidate', () => {
+    // given: ANTHROPIC_MODEL is blank and a later default is a real id
+    // when: resolveClaudeModelFromEnv runs
+    // then: skips the blank value and resolves the later default
+    expect(resolveClaudeModelFromEnv({
+      ANTHROPIC_MODEL: '   ',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001'
+    })).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('when env is empty or undefined, should return undefined so the transcript model drives the window', () => {
+    // given: no model env vars in an empty map, and an undefined env
+    // when: resolveClaudeModelFromEnv runs
+    // then: returns undefined for both (transcript fallback path)
+    expect(resolveClaudeModelFromEnv({})).toBeUndefined();
+    expect(resolveClaudeModelFromEnv(undefined)).toBeUndefined();
+  });
+
+  it('when the model id carries an uppercase [1M] suffix marker, modelContextWindowTokens should return 1,000,000', () => {
+    // given: a Claude Code model id with the [1M] suffix (e.g. deepseek-v4-flash[1M])
+    // when: modelContextWindowTokens runs
+    // then: returns the 1M window (matches `1m` case-insensitively)
+    expect(modelContextWindowTokens('deepseek-v4-flash[1M]')).toBe(1_000_000);
+  });
+
+  it('when the model id is unknown with no suffix and not on the allowlist, should keep the 200K safe default', () => {
+    // given: an unknown suffix-less model id that is not an allowlisted 1M model
+    // when: modelContextWindowTokens runs
+    // then: returns the 200_000 safe default
+    expect(modelContextWindowTokens('deepseek-v4-flash')).toBe(200_000);
   });
 });
