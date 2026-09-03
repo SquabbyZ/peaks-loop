@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0.28 — 2026-09-03 (codegraph 目录回根 + env-first 1M 窗口识别)
+
+**3 atomic commits from session 2026-09-03-session-d49394** (user feedback batch):
+
+- `c0721d3a` fix(codegraph): revert data dir to root `.codegraph/` — drop `.peaks/.codegraph` handling
+- `7011e64c` fix(context): env-first model window resolution — `[1M]`-suffixed model → 1M context
+- `5289a9b3` docs(memory): sediment codegraph root revert + env-first 1M window fix
+
+**Highlights**:
+
+1. **codegraph 数据目录完全回根** — rid-CG-003（4.0.20）引入的 `.peaks/.codegraph/` preferred 位置被移除，数据目录回到根 `.codegraph/`（上游默认语义）。删除 `PREFERRED_CODEGRAPH_DIR` + preferred/legacy/fresh-preferred 三态 union；`resolveCodegraphProjectRoot` 纯路径数学返回 root；doctor messaging / `.gitignore` / 3 测试同步。用户明确"完全回根，去掉 .peaks 路径"。
+
+2. **env-first 模型上下文窗口识别（1M vs 200K）** — 之前只从 transcript `message.model` 读模型 id，而 Claude Code / deepseek 等的 transcript 记录**裸模型名**（`deepseek-v4-flash`，不带 `[1M]`），导致 1M 上下文模型被误判为 200K 并在 ~50% 处 false soft-warn。新增 `resolveClaudeModelFromEnv` 优先读 env 模型标记（`ANTHROPIC_MODEL` → `ANTHROPIC_DEFAULT_OPUS/SONNET/HAIKU/FABLE_MODEL` → `CLAUDE_CODE_SUBAGENT_MODEL`，`[1M]`/`[1m]` 后缀即 1M），transcript 兜底。实测修复后 `context-now` 从 `capacityTokens: 200000, ratio 0.88` 变为 `capacityTokens: 1000000, ratio 0.19`。
+
 ## 4.0.27 — 2026-09-01 (auto-compact context probe fix)
 
 **1 atomic commit from session 2026-09-01-session-fdd7aa**:
