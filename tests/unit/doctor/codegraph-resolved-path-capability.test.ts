@@ -1,16 +1,21 @@
 // tests/unit/doctor/codegraph-resolved-path-capability.test.ts
 //
-// rid-CG-003 spike follow-up — doctor recognizes resolved managed path.
+// Root-only managed-path surfacing in the doctor — regression for the
+// `.peaks`-nested `.codegraph/` preferred-path removal.
 //
 // Dimensions covered (per `.peaks/standards/typescript/testing.md`):
-//   - behavior:    check message names preferred vs legacy vs fresh-
-//                  preferred; CG-007 yarn-pnp fallback preserved.
+//   - behavior:    check message names the root `.codegraph/` managed
+//                  path; a leftover `.peaks`-nested codegraph tree does
+//                  not leak into the prose; CG-007 not-resolvable
+//                  fallback preserved.
 //   - integration: real fs (mkdtempSync + mkdirSync) drives the
 //                  default managed-path probe end-to-end.
 //   - render:      check envelope shape unchanged; managed-path
 //                  suffix appears verbatim in the message.
-//   - a11y:        preferred / legacy / fresh-preferred labels match
-//                  the slice rid-CG-003 naming convention.
+//   - a11y:        message names the canonical root `.codegraph/` dir so
+//                  the LLM (or operator) can find it without re-reading.
+//
+// Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
 //
 // Run with: pnpm vitest run tests/unit/doctor/codegraph-resolved-path-capability.test.ts
 
@@ -62,14 +67,45 @@ function healthyPackageProbe(): CodegraphCapabilityProbe {
   };
 }
 
-describe('capability:codegraph managed-path surfacing (rid-CG-003)', () => {
+describe('capability:codegraph managed-path surfacing (root-only)', () => {
   withTmpWorkspacePerTest();
 
-  it('check message names the preferred-path location when .peaks/.codegraph/ exists (AC1)', () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cg-003-doc-pref-'));
+  it('when root .codegraph is resolved, should name the root managed path in the check message (AC1)', () => {
+    // given: a project root with no codegraph dir yet and a healthy package probe
+    // when:  check.run resolves the managed path via the default resolver
+    // then:  the message names `<root>/.codegraph` and never mentions `.peaks`
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cg-root-doc-'));
+    try {
+      const location = resolveCodegraphProjectRoot(projectRoot);
+      const managedPathProbe = (): CodegraphManagedPathInfo | null => ({
+        source: location.source,
+        codegraphDir: location.codegraphDir,
+        cwd: location.cwd
+      });
+      const result = check.run({
+        ...makeContext(),
+        options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
+      });
+      expect(result[0].ok).toBe(true);
+      expect(result[0].message).toContain(`managed path: ${location.codegraphDir}`);
+      expect(result[0].message).toContain(location.codegraphDir);
+      expect(result[0].message).not.toContain('.peaks');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when a legacy .peaks-nested codegraph dir exists, should still name root .codegraph with no .peaks prose (AC1 back-compat)', () => {
+    // given: a leftover `.peaks`-nested codegraph directory from the pre-4.0.21 move
+    // when:  check.run resolves the managed path via the default resolver
+    // then:  the message names root `.codegraph/` and contains no
+    //        `.peaks` / "consider moving" prose
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cg-root-doc-leg-'));
     try {
       mkdirSync(join(projectRoot, '.peaks', '.codegraph'), { recursive: true });
       const location = resolveCodegraphProjectRoot(projectRoot);
+      expect(location.codegraphDir).toBe(join(projectRoot, '.codegraph'));
+
       const managedPathProbe = (): CodegraphManagedPathInfo | null => ({
         source: location.source,
         codegraphDir: location.codegraphDir,
@@ -80,36 +116,18 @@ describe('capability:codegraph managed-path surfacing (rid-CG-003)', () => {
         options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
       });
       expect(result[0].ok).toBe(true);
-      expect(result[0].message).toContain('preferred .peaks/.codegraph/');
-      expect(result[0].message).toContain(location.codegraphDir);
+      expect(result[0].message).toContain(`managed path: ${location.codegraphDir}`);
+      expect(result[0].message).not.toContain('.peaks');
+      expect(result[0].message).not.toContain('consider moving');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  it('check message names the legacy-path location when only .codegraph/ exists (AC1 legacy)', () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cg-003-doc-leg-'));
-    try {
-      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
-      const location = resolveCodegraphProjectRoot(projectRoot);
-      const managedPathProbe = (): CodegraphManagedPathInfo | null => ({
-        source: location.source,
-        codegraphDir: location.codegraphDir,
-        cwd: location.cwd
-      });
-      const result = check.run({
-        ...makeContext(),
-        options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
-      });
-      expect(result[0].ok).toBe(true);
-      expect(result[0].message).toContain('legacy root .codegraph/');
-      expect(result[0].message).toContain('consider moving to .peaks/.codegraph/');
-    } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('preserves the CG-007 yarn-pnp fallback when both probes are absent (AC2)', () => {
+  it('when package resolution throws, should report not resolvable (AC2 CG-007 preserved)', () => {
+    // given: a codegraph probe that throws (yarn-pnp / missing install)
+    // when:  check.run is invoked without a managed-path override
+    // then:  ok is false and the message says @colbymchenry/codegraph not resolvable
     const throwingProbe = (): CodegraphCapabilityProbe => {
       throw new Error("Cannot find module '@colbymchenry/codegraph/package.json'");
     };

@@ -61,7 +61,7 @@ export type DoctorReport = {
 };
 
 export type CodegraphManagedPathInfo = {
-  source: 'preferred' | 'legacy' | 'fresh-preferred';
+  source: 'root';
   codegraphDir: string;
   cwd: string;
 };
@@ -72,14 +72,11 @@ export type CodegraphCapabilityProbe = {
   binaryPath: string;
   binaryExists: boolean;
   /**
-   * Slice rid-CG-003 — preferred-path resolution result. When the
-   * probe can detect `.peaks/.codegraph/` or `.codegraph/` inside
-   * `process.cwd()` it sets `managedPath`; otherwise null (e.g.
-   * when the operator invoked `peaks doctor` outside a project).
-   *
-   * `source: 'preferred'`     — `.peaks/.codegraph/` exists
-   * `source: 'legacy'`        — only `.codegraph/` exists
-   * `source: 'fresh-preferred'` — neither exists; defaults to preferred
+   * Root-only managed-path resolution result. The check resolves the
+   * single codegraph data directory, `<cwd>/.codegraph/`, relative to
+   * the cwd the doctor was invoked from; null only when resolution is
+   * unavailable (e.g. the operator invoked `peaks doctor` outside a
+   * resolvable directory).
    */
   managedPath: CodegraphManagedPathInfo | null;
 };
@@ -223,12 +220,11 @@ export type DoctorOptions = {
   skillsBaseDir?: string;
   codegraphProbe?: () => CodegraphCapabilityProbe;
   /**
-   * Slice rid-CG-003 — optional override for the managed-codegraph
-   * path detection inside the `capability:codegraph` check. When
-   * omitted, the check uses the default fs helper
-   * (`resolveCodegraphProjectRoot(process.cwd())`). Tests inject a
-   * custom probe to drive preferred / legacy / fresh-preferred
-   * outcomes without monkey-patching `process.cwd()`.
+   * Optional override for the managed-codegraph path detection inside
+   * the `capability:codegraph` check. When omitted, the check uses
+   * the default resolver (`resolveCodegraphProjectRoot(process.cwd())`).
+   * Tests inject a custom probe without monkey-patching
+   * `process.cwd()`.
    */
   codegraphManagedPathProbe?: () => CodegraphManagedPathInfo | null;
   skillPresenceProbe?: () => DoctorSkillPresence | null;

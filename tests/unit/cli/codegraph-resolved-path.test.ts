@@ -1,26 +1,30 @@
 // tests/unit/cli/codegraph-resolved-path.test.ts
 //
-// rid-CG-003 spike follow-up — preferred-path resolution.
+// Root-only codegraph data-dir resolution — regression for the
+// `.peaks`-nested `.codegraph/` preferred-path removal.
 //
 // Dimensions covered (per `.peaks/standards/typescript/testing.md`):
-//   - behavior:    preferred > legacy > fresh-preferred precedence;
-//                  `createCodegraphInvocation` cwd honors the resolved
-//                  location; init guard stamps preferred path on fresh.
+//   - behavior:    resolver always returns root `.codegraph/` with
+//                  cwd = projectRoot; a leftover `.peaks`-nested
+//                  `.codegraph/` tree is ignored; init guard probes root
+//                  `.codegraph/` for fresh / noop / conflict.
 //   - integration: real fs (mkdtempSync + mkdirSync + writeFileSync).
 //   - render:      `ResolvedCodegraphLocation` shape preserved.
-//   - a11y:        guard messages name the resolved codegraphDir so
-//                  the LLM (or operator) can recover without re-reading.
+//   - a11y:        guard outcomes name the root codegraphDir so the
+//                  LLM (or operator) can recover without re-reading.
+//
+// Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
 //
 // Run with: pnpm vitest run tests/unit/cli/codegraph-resolved-path.test.ts
 
 import { describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  CODEGRAPH_DIR_NAME,
   CODEGRAPH_MARKER_NAME,
-  PREFERRED_CODEGRAPH_DIR,
   createCodegraphInvocation,
   defaultCodegraphInitGuard,
   resolveCodegraphProjectRoot,
@@ -36,110 +40,163 @@ declareDimensions(
 );
 
 function freshProject(): string {
-  return mkdtempSync(join(tmpdir(), 'peaks-cg-003-'));
+  return mkdtempSync(join(tmpdir(), 'peaks-cg-root-'));
 }
 
-describe('resolveCodegraphProjectRoot + createCodegraphInvocation (rid-CG-003)', () => {
+function rootCodegraphDir(projectRoot: string): string {
+  return join(projectRoot, CODEGRAPH_DIR_NAME);
+}
+
+describe('resolveCodegraphProjectRoot + createCodegraphInvocation (root-only)', () => {
   withTmpWorkspacePerTest();
 
-  it('preferred wins over legacy when both exist (AC1)', () => {
+  it('when no codegraph dir exists, should resolve to root .codegraph with cwd = projectRoot', () => {
+    // given: a fresh project with neither `.codegraph/` nor a `.peaks`-nested `.codegraph/`
+    // when:  resolveCodegraphProjectRoot is invoked
+    // then:  it returns source 'root', codegraphDir = `<root>/.codegraph`, cwd = projectRoot
     const projectRoot = freshProject();
     try {
-      mkdirSync(join(projectRoot, '.peaks', '.codegraph'), { recursive: true });
-      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
       const location = resolveCodegraphProjectRoot(projectRoot);
-      expect(location.source).toBe('preferred');
-      expect(location.codegraphDir).toBe(join(projectRoot, PREFERRED_CODEGRAPH_DIR));
-      expect(location.cwd).toBe(join(projectRoot, '.peaks'));
-    } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('legacy is the fallback when preferred is absent (AC2)', () => {
-    const projectRoot = freshProject();
-    try {
-      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
-      const location = resolveCodegraphProjectRoot(projectRoot);
-      expect(location.source).toBe('legacy');
-      expect(location.codegraphDir).toBe(join(projectRoot, '.codegraph'));
+      expect(location.source).toBe('root');
+      expect(location.codegraphDir).toBe(rootCodegraphDir(projectRoot));
       expect(location.cwd).toBe(projectRoot);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  it('neither exists → fresh-preferred (AC3)', () => {
+  it('when root .codegraph already exists, should still resolve to root .codegraph', () => {
+    // given: an existing root `.codegraph/` directory
+    // when:  resolveCodegraphProjectRoot is invoked
+    // then:  it resolves to root `.codegraph/` (root-only — no legacy label)
     const projectRoot = freshProject();
     try {
+      mkdirSync(rootCodegraphDir(projectRoot), { recursive: true });
       const location = resolveCodegraphProjectRoot(projectRoot);
-      expect(location.source).toBe('fresh-preferred');
-      expect(location.codegraphDir).toBe(join(projectRoot, PREFERRED_CODEGRAPH_DIR));
-      expect(location.cwd).toBe(join(projectRoot, '.peaks'));
+      expect(location.source).toBe('root');
+      expect(location.codegraphDir).toBe(rootCodegraphDir(projectRoot));
+      expect(location.cwd).toBe(projectRoot);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  it('invocation cwd tracks the preferred path so the binary discovers .peaks/.codegraph/ (AC4)', () => {
+  it('when a .peaks-nested codegraph dir exists, should ignore it and resolve to root .codegraph', () => {
+    // given: a leftover `.peaks`-nested codegraph directory from the pre-4.0.21 move
+    // when:  resolveCodegraphProjectRoot is invoked
+    // then:  the `.peaks` tree is ignored and root `.codegraph/` is returned
     const projectRoot = freshProject();
     try {
-      mkdirSync(join(projectRoot, '.peaks', '.codegraph'), { recursive: true });
-      // createCodegraphInvocation realpath's the project root, so
-      // mirror that on Windows where tmp paths resolve through 8.3
-      // short-name aliases (e.g. C:\Users\smallMark\… vs
-      // C:\Users\SMALLM~1\…).
-      const expectedCwd = join(realpathSync.native(projectRoot), '.peaks');
+      mkdirSync(join(projectRoot, '.peaks', CODEGRAPH_DIR_NAME), { recursive: true });
+      const location = resolveCodegraphProjectRoot(projectRoot);
+      expect(location.source).toBe('root');
+      expect(location.codegraphDir).toBe(rootCodegraphDir(projectRoot));
+      expect(location.cwd).toBe(projectRoot);
+      expect(location.codegraphDir.startsWith(join(projectRoot, '.peaks'))).toBe(false);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when creating a status invocation, should spawn with cwd = projectRoot so discovery reads root .codegraph', () => {
+    // given: a project directory
+    // when:  createCodegraphInvocation({ subcommand: 'status', project }) is called
+    // then:  cwd is the realpath'd project root (Windows 8.3-safe), never a `.peaks` child
+    const projectRoot = freshProject();
+    try {
+      const expectedCwd = realpathSync.native(projectRoot);
       const invocation = createCodegraphInvocation({ subcommand: 'status', project: projectRoot });
       expect(invocation.cwd).toBe(expectedCwd);
+      expect(invocation.cwd.endsWith('.peaks')).toBe(false);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  it('invocation cwd defaults to .peaks for fresh projects so init lands in the preferred path (AC5)', () => {
+  it('when creating an init invocation on a fresh project, should spawn with cwd = projectRoot (no .peaks prefix)', () => {
+    // given: a fresh project with no codegraph dir
+    // when:  createCodegraphInvocation({ subcommand: 'init', project }) is called
+    // then:  cwd is the realpath'd project root — the upstream binary's default
+    //        discovery will land on `<projectRoot>/.codegraph/`
     const projectRoot = freshProject();
     try {
-      const expectedCwd = join(realpathSync.native(projectRoot), '.peaks');
+      const expectedCwd = realpathSync.native(projectRoot);
       const invocation = createCodegraphInvocation({ subcommand: 'init', project: projectRoot });
       expect(invocation.cwd).toBe(expectedCwd);
+      expect(invocation.cwd.endsWith('.peaks')).toBe(false);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 });
 
-describe('defaultCodegraphInitGuard with preferred path (rid-CG-003)', () => {
+describe('defaultCodegraphInitGuard root-only', () => {
   withTmpWorkspacePerTest();
 
-  it('preferred-path marker is noop; legacy foreign schema is ignored when preferred wins (AC6)', () => {
+  it('when neither dir exists, should return fresh pointing at root .codegraph', () => {
+    // given: a fresh project with no codegraph dir
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  status is 'fresh' and codegraphDir is `<root>/.codegraph`
     const projectRoot = freshProject();
     try {
-      const preferredDir = join(projectRoot, '.peaks', '.codegraph');
-      mkdirSync(preferredDir, { recursive: true });
-      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
-      writeFileSync(join(projectRoot, '.codegraph', 'foreign.db'), 'not ours\n', 'utf8');
-      writeCodegraphMarker(preferredDir);
-
       const outcome = defaultCodegraphInitGuard(projectRoot);
-      expect(outcome.status).toBe('noop-already-peaks-loop');
-      expect(outcome.codegraphDir).toBe(preferredDir);
-      // Marker filename is preserved across the rid-CG-003 move.
-      expect(preferredDir.endsWith('.codegraph')).toBe(true);
-      expect(preferredDir.endsWith(CODEGRAPH_MARKER_NAME)).toBe(false);
+      expect(outcome.status).toBe('fresh');
+      expect(outcome.codegraphDir).toBe(rootCodegraphDir(projectRoot));
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
 
-  it('legacy foreign-schema conflict stays sticky when preferred is absent (AC6 back-compat)', () => {
+  it('when root .codegraph holds a peaks-loop marker, should return noop at root .codegraph', () => {
+    // given: root `.codegraph/` stamped with the peaks-loop marker
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  status is noop-already-peaks-loop and the marker file is on disk at root
     const projectRoot = freshProject();
     try {
-      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
-      writeFileSync(join(projectRoot, '.codegraph', 'foreign.db'), 'not ours\n', 'utf8');
+      const codegraphDir = rootCodegraphDir(projectRoot);
+      mkdirSync(codegraphDir, { recursive: true });
+      writeCodegraphMarker(codegraphDir);
+
+      const outcome = defaultCodegraphInitGuard(projectRoot);
+      expect(outcome.status).toBe('noop-already-peaks-loop');
+      expect(outcome.codegraphDir).toBe(codegraphDir);
+      expect(existsSync(join(codegraphDir, CODEGRAPH_MARKER_NAME))).toBe(true);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when root .codegraph holds a foreign schema, should return conflict at root .codegraph', () => {
+    // given: root `.codegraph/` containing a foreign file and no marker
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  status is conflict-foreign-schema at root `.codegraph/`
+    const projectRoot = freshProject();
+    try {
+      mkdirSync(rootCodegraphDir(projectRoot), { recursive: true });
+      writeFileSync(join(rootCodegraphDir(projectRoot), 'foreign.db'), 'not ours\n', 'utf8');
+
       const outcome = defaultCodegraphInitGuard(projectRoot);
       expect(outcome.status).toBe('conflict-foreign-schema');
-      expect(outcome.codegraphDir).toBe(join(projectRoot, '.codegraph'));
+      expect(outcome.codegraphDir).toBe(rootCodegraphDir(projectRoot));
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when only a .peaks-nested codegraph marker exists, should still return fresh at root .codegraph', () => {
+    // given: a leftover `.peaks`-nested codegraph dir carrying the peaks-loop marker
+    //        and no root `.codegraph/`
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  the `.peaks` tree is ignored; status is fresh at root `.codegraph/`
+    const projectRoot = freshProject();
+    try {
+      const legacyDir = join(projectRoot, '.peaks', CODEGRAPH_DIR_NAME);
+      mkdirSync(legacyDir, { recursive: true });
+      writeCodegraphMarker(legacyDir);
+
+      const outcome = defaultCodegraphInitGuard(projectRoot);
+      expect(outcome.status).toBe('fresh');
+      expect(outcome.codegraphDir).toBe(rootCodegraphDir(projectRoot));
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

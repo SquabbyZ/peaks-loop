@@ -6,12 +6,11 @@
  * Fails when the version drifts, when the binary is missing, or
  * when the package is not resolvable at all.
  *
- * Slice rid-CG-003 (spike follow-up #3): also detects which managed
- * codegraph directory is in use — `.peaks/.codegraph/` (preferred)
- * or root `.codegraph/` (legacy) — via the injected `managedPathProbe`.
+ * The check also reports the managed codegraph data directory in use —
+ * always the root `.codegraph/` — via the injected `managedPathProbe`.
  * The CG-007 yarn-pnp fallback is preserved as the package-resolution
- * default; the managed-path probe defaults to the same fs-walk-style
- * helper and is independently injectable for tests.
+ * default; the managed-path probe defaults to the same root-only
+ * resolver and is independently injectable for tests.
  *
  * The probe is injected so tests do not depend on the real
  * `node_modules` resolution; the default probe uses
@@ -103,46 +102,32 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     version,
     binaryPath,
     binaryExists,
-    // Slice rid-CG-003 — resolve the managed codegraph directory
-    // relative to the cwd the doctor itself was invoked from.
-    // Best-effort: when the operator ran `peaks doctor` outside a
-    // project (cwd has neither `.peaks/.codegraph/` nor
-    // `.codegraph/`) we still report `fresh-preferred` so the check
-    // message names the canonical future location.
+    // Resolve the managed codegraph directory relative to the cwd the
+    // doctor itself was invoked from. Root-only: always names
+    // `<cwd>/.codegraph/`.
     managedPath: detectManagedCodegraphPath(process.cwd())
   };
   return result;
 }
 
 /**
- * Slice rid-CG-003 — pure wrapper over `resolveCodegraphProjectRoot`
- * that returns a probe-shaped managed-path payload (or null when
- * the cwd does not look like a peaks project root).
+ * Pure wrapper over `resolveCodegraphProjectRoot` that returns a
+ * probe-shaped managed-path payload for the root `.codegraph/`.
  */
-function detectManagedCodegraphPath(cwd: string): CodegraphManagedPathInfo | null {
-  try {
-    const location = resolveCodegraphProjectRoot(cwd);
-    return {
-      source: location.source,
-      codegraphDir: location.codegraphDir,
-      cwd: location.cwd
-    };
-  } catch {
-    return null;
-  }
+function detectManagedCodegraphPath(cwd: string): CodegraphManagedPathInfo {
+  const location = resolveCodegraphProjectRoot(cwd);
+  return {
+    source: location.source,
+    codegraphDir: location.codegraphDir,
+    cwd: location.cwd
+  };
 }
 
 function renderManagedPathSuffix(managedPath: CodegraphManagedPathInfo | null): string {
   if (!managedPath) {
     return '';
   }
-  if (managedPath.source === 'preferred') {
-    return `; managed path: ${managedPath.codegraphDir} (preferred .peaks/.codegraph/)`;
-  }
-  if (managedPath.source === 'legacy') {
-    return `; managed path: ${managedPath.codegraphDir} (legacy root .codegraph/ — consider moving to .peaks/.codegraph/)`;
-  }
-  return `; managed path: ${managedPath.codegraphDir} (fresh-preferred — no codegraph dir yet; next init will create it)`;
+  return `; managed path: ${managedPath.codegraphDir}`;
 }
 
 function runCheck(

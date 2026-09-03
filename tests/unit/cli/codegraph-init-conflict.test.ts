@@ -58,14 +58,15 @@ function freshProject(): string {
 describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
   withTmpWorkspacePerTest();
 
-  it('returns fresh when .codegraph/ does not exist (AC1)', () => {
+  it('when .codegraph/ does not exist, should return fresh pointing at the root .codegraph/ dir (AC1)', () => {
+    // given: a fresh project with no `.codegraph/` directory
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  status is fresh and codegraphDir is `<root>/.codegraph` (root-only)
     const projectRoot = freshProject();
     try {
       const outcome = defaultCodegraphInitGuard(projectRoot);
       expect(outcome.status).toBe('fresh');
-      // Slice rid-CG-003 — fresh defaults to `.peaks/.codegraph/`
-      // (preferred path) instead of legacy root `.codegraph/`.
-      expect(outcome.codegraphDir).toBe(join(projectRoot, '.peaks', '.codegraph'));
+      expect(outcome.codegraphDir).toBe(join(projectRoot, '.codegraph'));
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

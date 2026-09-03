@@ -226,10 +226,8 @@ function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: stri
 export function createCodegraphInvocation(options: CodegraphInvocationOptions): CodegraphInvocation {
   assertSupportedSubcommand(options.subcommand);
   const projectRoot = resolveProjectRoot(options.project);
-  // Slice rid-CG-003 — spawn the upstream binary inside the
-  // resolved codegraph dir's PARENT so its default `.codegraph/`
-  // discovery lands on `.peaks/.codegraph/` (preferred) or
-  // `.codegraph/` (legacy fallback).
+  // Spawn the upstream binary with the project root as cwd so its
+  // default `.codegraph/` discovery reads `<projectRoot>/.codegraph/`.
   const location = resolveCodegraphProjectRoot(projectRoot);
 
   assertSupportedOptions(options);
@@ -255,22 +253,17 @@ export async function executeCodegraphInvocation(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Slice rid-CG-003 — preferred `.peaks/.codegraph/` lookup + legacy
- * root `.codegraph/` fallback (spike follow-up #1).
+ * codegraph data-directory resolution — root `.codegraph/` only.
  * ────────────────────────────────────────────────────────────────────── */
 
 /**
- * Slice rid-CG-006 — root `.codegraph/` (legacy). peaks-loop still
- * reads from this location for back-compat with downstream consumers
- * whose projects pre-date the slice rid-CG-003 preferred-path move.
+ * Single managed codegraph data directory name, relative to the
+ * project root. peaks-loop always reads/writes
+ * `<projectRoot>/.codegraph/` and spawns the upstream binary with
+ * `cwd = <projectRoot>` so its default discovery lands on the same
+ * directory.
  */
 export const CODEGRAPH_DIR_NAME = '.codegraph';
-/**
- * Slice rid-CG-003 — preferred managed location. Going forward
- * peaks-loop writes here; legacy root `.codegraph/` is only used
- * when it pre-exists AND `.peaks/.codegraph/` does not.
- */
-export const PREFERRED_CODEGRAPH_DIR = '.peaks/.codegraph';
 /**
  * Marker file peaks-loop writes inside the resolved codegraph dir
  * after a successful upstream init. Its presence distinguishes
@@ -280,55 +273,26 @@ export const PREFERRED_CODEGRAPH_DIR = '.peaks/.codegraph';
 export const CODEGRAPH_MARKER_NAME = '.peaks-loop-marker';
 export const CODEGRAPH_INIT_CONFLICT_EXIT_CODE = 73;
 
-export type ResolvedCodegraphLocation =
-  | { readonly source: 'preferred'; readonly cwd: string; readonly codegraphDir: string }
-  | { readonly source: 'legacy'; readonly cwd: string; readonly codegraphDir: string }
-  | { readonly source: 'fresh-preferred'; readonly cwd: string; readonly codegraphDir: string };
+export type ResolvedCodegraphLocation = {
+  readonly source: 'root';
+  /** Absolute path the upstream binary should be spawned with. */
+  readonly cwd: string;
+  /** Absolute path to the data directory codegraph reads/writes. */
+  readonly codegraphDir: string;
+};
 
 /**
- * Slice rid-CG-003 — pure resolver that returns the cwd the
- * upstream codegraph binary should be spawned with and the
- * absolute path to the data directory it should read/write.
- *
- * Precedence:
- *   1. `<projectRoot>/.peaks/.codegraph/` exists → use it
- *      (cwd = `<projectRoot>/.peaks`, codegraphDir = preferred path)
- *   2. `<projectRoot>/.codegraph/` exists → fall back to legacy
- *      (cwd = `<projectRoot>`, codegraphDir = legacy path)
- *   3. neither exists → default to the preferred path so the next
- *      `peaks codegraph init` lands in `.peaks/.codegraph/`
- *      (cwd = `<projectRoot>/.peaks`, codegraphDir = preferred path,
- *       `source: 'fresh-preferred'`)
- *
- * The cwd is the directory the upstream binary treats as "project
- * root" — the binary's default codegraph discovery reads
- * `<cwd>/.codegraph/`, so we always set cwd to the PARENT of the
- * resolved codegraph dir. Pure fs check; no IO beyond `existsSync`.
+ * Root-only resolver: peaks-loop always manages
+ * `<projectRoot>/.codegraph/`. Returns the cwd the upstream codegraph
+ * binary should be spawned with (= project root, so the binary's
+ * default discovery reads `<projectRoot>/.codegraph/`) and the
+ * absolute data-dir path. Pure path computation; no fs IO.
  */
 export function resolveCodegraphProjectRoot(projectRoot: string): ResolvedCodegraphLocation {
-  const preferredDir = join(projectRoot, PREFERRED_CODEGRAPH_DIR);
-  const legacyDir = join(projectRoot, CODEGRAPH_DIR_NAME);
-
-  if (existsSync(preferredDir)) {
-    return {
-      source: 'preferred',
-      cwd: join(projectRoot, '.peaks'),
-      codegraphDir: preferredDir
-    };
-  }
-
-  if (existsSync(legacyDir)) {
-    return {
-      source: 'legacy',
-      cwd: projectRoot,
-      codegraphDir: legacyDir
-    };
-  }
-
   return {
-    source: 'fresh-preferred',
-    cwd: join(projectRoot, '.peaks'),
-    codegraphDir: preferredDir
+    source: 'root',
+    cwd: projectRoot,
+    codegraphDir: join(projectRoot, CODEGRAPH_DIR_NAME)
   };
 }
 
@@ -374,26 +338,18 @@ function inspectCandidateCodegraphDir(codegraphDir: string): CodegraphInitGuardR
 }
 
 /**
- * Slice rid-CG-003 — preferred-path-first init guard.
- *
- * Looks at `.peaks/.codegraph/` first; falls back to `.codegraph/`
- * when the preferred path is absent. The 'fresh' case returns the
- * preferred path so the next `peaks codegraph init` lands inside
- * `.peaks/` instead of polluting the project root.
+ * Root-only init guard: probes `<projectRoot>/.codegraph/`. 'fresh'
+ * is returned when the directory does not exist yet, so the next
+ * `peaks codegraph init` creates the root `.codegraph/` directory.
  */
 export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGuardResult {
-  const preferredDir = join(projectRoot, PREFERRED_CODEGRAPH_DIR);
-  const legacyDir = join(projectRoot, CODEGRAPH_DIR_NAME);
+  const codegraphDir = join(projectRoot, CODEGRAPH_DIR_NAME);
 
-  if (existsSync(preferredDir)) {
-    return inspectCandidateCodegraphDir(preferredDir);
+  if (!existsSync(codegraphDir)) {
+    return { status: 'fresh', codegraphDir };
   }
 
-  if (existsSync(legacyDir)) {
-    return inspectCandidateCodegraphDir(legacyDir);
-  }
-
-  return { status: 'fresh', codegraphDir: preferredDir };
+  return inspectCandidateCodegraphDir(codegraphDir);
 }
 
 /**
