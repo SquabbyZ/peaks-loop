@@ -21,6 +21,10 @@ import {
   runKarpathyCostCheck,
 } from '../../services/karpathy-cost/karpathy-cost-check-service.js';
 import { read24hState } from '../../services/24h-mode/store.js';
+import {
+  refreshCodegraphAfterSlice,
+  type CodegraphAutorefreshResult,
+} from '../../services/codegraph/codegraph-autorefresh.js';
 
 function projectRoot(opts: any): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
@@ -189,6 +193,10 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const jobRoot = resolveJobStateRoot(opts);
       const store = new JobStateStore(jobRoot.rootDir);
       const orch = new JobOrchestrator(store);
+      // 2026-09-03-codegraph-autorefresh: set on --state done so the ok
+      // envelope carries a non-blocking `codegraph` result; null for
+      // failed/skipped (no slice-complete boundary).
+      let codegraph: CodegraphAutorefreshResult | null = null;
       if (parsed.data.state === 'done') {
         await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
         // v3.1.2: after each --state done, mirror slice progress to
@@ -205,12 +213,19 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
           lastCommitSha: parsed.data.commitSha ?? null,
           updatedAt: new Date().toISOString()
         });
+        // Auto codegraph refresh at the slice-complete boundary. Best-effort
+        // and fail-silent: a refresh failure must never fail the checkpoint.
+        try {
+          codegraph = await refreshCodegraphAfterSlice(project);
+        } catch (e) {
+          codegraph = { refreshed: false, reason: 'unavailable', note: `auto codegraph refresh failed: ${e instanceof Error ? e.message : String(e)}` };
+        }
       } else if (parsed.data.state === 'skipped') {
         await orch.checkpointSkipped({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, reason: parsed.data.reason! });
       } else {
         await orch.checkpointFailed({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, reason: parsed.data.reason! });
       }
-      printResult(io, ok('checkpoint', { sliceId: parsed.data.sliceId, status: parsed.data.state }), opts);
+      printResult(io, ok('checkpoint', { sliceId: parsed.data.sliceId, status: parsed.data.state, codegraph }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'checkpoint')!);
 

@@ -22,6 +22,10 @@ import { getRepairCycleStatus } from '../../services/artifacts/repair-cycle-serv
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { triggerBestPracticeScan } from '../../services/prd/best-practice-auto-trigger.js';
+import {
+  refreshCodegraphAfterSlice,
+  type CodegraphAutorefreshResult,
+} from '../../services/codegraph/codegraph-autorefresh.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -496,6 +500,10 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // unchanged — the existing auto-compact orchestrator continues to
       // refuse dispatch at ratio ≥ 0.95.
       let preCompact: import('peaks-loop-shared/result').ResultEnvelope<unknown> | null = null;
+      // 2026-09-03-codegraph-autorefresh: auto codegraph re-index on the
+      // RD → QA slice-complete boundary. Set only for rd:qa-handoff; null
+      // otherwise. Best-effort and fail-silent — never blocks the transition.
+      let codegraphRefresh: CodegraphAutorefreshResult | null = null;
       if (role === 'rd' && newState === 'qa-handoff') {
         try {
           const { maybePreCompactCheckpoint } = await import('../../services/compact/request-transition-hook.js');
@@ -510,6 +518,12 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         } catch {
           // The hook is best-effort; never block the transition.
           preCompact = null;
+        }
+        try {
+          codegraphRefresh = await refreshCodegraphAfterSlice(options.project);
+        } catch {
+          // The refresh is best-effort; never block the transition.
+          codegraphRefresh = { refreshed: false, reason: 'unavailable', note: 'auto codegraph refresh failed after transition' };
         }
       }
       // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
@@ -564,7 +578,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         io,
         ok(
           'request.transition',
-          { ...result, preCompactCheckpoint: preCompact?.data ?? null },
+          { ...result, preCompactCheckpoint: preCompact?.data ?? null, codegraphRefresh },
           preCompact !== null
             ? [
                 `Pre-compact checkpoint written at ratio=${
