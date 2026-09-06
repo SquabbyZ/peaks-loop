@@ -25,6 +25,7 @@ import { registerDocCommands } from './doc-commands.js';
 import { registerE2EVerifyCommand } from './e2e-verify.js';
 import { registerEccCommands } from './ecc-commands.js';
 import { registerEvolutionCommands } from './evolution-commands.js';
+import { registerEvidenceCommands } from './evidence-commands.js';
 import { registerFeedbackCommands } from './feedback-commands.js';
 import { registerFinalReviewCommands } from './final-review-commands.js';
 import { registerFixtureCommands } from './fixture-commands.js';
@@ -134,6 +135,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['skill-loop-engineering-readiness-commands', registerSkillLoopEngineeringReadinessCommands],
   ['loop-commands', registerLoopCommands], ['loop-eval-commands', registerWorkflowEvalCommands],
   ['evolution-commands', registerEvolutionCommands], ['asset-commands', registerAssetCommands],
+  ['evidence-commands', registerEvidenceCommands],
   ['bee-commands', registerBeeCommands], ['ecc-commands', registerEccCommands],
   ['baseline-commands', registerBaselineCommands],
   ['upgrade-commands', registerUpgradeCommands], ['code-review-commands', registerCodeReviewCommands],
