@@ -43,6 +43,20 @@ export interface DispatchPromptInput {
    *   and the memory/task content.
    */
   codegraphBlock?: string | null;
+  /**
+   * Slice 2026-09-06-ui-lib-dispatch-priority: pre-composed
+   * `## Project stack` markdown block, rendered from the detected
+   * project context (component library + CSS framework + build tool) by
+   * the dispatch site BEFORE the sub-agent's task body is composed so
+   * the RD/UI sub-agent sees the library-first directive in-context.
+   *
+   * - `undefined` → no project-stack block (legacy callers unchanged).
+   * - `null` → the project has no detected component library; the
+   *   composer renders nothing (byte-identical degradation).
+   * - `string` → the block, rendered verbatim between the codegraph
+   *   block and the memory/task content.
+   */
+  projectStackBlock?: string | null;
 }
 
 /**
@@ -147,13 +161,14 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * refusal is in scope before any task-specific prose arrives.
  */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskBody, memoryBlock, contextProbe, codegraphBlock } = input;
+  const { taskBody, memoryBlock, contextProbe, codegraphBlock, projectStackBlock } = input;
   const contextBlock = renderContextBlock(contextProbe ?? null);
   const codegraphText = renderCodegraphBlock(codegraphBlock);
+  const projectStackText = renderProjectStackBlock(projectStackBlock);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${taskBody}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${taskBody}`;
 }
 
 /**
@@ -183,6 +198,22 @@ function renderCodegraphBlock(codegraphBlock: string | null | undefined): string
   if (codegraphBlock === undefined) return '';
   const text = codegraphBlock === null ? CODEGRAPH_UNAVAILABLE_BLOCK : codegraphBlock;
   return `${text.replace(/\s+$/, '')}\n\n`;
+}
+
+/**
+ * Render the project-stack insertion for a dispatch prompt.
+ *
+ * - `undefined` / `null` → empty (the composer is byte-identical to the
+ *   legacy shape — no dangling "Project stack" heading).
+ * - `string` → the pre-composed block from the dispatch site, verbatim.
+ *
+ * Mirrors `renderCodegraphBlock`: every non-empty variant is normalized
+ * to end on its own paragraph (`\n\n`) so the following block (project
+ * memory or task body) starts cleanly.
+ */
+function renderProjectStackBlock(projectStackBlock: string | null | undefined): string {
+  if (projectStackBlock === undefined || projectStackBlock === null) return '';
+  return `${projectStackBlock.replace(/\s+$/, '')}\n\n`;
 }
 
 /**

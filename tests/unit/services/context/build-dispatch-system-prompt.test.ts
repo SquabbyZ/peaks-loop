@@ -28,6 +28,8 @@ declareDimensions(
 );
 
 import { buildDispatchSystemPrompt } from '~/src/services/context/build-dispatch-system-prompt';
+import { renderUiLibraryPriorityDispatchBlock } from '~/src/services/standards/ui-library-dispatch-block';
+import type { ProjectContext } from '~/src/services/standards/project-context';
 
 describe("Scenario: behavior — lifecycle-rule injection", () => {
   it("when invoked, should mentions sub-agent shutdown register for long-lived services", () => {
@@ -155,5 +157,104 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     const bodyIdx = out.indexOf('TASK_BODY_SENTINEL');
     expect(codegraphIdx).toBeGreaterThanOrEqual(0);
     expect(bodyIdx).toBeGreaterThan(codegraphIdx);
+  });
+});
+
+describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch-priority)', () => {
+  const CODEGRAPH_PAYLOAD = '## Codegraph structure\n\n- `src/services/context/` — 12 files\n';
+
+  function antdContext(): ProjectContext {
+    return {
+      hasPackageJson: true,
+      buildTool: 'vite',
+      componentLibrary: { name: 'antd', majorVersion: '5' },
+      cssFrameworks: ['less'],
+      cssConflicts: [],
+      stateManagement: [],
+      routing: [],
+      dataFetching: [],
+      notableDeps: [],
+      legacySignals: [],
+    };
+  }
+
+  function noneContext(): ProjectContext {
+    return {
+      hasPackageJson: true,
+      buildTool: 'unknown',
+      componentLibrary: { name: 'none' },
+      cssFrameworks: [],
+      cssConflicts: [],
+      stateManagement: [],
+      routing: [],
+      dataFetching: [],
+      notableDeps: [],
+      legacySignals: [],
+    };
+  }
+
+  it("when an antd project-stack block is provided, should surface the antd library-first directive", () => {
+    // given: an antd project context rendered into a project-stack block
+    const block = renderUiLibraryPriorityDispatchBlock(antdContext());
+    // when: the composer is invoked with the block
+    const out = buildDispatchSystemPrompt({
+      taskTitle: 'rd',
+      taskBody: 'build the form',
+      memoryBlock: { available: false, block: null },
+      projectStackBlock: block,
+    });
+    // then: the prompt names the library, the build tool, and the CSS framework
+    expect(out).toContain('## Project stack');
+    expect(out).toContain('Ant Design v5');
+    expect(out).toContain('this project uses `antd`');
+    expect(out).toContain('Build tool: Vite');
+    expect(out).toContain('CSS: Less');
+  });
+
+  it("when the project scan finds no component library, should keep the prompt byte-identical to the legacy shape", () => {
+    // given: a none project context (block renders null) and the legacy input
+    const noneBlock = renderUiLibraryPriorityDispatchBlock(noneContext());
+    const legacy = buildDispatchSystemPrompt({
+      taskTitle: 'ui',
+      taskBody: 'TASK_BODY_SENTINEL',
+      memoryBlock: { available: false, block: null },
+    });
+    // when: the composer is invoked with the null block (what the dispatch site passes)
+    const out = buildDispatchSystemPrompt({
+      taskTitle: 'ui',
+      taskBody: 'TASK_BODY_SENTINEL',
+      memoryBlock: { available: false, block: null },
+      projectStackBlock: noneBlock,
+    });
+    // then: the helper returned null and the prompt has no project-stack heading and equals legacy
+    expect(noneBlock).toBeNull();
+    expect(out).toBe(legacy);
+    expect(out).not.toContain('## Project stack');
+  });
+
+  it("when memory, codegraph, and project stack are all available, should place the project-stack block after codegraph and before memory/task", () => {
+    // given: a dispatch with a codegraph block, an antd project-stack block, memory, and a context probe
+    const input = {
+      taskTitle: 'rd',
+      taskBody: 'TASK_BODY_SENTINEL',
+      memoryBlock: {
+        available: true,
+        block: '## Project memory relevant to this task\n- * mem\n',
+      },
+      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code' },
+      codegraphBlock: CODEGRAPH_PAYLOAD,
+      projectStackBlock: renderUiLibraryPriorityDispatchBlock(antdContext()),
+    };
+    // when: the composer is invoked
+    const out = buildDispatchSystemPrompt(input);
+    // then: project stack sits after codegraph and before project memory / task
+    const codegraphIdx = out.indexOf('## Codegraph structure');
+    const stackIdx = out.indexOf('## Project stack');
+    const memoryIdx = out.indexOf('## Project memory relevant to this task');
+    const taskIdx = out.indexOf('## Task');
+    expect(codegraphIdx).toBeGreaterThanOrEqual(0);
+    expect(stackIdx).toBeGreaterThan(codegraphIdx);
+    expect(memoryIdx).toBeGreaterThan(stackIdx);
+    expect(taskIdx).toBeGreaterThan(memoryIdx);
   });
 });

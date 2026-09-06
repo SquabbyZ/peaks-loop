@@ -56,6 +56,7 @@ import {
 } from '../../services/dispatch/test-tool-detection.js';
 import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
+import { computeUiLibraryDispatchBlock } from '../../services/standards/ui-library-dispatch-block.js';
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 import {
   createDispatchProvenanceToken,
@@ -426,6 +427,16 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           codegraphBlock = null; // fail-soft: never block RD dispatch
         }
       }
+      // Slice 2026-09-06-ui-lib-dispatch-priority: surface the detected
+      // component library (+ CSS framework + build tool) in the RD/UI
+      // dispatch system prompt so the sub-agent prefers the library over
+      // hand-rolled native DOM. Only injected for frontend-generating roles
+      // (rd + ui) — qa/sc/txt/prd keep the legacy prompt byte-identical.
+      // Fail-soft inside the wrapper: a detection error degrades to null.
+      let projectStackBlock: string | null | undefined;
+      if (role === 'rd' || role === 'ui') {
+        projectStackBlock = computeUiLibraryDispatchBlock(projectRoot);
+      }
       // Slice 2026-07-29-context-evaluation-accuracy: capture the
       // authoritative context-fill probe before composing the
       // dispatch prompt. The probe is token-counted (IDE adapter's
@@ -458,7 +469,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // exactOptionalPropertyTypes: only set codegraphBlock when the rd
         // preflight actually produced a value (null = attempted-unavailable,
         // undefined = not requested → legacy prompt unchanged).
-        ...(codegraphBlock !== undefined ? { codegraphBlock } : {})
+        ...(codegraphBlock !== undefined ? { codegraphBlock } : {}),
+        // Same optionality contract for the project-stack block: set only
+        // when the rd/ui detection ran (null = no library → no block,
+        // undefined = non-frontend role → legacy prompt unchanged).
+        ...(projectStackBlock !== undefined ? { projectStackBlock } : {})
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
       // block so the sub-agent sees the lease id + worktree path. The block
