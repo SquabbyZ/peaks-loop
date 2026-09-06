@@ -12,7 +12,7 @@ const projects: string[] = [];
 afterEach(async () => { for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true }); });
 
 async function loadDispatch(): Promise<AnyRecord> {
-  const module = await import('../../src/cli/commands/dispatch-commands.js') as unknown as AnyRecord;
+  const module = await import('../../src/services/dispatch/dispatch-sub-agent.js') as unknown as AnyRecord;
   expect(typeof module.dispatchSubAgent).toBe('function');
   return module;
 }

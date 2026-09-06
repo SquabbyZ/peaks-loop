@@ -26,7 +26,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolve } from 'node:path';
 
-import { runGitLsFiles } from '../../../src/cli/commands/dispatch-commands.js';
+import { runGitLsFiles } from '../../../src/services/dispatch/dispatch-sub-agent.js';
 import type { DispatchOptions } from '../../../src/cli/commands/sub-agent-shared.js';
 
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
