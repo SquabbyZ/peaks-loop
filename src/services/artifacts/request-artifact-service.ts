@@ -10,7 +10,7 @@ import { ensureSession, getSessionIdCanonical } from '../session/session-manager
 // gone; request-artifact callers pass `options.sessionId` explicitly
 // or accept the requestId as the default. Path-safety helpers now
 // live at `shared/path-safety.ts` if this module ever needs them.
-import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
+import { getNextNumber, buildNumberedFilename, slugifyDescription } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
@@ -159,9 +159,14 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // Check if a file with this requestId already exists (regardless of number prefix)
   if (await isDirectory(requestsDir)) {
     const existingFiles = await listMarkdownFiles(requestsDir);
+    // The writer lowercases the request id into a kebab slug
+    // (`buildNumberedFilename`), so the duplicate-detection endsWith must
+    // compare against the SAME slug — a mixed-case id like
+    // `2026-09-06-split-batchA` is stored as `...-split-batcha.md`.
+    const slug = slugifyDescription(options.requestId);
     const alreadyExists = existingFiles.some((file) => {
       if (file === `${options.requestId}.md`) return true;
-      if (/^\d+-/.test(file) && file.endsWith(`-${options.requestId}.md`)) return true;
+      if (/^\d+-/.test(file) && file.endsWith(`-${slug}.md`)) return true;
       return false;
     });
     if (alreadyExists) {
@@ -388,6 +393,11 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   }
 
   // Search for files matching the requestId (supports both legacy and numbered formats)
+  // The numbered format lowercases the request id into a kebab slug
+  // (`buildNumberedFilename`), so the endsWith must compare against the SAME
+  // slug — a mixed-case id like `2026-09-06-split-batchA` is stored as
+  // `...-split-batcha.md` and must still resolve here.
+  const slug = slugifyDescription(options.requestId);
   const findFileInDir = async (dir: string): Promise<{ fileName: string; path: string } | null> => {
     const files = await listMarkdownFiles(dir);
     for (const file of files) {
@@ -396,7 +406,7 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
         return { fileName: file, path: join(dir, file) };
       }
       // Match numbered format: ${number}-${requestId}.md
-      if (/^\d+-/.test(file) && file.endsWith(`-${options.requestId}.md`)) {
+      if (/^\d+-/.test(file) && file.endsWith(`-${slug}.md`)) {
         return { fileName: file, path: join(dir, file) };
       }
     }

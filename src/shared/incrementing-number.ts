@@ -48,13 +48,28 @@ export function getNextNumber(dirPath: string): number {
 // the slug may be at most 248 chars (giving 4 + 248 + 3 = 255 total).
 const MAX_FILENAME_LENGTH = 255;
 const MAX_FILENAME_SLUG_LENGTH = MAX_FILENAME_LENGTH - 7;
-export function buildNumberedFilename(number: number, description: string): string {
-  const padded = String(number).padStart(3, '0');
-  const slug = description
+
+/**
+ * Convert a human-readable description into the kebab-case slug used in
+ * numbered artifact filenames. Lowercases, collapses non-alphanumerics to
+ * `-`, trims leading/trailing dashes, and caps at `MAX_FILENAME_SLUG_LENGTH`.
+ *
+ * Exported separately so lookup paths (e.g. `request-artifact-service.ts`)
+ * can compute the SAME slug the writer produced and match on-disk filenames
+ * case-insensitively — the writer lowercases, so a mixed-case request id
+ * like `2026-09-06-split-batchA` lands as `...-split-batcha.md`.
+ */
+export function slugifyDescription(description: string): string {
+  return description
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, MAX_FILENAME_SLUG_LENGTH);
+}
+
+export function buildNumberedFilename(number: number, description: string): string {
+  const padded = String(number).padStart(3, '0');
+  const slug = slugifyDescription(description);
   return `${padded}-${slug}.md`;
 }
 

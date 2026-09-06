@@ -3,7 +3,7 @@ import { existsSync, lstatSync, readdirSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
-import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
+import { getSessionIdCanonical, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
 import { normalizePath } from '../../shared/path-utils.js';
 
 /**
@@ -371,7 +371,18 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // a parallel session without closing the previous one. Refuse to bind —
   // this is the "strict" mode the user picked. The user must finish or delete
   // the existing session first.
-  const existingSessionId = getSessionId(options.projectRoot);
+  // Sub-agent session-rebind guard: read the existing binding via the
+  // canonicalize-on-read variant. A sub-agent re-running `peaks workspace
+  // init` may pass a project root whose spelling differs from the stored
+  // form (relative `"."`, symlink, separator/case variance on Windows).
+  // The strict `getSessionId` returns null on those spellings, which sent
+  // init down the "no prior binding → adopt" path and silently clobbered
+  // `.peaks/_runtime/session.json` with a phantom session, orphaning the
+  // parent's binding. `getSessionIdCanonical` resolves the stored form
+  // against the caller so a live parent binding is detected and the
+  // differing-id branch below refuses (or requires --allow-session-rebind)
+  // instead of silently overwriting.
+  const existingSessionId = getSessionIdCanonical(options.projectRoot);
   let previousSessionId: string | null = null;
   let bound = false;
   if (existingSessionId === null) {

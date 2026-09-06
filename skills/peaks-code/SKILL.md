@@ -86,10 +86,10 @@ Two-layer enforcement — do NOT try to bypass either:
 STOP. Run:
 
 ```bash
-peaks sub-agent dispatch rd --prompt '<your task>' --request-id <rid> --project . --batch-id <uuid> --json
+peaks sub-agent dispatch rd --prompt '<your task>' --graph-node <nid> --workflow-id <wid> --request-id <rid> --project . --batch-id <uuid> --json
 ```
 
-The RD sub-agent owns the actual `Edit`/`Write`/`MultiEdit` tool calls against source code. The orchestrator only emits the dispatch request.
+`--graph-node <nid>` is REQUIRED (RD §4 D4c). Prepare the node first: `peaks workflow init --skill peaks-code`, then `peaks workflow node prepare --workflow <wid> --node <nid> --kind dispatch`. The RD sub-agent owns the actual `Edit`/`Write`/`MultiEdit` tool calls against source code. The orchestrator only emits the dispatch request.
 
 **Anti-pattern:** directly calling `Edit`/`Write`/`MultiEdit` on `src/**` from the orchestrator session because "the change is tiny" / "it's just one line" / "the dispatch overhead is too high" / "the LLM feels confident". None of these override the Code-Gate; the probe + the hook both fail-closed.
 

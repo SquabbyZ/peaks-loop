@@ -39,8 +39,22 @@ stays IDE-agnostic.
 **Command**:
 
 ```
-peaks sub-agent dispatch <role> --prompt <text> [--request-id <rid>] [--session-id <sid>] [--project <repo>] [--batch-id <uuid>] --json
+peaks sub-agent dispatch <role> --prompt <text> --graph-node <nid> [--workflow-id <wid>] [--request-id <rid>] [--session-id <sid>] [--project <repo>] [--batch-id <uuid>] --json
 ```
+
+> **`--graph-node` is REQUIRED (RD §4 D4c, effective 4.0.8).** Every
+> single dispatch must bind to a prepared workflow graph node. Prepare
+> one first:
+>
+> ```
+> peaks workflow init --skill peaks-code                    # → returns <wid>
+> peaks workflow node prepare --workflow <wid> --node <nid> --kind dispatch
+> ```
+>
+> then dispatch with `--graph-node <nid> --workflow-id <wid>`. Omitting
+> `--graph-node` rejects with `PEAKS_GRAPH_NODE_REQUIRED`; a node that is
+> not prepared (or has the wrong kind) rejects with
+> `PEAKS_GRAPH_NODE_NOT_PREPARED` / `PEAKS_GRAPH_NODE_KIND_INVALID`.
 
 **Envelope** (AC-8) — **2.1.0** (slice 2026-06-23-audit-4th #E1):
 
@@ -342,16 +356,20 @@ grown unboundedly without this fix).
 When writing a SKILL.md that fans out sub-agents:
 
 1. Use `peaks sub-agent dispatch <role>` (never `Task(...)`).
-2. Issue all dispatches in a single message; the LLM will fire all
+2. Prepare the graph node first (RD §4 D4c — `--graph-node` is required):
+   `peaks workflow init --skill peaks-code`, then
+   `peaks workflow node prepare --workflow <wid> --node <nid> --kind dispatch`.
+3. Issue all dispatches in a single message; the LLM will fire all
    returned toolCalls in parallel.
-3. Pass `--request-id` and `--session-id` (or omit and let the CLI
-   resolve the active session).
-4. The sub-agent prompt **must** include the heartbeat instruction
+4. Pass `--graph-node <nid> --workflow-id <wid>` on every dispatch, plus
+   `--request-id` and `--session-id` (or omit and let the CLI resolve the
+   active session).
+5. The sub-agent prompt **must** include the heartbeat instruction
    (30 s cadence; override via `heartbeatIntervalSec` if needed).
-5. After the fan-out returns, the Dispatcher reducer reads the
+6. After the fan-out returns, the Dispatcher reducer reads the
    dispatch record + the artifacts the sub-agents wrote, marks
    `disposed: true` on each record, and advances the state machine.
-6. The poller handles the 5-min stale case as a warning, never as a
+7. The poller handles the 5-min stale case as a warning, never as a
    failure. The user is the one who decides to cancel.
 
 ## Cross-reference
@@ -380,6 +398,7 @@ peaks sub-agent dispatch <role> \
             hand back prose.', plus the heartbeat instruction: 'While running, call
             peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progress <pct> --note \"<text>\"
             at least every 30 seconds.'>" \
+  --graph-node <nid> --workflow-id <wid> \
   --request-id <rid> --session-id <session-id> --project <repo> --json
 ```
 
@@ -426,7 +445,7 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-
 
 ## Detached Mode (Phase A, slice 2026-08-10)
 
-`peaks sub-agent dispatch <role> --prompt <text> --request-id <rid> --mode detached --vendor claude|codex|copilot [--no-throttle --max-concurrent <N>] --json` spawns a real OS process independent of the orchestrator IDE session.
+`peaks sub-agent dispatch <role> --prompt <text> --graph-node <nid> --workflow-id <wid> --request-id <rid> --mode detached --vendor claude|codex|copilot [--no-throttle --max-concurrent <N>] --json` spawns a real OS process independent of the orchestrator IDE session. `--graph-node` remains required here (RD §4 D4c).
 
 - **Cross-platform spawn**: Windows uses `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`; POSIX uses `setsid` + `nohup`. Implementation: `packages/peaks-loop-internal-runtime/src/process-supervisor.ts`.
 - **Minimum-context prompt**: `PromptBuilder` emits a 5–8KB slice `{rid, role, vendor, files, refs}` plus the verbatim `<peaks-auto-compact>` marker. The forbidden marker `@@@ORCHESTRATOR_SESSION_HISTORY_BOUNDARY@@@` MUST NOT appear in any prompt (unit-tested; regression fails vitest).
