@@ -21,7 +21,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, relative, dirname, basename } from 'node:path';
+import { basename } from 'node:path';
 import { calibrate } from './calibration-store.js';
 import type {
   CodegraphAffectedResult,
@@ -30,7 +30,6 @@ import type {
   DecomposeOptions,
   DecompositionResult,
   DependencyEdge,
-  ImportEdge,
   ImportEdgeRunner,
   KnowledgeGraph,
   MinCutEdge,
@@ -45,6 +44,9 @@ import type {
 } from './slice-decompose-types.js';
 
 export type { DecomposeOptions };
+
+import { buildDependencyEdges } from './slice-decompose-import-edges.js';
+import { findSCCs } from './slice-decompose-tarjan.js';
 
 // =====================================================================
 // PUBLIC: decomposeSlices (FSM orchestrator over the 6-stage pipeline)
@@ -325,133 +327,6 @@ function applyImplicitWuFallback(workUnits: readonly WorkUnit[], allFiles: reado
   }));
 }
 
-/** Edge-builder FSM: classifies each candidate into one of three
- *  classes (structural-import, semantic-flow, or dropped) and emits a
- *  deduplicated list. The state machine enumerates the classification
- *  rules explicitly so this stays under the complexity budget while
- *  preserving the original behaviour. */
-interface ClassifiedImportEdge {
-  fromWu: string;
-  toWu: string;
-  evidence: string;
-}
-
-interface EdgeCollector {
-  edges: DependencyEdge[];
-  seen: Set<string>;
-}
-
-function indexFilesToWorkUnits(wus: readonly WorkUnit[]): Map<string, string> {
-  const fileToWu = new Map<string, string>();
-  for (const wu of wus) {
-    for (const f of wu.files) {
-      fileToWu.set(f, wu.id);
-    }
-  }
-  return fileToWu;
-}
-
-function classifyImportEdge(
-  imp: ImportEdge,
-  fileToWu: ReadonlyMap<string, string>,
-  projectRoot: string
-): ClassifiedImportEdge | null {
-  let fromWu = fileToWu.get(imp.from);
-  let toWu = fileToWu.get(imp.to);
-  if (!fromWu) {
-    const resolved = resolveRelativeImport(projectRoot, imp.from, imp.evidence);
-    fromWu = fileToWu.get(resolved);
-  }
-  if (!toWu) {
-    const resolved = resolveRelativeImport(projectRoot, imp.from, imp.evidence);
-    toWu = fileToWu.get(resolved);
-  }
-  if (!fromWu || !toWu) return null;
-  return { fromWu, toWu, evidence: imp.evidence };
-}
-
-function pushIfNew(collector: EdgeCollector, edge: DependencyEdge): void {
-  if (edge.from === edge.to) return;
-  const key = `${edge.from}->${edge.to}|${edge.kind}`;
-  if (collector.seen.has(key)) return;
-  collector.seen.add(key);
-  collector.edges.push(edge);
-}
-
-function collectImportEdges(
-  importEdges: readonly ImportEdge[],
-  fileToWu: ReadonlyMap<string, string>,
-  projectRoot: string,
-  collector: EdgeCollector
-): void {
-  for (const imp of importEdges) {
-    const classified = classifyImportEdge(imp, fileToWu, projectRoot);
-    if (classified === null) continue;
-    const edge: DependencyEdge = {
-      from: classified.fromWu,
-      to: classified.toWu,
-      kind: 'imports',
-      weight: 10.0,
-      evidence: classified.evidence,
-      isSemantic: false,
-      confidence: 'structural'
-    };
-    pushIfNew(collector, edge);
-  }
-}
-
-function collectSemanticEdges(
-  kg: KnowledgeGraph,
-  fileToWu: ReadonlyMap<string, string>,
-  collector: EdgeCollector
-): void {
-  for (const e of kg.edges) {
-    if (e.type !== 'contains_flow' && e.type !== 'flow_step') continue;
-    const fromNode = kg.nodes.find((n) => n.id === e.source);
-    const toNode = kg.nodes.find((n) => n.id === e.target);
-    if (!fromNode?.filePath || !toNode?.filePath) continue;
-    const fromWu = fileToWu.get(fromNode.filePath);
-    const toWu = fileToWu.get(toNode.filePath);
-    if (!fromWu || !toWu || fromWu === toWu) continue;
-    const weight = e.type === 'flow_step' ? 0.05 : 0.1;
-    const edge: DependencyEdge = {
-      from: fromWu,
-      to: toWu,
-      kind: e.type as DependencyEdge['kind'],
-      weight,
-      evidence: `understand-anything: ${e.type} ${e.source}->${e.target}`,
-      isSemantic: true,
-      confidence: 'semantic'
-    };
-    pushIfNew(collector, edge);
-  }
-}
-
-function buildDependencyEdges(
-  wus: readonly WorkUnit[],
-  importEdges: readonly ImportEdge[],
-  kg: KnowledgeGraph | null,
-  projectRoot: string
-): DependencyEdge[] {
-  const fileToWu = indexFilesToWorkUnits(wus);
-  const collector: EdgeCollector = { edges: [], seen: new Set() };
-  collectImportEdges(importEdges, fileToWu, projectRoot, collector);
-  if (kg !== null) {
-    collectSemanticEdges(kg, fileToWu, collector);
-  }
-  return collector.edges;
-}
-
-function resolveRelativeImport(projectRoot: string, sourceFile: string, evidence: string): string {
-  const match = /from\s+['"]([^'"]+)['"]/.exec(evidence);
-  if (!match) return sourceFile;
-  const importPath = match[1]!;
-  if (!importPath.startsWith('.')) return sourceFile;
-  const sourceDir = dirname(sourceFile);
-  const tsPath = importPath.replace(/\.js$/, '.ts').replace(/\.jsx$/, '.tsx');
-  return relative(projectRoot, join(projectRoot, sourceDir, tsPath));
-}
-
 // =====================================================================
 // Stage 3: Tarjan SCC + longest path
 // =====================================================================
@@ -461,130 +336,6 @@ function sccCriticalPathStage(state: DecomposeState): DecomposeState {
   const scc = findSCCs(nodeIds, state.depEdges);
   const criticalPath = findCriticalPath(state.workUnits, state.depEdges);
   return { ...state, scc, criticalPath };
-}
-
-function findSCCs(nodeIds: readonly string[], edges: readonly DependencyEdge[]): SccAnalysis {
-  const adj = buildAdjacencyList(nodeIds, edges);
-  const sccs = runTarjan(nodeIds, adj);
-  return summariseSccs(sccs, edges);
-}
-
-/** Build a forward adjacency map: nodeId → list of distinct neighbours. */
-function buildAdjacencyList(nodeIds: readonly string[], edges: readonly DependencyEdge[]): Map<string, string[]> {
-  const adj = new Map<string, string[]>();
-  for (const id of nodeIds) adj.set(id, []);
-  for (const e of edges) {
-    const list = adj.get(e.from);
-    if (list && !list.includes(e.to)) list.push(e.to);
-  }
-  return adj;
-}
-
-/** Tarjan SCC visitor state. The recursive `strongconnect` reads/writes
- *  this object instead of capturing mutable counters via closure; that
- *  separation lets us split the body into `enterNode`, `relaxEdge`,
- *  and `finaliseRoot` so the per-iteration cyclomatic budget stays low. */
-interface TarjanVisitor {
-  index: number;
-  idx: Map<string, number>;
-  lowlink: Map<string, number>;
-  onStack: Set<string>;
-  stack: string[];
-  sccs: string[][];
-}
-
-function createTarjanVisitor(): TarjanVisitor {
-  return {
-    index: 0,
-    idx: new Map(),
-    lowlink: new Map(),
-    onStack: new Set(),
-    stack: [],
-    sccs: []
-  };
-}
-
-function enterNode(visitor: TarjanVisitor, v: string): void {
-  visitor.idx.set(v, visitor.index);
-  visitor.lowlink.set(v, visitor.index);
-  visitor.index++;
-  visitor.stack.push(v);
-  visitor.onStack.add(v);
-}
-
-function relaxEdge(
-  visitor: TarjanVisitor,
-  v: string,
-  w: string,
-  recurse: (next: string) => void
-): void {
-  if (!visitor.idx.has(w)) {
-    recurse(w);
-    visitor.lowlink.set(v, Math.min(visitor.lowlink.get(v) ?? 0, visitor.lowlink.get(w) ?? 0));
-  } else if (visitor.onStack.has(w)) {
-    visitor.lowlink.set(v, Math.min(visitor.lowlink.get(v) ?? 0, visitor.idx.get(w) ?? 0));
-  }
-}
-
-function finaliseRoot(visitor: TarjanVisitor, v: string): void {
-  if ((visitor.lowlink.get(v) ?? 0) !== (visitor.idx.get(v) ?? 0)) return;
-  const component: string[] = [];
-  let w: string;
-  do {
-    w = visitor.stack.pop()!;
-    visitor.onStack.delete(w);
-    component.push(w);
-  } while (w !== v);
-  visitor.sccs.push(component);
-}
-
-/** Run Tarjan's SCC algorithm; returns the list of components in
- *  discovery order. Visitor state is hoisted to a named struct
- *  (`TarjanVisitor`) so the recursive body can be split into
- *  enterNode / relaxEdge / finaliseRoot without parameter sprawl. */
-function runTarjan(nodeIds: readonly string[], adj: ReadonlyMap<string, readonly string[]>): string[][] {
-  const visitor = createTarjanVisitor();
-
-  const strongconnect = (v: string): void => {
-    enterNode(visitor, v);
-    for (const w of adj.get(v) ?? []) {
-      relaxEdge(visitor, v, w, strongconnect);
-    }
-    finaliseRoot(visitor, v);
-  };
-
-  for (const id of nodeIds) {
-    if (!visitor.idx.has(id)) strongconnect(id);
-  }
-  return visitor.sccs;
-}
-
-function summariseSccs(sccs: readonly string[][], edges: readonly DependencyEdge[]): SccAnalysis {
-  const trivial: string[] = [];
-  const nonTrivial: string[] = [];
-  for (const scc of sccs) {
-    if (scc.length === 1) trivial.push(scc[0]!);
-    else nonTrivial.push(...scc);
-  }
-
-  let condensationEdges = 0;
-  for (const e of edges) {
-    if (!sameScc(sccs, e.from, e.to)) condensationEdges++;
-  }
-
-  return {
-    sccCount: sccs.length,
-    trivialSCCs: trivial,
-    nonTrivialSCCs: nonTrivial,
-    condensationEdges
-  };
-}
-
-function sameScc(sccs: readonly string[][], a: string, b: string): boolean {
-  for (const scc of sccs) {
-    if (scc.includes(a) && scc.includes(b)) return true;
-  }
-  return false;
 }
 
 /** Critical-path FSM: three sequential phases.
