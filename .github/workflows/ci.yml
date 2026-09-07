@@ -18,15 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
+      - name: Setup pnpm (corepack)
+        # pnpm/action-setup@v4 + @v6 both fail the self-installer on the
+        # runner's default Node 24 (this step runs before setup-node pins
+        # the matrix node). corepack is bundled with Node and needs no
+        # external self-installer; pin pnpm to match packageManager.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -58,15 +63,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
+      - name: Setup pnpm (corepack)
+        # pnpm/action-setup@v4 + @v6 both fail the self-installer on the
+        # runner's default Node 24 (this step runs before setup-node pins
+        # the matrix node). corepack is bundled with Node and needs no
+        # external self-installer; pin pnpm to match packageManager.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
 
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
