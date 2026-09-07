@@ -37,6 +37,7 @@ import {
   createCodegraphInvocation,
   defaultCodegraphInitGuard,
   executeCodegraphInvocation,
+  isCodegraphInitialized,
   writeCodegraphMarker,
   type CodegraphProcessRunner,
 } from './codegraph-service.js';
@@ -208,8 +209,11 @@ async function readStructure(
  *
  * Behavior matrix (acceptance criteria):
  * - `.codegraph/` absent  → init + index (best-effort), then read.
- * - `.codegraph/` present with peaks-loop marker → skip init/index
- *   (fresh), read directly. No redundant re-index on every dispatch.
+ * - `.codegraph/` present with peaks-loop marker AND `codegraph.db` →
+ *   skip init/index (fresh), read directly. No redundant re-index on
+ *   every dispatch.
+ * - `.codegraph/` present with peaks-loop marker but NO `codegraph.db`
+ *   (dangling) → init + index (self-heal), then read.
  * - `.codegraph/` present WITHOUT marker (foreign schema) → fail-soft;
  *   never clobber a foreign store.
  *
@@ -230,7 +234,10 @@ export async function buildCodegraphPreflightBlock(
     };
   }
 
-  if (guard.status === 'fresh') {
+  // 'fresh' (no dir) OR a dangling peaks-loop dir (marker present, no
+  // codegraph.db) → run init + index. An initialized peaks-loop dir
+  // (`noop-already-peaks-loop` with codegraph.db) skips straight to read.
+  if (guard.status === 'fresh' || !isCodegraphInitialized(projectRoot)) {
     // 1. init (best-effort). Upstream creates the `.codegraph/` dir; we
     //    stamp the peaks-loop marker afterwards so the NEXT dispatch hits
     //    the noop (skip-when-fresh) branch.
@@ -273,7 +280,8 @@ export async function buildCodegraphPreflightBlock(
       return { available: false, note: `codegraph index unavailable: ${errorMessage(error)}` };
     }
   }
-  // guard.status === 'noop-already-peaks-loop' (or we just initialized):
-  // the schema exists — do NOT re-index, go straight to the bounded read.
+  // guard.status === 'noop-already-peaks-loop' with codegraph.db (or we
+  // just initialized): the schema exists — do NOT re-index, go straight
+  // to the bounded read.
   return readStructure(projectRoot, processRunner);
 }

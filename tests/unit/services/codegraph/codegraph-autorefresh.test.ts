@@ -23,7 +23,7 @@
 //
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-autorefresh.test.ts
 
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -32,7 +32,12 @@ import {
   refreshCodegraphAfterSlice,
   isCodegraphPresent,
 } from '../../../../src/services/codegraph/codegraph-autorefresh.js';
-import type { CodegraphExecutionResult, CodegraphInvocation } from '../../../../src/services/codegraph/codegraph-service.js';
+import {
+  CODEGRAPH_DB_NAME,
+  CODEGRAPH_MARKER_NAME,
+  type CodegraphExecutionResult,
+  type CodegraphInvocation,
+} from '../../../../src/services/codegraph/codegraph-service.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
 declareDimensions(
@@ -56,6 +61,18 @@ function okRunner() {
 
 function failingRunner(exitCode: number, stderr = '') {
   return vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => ({ exitCode, stdout: '', stderr }));
+}
+
+/** Create `.codegraph/` WITH a `codegraph.db` (an initialized schema). */
+function initializedCodegraph(project: string): void {
+  mkdirSync(join(project, '.codegraph'), { recursive: true });
+  writeFileSync(join(project, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
+}
+
+/** Create `.codegraph/` carrying ONLY the peaks-loop marker (dangling). */
+function danglingCodegraph(project: string): void {
+  mkdirSync(join(project, '.codegraph'), { recursive: true });
+  writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
 }
 
 describe('Scenario: behavior — refreshCodegraphAfterSlice result shape', () => {
@@ -108,7 +125,7 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
   it('when .codegraph/ exists and the index exits 0, should return refreshed:true and pass an index invocation rooted at the project', async () => {
     // given: a project with an existing `.codegraph/` dir and a green runner
     const project = freshProject('peaks-cg-auto-i1-');
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    initializedCodegraph(project);
     const runner = okRunner();
     try {
       // when: refreshCodegraphAfterSlice is invoked
@@ -129,7 +146,7 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
   it('when the index exits non-zero, should return refreshed:false reason index-failed with the exit code in the note', async () => {
     // given: an existing `.codegraph/` dir and a runner that fails with exit 2
     const project = freshProject('peaks-cg-auto-i2-');
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    initializedCodegraph(project);
     const runner = failingRunner(2, 'schema lock conflict');
     try {
       // when: refreshCodegraphAfterSlice is invoked
@@ -148,7 +165,7 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
   it('when the runner rejects, should return refreshed:false reason unavailable and never throw', async () => {
     // given: an existing `.codegraph/` dir and a runner that rejects
     const project = freshProject('peaks-cg-auto-i3-');
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    initializedCodegraph(project);
     const runner = vi.fn(async (_invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
       throw new Error('codegraph binary not found');
     });
@@ -160,6 +177,71 @@ describe('Scenario: integration — refresh runs codegraph index against a real 
       if (result.refreshed) throw new Error('unreachable');
       expect(result.reason).toBe('unavailable');
       expect(result.note).toContain('codegraph binary not found');
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Scenario: integration — dangling marker self-heal and foreign skip', () => {
+  it('when .codegraph/ has the marker but no db (dangling), should self-heal via init then index', async () => {
+    // given: a project whose `.codegraph/` carries the marker but no db
+    const project = freshProject('peaks-cg-auto-d1-');
+    danglingCodegraph(project);
+    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+      if (invocation.subcommand === 'init') return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+      if (invocation.subcommand === 'index') return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+      return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+    });
+    try {
+      // when: refreshCodegraphAfterSlice is invoked
+      const result = await refreshCodegraphAfterSlice(project, runner);
+      // then: the refresh self-heals (init → index) and reports refreshed
+      expect(result.refreshed).toBe(true);
+      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      expect(subcommands).toEqual(['init', 'index']);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('when the dangling self-heal init fails, should fail-silent with an init-naming note', async () => {
+    // given: a dangling dir whose init step exits non-zero
+    const project = freshProject('peaks-cg-auto-d2-');
+    danglingCodegraph(project);
+    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+      if (invocation.subcommand === 'init') return { exitCode: 2, stdout: '', stderr: 'grammar load failed' };
+      return { exitCode: 0, stdout: '', stderr: '' };
+    });
+    try {
+      // when: refreshCodegraphAfterSlice is invoked
+      const result = await refreshCodegraphAfterSlice(project, runner);
+      // then: the failure is captured (no throw) and names the init step
+      expect(result.refreshed).toBe(false);
+      if (result.refreshed) throw new Error('unreachable');
+      expect(result.reason).toBe('index-failed');
+      expect(result.note).toContain('self-heal init failed');
+      expect(result.note).toContain('exit 2');
+      expect(result.note).toContain('grammar load failed');
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('when .codegraph/ exists without marker or db (foreign), should skip without touching it', async () => {
+    // given: a foreign `.codegraph/` dir (no marker, no codegraph.db)
+    const project = freshProject('peaks-cg-auto-d3-');
+    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    writeFileSync(join(project, '.codegraph', 'lessons.db'), 'foreign\n', 'utf8');
+    const runner = okRunner();
+    try {
+      // when: refreshCodegraphAfterSlice is invoked
+      const result = await refreshCodegraphAfterSlice(project, runner);
+      // then: it skips (no init/index) and never runs the runner
+      expect(result.refreshed).toBe(false);
+      if (result.refreshed) throw new Error('unreachable');
+      expect(result.reason).toBe('no-codegraph-dir');
+      expect(runner).not.toHaveBeenCalled();
     } finally {
       rmSync(project, { recursive: true, force: true });
     }
@@ -186,7 +268,7 @@ describe('Scenario: a11y — refresh notes are human/LLM actionable', () => {
   it('when the index fails, should surface the upstream error line so the failure is not silent', async () => {
     // given: an existing `.codegraph/` dir and a runner failing with a real message
     const project = freshProject('peaks-cg-auto-a2-');
-    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    initializedCodegraph(project);
     const runner = failingRunner(73, 'run peaks codegraph init to initialize');
     try {
       // when: refreshCodegraphAfterSlice is invoked

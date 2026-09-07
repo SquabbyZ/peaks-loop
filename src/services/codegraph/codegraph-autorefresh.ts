@@ -20,21 +20,30 @@
 //   - No `<projectRoot>/.codegraph/` directory → skip (codegraph was
 //     never initialized for this project; `peaks codegraph init` is a
 //     one-time setup the orchestrator owns).
+//   - `.codegraph/` present WITH `codegraph.db` → `index` (incremental).
+//   - `.codegraph/` present with the peaks-loop marker but NO
+//     `codegraph.db` (dangling) → self-heal: `init` then `index`.
+//   - `.codegraph/` present without a marker and without `codegraph.db`
+//     (foreign schema) → skip; never touch a foreign store.
 //   - The upstream index exits non-zero → return `index-failed` with a
 //     human-readable note.
 //   - Any unexpected error → return `unavailable` with a note.
 //
-// We deliberately do NOT auto-init: `codegraph init` can prompt / take a
-// long time on first run, which would make the background side-effect
-// block the slice boundary. Projects that want auto-refresh first run
-// `peaks codegraph init` once (per the orchestration doc).
+// We do NOT auto-init a genuinely fresh (no `.codegraph/` dir) project:
+// the orchestrator owns that one-time setup. The dangling self-heal above
+// IS an auto-init, but `codegraph init` (WITHOUT `--index`) is fast (~1 s)
+// and offline-safe — it only `Parser.init()`s WASM grammars that resolve
+// from node_modules. The slow/offline concern applies to `index` (full
+// build), not `init`.
 
-import { statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CODEGRAPH_DIR_NAME,
+  CODEGRAPH_MARKER_NAME,
   createCodegraphInvocation,
   executeCodegraphInvocation,
+  isCodegraphInitialized,
   type CodegraphProcessRunner,
 } from './codegraph-service.js';
 
@@ -52,6 +61,15 @@ export function isCodegraphPresent(projectRoot: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * True when `<projectRoot>/.codegraph/` carries the peaks-loop marker
+ * (i.e. peaks-loop manages it, as opposed to a foreign tool). Pure fs
+ * probe; never throws.
+ */
+function isCodegraphPeaksLoopManaged(projectRoot: string): boolean {
+  return existsSync(join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_MARKER_NAME));
 }
 
 function errorMessage(error: unknown): string {
@@ -86,6 +104,33 @@ export async function refreshCodegraphAfterSlice(
   }
 
   try {
+    // A `.codegraph/` dir without a `codegraph.db` is uninitialized:
+    //   - NOT peaks-loop-managed → foreign schema, never touch it.
+    //   - peaks-loop-managed → the dangling state left by the pre-fix
+    //     rid-CG-001 auto-stake (marker stamped, no upstream init). Run
+    //     init (fast, offline-safe — no full index) so the subsequent
+    //     index has a schema to write into.
+    if (!isCodegraphInitialized(projectRoot)) {
+      if (!isCodegraphPeaksLoopManaged(projectRoot)) {
+        return {
+          refreshed: false,
+          reason: 'no-codegraph-dir',
+          note: `auto codegraph refresh skipped: ${CODEGRAPH_DIR_NAME}/ exists without a codegraph.db and is not peaks-loop-managed. Run \`peaks codegraph init\` once to enable post-slice auto-refresh.`,
+        };
+      }
+      const initResult = await executeCodegraphInvocation(
+        createCodegraphInvocation({ subcommand: 'init', project: projectRoot }),
+        runner,
+      );
+      if (initResult.exitCode !== 0) {
+        return {
+          refreshed: false,
+          reason: 'index-failed',
+          note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}`,
+        };
+      }
+    }
+
     const invocation = createCodegraphInvocation({ subcommand: 'index', project: projectRoot, quiet: true });
     const result = await executeCodegraphInvocation(invocation, runner);
     if (result.exitCode !== 0) {

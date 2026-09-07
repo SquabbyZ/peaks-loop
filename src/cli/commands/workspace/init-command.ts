@@ -34,7 +34,9 @@ import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks
 import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
 import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
 import {
+  createCodegraphInvocation,
   defaultCodegraphInitGuard,
+  executeCodegraphInvocation,
   writeCodegraphMarker
 } from '../../../services/codegraph/codegraph-service.js';
 import { mkdirSync } from 'node:fs';
@@ -513,25 +515,41 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         markStandardsChecked(projectRoot, sessionId);
       }
 
-      // rid-CG-001: auto-stake a peaks-loop-managed `.codegraph/`
-      // directory after a successful workspace init. Calls the
-      // conflict guard (rid-CG-006) BEFORE writing so a foreign
-      // schema is never silently overwritten. We deliberately do
-      // NOT spawn the upstream codegraph binary here — `peaks
-      // workspace init` must stay fast and offline-safe; the user
-      // runs `peaks codegraph index` next if they want the actual
-      // SQLite-backed index.
+      // rid-CG-001 (revised): auto-stake a peaks-loop-managed `.codegraph/`
+      // directory after a successful workspace init. Calls the conflict
+      // guard (rid-CG-006) BEFORE writing so a foreign schema is never
+      // silently overwritten. We now run a REAL upstream `codegraph init`
+      // (not just mkdir + marker) so the schema actually has a
+      // `codegraph.db`, which is what post-slice auto-refresh and the
+      // pre-dispatch preflight gate on. `codegraph init` (WITHOUT
+      // `--index`) is fast (~1 s) and offline-safe — it only `Parser.init()`s
+      // WASM grammars that resolve from node_modules; the slow/offline
+      // concern applies to `index` (full build), not `init`.
       let codegraphAutoOutcome: { status: 'fresh' | 'noop' | 'conflict' } | null = null;
       try {
         const guard = defaultCodegraphInitGuard(projectRoot);
         if (guard.status === 'fresh') {
-          mkdirSync(guard.codegraphDir, { recursive: true });
-          writeCodegraphMarker(guard.codegraphDir);
-          codegraphAutoOutcome = { status: 'fresh' };
-          nextActions.push(
-            `Auto-created empty ${guard.codegraphDir}/ and stamped the peaks-loop marker. ` +
-              'Run `peaks codegraph index --project <path>` next to build the SQLite-backed index.'
+          // 'fresh' here also covers the dangling state (marker present but
+          // no codegraph.db) — running init self-heals both.
+          const initResult = await executeCodegraphInvocation(
+            createCodegraphInvocation({ subcommand: 'init', project: projectRoot })
           );
+          if (initResult.exitCode !== 0) {
+            warningsForEnvelope.push(
+              `codegraph auto-stake init failed (exit ${String(initResult.exitCode)}). ` +
+                'Run `peaks codegraph init --project <path>` manually to enable codegraph.'
+            );
+          } else {
+            // Upstream init creates `.codegraph/`; mkdir is a no-op in the
+            // real path and lets the marker write succeed. Best-effort.
+            mkdirSync(guard.codegraphDir, { recursive: true });
+            writeCodegraphMarker(guard.codegraphDir);
+            codegraphAutoOutcome = { status: 'fresh' };
+            nextActions.push(
+              `Auto-staked a peaks-loop-managed ${guard.codegraphDir}/ (upstream init + marker). ` +
+                'Run `peaks codegraph index --project <path>` next to build the SQLite-backed index.'
+            );
+          }
         } else if (guard.status === 'noop-already-peaks-loop') {
           codegraphAutoOutcome = { status: 'noop' };
         } else {

@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  CODEGRAPH_DB_NAME,
   CODEGRAPH_MARKER_NAME,
   defaultCodegraphInitGuard,
   writeCodegraphMarker
@@ -52,19 +53,34 @@ function freshProject(): string {
 describe('workspace-init codegraph auto-stake (rid-CG-001)', () => {
   withTmpWorkspacePerTest();
 
-  it('fresh project: guard returns fresh and the marker can be stamped (AC1)', () => {
+  it('fresh project: guard returns fresh and the marker + db can be stamped (AC1)', () => {
     const projectRoot = freshProject();
     try {
       const guard = defaultCodegraphInitGuard(projectRoot);
       expect(guard.status).toBe('fresh');
 
-      // Mirror the workspace-init body: mkdir + write marker.
+      // Mirror the workspace-init body: upstream init (creates the db)
+      // + write marker.
       mkdirSync(guard.codegraphDir, { recursive: true });
       writeCodegraphMarker(guard.codegraphDir);
+      writeFileSync(join(guard.codegraphDir, CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
 
       // Subsequent guard call sees the schema as peaks-loop-managed.
       const after = defaultCodegraphInitGuard(projectRoot);
       expect(after.status).toBe('noop-already-peaks-loop');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('dangling project: marker present but no db should return fresh so init can self-heal', () => {
+    const projectRoot = freshProject();
+    try {
+      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
+      writeCodegraphMarker(join(projectRoot, '.codegraph'));
+
+      const guard = defaultCodegraphInitGuard(projectRoot);
+      expect(guard.status).toBe('fresh');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -111,6 +127,7 @@ describe('workspace-init codegraph auto-stake (rid-CG-001)', () => {
     try {
       mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
       writeCodegraphMarker(join(projectRoot, '.codegraph'));
+      writeFileSync(join(projectRoot, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
       const markerPath = join(projectRoot, '.codegraph', CODEGRAPH_MARKER_NAME);
       const markerMtimeBefore = readFileSync(markerPath, 'utf8');
 

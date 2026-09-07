@@ -35,6 +35,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  CODEGRAPH_DB_NAME,
   CODEGRAPH_INIT_CONFLICT_EXIT_CODE,
   CODEGRAPH_MARKER_NAME,
   defaultCodegraphInitGuard,
@@ -86,14 +87,29 @@ describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
     }
   });
 
-  it('returns noop-already-peaks-loop when .codegraph/.peaks-loop-marker exists (AC3)', () => {
+  it('returns noop-already-peaks-loop when marker AND codegraph.db exist (AC3)', () => {
+    const projectRoot = freshProject();
+    try {
+      mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
+      writeCodegraphMarker(join(projectRoot, '.codegraph'));
+      writeFileSync(join(projectRoot, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
+
+      const outcome = defaultCodegraphInitGuard(projectRoot);
+      expect(outcome.status).toBe('noop-already-peaks-loop');
+      expect(outcome.codegraphDir).toBe(join(projectRoot, '.codegraph'));
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('returns fresh (dangling) when marker exists but codegraph.db is missing', () => {
     const projectRoot = freshProject();
     try {
       mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
       writeCodegraphMarker(join(projectRoot, '.codegraph'));
 
       const outcome = defaultCodegraphInitGuard(projectRoot);
-      expect(outcome.status).toBe('noop-already-peaks-loop');
+      expect(outcome.status).toBe('fresh');
       expect(outcome.codegraphDir).toBe(join(projectRoot, '.codegraph'));
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
@@ -122,6 +138,9 @@ describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
       const codegraphDir = join(projectRoot, '.codegraph');
       mkdirSync(codegraphDir, { recursive: true });
       writeCodegraphMarker(codegraphDir);
+      // A fully-initialized schema needs codegraph.db too; the guard only
+      // returns 'noop-already-peaks-loop' when BOTH are present.
+      writeFileSync(join(codegraphDir, CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
       const markerPath = join(codegraphDir, CODEGRAPH_MARKER_NAME);
       // No assertion on contents; just that the next guard call now
       // sees the marker as 'noop-already-peaks-loop'.

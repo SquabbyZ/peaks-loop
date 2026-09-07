@@ -271,6 +271,12 @@ export const CODEGRAPH_DIR_NAME = '.codegraph';
  * etc. all happily use the same directory name).
  */
 export const CODEGRAPH_MARKER_NAME = '.peaks-loop-marker';
+/**
+ * Upstream SQLite schema filename. `isCodegraphInitialized` mirrors
+ * `@colbymchenry/codegraph`'s `isInitialized`, which requires this file
+ * (not just the `.codegraph/` directory) to exist.
+ */
+export const CODEGRAPH_DB_NAME = 'codegraph.db';
 export const CODEGRAPH_INIT_CONFLICT_EXIT_CODE = 73;
 
 export type ResolvedCodegraphLocation = {
@@ -297,6 +303,9 @@ export function resolveCodegraphProjectRoot(projectRoot: string): ResolvedCodegr
 }
 
 export type CodegraphInitGuardResult =
+  // 'fresh' covers BOTH "no .codegraph/ dir yet" AND the dangling state
+  // "dir + marker present but no codegraph.db" — both should run
+  // upstream `codegraph init`.
   | { status: 'fresh'; codegraphDir: string }
   | { status: 'noop-already-peaks-loop'; codegraphDir: string }
   | { status: 'conflict-foreign-schema'; codegraphDir: string };
@@ -312,6 +321,16 @@ export class CodegraphInitConflictError extends Error {
 }
 
 export type CodegraphInitGuard = (projectRoot: string) => CodegraphInitGuardResult;
+
+/**
+ * True when `<projectRoot>/.codegraph/codegraph.db` exists. Mirrors
+ * upstream `@colbymchenry/codegraph` `isInitialized`: the `.codegraph/`
+ * directory alone (or with only the peaks-loop marker) is NOT initialized.
+ * Pure fs probe; never throws.
+ */
+export function isCodegraphInitialized(projectRoot: string): boolean {
+  return existsSync(join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_DB_NAME));
+}
 
 /**
  * Inspect a candidate codegraph directory and return its guard
@@ -331,6 +350,14 @@ function inspectCandidateCodegraphDir(codegraphDir: string): CodegraphInitGuardR
 
   const markerPath = join(codegraphDir, CODEGRAPH_MARKER_NAME);
   if (existsSync(markerPath)) {
+    // Marker present but no codegraph.db → the dangling state left by the
+    // pre-fix rid-CG-001 auto-stake (marker stamped without running
+    // upstream init). Report 'fresh' so consumers re-run upstream init
+    // (idempotent, creates the db) instead of treating the schema as
+    // fully initialized.
+    if (!existsSync(join(codegraphDir, CODEGRAPH_DB_NAME))) {
+      return { status: 'fresh', codegraphDir };
+    }
     return { status: 'noop-already-peaks-loop', codegraphDir };
   }
 
@@ -339,8 +366,10 @@ function inspectCandidateCodegraphDir(codegraphDir: string): CodegraphInitGuardR
 
 /**
  * Root-only init guard: probes `<projectRoot>/.codegraph/`. 'fresh'
- * is returned when the directory does not exist yet, so the next
- * `peaks codegraph init` creates the root `.codegraph/` directory.
+ * is returned when the directory does not exist yet OR when it exists
+ * with the peaks-loop marker but no `codegraph.db` (dangling), so the
+ * next `peaks codegraph init` creates the root `.codegraph/` directory
+ * and its SQLite schema.
  */
 export function defaultCodegraphInitGuard(projectRoot: string): CodegraphInitGuardResult {
   const codegraphDir = join(projectRoot, CODEGRAPH_DIR_NAME);

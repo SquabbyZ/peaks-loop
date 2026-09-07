@@ -34,6 +34,7 @@ import {
   CODEGRAPH_STRUCTURE_MAX_DIRS,
 } from '../../../../src/services/codegraph/codegraph-preflight-service.js';
 import {
+  CODEGRAPH_DB_NAME,
   CODEGRAPH_MARKER_NAME,
   type CodegraphExecutionResult,
   type CodegraphInvocation,
@@ -126,11 +127,12 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
     }
   });
 
-  it('when .codegraph/ exists with a peaks-loop marker, should skip init/index (fresh) and only read files', async () => {
-    // given: a project whose `.codegraph/` already carries the peaks-loop marker
+  it('when .codegraph/ exists with a peaks-loop marker AND codegraph.db, should skip init/index (fresh) and only read files', async () => {
+    // given: a project whose `.codegraph/` carries the marker + db (initialized)
     const project = freshProject('peaks-cg-pre-i2-');
     mkdirSync(join(project, '.codegraph'), { recursive: true });
     writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    writeFileSync(join(project, '.codegraph', CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
     const runner = scriptedRunner({
       files: filesResult(['src/services/a.ts']),
     });
@@ -143,6 +145,29 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       expect(subcommands).toEqual(['files']);
       expect(subcommands).not.toContain('init');
       expect(subcommands).not.toContain('index');
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('when .codegraph/ has the marker but no db (dangling), should self-heal via init + index then read', async () => {
+    // given: a dangling peaks-loop dir (marker present, no codegraph.db)
+    const project = freshProject('peaks-cg-pre-i2b-');
+    mkdirSync(join(project, '.codegraph'), { recursive: true });
+    writeFileSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME), 'peaks-loop-managed\n', 'utf8');
+    const runner = scriptedRunner({
+      init: { exitCode: 0, stdout: 'initialized\n', stderr: '' },
+      index: { exitCode: 0, stdout: 'indexed\n', stderr: '' },
+      files: filesResult(['src/services/a.ts']),
+    });
+    try {
+      // when: the preflight is invoked
+      const result = await buildCodegraphPreflightBlock(project, runner);
+      // then: it self-heals by running init → index → files in order
+      expect(result.available).toBe(true);
+      if (!result.available) throw new Error('unreachable');
+      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });
     }

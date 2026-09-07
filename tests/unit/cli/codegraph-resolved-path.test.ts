@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  CODEGRAPH_DB_NAME,
   CODEGRAPH_DIR_NAME,
   CODEGRAPH_MARKER_NAME,
   createCodegraphInvocation,
@@ -147,8 +148,8 @@ describe('defaultCodegraphInitGuard root-only', () => {
     }
   });
 
-  it('when root .codegraph holds a peaks-loop marker, should return noop at root .codegraph', () => {
-    // given: root `.codegraph/` stamped with the peaks-loop marker
+  it('when root .codegraph holds a peaks-loop marker AND codegraph.db, should return noop at root .codegraph', () => {
+    // given: root `.codegraph/` stamped with the peaks-loop marker + initialized db
     // when:  defaultCodegraphInitGuard is invoked
     // then:  status is noop-already-peaks-loop and the marker file is on disk at root
     const projectRoot = freshProject();
@@ -156,11 +157,30 @@ describe('defaultCodegraphInitGuard root-only', () => {
       const codegraphDir = rootCodegraphDir(projectRoot);
       mkdirSync(codegraphDir, { recursive: true });
       writeCodegraphMarker(codegraphDir);
+      writeFileSync(join(codegraphDir, CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
 
       const outcome = defaultCodegraphInitGuard(projectRoot);
       expect(outcome.status).toBe('noop-already-peaks-loop');
       expect(outcome.codegraphDir).toBe(codegraphDir);
       expect(existsSync(join(codegraphDir, CODEGRAPH_MARKER_NAME))).toBe(true);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('when root .codegraph holds a marker but no codegraph.db (dangling), should return fresh at root .codegraph', () => {
+    // given: root `.codegraph/` carrying the marker but no db (dangling)
+    // when:  defaultCodegraphInitGuard is invoked
+    // then:  status is fresh (re-init self-heals the dangling state)
+    const projectRoot = freshProject();
+    try {
+      const codegraphDir = rootCodegraphDir(projectRoot);
+      mkdirSync(codegraphDir, { recursive: true });
+      writeCodegraphMarker(codegraphDir);
+
+      const outcome = defaultCodegraphInitGuard(projectRoot);
+      expect(outcome.status).toBe('fresh');
+      expect(outcome.codegraphDir).toBe(codegraphDir);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
