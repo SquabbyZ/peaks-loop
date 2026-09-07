@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0.30 — 2026-09-07 (搜索优先 preflight + 超行文件拆分 + CLI 漂移修复)
+
+**Highlights**:
+
+1. **搜索优先 preflight（fresh-context）** — 编排层新增信号触发的「先搜再答」：`peaks fresh-context preflight` 做确定性信号扫描，命中则搜 Context7+WebSearch，合成 ≤5 条「绑定指令」（用 X / 别用 Y / 因为 Z）注入 PRD/RD 派发提示词，对冲模型训练数据 2 个月滞后。带权威框架 + 全局 kill-switch + fail-soft 降级 + job 内缓存。
+
+2. **9 个超行文件拆分** — `src/` 全部源文件降至 ≤800 行（Karpathy §2 红线）：dispatch-record-writer 1376→774、dispatch-commands 961→752、worktree-auth-commands 1032→312、slice-decompose-service 1014→765、auto-compact-orchestrator 999→756、hooks-settings-service 875→642、skill-statusline-renderer 873→646、project-standards-service 862→644、reconcile-service 861→649、request-commands 806→712。
+
+3. **CLI 漂移修复** — 修复 request-id 大小写敏感（buildNumberedFilename 小写化 slug vs lookup case-sensitive）与子代理覆盖 session 绑定两个 bug；补全 `peaks sub-agent dispatch` 强制 `--graph-node` 的文档。
+
+4. **`peaks evidence generate`** — 一键生成 slice 的 11 个证据工件，收敛编排仪式开销。
+
+5. **UI 组件库优先注入** — RD/UI 派发提示词直接注入检测到的组件库（`## Project stack` 块），前端开发优先用已装组件库而非原生 DOM。
+
 ## 4.0.29 — 2026-09-03 (codegraph 生命周期闭环 — pre-read + auto-refresh)
 
 **3 atomic commits from session 2026-09-03-session-d49394** (user feedback #3):
