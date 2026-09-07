@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.0.31 — 2026-09-08 (codegraph auto-refresh 悬空 marker 修复)
+
+**Highlights**:
+
+1. **codegraph 自动刷新失效修复** — 根因：`peaks workspace init` auto-stake 只写 `.peaks-loop-marker` 不跑上游 `codegraph init`，留下无 `codegraph.db` 的悬空 `.codegraph/`；下游把"有 marker"误判为"已初始化"，post-slice 自动刷新跑 `index` 静默失败（"CodeGraph not initialized"）。
+
+   - 新增 `isCodegraphInitialized()` 按 `.codegraph/codegraph.db` 判真实初始化（对齐上游 `isInitialized`）。
+   - `workspace init` auto-stake 改为真跑上游 `codegraph init`（快、离线安全）。
+   - auto-refresh / preflight 发现悬空 marker（有 marker 无 db）时自愈：先 `init` 再 `index`。
+   - init guard 对"marker 有但 db 无"返回 `fresh`，`peaks codegraph init` 可重跑恢复。
+
+   验证：scoped 51 测试 + codegraph/workspace 73 测试全过，tsc 干净，现场自测从悬空态成功建出 `codegraph.db`。
+
 ## 4.0.30 — 2026-09-07 (搜索优先 preflight + 超行文件拆分 + CLI 漂移修复)
 
 **Highlights**:
