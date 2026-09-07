@@ -57,6 +57,18 @@ export interface DispatchPromptInput {
    *   block and the memory/task content.
    */
   projectStackBlock?: string | null;
+  /**
+   * Slice 2026-09-07-search-first-preflight: the orchestrator-synthesized
+   * `## Fresh context` block (≤5 binding directives from a Context7 →
+   * WebSearch preflight), read from `.peaks/_runtime/<sessionId>/fresh-context.md`.
+   *
+   * - `undefined` → no fresh-context block (legacy callers unchanged).
+   * - `null` → the block is unavailable (missing file / no `## Fresh context`
+   *   heading); the composer renders nothing (byte-identical degradation).
+   * - `string` → the block, rendered verbatim after the project-stack block
+   *   and before the memory/task content.
+   */
+  freshContextBlock?: string | null;
 }
 
 /**
@@ -161,14 +173,15 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * refusal is in scope before any task-specific prose arrives.
  */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskBody, memoryBlock, contextProbe, codegraphBlock, projectStackBlock } = input;
+  const { taskBody, memoryBlock, contextProbe, codegraphBlock, projectStackBlock, freshContextBlock } = input;
   const contextBlock = renderContextBlock(contextProbe ?? null);
   const codegraphText = renderCodegraphBlock(codegraphBlock);
   const projectStackText = renderProjectStackBlock(projectStackBlock);
+  const freshContextText = renderFreshContextBlock(freshContextBlock);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${taskBody}`;
+  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${taskBody}`;
 }
 
 /**
@@ -214,6 +227,23 @@ function renderCodegraphBlock(codegraphBlock: string | null | undefined): string
 function renderProjectStackBlock(projectStackBlock: string | null | undefined): string {
   if (projectStackBlock === undefined || projectStackBlock === null) return '';
   return `${projectStackBlock.replace(/\s+$/, '')}\n\n`;
+}
+
+/**
+ * Render the fresh-context insertion for a dispatch prompt.
+ *
+ * - `undefined` / `null` → empty (the composer is byte-identical to the
+ *   legacy shape — no dangling "Fresh context" heading).
+ * - `string` → the pre-composed block from the fresh-context preflight
+ *   synthesis, verbatim.
+ *
+ * Mirrors `renderProjectStackBlock`: every non-empty variant is normalized
+ * to end on its own paragraph (`\n\n`) so the following block (project
+ * memory or task body) starts cleanly.
+ */
+function renderFreshContextBlock(freshContextBlock: string | null | undefined): string {
+  if (freshContextBlock === undefined || freshContextBlock === null) return '';
+  return `${freshContextBlock.replace(/\s+$/, '')}\n\n`;
 }
 
 /**

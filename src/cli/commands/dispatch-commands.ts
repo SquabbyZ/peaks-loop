@@ -56,6 +56,7 @@ import {
 import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
 import { computeUiLibraryDispatchBlock } from '../../services/standards/ui-library-dispatch-block.js';
+import { readFreshContextBlock } from '../../services/fresh-context/fresh-context-block.js';
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
 import {
   createDispatchProvenanceToken,
@@ -438,6 +439,18 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       if (role === 'rd' || role === 'ui') {
         projectStackBlock = computeUiLibraryDispatchBlock(projectRoot);
       }
+      // Slice 2026-09-07-search-first-preflight: read the orchestrator-
+      // synthesized fresh-context block for rd + prd dispatches. The block
+      // was written to .peaks/_runtime/<sid>/fresh-context.md when the
+      // preflight triggered; it carries ≤5 binding directives that hedge
+      // model training-data lag. Fail-soft: a missing / unreadable file, or
+      // a file without the `## Fresh context` heading, degrades to null so
+      // the prompt stays byte-identical to the legacy shape. Other roles
+      // (qa/sc/txt/ui) keep the legacy prompt unchanged.
+      let freshContextBlock: string | null | undefined;
+      if (role === 'rd' || role === 'prd') {
+        freshContextBlock = readFreshContextBlock(projectRoot, sid);
+      }
       // Slice 2026-07-29-context-evaluation-accuracy: capture the
       // authoritative context-fill probe before composing the
       // dispatch prompt. The probe is token-counted (IDE adapter's
@@ -474,7 +487,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // Same optionality contract for the project-stack block: set only
         // when the rd/ui detection ran (null = no library → no block,
         // undefined = non-frontend role → legacy prompt unchanged).
-        ...(projectStackBlock !== undefined ? { projectStackBlock } : {})
+        ...(projectStackBlock !== undefined ? { projectStackBlock } : {}),
+        // Same optionality contract for the fresh-context block: set only
+        // when the rd/prd read ran (null = no block on disk → no block,
+        // undefined = non-rd/prd role → legacy prompt unchanged).
+        ...(freshContextBlock !== undefined ? { freshContextBlock } : {})
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
       // block so the sub-agent sees the lease id + worktree path. The block

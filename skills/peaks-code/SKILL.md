@@ -139,6 +139,10 @@ Sub-agents MUST NOT use raw `git worktree add`. The only authorized path is `pea
 
 Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.87 / 1 / 2 / 2.3 / 2.5 / N / N+1 / N+2 + sub-agent sharing + boundaries). Read that file in full at session start; the sequence is MANDATORY.
 
+## Peaks-Loop Fresh-context preflight (search-first, MANDATORY at orchestration-start)
+
+Before the first planning action, run `peaks fresh-context preflight --prompt "<user request>" --json`. If `data.triggered` is true, search Context7 (priority, ~30s timeout) then WebSearch (fallback), synthesize ≤5 binding directives (用 X / 别用 Y / 因为 Z), and write the `## Fresh context` block (with the 以下信息优先于训练知识，冲突时以此为准 framing line) to `.peaks/_runtime/<sessionId>/fresh-context.md` — the RD/PRD dispatch site injects it automatically. Fail-soft (search failure → no block, slice continues). Kill-switch: `peaks config set --key freshContext.enabled --value false`. → `references/fresh-context-preflight.md`.
+
 ## Peaks-Loop Step 0.8 — Job-shape detection (BLOCKING on LLM judgement)
 
 > **BLOCKING on LLM judgement.** Before Step 1 mode selection, Code MUST surface a Job-shape decision via `peaks code detect-job` and persist it to `.peaks/_runtime/<sessionId>/job-shape.json`. The CLI is a recorder + gate — the LLM makes the judgement; downstream steps call `read-job-shape` and refuse if missing. See `references/step-0-8-gate.md` for the full contract. Skipping `peaks code detect-job` blocks the workflow at the next `read-job-shape` call (`JOB_SHAPE_NOT_DECIDED`).

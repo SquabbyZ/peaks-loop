@@ -30,6 +30,7 @@ import { registerFeedbackCommands } from './feedback-commands.js';
 import { registerFinalReviewCommands } from './final-review-commands.js';
 import { registerFixtureCommands } from './fixture-commands.js';
 import { registerForkCommands } from './fork-commands.js';
+import { registerFreshContextCommands } from './fresh-context-commands.js';
 import { registerGateCommands } from './gate-commands.js';
 import { registerClassifyCommands, registerContractCommands } from './governance-classify-contract-commands.js';
 import { registerHookHandleCommand } from './hook-handle.js';
@@ -136,6 +137,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['loop-commands', registerLoopCommands], ['loop-eval-commands', registerWorkflowEvalCommands],
   ['evolution-commands', registerEvolutionCommands], ['asset-commands', registerAssetCommands],
   ['evidence-commands', registerEvidenceCommands],
+  ['fresh-context-commands', registerFreshContextCommands],
   ['bee-commands', registerBeeCommands], ['ecc-commands', registerEccCommands],
   ['baseline-commands', registerBaselineCommands],
   ['upgrade-commands', registerUpgradeCommands], ['code-review-commands', registerCodeReviewCommands],
