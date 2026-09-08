@@ -215,10 +215,9 @@ export const COPY: Record<LocaleId, SceneCopy> = {
       stackItems: [
         { name: "peaks-loop", tagline: "loop engineering · 多域编排" },
         { name: "ECC", tagline: "everything-claude-code · 战术" },
-        { name: "Understand-Anything", tagline: "@Egonex-AI · 代码理解" },
         { name: "superpowers", tagline: "@obra · 流程纪律" },
       ],
-      footerLineA: "peaks-loop + ECC + Understand-Anything + superpowers",
+      footerLineA: "peaks-loop + ECC + superpowers",
       footerSep: "—",
       footerLineB: "一句话组合上手,效果俱佳,0 学习成本",
     },
@@ -362,10 +361,9 @@ export const COPY: Record<LocaleId, SceneCopy> = {
       stackItems: [
         { name: "peaks-loop", tagline: "loop engineering · multi-domain" },
         { name: "ECC", tagline: "everything-claude-code · tactics" },
-        { name: "Understand-Anything", tagline: "@Egonex-AI · code understanding" },
         { name: "superpowers", tagline: "@obra · process discipline" },
       ],
-      footerLineA: "peaks-loop + ECC + Understand-Anything + superpowers",
+      footerLineA: "peaks-loop + ECC + superpowers",
       footerSep: "—",
       footerLineB: "compose them in one sentence — best effect, zero learning cost",
     },
