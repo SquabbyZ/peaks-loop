@@ -50,13 +50,23 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npx vitest run --reporter=default
+        # github-actions reporter surfaces each failure as a GitHub
+        # annotation, which is readable without repo-admin rights — the
+        # job log itself is admin-only on this repo.
+        run: npx vitest run --reporter=default --reporter=github-actions
         env:
           # Suppress per-platform timing flake; tests stub Date where needed.
           TZ: UTC
 
       - name: Run capability guards
+        # The J02/J* contracts spawn `bin/peaks.js`, whose caller-id
+        # resolution falls through to D2/EX_USAGE (exit 64) on a CI runner
+        # with no IDE adapter env. PEAKS_CALLER_ID is the documented
+        # vendor-neutral override for exactly this case
+        # (src/services/session/resolve-caller-id.ts L16-20).
         run: pnpm test:capability-guard
+        env:
+          PEAKS_CALLER_ID: ci-runner
 
   binding-store-multi-process:
     # Slice v2.18.0 REDO — two-Claude-windows CI integration test.
