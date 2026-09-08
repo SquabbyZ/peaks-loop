@@ -9,7 +9,7 @@
 [![ci](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
-[![tests](https://img.shields.io/badge/tests-285%2B%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
+[![tests](https://img.shields.io/badge/tests-1096%20cases%20%C3%97%204%20pkgs-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&github=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 [English](./README-en.md) · **简体中文**
@@ -128,7 +128,7 @@ npm i -g peaks-loop
 
 ---
 
-## 当前状态 · 4.0.17
+## 当前状态 · 4.0.32
 
 <p align="center">
   <img src="./assets/readme/pulse.svg" alt="peaks-loop live metrics — 4 tiles + sparkline + pipeline progress" width="92%"/>
@@ -140,34 +140,27 @@ npm i -g peaks-loop
 
 | | |
 | --- | --- |
-| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.17(2026-08-07) |
+| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.32(2026-09-08) |
 | **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测 / `peaks-slice-decompose` 切片) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
-| **测试套件** | 285+ cases · 4 packages (peaks-loop / peaks-loop-mut / peaks-loop-shared-channel / peaks-loop-shared) · 0 timeouts · 14 BDD caller-binding coverage |
+| **测试套件** | 1096 cases · 4 packages (peaks-loop 1015 / runtime 39 / mut 22 / shared-channel 20) · **CI 首次全绿**(ubuntu + windows) · 14 BDD caller-binding coverage |
 | **适配 IDE** | ✅ Claude Code · ✅ Z Code · 🚧 Codex / Cursor / Trae / Tongyi Lingma / Hermes / OpenClaw / Qoder(适配中,欢迎共建) |
 | **依赖运行时** | Node ≥ 20 |
 | **License** | MIT |
 
-### 4.0.17 这一波实打实修了什么(2026-08-07)
+### 近期演进(4.0.18 → 4.0.32)
 
-| Epic | 解决的事 | 怎么验 |
+| 版本 | 解决的事 | 怎么验 |
 | --- | --- | --- |
-| **Vitest worker cap(根因修)** | 完整套件 17 个 timeout 卡 30s;根因不是 bug,是 `pool:'forks'+fileParallelism:true` 没设 `maxWorkers`,16 核机器起 15 个 fork + 2 文件真实 `node` spawn = 8.8× 过载。`testTimeout` 算 wall clock,被 descheduled 的测试烧 30s 啥都不干。修 = `maxWorkers = floor(cpus/2)` + `PEAKS_VITEST_MAX_WORKERS` env override + 6-case drift guard。**17 timeout → 0,wall 383.67s → 360.40s,3/3 AC-1 runs 全 0 timeout。** | commit `ace1a03d` + guard test `tests/unit/vitest-concurrency-guard.test.ts` |
-| **PRD-002b ESLint 严格化(no-magic-numbers)** | 切片 2 关闭 917 → 192 violations(-725);20 source files 把 140+ inline magic numbers 抽出成 named consts;`no-magic-numbers` 配置加 `ignore: [-1,0,1,2,100,1000]` + `ignoreArrayIndexes/ignoreDefaultValues`;7 BDD tests,31/31 lint tests PASS。Severity 保持 `warn` 不变(D5 no-touch-stockcode)。 | commits `d5ef17c1` + `0c3187c4` + 7 BDD tests |
-| **Statusline `--now` 注入 + 24 spawns amortization** | 切片 1 根因 = test 用 `new Date().toISOString()` 写 lifecycle `updatedAt`,full-suite 并发下 subprocess 被 deschedule 几秒后才执行,10s 窗口过期 → C1 baseline fallback → 期望 `[████████]` 失败。修 = CLI 加 `--now <ms>`,test 共享 `TEST_NOW_MS` 锚定。**切片 7** 进一步把 24 个真实 `node dist/cli/index.js` spawn 换成 1 个 `beforeAll` IPC server,wall 216s → 29s(7.5× 加速),24/24 PASS。 | commit `3d6e4bc9` (含切片 1) + `44c42424` (切片 7) |
-| **Complexity refactor(切片 3 A+B+C+D + 切片 4 bundle-reader rewrite)** | 切片 3 四阶段 refactor 关闭 357 → 330 complexity violations(goal ≤90,本波覆盖 ~7% 的高 cohort):spec-service parser 走 table-dispatch、slice-decompose FSM、project-context detectComponentLibrary 11 探测 dispatch;**切片 4** = bundle-reader full rewrite,5 violations → 1,public API preserved verbatim。 | commits `72ef798c` + `31160051` + `1ac6e56d` + `923be824` + `0603754d` + `6b27eb94` |
-| **Type narrowing + max-lines 试点(切片 5+6)** | 切片 5 关 670 violations:667 phantom `no-explicit-any` config swap(ruleId 修复,类似 no-duplicate-imports 老坑)+ 3 real narrowing(`catch (error: any)` → `unknown` + `instanceof Error`)。切片 6 切 dispatch-record-writer.ts 4 个超长函数,4 → 0 in target file。两 slice 都证明 rule essentially exhausted 真比 memory 标注小一个数量级。 | commits `fbb43e9e` + `3d6e4bc9` (含) |
-| **Mac auto-compact ESM 防 fake-green 5/5 验证** | 切片 8 audit-only:5 个 defenses (`readClaudeTranscriptFallback` / `readClaudeStatuslinePercent` / `presence-marker-detector` / `post-compact-detector` / `step-08-gate`) 全部 in-place,ESM `require()` 0 hits,legacy silent-catch blocks 已 explicit re-throw `ReferenceError` / `SyntaxError`。 | sediment `.peaks/memory/2026-08-07-mac-esm-defense-audit.md` |
-| **Caller-binding 覆盖扩展(切片 9)** | 14 BDD tests 覆盖 5 gap categories:multi-tenant 隔离 / rotation 后 recovery / TTL freshness / rotation hygiene / primary-wins contract。`tests/unit/session/*` 从 51 → 65 tests。 | commit `823be8c4` + new file `tests/unit/session/caller-binding-slice-9-edge-cases.test.ts` |
-| **Pre-publish 验证全过** | gate-cli-version ALIGNED(root 4.0.17 == shared CLI_VERSION 4.0.17),build-integrity OK,0 Co-Authored-By trailers。 | per `peaks-loop-publishing-critical-hard-rules` recipe |
-
-| Epic | 解决的事 | 怎么验 |
-| --- | --- | --- |
-| **测试体系从零重建** | 旧 559 文件单测卡 3 小时跑不完;现 11 test files / 161 cases 单测已上线,加上子包测试与新增切片,全量 4 packages 285+ cases 全绿,`pnpm test:full` ~80s。删旧断言、写生产合约、4 维分拆(render/behavior/integration/a11y)。 | commit `f17aa377` → `1d6233bc` · `.peaks/memory/2026-07-30-test-rebuild-epic-sediment.md` |
-| **Karpathy 评估成本自审** | LLM 在 1-2 个 slice 后不再"今天差不多了明天继续"——`karpathy-reviewer` 报 `costRatio`,>10 时 `peaks job karpathy-cost-check` 自动降级 `block`→`warn`。24h-mode 仍是 override。 | `peaks job karpathy-cost-check --review-file <path>` · 21 cases 单测 |
-| **Compact 显性可见** | `peaks compact history` 给 LLM 看本次会话所有 compact 事件;`peaks statusline compact` 单行指示给 IDE 状态栏( `--` / `compact pending (0.85)` / `REDLINE 0.95` / `just compacted (0.92→?)`)。 | `auto-compact-orchestrator` append 到 `compact-history.jsonl` · 19 cases 单测 |
-| **子包独立单测 + `pnpm test:full` 覆盖全 workspace** | `peaks-loop-mut` / `peaks-loop-shared-channel` 各自 4 维单测;`peaks-loop-shared` 0 file (passWithNoTests);root 镜像冗余删除。 | commit `593ffcdf` → `08e92d8f` · `pnpm test:full` 一次跑完 4 packages |
-| **CLI surface 收敛(73 → 5 super-commands)** | 5 个 super-command(`peaks code / audit / doctor / openspec / release / release-pack`)替换 73 个 leaf command,byte-identical 契约保留,改动对外透明。 | rid-009 · 26 routing test |
+| **4.0.32** | **CI 首次全绿** —— ci.yml 此前死在第一个门(`pnpm/action-setup@v4` 在 Node 24 runner 上 self-installer 必挂),后面所有步骤从未被验证。修 5 层:corepack 替 pnpm action、删 pre-Build 的 `tsc`(结构性过不了:subpath 指向未生成的 dist)、移除 node 20 矩阵、CI 固定 `PEAKS_CALLER_ID`、3 类 Linux-only 测试 bug(`setImmediate` 闭包竞态 / 平台写死断言 / 墙钟 flake)。 | CI run 全 3 job success;双平台独立复跑 119 files / 0 failed |
+| **4.0.31** | **codegraph 自动刷新失效修复** —— `.peaks-loop-marker` 被下游误判为"已初始化",悬空 `.codegraph/` 永远建不出 `codegraph.db`。改为按 `codegraph.db` 判真实初始化 + 源头真 `init` + 悬空态自愈。 | 现场从悬空态成功建出 24.71 MB 索引 |
+| **4.0.30** | **搜索优先 preflight**(编排层"先搜再答":Context7/WebSearch → ≤5 条绑定指令注入 RD 派发)+ **9 个超行文件拆分**(`src/` 全量 ≤800 行)+ CLI 漂移修复。 | scoped + full suite |
+| **4.0.29** | **codegraph 生命周期闭环** —— RD 规划前 pre-dispatch preflight 自动 init/index 并注入结构;slice 完成边界自动 refresh(CLI-internal,不可绕过)。 | 29 单测 |
+| **4.0.28** | **codegraph 数据目录回根** + **env-first 1M 窗口识别**(修 1M 模型被误判 200K 导致 false soft-warn)。 | `context-now` 修复前 200K/0.884 → 修复后 1M/0.187 |
+| **4.0.24** | zod v4 + Context7 接入 + **Step 2.5 best-practice scan**(业务感知的最佳实践扫描)。 | — |
+| **4.0.21** | vendor-detect recovery + codegraph 集成 + anti-fake-green gate。 | — |
+| **4.0.19 / 4.0.20** | **detached sub-agent**(真 OS 进程 + G8 无限上下文自压缩);`peaks-loop-internal-runtime` 作为公开 lockstep 包发布。 | — |
+| **4.0.18** | statusline 24h overlay。 | — |
 
 ---
 
