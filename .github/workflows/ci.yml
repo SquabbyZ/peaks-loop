@@ -36,10 +36,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: npx tsc --noEmit --pretty false
-
       - name: Build
+        # Canonical typecheck happens inside `npm run build`: it builds every
+        # workspace package (creating packages/*/dist, which the shared
+        # `./version` subpath export resolves to) then runs
+        # `tsc -p tsconfig.build.json`. A standalone pre-Build `tsc` step
+        # cannot resolve `peaks-loop-shared/version` on a fresh checkout
+        # (dist absent) and is therefore always red — removed (same contract
+        # as publish.yml).
         run: npm run build
 
       - name: Test
@@ -81,10 +85,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: npx tsc --noEmit --pretty false
-
       - name: Build
+        # Canonical typecheck happens inside `npm run build`: it builds every
+        # workspace package (creating packages/*/dist, which the shared
+        # `./version` subpath export resolves to) then runs
+        # `tsc -p tsconfig.build.json`. A standalone pre-Build `tsc` step
+        # cannot resolve `peaks-loop-shared/version` on a fresh checkout
+        # (dist absent) and is therefore always red — removed (same contract
+        # as publish.yml).
         run: npm run build
 
       - name: Test binding-store multi-process
