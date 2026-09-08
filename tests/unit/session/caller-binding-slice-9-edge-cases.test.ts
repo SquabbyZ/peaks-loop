@@ -108,8 +108,11 @@ afterEach(() => {
   try { process.chdir(prevCwd); } catch { /* best-effort */ }
   // Defer tmp cleanup; the rmSync races on Windows open-handle were
   // the source of the 5s hookTimeout flake (see slice 6 sediment).
+  // Capture the value BEFORE deferring: `workspace` is reassigned by the
+  // next test's beforeEach, and a deferred read would delete the LIVE dir.
+  const wsToRemove = workspace;
   setImmediate(() => {
-    try { require('node:fs').rmSync(workspace, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try { require('node:fs').rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
   });
 });
 

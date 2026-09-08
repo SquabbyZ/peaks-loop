@@ -8,6 +8,20 @@ const { spawnSync } = await import('node:child_process');
 const spawnSyncMock = vi.mocked(spawnSync);
 const { detectEslint } = await import('../../../../src/services/lint/detect-eslint.js');
 
+/**
+ * `resolveNpxInvocation` (src/services/lint/npx-resolver.ts) deliberately
+ * returns bare `npx` on POSIX and only resolves `node <npx-cli.js>` on
+ * win32 (where the `.cmd` shim needs the explicit script).
+ */
+function expectPlatformNpxCommand(call: [string, string[], Record<string, unknown>]): void {
+  if (process.platform === 'win32') {
+    expect(call[0]).not.toBe('npx');
+    expect(call[1][0]).toContain('npx-cli.js');
+  } else {
+    expect(call[0]).toBe('npx');
+  }
+}
+
 describe('detectEslint', () => {
   beforeEach(() => {
     spawnSyncMock.mockReset();
@@ -22,7 +36,7 @@ describe('detectEslint', () => {
 
     // then: the npx resolver forwards the args, and detection is ready
     const firstCall = spawnSyncMock.mock.calls[0] as [string, string[], Record<string, unknown>];
-    expect(firstCall[0]).not.toBe('npx');
+    expectPlatformNpxCommand(firstCall);
     expect(firstCall[1]).toContain('--version');
     expect(firstCall[2]).toMatchObject({ encoding: 'utf8' });
     expect(result.state).toBe('ready');
@@ -39,7 +53,7 @@ describe('detectEslint', () => {
     // then: detection stops after the resolver-based probe
     expect(spawnSyncMock).toHaveBeenCalledTimes(1);
     const firstCall = spawnSyncMock.mock.calls[0] as [string, string[], Record<string, unknown>];
-    expect(firstCall[0]).not.toBe('npx');
+    expectPlatformNpxCommand(firstCall);
     expect(firstCall[1]).toContain('--version');
     expect(result.state).toBe('npx-failed');
     expect(result.npxAvailable).toBe(false);

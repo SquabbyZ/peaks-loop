@@ -56,8 +56,11 @@ afterEach(() => {
   if (prevClaudeEnv === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
   else process.env.CLAUDE_CODE_SESSION_ID = prevClaudeEnv;
   try { process.chdir(prevCwd); } catch { /* best-effort */ }
+  // Capture the value BEFORE deferring: `workspace` is reassigned by the
+  // next test's beforeEach, and a deferred read would delete the LIVE dir.
+  const wsToRemove = workspace;
   setImmediate(() => {
-    try { rmSync(workspace, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try { rmSync(wsToRemove, { recursive: true, force: true }); } catch { /* best-effort */ }
   });
 });
 
