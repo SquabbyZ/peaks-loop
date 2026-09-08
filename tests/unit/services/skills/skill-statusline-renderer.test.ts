@@ -298,14 +298,18 @@ describe("Scenario: render — peaks-code mode display", () => {
 });
 
 describe("Scenario: render — stale and invalid-presence diagnostics", () => {
-  it("when invoked, should stale unicode renders Peaks ! peaks-code · stale 25h → peaks-loop", () => {
+  it("when invoked, should stale unicode renders Peaks ○ peaks-code · (previous session · 1 day ago) → peaks-loop", () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
+    // Slice rid-statusline-stale-ux AC-1: the stale branch renders
+    // `palette.idleStale` (muted `○`) + the neutral
+    // `(previous session · <formatHumanAge(ageMs)>)` suffix; 25h rounds
+    // to 1 day.
     const presence = presenceOf('peaks-code');
     const ageMs = 25 * 60 * 60 * 1000; // 25h
     const out = renderStatusLine(staleModel(presence, ageMs), { capability: 'unicode' });
-    expect(stripped(out)).toBe('Peaks ! peaks-code · stale 25h → peaks-loop');
+    expect(stripped(out)).toBe('Peaks ○ peaks-code · (previous session · 1 day ago) → peaks-loop');
   });
 
   it("when invoked, should invalid-presence unicode renders Peaks ! presence unreadable → peaks-loop", () => {
@@ -320,10 +324,12 @@ describe("Scenario: render — stale and invalid-presence diagnostics", () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
+    // Slice rid-statusline-stale-ux AC-1: ASCII mirrors the unicode stale
+    // layout with `o` / `-` glyphs and the same human-age suffix.
     const presence = presenceOf('peaks-code');
     const ageMs = 25 * 60 * 60 * 1000;
     const out = renderStatusLine(staleModel(presence, ageMs), { capability: 'ascii' });
-    expect(out).toBe('Peaks ! peaks-code . stale 25h -> peaks-loop');
+    expect(out).toBe('Peaks o peaks-code . (previous session - 1 day ago) -> peaks-loop');
   });
 });
 

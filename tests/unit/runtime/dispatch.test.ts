@@ -23,12 +23,28 @@ describe('dispatchDetached', () => {
   });
 
   it('throws if vendor adapter not registered', async () => {
+    // Phase B registers Claude + Codex + Copilot, so the throw path only
+    // fires for a genuinely unregistered vendor id. Cast through the
+    // narrow union so this stays a runtime guard test, not a type error.
     await expect(dispatchDetached({
       sid: 's1', rid: 'r1', role: 'rd',
-      vendor: 'codex', userTask: 'do X',
+      vendor: 'unregistered-vendor' as never, userTask: 'do X',
       files: [], refs: [],
       runtimeDir: '/tmp/runtime',
       subAgentsDir: '/tmp/subagents',
-    })).rejects.toThrow(/vendor adapter/);
+    })).rejects.toThrow(/vendor adapter not registered/);
+  });
+
+  it('resolves every built-in vendor adapter (claude, codex, copilot)', async () => {
+    for (const vendor of ['claude', 'codex', 'copilot'] as const) {
+      const r = await dispatchDetached({
+        sid: 's1', rid: `r-${vendor}`, role: 'rd',
+        vendor, userTask: 'do X',
+        files: [], refs: [],
+        runtimeDir: '/tmp/runtime',
+        subAgentsDir: '/tmp/subagents',
+      });
+      expect(r.pid).toBe(999);
+    }
   });
 });
