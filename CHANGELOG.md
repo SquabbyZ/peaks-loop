@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.0.32 — 2026-09-08 (CI 首次全绿 — 工作流修复 + Linux-only 测试修复)
+
+**Highlights**:
+
+1. **CI 工作流修复（本仓库 ci.yml 首次真正跑通）** — 此前第一个门 `pnpm/action-setup@v4` 在 runner 默认 Node 24 上 self-installer 必挂，导致后续所有步骤从未被验证。
+
+   - `pnpm/action-setup@v4` → `corepack`（对齐 publish.yml）。
+   - 删除 Build 之前的 `npx tsc --noEmit` 步骤：它跑在 `packages/*/dist` 生成之前，而 `peaks-loop-shared/version` 等 subpath 指向 dist，任何 commit 都过不了；canonical typecheck 由 `npm run build` 内的 `tsc -p tsconfig.build.json` 承担。
+   - 移除 node 20.x 矩阵（windows-latest + 20.x 的 pnpm install 红且日志 admin-only 无法诊断）。
+   - capability-guard 固定 `PEAKS_CALLER_ID`（J02 等 contract 会 spawn `bin/peaks.js`，CI 无 IDE adapter env 时 callerId 解析走 D2/EX_USAGE）。
+   - Test 步骤新增 `--reporter=github-actions`，失败转为可无 admin 读取的 check-run annotation。
+
+2. **3 类 pre-existing Linux-only 测试修复**（windows 早已绿，ubuntu 红；用 Docker Linux 容器忠实复现定位）：
+
+   - `setImmediate` 闭包竞态：延迟清理回调读取可变模块级 `workspace`，可能在下一个测试 `beforeEach` 重新赋值后删除**活着的**工作目录 → `ENOENT: uv_cwd`（3 个 session 套件 + 4 个潜伏同模式文件）。
+   - `detect-eslint` 断言 Windows 专属行为（`npx-resolver` 在 POSIX 上按设计返回裸 `npx`）→ 改为平台感知断言。
+   - `scan-orchestrator` 的 100ms 墙钟下限 flake → 改为断言 `elapsedMs` 已被填充。
+
+   验证：CI run 全 3 job success；双平台独立复跑 Linux 119 files / 1010 passed、Windows 119 files / 1014 passed。
+
 ## 4.0.31 — 2026-09-08 (codegraph auto-refresh 悬空 marker 修复)
 
 **Highlights**:
