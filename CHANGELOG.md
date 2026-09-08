@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.0.33 — 2026-09-09 (ECC 去插件化 + 动态获取修复 + 移除 understand-anything)
+
+**Highlights**:
+
+1. **ECC 去插件化** — 此前 ECC code-review 依赖用户手动安装 Claude Code 插件，新开发机缺失即静默降级为 inline review。
+
+   - **物化到 `~/.peaks/agents/ecc/`**（peaks 自有目录，**永不写 `~/.claude/`**）。
+   - **缓存后备路径**：插件缺失时自动确保缓存 → 把物化指令注入通用子代理 → 经同一 bridge 渲染，新增 `detectEcc` 状态 `ready-via-cache`。
+   - **按真实名解析**：新增 `resolveMaterializedAgentName()`（候选名 + 确定性回退），修正物化文件名 `code-review.md` → 上游实际 `code-reviewer.md`。
+   - **修正原生插件 id**：`everything-claude-code:code-review` → **`ecc:code-reviewer`**（插件实名 `ecc`、agent 实名 `code-reviewer`；旧名是退役的仓库名）。
+
+2. **修复 `peaks ecc install` 下载链（此前从未真正跑通）** — 三条 D-010 路径全挂：`ecc.tar.gz` 资产已不存在（404）、`tarball_url` 请求发 `accept: application/octet-stream` 被 GitHub 拒（415）、无 `.tgz` 资产可回退。现改为 `tarball_url → 资产 → PRD url` + 正确 accept 头；tar 根目录剥离改为按形状（codeload 与 api 前缀不同）。实测 `peaks ecc install` exit 0，物化 68 个 agent。
+
+3. **死代码 / 坏引用修复** — `getInstalledCapabilityIds` 从写死 `[]` 改为真实只读检测；`peaks shadcn init`（skill 引用但命令不存在）实现为 `npx --package shadcn@4.21.0` 动态包装；清除 AgentShield 的 3 处误导残留（死 flag / 每次必印的假提示 / 过期注释）。
+
+4. **移除 understand-anything 集成** — 命令 + 服务 + 能力目录 + skill/docs/README/宣传片引用全部删除，切片拆解与分析统一走 codegraph。
+
+**验证**：全量 124 files / 1057 passed（原 119 / 1014）；tsc clean；实测 `~/.claude/` 零写入。
+
 ## 4.0.32 — 2026-09-08 (CI 首次全绿 — 工作流修复 + Linux-only 测试修复)
 
 **Highlights**:
