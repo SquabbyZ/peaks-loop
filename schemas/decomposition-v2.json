@@ -12,7 +12,6 @@
     "crossPassEdges",
     "llmArbitrations",
     "codegraph",
-    "understandAnything",
     "partial"
   ],
   "properties": {
@@ -45,7 +44,6 @@
       "items": { "$ref": "#/$defs/LlmArbitration" }
     },
     "codegraph": { "$ref": "#/$defs/CodegraphEnvelope" },
-    "understandAnything": { "$ref": "#/$defs/UnderstandAnythingEnvelope" },
     "partial": {
       "type": "boolean",
       "description": "True iff any pass failed to complete and the result is a partial decomposition."
@@ -88,7 +86,7 @@
         },
         "semanticAnchor": {
           "type": "string",
-          "description": "Domain anchor; \"domain:<name>\" if understand-anything indexed, else \"file:<path>\"."
+          "description": "Domain anchor; always \"file:<path>\" (codegraph / structural evidence)."
         }
       }
     },
@@ -174,18 +172,6 @@
         "dbMB": { "type": "number", "minimum": 0 },
         "freshness": { "type": "string", "description": "Git commit SHA at which the codegraph index was built, or 'unindexed'." },
         "affectedCrossFile": { "type": "boolean" },
-        "note": { "type": "string" }
-      }
-    },
-    "UnderstandAnythingEnvelope": {
-      "type": "object",
-      "description": "Understand-anything knowledge-graph envelope. `available: false` means semantic-only downstream behaviour is disabled.",
-      "required": ["kgNodes", "kgEdges", "available", "fallback", "note"],
-      "properties": {
-        "kgNodes": { "type": "integer", "minimum": 0 },
-        "kgEdges": { "type": "integer", "minimum": 0 },
-        "available": { "type": "boolean" },
-        "fallback": { "type": "string", "enum": ["semantic", "structural-only"] },
         "note": { "type": "string" }
       }
     }

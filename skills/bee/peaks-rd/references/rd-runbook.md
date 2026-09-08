@@ -23,8 +23,6 @@ peaks openspec validate <change-id> --project <repo> --json    # entry gate
 peaks openspec to-rd    <change-id> --project <repo> --json    # acceptance + commit boundaries
 
 # 4. project-analysis evidence — MANDATORY before implementation
-peaks understand status --project <repo> --json
-peaks understand show   --project <repo> --json                # when UA artifact exists
 peaks codegraph context --project <repo> "<task>"
 peaks codegraph affected --project <repo> <changed-files...> --json
 

@@ -217,7 +217,7 @@ Codegraph is local project-analysis evidence, scoped to red-line scope boundarie
 
 ## Matt Pocock skills integration
 
-Matt Pocock skills (`diagnose` / `triage` / `tdd` / `improve-codebase-architecture` / `prototype`): engineering references only. Inspect before applying; Peaks-Loop RD gates remain authoritative. Understand Anything: `peaks understand status/show --json`. Codegraph: local analysis only, never commit `.codegraph/` artifacts. Other external resources: `peaks capabilities --source access-repo/mcp-server --json` for capability discovery.
+Matt Pocock skills (`diagnose` / `triage` / `tdd` / `improve-codebase-architecture` / `prototype`): engineering references only. Inspect before applying; Peaks-Loop RD gates remain authoritative. Codegraph: project analysis is codegraph-first (`peaks codegraph context/affected`), structural import edges as the fallback; local analysis only, never commit `.codegraph/` artifacts. Other external resources: `peaks capabilities --source access-repo/mcp-server --json` for capability discovery.
 
 → see `references/external-references.md` + `references/matt-pocock-integration.md` + `references/codegraph-project-analysis.md`.
 

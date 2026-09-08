@@ -20,8 +20,6 @@
  *   - The default `importEdgeRunner` parses real `import ... from`
  *     statements from the actual source files — that's the part of the
  *     algorithm that genuinely touches the real codebase.
- *   - The default `understandRunner` reads `.understand-anything/` from
- *     disk and returns null when not indexed (the algorithm tolerates this).
  *   - The cross-pass edge merger (`merge`) runs unconditionally when there
  *     are ≥2 passes (W6 fix #1) and uses static detection only — no LLM
  *     runner is supplied so `llmArbitrations` stays empty.
@@ -146,9 +144,8 @@ describe('slice-topology e2e', () => {
     expect(Array.isArray(result.crossPassEdges)).toBe(true);
     expect(Array.isArray(result.llmArbitrations)).toBe(true);
 
-    // Codegraph + understand-anything envelopes are populated.
+    // Codegraph envelope is populated.
     expect(result.codegraph).toBeDefined();
-    expect(result.understandAnything).toBeDefined();
   }, E2E_TIMEOUT_MS);
 
   it('returns a single service-level pass when granularity=service', async () => {

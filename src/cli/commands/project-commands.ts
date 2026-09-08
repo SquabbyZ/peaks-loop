@@ -21,7 +21,7 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     project
       .command('dashboard')
-      .description('One-call snapshot of doctor / MCP / OpenSpec / requests / Understand Anything / capabilities for a project')
+      .description('One-call snapshot of doctor / MCP / OpenSpec / requests / capabilities for a project')
       .requiredOption('--project <path>', 'target project root')
       .option('--strict', 'ok follows the doctor aggregate (legacy semantics). Default: workspace-only (ok tracks the runbook health)', false)
   ).action(async (options: ProjectDashboardOptions) => {

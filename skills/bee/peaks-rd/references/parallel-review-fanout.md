@@ -46,7 +46,12 @@ Note: sub-agent 1 (code-reviewer) and sub-agent 3 (karpathy-reviewer) write to `
 - Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
 - Output: `.peaks/_runtime/<sessionId>/rd/code-review.md` with sections: Summary, Findings, Required Fixes, Recommended, Verdict.
 - Required for Gate B3.
-- **v2.11.0 Tier 7 (Group D):** the code-reviewer dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`). The parent RD loop invokes the Agent tool with `subagent_type: "everything-claude-code:code-review"` and receives a structured envelope `{ passed, violations[], gateAction }`. The bridge adapter (`adaptEccEnvelopeToRdCodeReview`) renders that envelope into the canonical `rd/code-review.md` markdown shape that Gate B3 reads (`mustContain: ['## Findings', 'CRITICAL']`). The 5-state detector (`detectEcc`: ready / plugin-missing / agent-missing / dispatch-failed / envelope-malformed) soft-fails to inline review on any non-ready state — TXT note `code-review-ecc-degraded-to-inline`.
+- **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:** the code-reviewer dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`). Fallback order is **native plugin → cache-backed generic agent → inline**:
+  1. **Native plugin** (`detectEcc` state `ready`): invoke the Agent tool with `subagent_type: "ecc:code-reviewer"` (plugin `ecc` + agent `code-reviewer`; see `DEFAULT_NATIVE_ECC_AGENT_ID`); it returns the structured envelope `{ passed, violations[], gateAction }`.
+  2. **Cache-backed generic agent** (`detectEcc` state `ready-via-cache` — plugin or its review agent absent, but a materialized ECC agent exists under `~/.peaks/agents/ecc/`): resolve the agent's REAL name first — `resolveMaterializedAgentName(['code-reviewer', 'code-review'])` from `peaks-loop-mut` (upstream ships `code-reviewer.md`; a hardcoded `code-review.md` never resolves). Read `~/.peaks/agents/ecc/<resolved>.md`, pass the name through as `detectEcc({ ..., cacheAgentName: resolved })`, build the prompt with `buildCacheBackedEccPrompt({ rid, instructions, diff })` (agent body + diff + `ECC_OUTPUT_CONTRACT`), dispatch a **generic** sub-agent, and validate its reply with `isEccEnvelope`. No ECC plugin required. If the cache is empty, run `peaks ecc install` first (dynamic acquisition); if that fails offline, degrade to inline.
+  3. **Inline** (`detectEcc` states `plugin-missing` / `agent-missing` / `dispatch-failed` / `envelope-malformed`): fall back to inline review — TXT note `code-review-ecc-degraded-to-inline`.
+
+  In all dispatchable cases the envelope is rendered by the SAME bridge adapter (`adaptEccEnvelopeToRdCodeReview`) into the canonical `rd/code-review.md` markdown shape that Gate B3 reads (`mustContain: ['## Findings', 'CRITICAL']`). The materialized copy lives under `~/.peaks/agents/ecc/` — peaks-loop NEVER writes into `~/.claude/`.
 
 **Sub-agent 2 — qa-test-cases-writer (always runs for feature / refactor / bugfix):**
 - Read the git diff and the PRD acceptance criteria.
@@ -82,7 +87,7 @@ Note: sub-agent 1 (code-reviewer) and sub-agent 3 (karpathy-reviewer) write to `
 
 **Degradation when a sub-agent fails or returns blocked:**
 - code-review sub-agent fails: fall back to inline RD code review. TXT handoff note: `code-review-subagent-degraded-to-inline`.
-- code-review sub-agent runs the ECC bridge but ECC is unavailable (plugin-missing / agent-missing / dispatch-failed / envelope-malformed per `detectEcc`): fall back to inline RD code review. TXT handoff note: `code-review-ecc-degraded-to-inline`.
+- code-review sub-agent runs the ECC bridge but neither the native plugin nor the cache-backed path is available (plugin-missing / agent-missing / dispatch-failed / envelope-malformed per `detectEcc`): fall back to inline RD code review. TXT handoff note: `code-review-ecc-degraded-to-inline`.
 - qa-test-cases sub-agent fails: fall back to inline QA test-case drafting at the start of QA's main loop. TXT note: `qa-test-cases-subagent-degraded-to-inline-qa-draft`.
 - karpathy-reviewer sub-agent fails: NOT degradeable — its failure blocks qa-handoff. Per karpathy §1 Think Before Coding + §3 Surgical Changes, the file MUST exist with the gate header + at least one guideline marker.
 - 2 or more fail: do not hand off as clean; transition to `qa-handoff` with `--allow-incomplete --reason "<degradation>"` OR block.

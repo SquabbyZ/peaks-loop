@@ -21,7 +21,6 @@ The CLI serialises via `SchemaRouter.writeResult()` → `JSON.stringify(result, 
 | `crossPassEdges` | `readonly CrossPassEdge[]` | `cross-pass-edge-merger.ts` (via `merge`) | Empty when `opts.llmRunner` is not provided. |
 | `llmArbitrations` | `readonly LlmArbitration[]` | `merge.llmCalls` mapped via `llmCallsToArbitrations` | Empty when no LLM call was made. Cap: ≤ 2 calls per invocation. |
 | `codegraph` | `CodegraphEnvelope` | from Pass 1 / Pass 2 result | Reused from v1 (see `slice-decompose-types.ts`). Falls back to `zeroCodegraph()` if neither pass ran. |
-| `understandAnything` | `UnderstandAnythingEnvelope` | from Pass 1 / Pass 2 result | Reused from v1. Falls back to `zeroUnderstand()` if neither pass ran. |
 | `partial` | `boolean` | orchestrator | `true` iff any pass failed to complete. Currently always `false` from `MultiPassOrchestrator`; reserved for future partial-failure paths. |
 
 ## `CodegraphEnvelope` (re-exported from v1)
@@ -34,16 +33,6 @@ The CLI serialises via `SchemaRouter.writeResult()` → `JSON.stringify(result, 
 | `freshness` | `string` | Git SHA at which the index was built, or `'unindexed'`. |
 | `affectedCrossFile` | `boolean` | `true` iff `codegraph.affected` reported > 0 cross-file dependents. |
 | `note` | `string` | Free-form operator note; `'no decomposition run'` when both passes were skipped. |
-
-## `UnderstandAnythingEnvelope` (re-exported from v1)
-
-| Field | Type | Notes |
-|---|---|---|
-| `kgNodes` | `number` | Knowledge-graph node count. |
-| `kgEdges` | `number` | Knowledge-graph edge count. |
-| `available` | `boolean` | `false` when the `.understand-anything/knowledge-graph.json` file is missing. |
-| `fallback` | `'semantic' \| 'structural-only'` | `'structural-only'` when `available` is `false`. |
-| `note` | `string` | Free-form note. |
 
 ## `PassResult`
 
@@ -64,7 +53,7 @@ The CLI serialises via `SchemaRouter.writeResult()` → `JSON.stringify(result, 
 | `files` | `readonly string[]` | Project-relative paths. |
 | `loc` | `number` | Total LoC across all `files`. |
 | `parentSliceId` | `string \| null` | `null` for Pass 1. For Pass 2, the id of the parent Pass 1 slice. |
-| `semanticAnchor` | `string` | `"domain:<name>"` when understand-anything indexed, else `"file:<path>"`. Currently always `"file:<wu.filePath>"` from the orchestrator's `workUnitToSliceV2`. |
+| `semanticAnchor` | `string` | Always `"file:<wu.filePath>"` from the orchestrator's `workUnitToSliceV2` (codegraph / structural evidence). |
 
 ### `InternalEdge` (reserved)
 

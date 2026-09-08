@@ -9,13 +9,18 @@
  * + cache only; the LLM consumes cached `agents/*.md` directly
  * through `peaks ecc show <name>`.
  *
- * Six exports per RD §2:
+ * Six cache exports per RD §2:
  *   - setCacheDirPermissions
  *   - downloadToCache
  *   - readCacheManifest
  *   - listCachedAgents
  *   - readAgentSkill
  *   - cleanupStaleCache
+ *
+ * Slice A of 2026-09-09-ecc-dynamic adds the plugin-free materialize
+ * layer (`materializeEccAgents` + readers) that copies the active sha's
+ * `agents/*.md` into `~/.peaks/agents/ecc/` so the RD fan-out works on a
+ * machine with no ECC Claude Code plugin.
  *
  * The cache layout is `~/.peaks/cache/ecc-installed.json` (manifest)
  * + `~/.peaks/cache/ecc-<sha>/agents/<name>.md`. The manifest is
@@ -31,9 +36,15 @@
  *  - D-009 fallback: parseFrontmatter throws on malformed input —
  *    wrap it in try/catch and synthesize `{name, description}`
  *    from the file name + first non-empty body line.
- *  - D-010 fallback: PRD's `ecc.tar.gz` asset URL does NOT exist
- *    upstream; try PRD first, fall back to GitHub's `tarball_url`
- *    on the release JSON.
+ *  - D-010 fallback order (2026-09-09, leads with what actually works):
+ *      1. `tarball_url` from `releases/tags/<ref>` — the only path that
+ *         serves a tarball on upstream v2.2.0. Must be fetched with
+ *         `accept: application/vnd.github+json`; GitHub's API tarball
+ *         endpoint answers 415 to `application/octet-stream`.
+ *      2. release asset named `ecc.tar.gz` or any `.tgz` / `.tar.gz`.
+ *      3. PRD's `ecc.tar.gz` asset URL — dead today (v2.2.0 ships only
+ *         `.png` assets) but kept as last resort in case a future
+ *         release ships the asset again.
  */
 
 import {
@@ -51,9 +62,14 @@ import { homedir } from 'node:os';
 import { parseFrontmatter } from '../../shared/frontmatter.js';
 
 export const ECC_REPO_OWNER = 'affaan-m';
-export const ECC_REPO_NAME = 'everything-claude-code';
+// Upstream renamed `everything-claude-code` -> `ECC` on 2026-09; GitHub
+// 301-redirects the old name but we keep the current one to avoid the hop.
+export const ECC_REPO_NAME = 'ECC';
 const ECC_CACHE_VERSION = '1';
+const ECC_MATERIALIZE_VERSION = '1';
 const ECC_TARBALL_BASENAME = 'ecc.tar.gz';
+// GitHub's API tarball endpoint 415s on `application/octet-stream`.
+const GITHUB_API_ACCEPT = 'application/vnd.github+json';
 
 export type CacheManifest = {
   version: string;
@@ -65,6 +81,20 @@ export type CacheManifest = {
 export type DownloadResult = {
   sha: string;
   agents: number;
+};
+
+/**
+ * Peaks-owned materialize manifest. Written next to the normalized
+ * agent copies under `~/.peaks/agents/ecc/`. Unlike the cache manifest
+ * (which points at a sha dir), this one records the *stable* copy the
+ * plugin-free dispatch path reads when no ECC Claude Code plugin is
+ * installed.
+ */
+export type EccMaterializeManifest = {
+  version: string;
+  sha: string;
+  materializedAt: string;
+  agents: string[];
 };
 
 /**
@@ -88,6 +118,22 @@ export function resolveAgentsDir(sha: string, dirOverride?: string): string {
 }
 
 /**
+ * Plugin-free materialize target: `~/.peaks/agents/ecc/`.
+ *
+ * Deliberately NOT under `~/.claude/` — peaks-loop must never write into
+ * the user's Claude Code tree (user direction 2026-09-09). The LLM reads
+ * `<target>/<agent-name>.md` directly when the ECC Claude Code plugin is
+ * absent, then dispatches a generic sub-agent with that body.
+ */
+export function resolveEccMaterializedDir(): string {
+  return join(homedir(), '.peaks', 'agents', 'ecc');
+}
+
+export function resolveEccMaterializedManifestPath(dirOverride?: string): string {
+  return join(dirOverride ?? resolveEccMaterializedDir(), 'ecc-agents.json');
+}
+
+/**
  * Best-effort chmod 0o700 on POSIX; no-op on Windows (NTFS uses
  * ACLs, not POSIX mode bits). Swallows errors with WARN so a
  * permissions failure never blocks the CLI.
@@ -105,27 +151,31 @@ function isSafeAgentName(name: string): boolean {
   return /^[a-z][a-z0-9-]*$/.test(name);
 }
 
+/**
+ * GitHub prefixes every tarball entry with a synthetic root dir —
+ * `<repo>-<sha>` on codeload, `<owner>-<repo>-<sha>` on the API tarball
+ * endpoint. Match on shape, not on the repo name, so a rename (or either
+ * endpoint) cannot silently zero out the extraction.
+ */
+function stripTarballRootSegments(entryName: string): string[] {
+  const segments = entryName.split('/');
+  if (segments.length >= 3 && segments[0] !== 'agents') segments.shift();
+  return segments;
+}
+
 function isSafeArchiveEntry(entryName: string): boolean {
   if (entryName.length === 0) return false;
   if (entryName.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(entryName)) return false;
   if (entryName.includes('..')) return false;
-  // Strip the leading "<repo-root>/" segment (github tarballs prefix
-  // every entry with "<repo>-<sha>/..."); everything after must
-  // start with "agents/" and end with ".md" at a single level.
-  const segments = entryName.split('/');
-  // Drop the first "<repo>-<sha>" segment if present.
-  if (segments.length >= 3 && segments[0]?.startsWith(`${ECC_REPO_NAME}-`)) {
-    segments.shift();
-  }
+  // After dropping the synthetic root, everything must be exactly
+  // "agents/<name>.md" at a single level.
+  const segments = stripTarballRootSegments(entryName);
   if (segments.length !== 2) return false;
   return segments[0] === 'agents' && segments[1]?.endsWith('.md') === true;
 }
 
 function safeAgentNameFromEntry(entryName: string): string | null {
-  const segments = entryName.split('/');
-  if (segments.length >= 3 && segments[0]?.startsWith(`${ECC_REPO_NAME}-`)) {
-    segments.shift();
-  }
+  const segments = stripTarballRootSegments(entryName);
   const file = segments[segments.length - 1] ?? '';
   const base = file.replace(/\.md$/i, '');
   return isSafeAgentName(base) ? base : null;
@@ -254,11 +304,19 @@ function parseOctal(value: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-async function fetchBuffer(url: string): Promise<Uint8Array | null> {
+/**
+ * Binary fetch with an explicit, overridable `accept`.
+ *
+ * Do NOT default to `application/octet-stream`: GitHub's
+ * `api.github.com/.../tarball/<ref>` endpoint rejects it with 415.
+ * Omitting `accept` entirely is fine for release-asset / codeload
+ * URLs, which always serve the bytes.
+ */
+async function fetchBuffer(url: string, accept?: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetch(url, {
-      headers: { accept: 'application/octet-stream', 'user-agent': 'peaks-loop' },
-    });
+    const headers: Record<string, string> = { 'user-agent': 'peaks-loop' };
+    if (accept !== undefined) headers.accept = accept;
+    const res = await fetch(url, { headers });
     if (!res.ok) return null;
     const ab = await res.arrayBuffer();
     return new Uint8Array(ab);
@@ -272,25 +330,33 @@ async function downloadTarball(
   sha: string,
   outDir: string
 ): Promise<string[]> {
-  // D-010: PRD URL first, GitHub fallback second.
-  const prdUrl = `https://github.com/${ECC_REPO_OWNER}/${ECC_REPO_NAME}/releases/download/${encodeURIComponent(ref)}/${ECC_TARBALL_BASENAME}`;
-  let buffer = await fetchBuffer(prdUrl);
+  // D-010 order (2026-09-09): tarball_url -> release asset -> PRD URL.
+  // See the module header for why each step exists and which one works.
+  let buffer: Uint8Array | null = null;
 
+  const release = await fetchReleaseJson(
+    `https://api.github.com/repos/${ECC_REPO_OWNER}/${ECC_REPO_NAME}/releases/tags/${encodeURIComponent(ref)}`
+  );
+
+  // 1. API tarball. Requires the GitHub JSON accept header (octet-stream 415s).
+  const tarballUrl = release?.tarball_url;
+  if (typeof tarballUrl === 'string' && tarballUrl.length > 0) {
+    buffer = await fetchBuffer(tarballUrl, GITHUB_API_ACCEPT);
+  }
+
+  // 2. Release asset, if this release happens to ship one.
+  if (buffer === null && Array.isArray(release?.assets)) {
+    const asset =
+      release.assets.find((a) => a.name === ECC_TARBALL_BASENAME) ??
+      release.assets.find((a) => a.name === `${ECC_REPO_NAME}-universal-${ref}.tgz`) ??
+      release.assets.find((a) => a.name.endsWith('.tgz') || a.name.endsWith('.tar.gz'));
+    if (asset) buffer = await fetchBuffer(asset.browser_download_url);
+  }
+
+  // 3. PRD asset URL — last resort, dead upstream today.
   if (buffer === null) {
-    const release = await fetchReleaseJson(
-      `https://api.github.com/repos/${ECC_REPO_OWNER}/${ECC_REPO_NAME}/releases/tags/${encodeURIComponent(ref)}`
-    );
-    const tarballUrl = release?.tarball_url;
-    if (typeof tarballUrl === 'string' && tarballUrl.length > 0) {
-      buffer = await fetchBuffer(tarballUrl);
-    }
-    if (buffer === null && Array.isArray(release?.assets)) {
-      const asset =
-        release.assets.find((a) => a.name === ECC_TARBALL_BASENAME) ??
-        release.assets.find((a) => a.name === `${ECC_REPO_NAME}-universal-${ref}.tgz`) ??
-        release.assets.find((a) => a.name.endsWith('.tgz') || a.name.endsWith('.tar.gz'));
-      if (asset) buffer = await fetchBuffer(asset.browser_download_url);
-    }
+    const prdUrl = `https://github.com/${ECC_REPO_OWNER}/${ECC_REPO_NAME}/releases/download/${encodeURIComponent(ref)}/${ECC_TARBALL_BASENAME}`;
+    buffer = await fetchBuffer(prdUrl);
   }
 
   if (buffer === null) {
@@ -336,6 +402,7 @@ export async function downloadToCache(
       .filter((f) => f.endsWith('.md'))
       .map((f) => f.replace(/\.md$/i, ''));
     writeManifest({ version: ECC_CACHE_VERSION, sha: resolvedSha, fetchedAt: new Date().toISOString(), agents });
+    materializeBestEffort(cacheDir);
     return { sha: resolvedSha, agents: agents.length };
   }
 
@@ -347,7 +414,22 @@ export async function downloadToCache(
     agents: extracted,
   };
   writeManifest(manifest);
+  materializeBestEffort(cacheDir);
   return { sha: resolvedSha, agents: extracted.length };
+}
+
+/**
+ * Refresh the plugin-free copy after a successful download. Swallows every
+ * error: `peaks ecc install` succeeds even when the materialize step cannot
+ * write (read-only home, disk full, ...) — the caller falls back to inline
+ * review in that case.
+ */
+function materializeBestEffort(cacheDir: string): void {
+  try {
+    materializeEccAgents({ cacheDir });
+  } catch {
+    /* best-effort */
+  }
 }
 
 function writeManifest(manifest: CacheManifest): void {
@@ -356,7 +438,11 @@ function writeManifest(manifest: CacheManifest): void {
 }
 
 export function readCacheManifest(): CacheManifest | null {
-  const path = resolveManifestPath();
+  return readManifestAt();
+}
+
+function readManifestAt(dirOverride?: string): CacheManifest | null {
+  const path = resolveManifestPath(dirOverride);
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');
@@ -457,6 +543,191 @@ export function readAgentSkill(name: string): string | null {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------
+// Plugin-free materialize layer (Slice A of 2026-09-09-ecc-dynamic)
+//
+// `peaks ecc install` downloads ECC `agents/*.md` into the sha cache, but
+// that path is plugin-independent only in storage — the RD fan-out still
+// needed `Agent({subagent_type: 'everything-claude-code:code-review'})` (old retired id),
+// which requires the ECC Claude Code plugin. Materializing a normalized
+// copy under `~/.peaks/agents/ecc/` gives the RD loop a plugin-free read
+// target so a fresh machine without the ECC plugin can still run the
+// review via a generic sub-agent.
+// ---------------------------------------------------------------------
+
+export function readEccMaterializeManifest(dirOverride?: string): EccMaterializeManifest | null {
+  const path = resolveEccMaterializedManifestPath(dirOverride);
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as EccMaterializeManifest;
+    if (
+      typeof parsed.version === 'string' &&
+      typeof parsed.sha === 'string' &&
+      typeof parsed.materializedAt === 'string' &&
+      Array.isArray(parsed.agents)
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function listMaterializedAgents(dirOverride?: string): string[] {
+  const dir = dirOverride ?? resolveEccMaterializedDir();
+  if (!existsSync(dir)) return [];
+  try {
+    return readdirSync(dir)
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.replace(/\.md$/i, ''))
+      .filter((name) => isSafeAgentName(name))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+export function hasMaterializedEccAgents(dirOverride?: string): boolean {
+  return listMaterializedAgents(dirOverride).length > 0;
+}
+
+/**
+ * Resolve the materialized ECC agent name for a logical role.
+ *
+ * Upstream ECC names its agents `<lang>-reviewer` (`code-reviewer.md`),
+ * NOT `code-review.md` — so no caller may hardcode a single filename.
+ * Resolution order (deterministic; `listMaterializedAgents` is sorted):
+ *   1. the caller's explicit candidates, in declared priority order
+ *      (e.g. `['code-reviewer', 'code-review']` — real upstream name
+ *      first, legacy/forward-compat second);
+ *   2. a fallback over the materialized list: the exact
+ *      `<stem>-reviewer`, else the first `<stem>-*` whose name contains
+ *      `reviewer`, where `stem` is the candidate minus a `-reviewer`
+ *      suffix (`code-reviewer` -> `code`).
+ *
+ * Returns `null` when nothing matches — the caller degrades to inline
+ * review instead of dispatching a non-existent agent.
+ */
+export function resolveMaterializedAgentName(
+  candidates: readonly string[],
+  dirOverride?: string
+): string | null {
+  const available = listMaterializedAgents(dirOverride);
+  if (available.length === 0) return null;
+
+  for (const candidate of candidates) {
+    if (available.includes(candidate)) return candidate;
+  }
+
+  for (const candidate of candidates) {
+    const stem = candidate.replace(/-reviewer$/, '');
+    const exact = available.find((name) => name === `${stem}-reviewer`);
+    if (exact !== undefined) return exact;
+    const reviewerish = available.find(
+      (name) => name.startsWith(`${stem}-`) && name.includes('reviewer')
+    );
+    if (reviewerish !== undefined) return reviewerish;
+  }
+
+  return null;
+}
+
+export function readMaterializedAgent(name: string, dirOverride?: string): string | null {
+  if (!isSafeAgentName(name)) return null;
+  const file = join(dirOverride ?? resolveEccMaterializedDir(), `${name}.md`);
+  if (!existsSync(file)) return null;
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Copy the active cache's `agents/*.md` into a stable, peaks-owned
+ * directory (`~/.peaks/agents/ecc/` by default) and write a small
+ * manifest. Fail-soft: an empty/missing cache yields
+ * `{ sha: null, materialized: [] }` and never throws — `peaks ecc install`
+ * must not fail because materialization did.
+ *
+ * `targetDir` is the ONLY write root (plus `mkdirSync` on it). Nothing in
+ * this function can reach `~/.claude/`.
+ */
+export function materializeEccAgents(
+  { cacheDir, targetDir }: { cacheDir?: string; targetDir?: string } = {}
+): { targetDir: string; sha: string | null; materialized: string[] } {
+  const resolvedTarget = targetDir ?? resolveEccMaterializedDir();
+  const manifest = readManifestAt(cacheDir);
+  if (manifest === null) {
+    return { targetDir: resolvedTarget, sha: null, materialized: [] };
+  }
+  const agentsDir = resolveAgentsDir(manifest.sha, cacheDir);
+  if (!existsSync(agentsDir)) {
+    return { targetDir: resolvedTarget, sha: null, materialized: [] };
+  }
+
+  let entries: string[];
+  try {
+    entries = readdirSync(agentsDir);
+  } catch {
+    return { targetDir: resolvedTarget, sha: null, materialized: [] };
+  }
+
+  try {
+    if (!existsSync(resolvedTarget)) mkdirSync(resolvedTarget, { recursive: true });
+    setCacheDirPermissions(resolvedTarget);
+  } catch {
+    return { targetDir: resolvedTarget, sha: null, materialized: [] };
+  }
+
+  const materialized: string[] = [];
+  for (const file of entries) {
+    if (!file.endsWith('.md')) continue;
+    const name = file.replace(/\.md$/i, '');
+    if (!isSafeAgentName(name)) continue;
+    try {
+      const body = readFileSync(join(agentsDir, file), 'utf8');
+      writeFileSync(join(resolvedTarget, `${name}.md`), body);
+      materialized.push(name);
+    } catch {
+      /* fail-soft per agent */
+    }
+  }
+  materialized.sort();
+
+  // Prune stale copies so `readMaterializedAgent` cannot serve an agent
+  // the active cache no longer ships.
+  try {
+    for (const existing of readdirSync(resolvedTarget)) {
+      if (!existing.endsWith('.md')) continue;
+      const name = existing.replace(/\.md$/i, '');
+      if (!materialized.includes(name)) {
+        rmSync(join(resolvedTarget, existing), { force: true });
+      }
+    }
+  } catch {
+    /* fail-soft */
+  }
+
+  const nextManifest: EccMaterializeManifest = {
+    version: ECC_MATERIALIZE_VERSION,
+    sha: manifest.sha,
+    materializedAt: new Date().toISOString(),
+    agents: materialized,
+  };
+  try {
+    writeFileSync(
+      resolveEccMaterializedManifestPath(resolvedTarget),
+      JSON.stringify(nextManifest, null, 2)
+    );
+  } catch {
+    /* fail-soft */
+  }
+
+  return { targetDir: resolvedTarget, sha: manifest.sha, materialized };
 }
 
 /**

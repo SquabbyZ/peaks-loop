@@ -8,7 +8,6 @@
     "rid",
     "generatedAt",
     "codegraph",
-    "understandAnything",
     "workUnits",
     "dependencyDAG",
     "sccAnalysis",
@@ -35,17 +34,6 @@
         "dbMB": { "type": "number", "minimum": 0 },
         "freshness": { "type": "string", "description": "Git commit SHA at which the codegraph index was built, or 'unindexed'." },
         "affectedCrossFile": { "type": "boolean" },
-        "note": { "type": "string" }
-      }
-    },
-    "understandAnything": {
-      "type": "object",
-      "required": ["kgNodes", "kgEdges", "available", "fallback", "note"],
-      "properties": {
-        "kgNodes": { "type": "integer", "minimum": 0 },
-        "kgEdges": { "type": "integer", "minimum": 0 },
-        "available": { "type": "boolean" },
-        "fallback": { "type": "string", "enum": ["semantic", "structural-only"] },
         "note": { "type": "string" }
       }
     },

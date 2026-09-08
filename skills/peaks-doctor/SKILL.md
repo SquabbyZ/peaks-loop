@@ -50,7 +50,7 @@ If a doctor finding requires a code change, the workflow hands off to `peaks-rd`
 ## Boundaries
 
 - The doctor is read-only. It does NOT modify code, fix bugs, or clean up sessions.
-- The doctor does NOT install UA or any third-party tool. The opt-in UX is surfaced via `peaks understand opt-in`; the doctor just reports state.
+- The doctor does NOT install any third-party tool. It just reports state.
 - The doctor does NOT generate change records automatically; it surfaces findings + the LLM calls `peaks openspec from-doctor` to generate them.
 
 ## References

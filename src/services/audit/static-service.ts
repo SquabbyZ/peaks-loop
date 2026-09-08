@@ -5,7 +5,7 @@
  * integration entirely. The pre-Slice-3 implementation probed
  * `npx ecc-agentshield --version` and shelled out to
  * `npx ecc-agentshield scan --json --target <path>` on every audit
- * call, but the upstream `affaan-m/everything-claude-code` v2.0.0
+ * call, but the upstream `affaan-m/everything-claude-code` (now `affaan-m/ECC`) v2.0.0
  * release ships no `ecc-agentshield` binary — the repo is
  * `agents/*.md` flat files plus SKILL.md descriptors.
  *

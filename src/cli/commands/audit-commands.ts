@@ -38,8 +38,6 @@ type StaticAuditOptions = {
   project: string;
   json?: boolean;
   noColor?: boolean;
-  enableAgentShield?: boolean;
-  disableAgentShield?: boolean;
   record?: boolean;
   rid?: string;
 };
@@ -162,12 +160,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // Slice #6 L2.3 P2-a: peaks audit static — soft-optional ECC
-  // AgentShell integration. Reads `.peaks/preferences.json`'s
-  // `agentShieldEnabled` flag (default false). The CLI flags
-  // `--enable-agent-shield` / `--disable-agent-shield` override
-  // the preference for a single call.
-  //
   // Slice K1 (2.8.0): `--record` persists the audit snapshot as a
   // project-memory decision at `.peaks/memory/audit-decisions/<slug>.md`.
   // `--rid <id>` is an optional disambiguator for multiple audits on
@@ -175,13 +167,17 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   // Per `peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first`
   // and the dev-preference red line "Default-no on new CLI commands",
   // we extend the existing command rather than register a new subcommand.
+  //
+  // 2026-09-09-ecc-dynamic-and-cleanup B3: the dead
+  // `--enable-agent-shield` / `--disable-agent-shield` flags were removed.
+  // `runStaticAudit`'s agentShield state is a frozen "always disabled" stub
+  // (Slice 3 of 4.0.0-beta.11 removed the subprocess), so the flags had no
+  // effect and the ECC opt-in prose misled users on every run.
   addJsonOption(
     audit
       .command('static')
-      .description('Run the static audit (peaks-loop lint + optional ECC AgentShield subprocess). Per spec §5.3.')
+      .description('Run the static audit (peaks-loop lint only; the ECC AgentShield subprocess was removed in 4.0.0-beta.11). Per spec §5.3.')
       .requiredOption('--project <path>', 'target project root')
-      .option('--enable-agent-shield', 'force-enable ECC AgentShield subprocess for this call (overrides preference)')
-      .option('--disable-agent-shield', 'force-disable ECC AgentShield subprocess for this call (overrides preference)')
       .option('--record', 'persist the audit snapshot to .peaks/memory/audit-decisions/ as a project-memory decision')
       .option('--rid <rid>', 'disambiguator for the decision record slug (used with --record; pairs multiple audits on the same day)')
   ).action(async (options: StaticAuditOptions) => {
@@ -190,19 +186,6 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail<StaticAuditData>('audit.static', validation.code, validation.message, emptyStaticAuditData(), ['Verify the project path exists and is a directory']),
-        options.json
-      );
-      process.exitCode = 1;
-      return;
-    }
-
-    // Resolve the flag override. `--enable-agent-shield` and
-    // `--disable-agent-shield` are mutually exclusive; we surface
-    // a 422 if both are passed.
-    if (options.enableAgentShield && options.disableAgentShield) {
-      printResult(
-        io,
-        fail<StaticAuditData>('audit.static', 'FLAGS_CONFLICT', '`--enable-agent-shield` and `--disable-agent-shield` are mutually exclusive', emptyStaticAuditData(), ['Pass at most one of the two flags']),
         options.json
       );
       process.exitCode = 1;
@@ -224,12 +207,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
 
     try {
       const result = runStaticAudit({
-        projectRoot: validation.projectRoot,
-        ...(options.enableAgentShield
-          ? { enableAgentShield: true }
-          : options.disableAgentShield
-          ? { enableAgentShield: false }
-          : {}),
+        projectRoot: validation.projectRoot
       });
 
       // Persist the decision record when `--record` is set. The writer is
@@ -255,22 +233,10 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         ...(decision ? { decision } : {})
       };
       const nextActions: string[] = [];
-      // Per spec §5.3 + §7.2: when ECC is not installed, surface
-      // the canonical 4-option user opt-in UX (a/b/c/d) via
-      // nextActions. The peaks-loop `peaks audit static` CLI is
-      // non-interactive (JSON envelope by default), so the 4
-      // options are surfaced as machine-readable action strings
-      // — same pattern as understand-commands.ts `INSTALL_HINT`.
-      if (!result.agentShield.installed) {
-        nextActions.push('ECC AgentShield not installed. Pick one of the four options below:');
-        nextActions.push('  a) Install: run `npx ecc-agentshield --help` to install, then re-run `peaks audit static`.');
-        nextActions.push('  b) Skip this run: pass `--disable-agent-shield` to suppress the subprocess for this call.');
-        nextActions.push('  c) Skip forever: run `peaks preferences set agentShieldEnabled false` (writes to `.peaks/preferences.json`).');
-        nextActions.push('  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §5.3 + §7.2.');
-      }
-      if (result.agentShield.spawned && result.agentShield.findings.length > 0) {
-        nextActions.push(`${result.agentShield.findings.length} ECC findings merged into the audit. Review with \`peaks audit static --json\`.`);
-      }
+      // 2026-09-09-ecc-dynamic-and-cleanup B3: the ECC AgentShield opt-in
+      // nextActions block was removed. `agentShield.installed` is a frozen
+      // `false`, so the block printed on every run and pointed users at a
+      // removed subprocess, removed flags, and a dead preference.
       if (decision) {
         nextActions.push(`Decision record written: ${decision.filePath}`);
         nextActions.push(`Index synced: ${decision.indexSynced ? 'yes' : 'no'} (memory hot.decision[] now includes this audit)`);

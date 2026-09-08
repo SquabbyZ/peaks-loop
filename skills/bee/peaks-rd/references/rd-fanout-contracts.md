@@ -29,14 +29,28 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > **Karpathy pointer (Slice 1/6):** Each of the 3 sub-agents below operates under the 4 Karpathy guidelines. The canonical reference is `andrej-karpathy-skills:karpathy-guidelines` (full text) and `peaks-rd/SKILL.md` §"Karpathy enforcement". The dispatch primitive also injects the verbatim context block from `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" into every sub-agent prompt. Sub-agents MUST NOT silently drop the block.
 
 - **Sub-agent 1 — code-reviewer** runs `code-review` against the diff and
-  writes `rd/code-review.md`. **v2.11.0 Tier 7 (Group D):** the dispatch goes
-  through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`):
-  `Agent({ subagent_type: 'everything-claude-code:code-review', ... })` returns
-  `{ passed, violations[], gateAction }`; `adaptEccEnvelopeToRdCodeReview`
-  renders it to the canonical markdown. On any non-ready `detectEcc` state
-  (plugin-missing / agent-missing / dispatch-failed / envelope-malformed) the
-  parent RD loop falls back to inline review; the `code-review-ecc-degraded-to-inline`
-  TXT note records the fallback.
+  writes `rd/code-review.md`. **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:**
+  the dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`)
+  with fallback order **native plugin → cache-backed generic agent → inline**:
+  - `detectEcc` state `ready` → `Agent({ subagent_type: 'ecc:code-reviewer', ... })`
+    (`DEFAULT_NATIVE_ECC_AGENT_ID` — plugin `ecc` + agent `code-reviewer`)
+    returns `{ passed, violations[], gateAction }`.
+  - `detectEcc` state `ready-via-cache` → resolve the materialized agent's REAL
+    name with `resolveMaterializedAgentName(['code-reviewer', 'code-review'])`
+    (upstream ships `code-reviewer.md`; a hardcoded `code-review.md` never
+    resolves), read `~/.peaks/agents/ecc/<resolved>.md`, pass it through as
+    `detectEcc({ ..., cacheAgentName: resolved })`, compose the prompt with
+    `buildCacheBackedEccPrompt({ rid, instructions, diff })`,
+    dispatch a **generic** sub-agent, and validate the reply with `isEccEnvelope`.
+    If the cache is empty, run `peaks ecc install` first (dynamic acquisition);
+    offline → inline.
+  - Any other state (plugin-missing / agent-missing / dispatch-failed /
+    envelope-malformed) → inline review; the `code-review-ecc-degraded-to-inline`
+    TXT note records the fallback.
+
+  Every dispatchable envelope is rendered by the SAME `adaptEccEnvelopeToRdCodeReview`
+  adapter to the canonical markdown. Materialized ECC instructions live under
+  `~/.peaks/agents/ecc/`; peaks-loop NEVER writes into `~/.claude/`.
 - **Sub-agent 2 — qa-test-cases-writer** drafts the QA test plan and
   writes `qa/test-cases/<rid>.md`. The test plan is the deliverable —
   these test cases do NOT need to be executed by this sub-agent (the

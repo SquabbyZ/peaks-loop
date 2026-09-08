@@ -157,7 +157,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .command('decompose <rid>')
       .description(
         'Run the 6-stage slice-decomposition algorithm on a PRD. ' +
-          'Inputs: PRD body + peaks codegraph + .understand-anything/knowledge-graph.json (optional). ' +
+          'Inputs: PRD body + peaks codegraph (project analysis is codegraph-first; structural import edges are the fallback). ' +
           'Outputs: .peaks/sc/slice-decomposition/<rid>.json with critical-path, ' +
           'parallel-batches, and per-slice work estimates. ' +
           'Algorithm is fzf-free. Replay vs hand-derived 2.1.0 dry-run: +-10% on p50. ' +
@@ -244,9 +244,6 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
         `Next: peaks slice pick ${rid}  (requires fzf >= 0.38)`,
         `Or manually craft -picked.json from the JSON output, then peaks slice plan ${rid}`
       ];
-      if (result.understandAnything.fallback === 'structural-only') {
-        nextActions.push('Note: understand-anything not indexed; cuts are structural-only. Run /understand in your IDE to improve semantic-cut quality.');
-      }
       if (result.pickHint) {
         nextActions.push(result.pickHint);
       }

@@ -86,7 +86,16 @@ export interface ProjectPreferences {
    * dispatch *shape* (worker graph vs flat dispatch).
    */
   readonly swarmMode: boolean;
+  /**
+   * Legacy UA opt-in prompt decision. The UA knowledge-graph surface was
+   * removed in 2026-09-09 (project analysis is codegraph-first); the field
+   * is retained only so legacy `.peaks/preferences.json` files keep parsing.
+   */
   readonly uaPrompt: UaPromptDecision;
+  /**
+   * Legacy AgentShield opt-in prompt decision. The ECC AgentShield
+   * subprocess was removed in 4.0.0-beta.11; retained for legacy parse.
+   */
   readonly agentShieldPrompt: UaPromptDecision;
   readonly classifyConservatism: ClassifyConservatism;
   readonly classifyRules: ClassifyRuleOverrides;
@@ -94,15 +103,15 @@ export interface ProjectPreferences {
   /** Loop Autonomous (L4 14.5) toggle. Default: false — never auto-enable. */
   readonly loopAutonomousEnabled: boolean;
   /**
-   * L2.3 P2-a: ECC AgentShield subprocess toggle. Default: false.
+   * L2.3 P2-a: ECC AgentShield subprocess toggle — **frozen, no-op**.
    *
-   * When true, `peaks audit static` spawns `npx ecc-agentshield scan --json`
-   * and merges its findings into the audit report. When false (default),
-   * the audit runs peaks-loop-only and the subprocess is never spawned.
+   * Slice 3 of 4.0.0-beta.11 removed the ECC AgentShield subprocess
+   * entirely (upstream ships no `ecc-agentshield` binary). The field is
+   * retained only so legacy `.peaks/preferences.json` files still parse
+   * (`static-service.ts` calls `loadPreferences` for back-compat and
+   * ignores the value). Setting it to `true` has no effect.
    *
-   * The preference is independent of whether ECC is installed — i.e.
-   * `agentShieldEnabled: true` with ECC missing surfaces a soft
-   * "ECC not installed" warning and the audit still completes.
+   * Default: false.
    */
   readonly agentShieldEnabled: boolean;
   /**

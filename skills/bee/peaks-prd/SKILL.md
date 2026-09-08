@@ -157,7 +157,6 @@ peaks openspec list --project <repo> --json
 peaks openspec show <change-id> --project <repo> --json    # when relevant
 
 # 4. surface optional project-analysis evidence for the PRD body
-peaks understand status --project <repo> --json            # Chrome Code plugin output
 peaks codegraph status  --project <repo>                   # local index status
 
 # 5. write goals / non-goals / acceptance into the artifact body, then hand off

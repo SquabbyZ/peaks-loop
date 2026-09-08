@@ -84,7 +84,6 @@ The envelope is a `DecompositionResultV2` (see `references/v2-schema.md`):
 | `crossPassEdges` | Edges spanning passes (see `references/cross-pass-edge-interpretation.md`). |
 | `llmArbitrations` | Trace of every LLM call made during decomposition (capped at 2 per invocation). |
 | `codegraph` | `CodegraphEnvelope` — nodes/edges/dbMB/freshness/affectedCrossFile/note. |
-| `understandAnything` | `UnderstandAnythingEnvelope` — kgNodes/kgEdges/available/fallback/note. |
 | `partial` | `true` iff any pass failed to complete. |
 
 The file is pretty-printed (`JSON.stringify(result, null, 2)`). Size scales with `passes.length * slices.length` plus the arbitration trace; typical runs are 5–80 KB.

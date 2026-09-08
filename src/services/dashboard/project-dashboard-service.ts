@@ -1,7 +1,6 @@
 import { listRequestArtifacts, type RequestArtifactRole, type RequestArtifactSummary } from '../artifacts/request-artifact-service.js';
 import { scanOpenSpec } from '../openspec/openspec-scan-service.js';
 import type { OpenSpecChangeSummary } from '../openspec/openspec-types.js';
-import { scanUnderstandAnything } from '../understand/understand-scan-service.js';
 import { seedCapabilityItems } from '../recommendations/capability-seed-items.js';
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
 import { requiredSkillNames } from 'peaks-loop-shared/paths';
@@ -21,13 +20,6 @@ export type ProjectDashboardOpenSpec = {
   exists: boolean;
   count: number;
   changes: OpenSpecChangeSummary[];
-};
-
-export type ProjectDashboardUnderstand = {
-  exists: boolean;
-  graphExists: boolean;
-  graphPath: string;
-  parseError?: string;
 };
 
 export type ProjectDashboardDoctor = {
@@ -89,7 +81,6 @@ export type ProjectDashboard = {
   okPolicy: DashboardOkPolicy;
   requests: ProjectDashboardRequests;
   openspec: ProjectDashboardOpenSpec;
-  understand: ProjectDashboardUnderstand;
   doctor: ProjectDashboardDoctor;
   runbookHealth: ProjectDashboardRunbookHealth;
   capabilities: ProjectDashboardCapabilities;
@@ -206,10 +197,9 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
   const sampleSize = options.sampleCapabilities ?? 8;
   const okPolicy: DashboardOkPolicy = options.okPolicy ?? 'workspace-only';
 
-  const [items, openspecReport, understandReport, doctorAndRunbook] = await Promise.all([
+  const [items, openspecReport, doctorAndRunbook] = await Promise.all([
     listRequestArtifacts({ projectRoot: options.projectRoot }),
     scanOpenSpec({ openspecRoot: `${options.projectRoot}/openspec` }),
-    scanUnderstandAnything({ projectRoot: options.projectRoot }),
     loadDoctorAndRunbookHealth(options.doctorReport, options.runbookHealth)
   ]);
 
@@ -233,12 +223,6 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
       exists: openspecReport.exists,
       count: openspecReport.changes.length,
       changes: openspecReport.changes
-    },
-    understand: {
-      exists: understandReport.exists,
-      graphExists: understandReport.graph.exists,
-      graphPath: understandReport.graph.path,
-      ...(understandReport.graph.parseError !== undefined ? { parseError: understandReport.graph.parseError } : {})
     },
     doctor: doctorAndRunbook.doctor,
     runbookHealth: doctorAndRunbook.runbookHealth,

@@ -83,32 +83,6 @@ afterEach(() => {
 });
 
 // ============================================================================
-// peaks understand scan — drift pointer (subcommand not registered; surface is `status`/`show`/`opt-in`/`context`)
-// ============================================================================
-
-describe('peaks understand scan (P2-B.6 misc e2e)', () => {
-  test('returns COMMAND_NOT_FOUND envelope (drift: actual subcommands are status / show / opt-in / context)', () => {
-    const result = runCli(['understand', 'scan', '--project', REPO, '--json'], REPO);
-    const envelope = parseEnvelope(result);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('COMMAND_NOT_FOUND');
-  });
-});
-
-// ============================================================================
-// peaks understand hybrid — drift pointer (subcommand not registered; surface is `context`)
-// ============================================================================
-
-describe('peaks understand hybrid (P2-B.6 misc e2e)', () => {
-  test('returns COMMAND_NOT_FOUND envelope (drift: actual surface is `context`)', () => {
-    const result = runCli(['understand', 'hybrid', '--project', REPO, '--json'], REPO);
-    const envelope = parseEnvelope(result);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('COMMAND_NOT_FOUND');
-  });
-});
-
-// ============================================================================
 // peaks prd handoff show (P2-B.6 misc e2e) — passthrough read primitive
 // ============================================================================
 

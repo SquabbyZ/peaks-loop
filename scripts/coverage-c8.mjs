@@ -129,7 +129,6 @@ const c8Args = [
   '--exclude=src/services/mcp/mcp-types.ts',
   '--exclude=src/services/mcp/mcp-stdio-transport.ts',
   '--exclude=src/services/openspec/openspec-types.ts',
-  '--exclude=src/services/understand/understand-types.ts',
   '--exclude=src/services/scan/scan-types.ts',
   '--exclude=src/services/session/index.ts',
   '--src=' + projectRoot,

@@ -67,6 +67,7 @@ import { registerRoleCommands } from './role-commands.js';
 import { registerRuntimeCommands } from './runtime-commands.js';
 import { registerSCCommands } from './sc-commands.js';
 import { registerScanCommands } from './scan-commands.js';
+import { registerShadcnCommands } from './shadcn-commands.js';
 import { registerSecurityAuditCommands } from './security-audit-commands.js';
 import { registerSedimentCommands } from './sediment-commands.js';
 import { registerSkillConformanceCommands } from './skill-conformance-commands.js';
@@ -85,7 +86,6 @@ import { registerSubAgentDispatchGuard } from './sub-agent-dispatch-guard.js';
 import { registerSwarmCommands } from './swarm-commands.js';
 import { registerTechCommands } from './tech-commands.js';
 import { registerTestCommands } from './test-commands.js';
-import { registerUnderstandCommands } from './understand-commands.js';
 import { registerVendorDetectCommand } from './vendor-detect.js';
 import { registerUpgradeCommands } from './upgrade-commands.js';
 import { registerUserTouchpointCommands } from './user-touchpoint-commands.js';
@@ -114,7 +114,8 @@ const REGISTRATIONS: readonly Registration[] = [
   ['perf-commands', registerPerfCommands], ['preferences-commands', registerPreferencesCommands],
   ['project-commands', registerProjectCommands], ['prd-commands', registerPrdCommands],
   ['request-commands', registerRequestCommands], ['retrospective-commands', registerRetrospectiveCommands],
-  ['scan-commands', registerScanCommands], ['slice-commands', registerSliceCommands],
+  ['scan-commands', registerScanCommands], ['shadcn-commands', registerShadcnCommands],
+  ['slice-commands', registerSliceCommands],
   ['sop-commands', registerSopCommands], ['feedback-commands', registerFeedbackCommands],
   ['fork-commands', registerForkCommands], ['impact-commands', registerImpactCommands],
   ['smoke-commands', registerSmokeCommands], ['release-commands', registerReleaseCommands],
@@ -128,7 +129,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['governance-classify-contract-commands', registerContractCommands],
   ['sub-agent-dispatch-guard', registerSubAgentDispatchGuard], ['gate-commands', registerGateCommands],
   ['hook-handle', registerHookHandleCommand], ['hooks-commands', registerHooksCommands],
-  ['heartbeat-commands', registerHeartbeatCommands], ['statusline-commands', registerStatusLineCommands], ['understand-commands', registerUnderstandCommands],
+  ['heartbeat-commands', registerHeartbeatCommands], ['statusline-commands', registerStatusLineCommands],
   ['workspace-commands', registerWorkspaceCommands], ['workflow-plan-commands', registerWorkflowPlanCommands],
   ['audit-commands', registerAuditCommands], ['final-review-commands', registerFinalReviewCommands],
   ['governance-classify-contract-commands', registerClassifyCommands], ['context-commands', registerContextCommands],

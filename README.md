@@ -164,9 +164,9 @@ npm i -g peaks-loop
 
 ---
 
-## 强烈推荐 · 四个项目组合起来用
+## 强烈推荐 · 三个项目组合起来用
 
-> **0 学习成本。** 这是组合起来用最大的好处 —— 不只是效果俱佳,更是因为这四个项目的**接口对齐到了"自然语言"**,你只需要说一句话,谁替你跑命令、按什么闸门、按什么战术手册,完全不用你记。
+> **0 学习成本。** 这是组合起来用最大的好处 —— 不只是效果俱佳,更是因为这几个项目的**接口对齐到了"自然语言"**,你只需要说一句话,谁替你跑命令、按什么闸门、按什么战术手册,完全不用你记。
 
 <p align="center">
   <img src="./assets/readme/footer.svg" alt="peaks-loop 推荐组合" width="92%"/>
@@ -175,11 +175,10 @@ npm i -g peaks-loop
 | 角色 | 项目 | 一句话 |
 | --- | --- | --- |
 | **结晶与门禁** | [**peaks-loop**](https://github.com/SquabbyZ/peaks-loop) ← 你在这里 | loop engineering 结晶系统,装上就有 PRD/RD/QA/UI/SC/TXT 一整条工程链 + 沉淀 |
-| **战术手册** | [affaan-m/ECC](https://github.com/affaan-m/ECC) | everything-claude-code:Claude Code 上能拿到的最好用的战术、技能、SOP 集合 |
-| **代码理解** | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) | 任意仓库,一句话读懂 —— 让 LLM 真正"理解"项目,而不是猜 |
+| **战术手册** | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Claude Code 上能拿到的最好用的战术、技能、SOP 集合 |
 | **流程与纪律** | [obra/superpowers](https://github.com/obra/superpowers) | brainstorming / TDD / debugging / code-review 等流程纪律,每条都自带硬退出条件 |
 
-**用起来就一句话**:把上面三个仓库都 clone 到本地,peaks-loop 装上,剩下的交给 LLM —— 它会按需取用、按纪律守门、按战术落地、按需求沉淀。
+**用起来就一句话**:把上面两个仓库都 clone 到本地,peaks-loop 装上,剩下的交给 LLM —— 它会按需取用、按纪律守门、按战术落地、按需求沉淀。
 
 ### 致敬
 
@@ -312,7 +311,7 @@ npx peaks doctor --project .
 - 更新日志 → [`CHANGELOG.md`](./CHANGELOG.md)
 - 提问 → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - 致敬: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
-- 组合推荐: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
+- 组合推荐: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [obra/superpowers](https://github.com/obra/superpowers)
 
 ---
 

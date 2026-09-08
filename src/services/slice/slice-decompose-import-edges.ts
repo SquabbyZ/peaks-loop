@@ -6,13 +6,12 @@
  */
 
 import { dirname, join, relative } from 'node:path';
-import type { DependencyEdge, ImportEdge, KnowledgeGraph, WorkUnit } from './slice-decompose-types.js';
+import type { DependencyEdge, ImportEdge, WorkUnit } from './slice-decompose-types.js';
 
-/** Edge-builder FSM: classifies each candidate into one of three
- *  classes (structural-import, semantic-flow, or dropped) and emits a
- *  deduplicated list. The state machine enumerates the classification
- *  rules explicitly so this stays under the complexity budget while
- *  preserving the original behaviour. */
+/** Edge-builder FSM: classifies each import candidate as a structural
+ *  edge or drops it, and emits a deduplicated list. The state machine
+ *  enumerates the classification rules explicitly so this stays under the
+ *  complexity budget while preserving the original behaviour. */
 interface ClassifiedImportEdge {
   fromWu: string;
   toWu: string;
@@ -83,45 +82,14 @@ function collectImportEdges(
   }
 }
 
-function collectSemanticEdges(
-  kg: KnowledgeGraph,
-  fileToWu: ReadonlyMap<string, string>,
-  collector: EdgeCollector
-): void {
-  for (const e of kg.edges) {
-    if (e.type !== 'contains_flow' && e.type !== 'flow_step') continue;
-    const fromNode = kg.nodes.find((n) => n.id === e.source);
-    const toNode = kg.nodes.find((n) => n.id === e.target);
-    if (!fromNode?.filePath || !toNode?.filePath) continue;
-    const fromWu = fileToWu.get(fromNode.filePath);
-    const toWu = fileToWu.get(toNode.filePath);
-    if (!fromWu || !toWu || fromWu === toWu) continue;
-    const weight = e.type === 'flow_step' ? 0.05 : 0.1;
-    const edge: DependencyEdge = {
-      from: fromWu,
-      to: toWu,
-      kind: e.type as DependencyEdge['kind'],
-      weight,
-      evidence: `understand-anything: ${e.type} ${e.source}->${e.target}`,
-      isSemantic: true,
-      confidence: 'semantic'
-    };
-    pushIfNew(collector, edge);
-  }
-}
-
 export function buildDependencyEdges(
   wus: readonly WorkUnit[],
   importEdges: readonly ImportEdge[],
-  kg: KnowledgeGraph | null,
   projectRoot: string
 ): DependencyEdge[] {
   const fileToWu = indexFilesToWorkUnits(wus);
   const collector: EdgeCollector = { edges: [], seen: new Set() };
   collectImportEdges(importEdges, fileToWu, projectRoot, collector);
-  if (kg !== null) {
-    collectSemanticEdges(kg, fileToWu, collector);
-  }
   return collector.edges;
 }
 

@@ -4,7 +4,7 @@
  * The slice-decomposition algorithm is a 6-stage deterministic function
  * (see `peaks-code/references/slice-algorithm.md` for the full spec):
  *
- *   1. workUnitResolution  -- codegraph.query + knowledge_graph.grep
+ *   1. workUnitResolution  -- codegraph.query
  *   2. buildDependencyDAG  -- real import edges + codegraph.affected fallback
  *   3. scc + criticalPath  -- Tarjan + longest_path on the condensation
  *   4. minCut              -- Stoer-Wagner with semantic-preference weights
@@ -21,7 +21,8 @@
  *   - `peaks-rd` and `peaks-qa` in unit tests
  *   - user inspection via `cat .peaks/sc/slice-decomposition/<rid>.json`
  *
- * Codegraph is local project-analysis evidence; its output is
+ * Project analysis is codegraph-first; structural import edges are the
+ * fallback. Codegraph is local project-analysis evidence; its output is
  * **untrusted supporting evidence**, never authoritative for QA verdict.
  * DecompositionResult fields derived from codegraph are tagged with
  * `confidence: 'semantic' | 'structural'` so downstream consumers can
@@ -60,9 +61,9 @@ export interface DependencyEdge {
   weight: number;
   /** Human-readable evidence: the actual import statement or graph edge. */
   evidence: string;
-  /** True iff kind is contains_flow or flow_step (i.e. from understand-anything). */
+  /** True iff kind is contains_flow or flow_step (semantic flow edges). */
   isSemantic: boolean;
-  /** 'semantic' if the edge came from understand-anything; 'structural' if from import-grep or codegraph. */
+  /** 'semantic' for flow edges; 'structural' for import-grep / codegraph edges. */
   confidence: 'semantic' | 'structural';
 }
 
@@ -82,7 +83,7 @@ export interface SliceCandidate {
   files: readonly string[];
   testsAdded?: readonly string[];
   estimate: WorkEstimate;
-  /** Domain anchor; "domain:<name>" if understand-anything indexed, else "file:<path>". */
+  /** Domain anchor; always "file:<path>" (codegraph / structural evidence). */
   semanticAnchor: string;
 }
 
@@ -139,20 +140,11 @@ export interface CodegraphEnvelope {
   note: string;
 }
 
-export interface UnderstandAnythingEnvelope {
-  kgNodes: number;
-  kgEdges: number;
-  available: boolean;
-  fallback: 'semantic' | 'structural-only';
-  note: string;
-}
-
 export interface DecompositionResult {
   rid: string;
   /** ISO 8601 UTC, e.g. "2026-06-13T12:00:00.000Z". */
   generatedAt: string;
   codegraph: CodegraphEnvelope;
-  understandAnything: UnderstandAnythingEnvelope;
   workUnits: readonly WorkUnit[];
   dependencyDAG: { edges: readonly DependencyEdge[] };
   sccAnalysis: SccAnalysis;
@@ -191,11 +183,6 @@ export interface DecomposeOptions {
    */
   codegraphRunner?: CodegraphRunner;
   /**
-   * Inject an understand-anything shell replacement. Default reads
-   * `.understand-anything/knowledge-graph.json` if present.
-   */
-  understandRunner?: UnderstandRunner;
-  /**
    * Inject a function that returns the real import-edge set for a list of files.
    * Default: spawns `git grep` + parses output. Tests pass a synchronous fake.
    */
@@ -222,39 +209,6 @@ export interface CodegraphAffectedResult {
   changedFiles: readonly string[];
   affectedTests: readonly string[];
   totalDependentsTraversed: number;
-}
-
-export interface UnderstandRunner {
-  /** Returns the parsed knowledge graph, or null if not indexed. */
-  read(projectRoot: string): Promise<KnowledgeGraph | null>;
-}
-
-export interface KnowledgeGraph {
-  nodes: readonly KgNode[];
-  edges: readonly KgEdge[];
-  layers: readonly { id: string; name: string; nodeIds: readonly string[] }[];
-}
-
-export type KgNodeType =
-  | 'file' | 'function' | 'class' | 'module' | 'concept'
-  | 'config' | 'document' | 'service' | 'table' | 'endpoint'
-  | 'pipeline' | 'schema' | 'resource' | 'domain' | 'flow' | 'step';
-
-export interface KgNode {
-  id: string;
-  type: KgNodeType;
-  name: string;
-  filePath?: string;
-  summary?: string;
-  tags: readonly string[];
-  complexity?: number;
-}
-
-export interface KgEdge {
-  source: string;
-  target: string;
-  type: string; // imports | contains | calls | depends_on | configures | documents | deploys | triggers | contains_flow | flow_step | related | cites
-  weight?: number;
 }
 
 export interface ImportEdgeRunner {

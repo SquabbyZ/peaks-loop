@@ -12,15 +12,12 @@
  * Default runners (CLI-mode, real shell-outs):
  *
  *   defaultCodegraphRunner()  -- spawns `npx codegraph <cmd>`
- *   defaultUnderstandRunner() -- reads .understand-anything/knowledge-graph.json
  *   defaultImportEdgeRunner() -- reads source files for import statements
  *
- * Tests inject fakes via the `codegraphRunner`, `understandRunner`, and
- * `importEdgeRunner` fields of `DecomposeOptions`.
+ * Tests inject fakes via the `codegraphRunner` and `importEdgeRunner`
+ * fields of `DecomposeOptions`.
  */
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { calibrate } from './calibration-store.js';
 import type {
@@ -31,15 +28,12 @@ import type {
   DecompositionResult,
   DependencyEdge,
   ImportEdgeRunner,
-  KnowledgeGraph,
   MinCutEdge,
   MinCutPartition,
   MinCutResult,
   ParallelBatch,
   SccAnalysis,
   SliceCandidate,
-  UnderstandAnythingEnvelope,
-  UnderstandRunner,
   WorkUnit
 } from './slice-decompose-types.js';
 
@@ -94,12 +88,10 @@ interface DecomposeState {
   rid: string;
   prdMarkdown: string;
   projectRoot: string;
-  runners: { cg: CodegraphRunner; ur: UnderstandRunner; ier: ImportEdgeRunner };
+  runners: { cg: CodegraphRunner; ier: ImportEdgeRunner };
   cgStatus: Awaited<ReturnType<CodegraphRunner['status']>> | null;
   workUnits: WorkUnit[];
   depEdges: DependencyEdge[];
-  kg: KnowledgeGraph | null;
-  understandAvailable: boolean;
   codegraphAffectedCrossFile: boolean;
   scc: SccAnalysis | null;
   criticalPath: ReturnType<typeof findCriticalPath> | null;
@@ -112,7 +104,7 @@ function createInitialState(
   rid: string,
   prdMarkdown: string,
   projectRoot: string,
-  runners: { cg: CodegraphRunner; ur: UnderstandRunner; ier: ImportEdgeRunner }
+  runners: { cg: CodegraphRunner; ier: ImportEdgeRunner }
 ): DecomposeState {
   return {
     rid,
@@ -122,8 +114,6 @@ function createInitialState(
     cgStatus: null,
     workUnits: [],
     depEdges: [],
-    kg: null,
-    understandAvailable: false,
     codegraphAffectedCrossFile: false,
     scc: null,
     criticalPath: null,
@@ -163,12 +153,10 @@ async function runStage(state: DecomposeState, stage: DecomposeStage): Promise<D
 
 function resolveRunners(options: DecomposeOptions): {
   cg: CodegraphRunner;
-  ur: UnderstandRunner;
   ier: ImportEdgeRunner;
 } {
   return {
     cg: options.codegraphRunner ?? defaultCodegraphRunner(),
-    ur: options.understandRunner ?? defaultUnderstandRunner(),
     ier: options.importEdgeRunner ?? defaultImportEdgeRunner()
   };
 }
@@ -271,15 +259,13 @@ function matchAcToHit(ac: string, hits: readonly CodegraphQueryHit[]): Codegraph
 // =====================================================================
 
 async function buildDepDagStage(state: DecomposeState): Promise<DecomposeState> {
-  const kg = await state.runners.ur.read(state.projectRoot);
-  const understandAvailable = kg !== null;
   const fileSet = await collectFileSet(state.workUnits, state.runners.ier, state.projectRoot);
   const allFiles = Array.from(fileSet);
   const codegraphAffectedCrossFile = await probeCrossFileAffected(allFiles, state.runners.cg, state.projectRoot);
   const workUnits = applyImplicitWuFallback(state.workUnits, allFiles);
   const importEdges = await state.runners.ier.importsOf(state.projectRoot, allFiles);
-  const depEdges = buildDependencyEdges(workUnits, importEdges, kg, state.projectRoot);
-  return { ...state, kg, understandAvailable, codegraphAffectedCrossFile, workUnits, depEdges };
+  const depEdges = buildDependencyEdges(workUnits, importEdges, state.projectRoot);
+  return { ...state, codegraphAffectedCrossFile, workUnits, depEdges };
 }
 
 async function collectFileSet(
@@ -503,15 +489,14 @@ function backtrackPath(endNode: string, prev: ReadonlyMap<string, string | null>
 
 function minCutStage(state: DecomposeState): DecomposeState {
   if (state.criticalPath === null) return state;
-  const minCut = findMinCut(state.workUnits, state.depEdges, state.criticalPath, state.kg);
+  const minCut = findMinCut(state.workUnits, state.depEdges, state.criticalPath);
   return { ...state, minCut };
 }
 
 function findMinCut(
   _wus: readonly WorkUnit[],
   edges: readonly DependencyEdge[],
-  criticalPath: { nodes: readonly string[] },
-  _kg: KnowledgeGraph | null
+  criticalPath: { nodes: readonly string[] }
 ): MinCutResult {
   const cpSet = new Set(criticalPath.nodes);
 
@@ -559,7 +544,7 @@ function partitionEstimateEmitStage(state: DecomposeState): DecomposeState {
     ...b,
     slices: b.slices.map((s) => ({
       ...s,
-      estimate: estimateSlice(s, state.kg)
+      estimate: estimateSlice(s)
     }))
   }));
   const result = buildDecompositionResult(state, batchesWithEstimates);
@@ -575,13 +560,11 @@ function buildDecompositionResult(
   const totalSlices = batchesWithEstimates.reduce((sum, b) => sum + b.slices.length, 0);
   const pickHint = buildPickHint(totalSlices);
   const codegraphEnvelope = buildCodegraphEnvelope(state);
-  const understandEnvelope = buildUnderstandEnvelope(state);
 
   return {
     rid: state.rid,
     generatedAt: new Date().toISOString(),
     codegraph: codegraphEnvelope,
-    understandAnything: understandEnvelope,
     workUnits: state.workUnits,
     dependencyDAG: { edges: state.depEdges },
     sccAnalysis: state.scc!,
@@ -632,19 +615,7 @@ function buildCodegraphEnvelope(state: DecomposeState): {
   };
 }
 
-function buildUnderstandEnvelope(state: DecomposeState): UnderstandAnythingEnvelope {
-  return {
-    kgNodes: state.kg?.nodes.length ?? 0,
-    kgEdges: state.kg?.edges.length ?? 0,
-    available: state.understandAvailable,
-    fallback: state.understandAvailable ? 'semantic' : 'structural-only',
-    note: state.understandAvailable
-      ? 'read from .understand-anything/knowledge-graph.json'
-      : '.understand-anything/knowledge-graph.json not found; algorithm falls back to structural cuts'
-  };
-}
-
-function estimateSlice(slice: SliceCandidate, _kg: KnowledgeGraph | null): SliceCandidate['estimate'] {
+function estimateSlice(slice: SliceCandidate): SliceCandidate['estimate'] {
   const sampleSize = 0;
   const complexitySum = 0;
   return calibrate(complexitySum, slice.estimate.testCount, slice.estimate.locSum, sampleSize);
@@ -762,5 +733,5 @@ function wuToSlice(wu: WorkUnit): SliceCandidate {
 // `slice-decompose-runners.ts` module — see v2.18.3 file-split for
 // the rationale. Function signatures and behaviour are unchanged
 // (verbatim move).
-import { defaultCodegraphRunner, defaultUnderstandRunner, defaultImportEdgeRunner } from './slice-decompose-runners.js';
-export { defaultCodegraphRunner, defaultUnderstandRunner, defaultImportEdgeRunner } from './slice-decompose-runners.js';
+import { defaultCodegraphRunner, defaultImportEdgeRunner } from './slice-decompose-runners.js';
+export { defaultCodegraphRunner, defaultImportEdgeRunner } from './slice-decompose-runners.js';

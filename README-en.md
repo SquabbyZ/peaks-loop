@@ -174,11 +174,10 @@ Every lane opens with **one slash command**.
 | Role | Project | One-liner |
 | --- | --- | --- |
 | **Sediment + gates** | [**peaks-loop**](https://github.com/SquabbyZ/peaks-loop) ← you are here | loop-engineering crystallization system; install → PRD/RD/QA/UI/SC/TXT as one chain + sediment |
-| **Tactical handbook** | [affaan-m/ECC](https://github.com/affaan-m/ECC) | everything-claude-code: the best tactics, skills, and SOPs you can put on top of Claude Code |
-| **Code understanding** | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) | any repo, one sentence to grok it — let the LLM actually *understand* the project, not guess |
+| **Tactical handbook** | [affaan-m/ECC](https://github.com/affaan-m/ECC) | the best tactics, skills, and SOPs you can put on top of Claude Code |
 | **Process & discipline** | [obra/superpowers](https://github.com/obra/superpowers) | brainstorming / TDD / debugging / code-review as flow disciplines, every one with a hard exit |
 
-**One sentence to use them all**: clone the three repos above, install peaks-loop, hand the rest to your LLM — it pulls what it needs, holds the gates, lands the tactics, sediments the flow.
+**One sentence to use them all**: clone the two repos above, install peaks-loop, hand the rest to your LLM — it pulls what it needs, holds the gates, lands the tactics, sediments the flow.
 
 ### Tribute
 
@@ -312,7 +311,7 @@ Three common pitfalls:
 - Changelog → [`CHANGELOG.md`](./CHANGELOG.md)
 - Questions → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - Tribute: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
-- Recommended combo: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
+- Recommended combo: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [obra/superpowers](https://github.com/obra/superpowers)
 
 ---
 

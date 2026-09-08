@@ -48,7 +48,6 @@ import type {
   CodegraphEnvelope,
   DecomposeOptions,
   DependencyEdge,
-  UnderstandAnythingEnvelope,
   WorkUnit
 } from './slice-decompose-types.js';
 import { decomposeSlices } from './slice-decompose-service.js';
@@ -102,7 +101,6 @@ export async function decompose(
 
   const passes: PassResult[] = [];
   let codegraph: CodegraphEnvelope = zeroCodegraph();
-  let understandAnything: UnderstandAnythingEnvelope = zeroUnderstand();
   let pass1WorkUnits: readonly WorkUnit[] = [];
 
   if (wantService) {
@@ -117,7 +115,6 @@ export async function decompose(
       internalEdges: v1EdgesToV2(result1.dependencyDAG.edges)
     });
     codegraph = result1.codegraph;
-    understandAnything = result1.understandAnything;
   }
 
   if (wantFile) {
@@ -170,7 +167,6 @@ export async function decompose(
         internalEdges: v1EdgesToV2(result.dependencyDAG.edges)
       });
       codegraph = result.codegraph;
-      understandAnything = result.understandAnything;
     }
   }
 
@@ -193,7 +189,6 @@ export async function decompose(
     crossPassEdges,
     llmArbitrations,
     codegraph,
-    understandAnything,
     partial: false
   };
 }
@@ -285,12 +280,3 @@ function zeroCodegraph(): CodegraphEnvelope {
   };
 }
 
-function zeroUnderstand(): UnderstandAnythingEnvelope {
-  return {
-    kgNodes: 0,
-    kgEdges: 0,
-    available: false,
-    fallback: 'structural-only',
-    note: 'no decomposition run'
-  };
-}

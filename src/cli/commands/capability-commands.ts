@@ -1,7 +1,9 @@
 import { Command } from 'commander';
 import { readConfig } from '../../services/config/config-service.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
 import type { PeaksConfig } from '../../services/config/config-types.js';
 import { resolveCapabilityAvailability } from '../../services/recommendations/capability-availability.js';
+import { detectInstalledCapabilityIds } from '../../services/recommendations/installed-capability-detector.js';
 import { createCapabilityMapPlan } from '../../services/recommendations/capability-map-service.js';
 import { seedCapabilityItems, seedCapabilitySources } from '../../services/recommendations/seed-capability-catalog.js';
 import type { CapabilityMapSourceFilter } from '../../services/recommendations/recommendation-types.js';
@@ -25,7 +27,9 @@ export function registerCapabilityCommands(program: Command, io: ProgramIO): voi
 }
 
 export function runCapabilityStatus(io: ProgramIO, options: { json?: boolean }): void {
-  const availability = resolveCapabilityAvailability(seedCapabilityItems);
+  const availability = resolveCapabilityAvailability(seedCapabilityItems, {
+    installedCapabilityIds: getInstalledCapabilityIds(readConfig())
+  });
   printResult(io, ok("capability.status", { sources: seedCapabilitySources, items: seedCapabilityItems, availability }), options.json);
 }
 
@@ -52,8 +56,22 @@ export function runCapabilityMap(io: ProgramIO, options: CapabilityMapOptions): 
   })), options.json);
 }
 
+/**
+ * Read-only detection of already-satisfied capabilities. Delegates to
+ * `detectInstalledCapabilityIds` (no install side effect, fail-soft).
+ * `_config` is retained for signature back-compat — the probe needs the
+ * project root, which comes from the process cwd.
+ */
 export function getInstalledCapabilityIds(_config: PeaksConfig): string[] {
-  return [];
+  return detectInstalledCapabilityIds({ projectRoot: resolveProbeRoot() });
+}
+
+function resolveProbeRoot(): string {
+  try {
+    return findProjectRoot(process.cwd()) ?? process.cwd();
+  } catch {
+    return process.cwd();
+  }
 }
 
 export function parseCapabilityMapSource(source: string): CapabilityMapSourceFilter | null {

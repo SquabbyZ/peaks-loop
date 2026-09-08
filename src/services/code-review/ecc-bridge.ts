@@ -31,7 +31,7 @@
  * === Source: peaks-rd/references/parallel-review-fanout.md ===
  *
  * Sub-agent 1 contract (Tier 7 v2.11.0): the parent RD loop calls
- * `Agent({ subagent_type: 'everything-claude-code:code-review', ... })`
+ * `Agent({ subagent_type: 'ecc:code-reviewer', ... })`
  * with the diff + handoff in scope, receives the structured envelope,
  * then runs `adaptEccEnvelopeToRdCodeReview(env, { rid, generatedAt })`
  * and writes the resulting body to
@@ -65,19 +65,53 @@ export interface EccEnvelope {
 }
 
 /**
- * 5-state ECC detection result:
+ * The real upstream ECC agent name for the code-review role:
+ * `~/.peaks/agents/ecc/code-reviewer.md`. Upstream ships `<lang>-reviewer`
+ * agents and has NO `code-review.md`, so this is the default the
+ * `ready-via-cache` nextActions name when the caller does not pass the
+ * output of `resolveMaterializedAgentName(['code-reviewer', 'code-review'])`.
+ */
+export const DEFAULT_CACHE_ECC_AGENT_NAME = 'code-reviewer';
+
+/**
+ * The native (plugin) ECC agent id dispatched through the Agent tool.
+ * Verified upstream: the plugin is named `ecc` (`.claude-plugin/plugin.json`,
+ * `marketplace.json`) and the agent's frontmatter `name` is `code-reviewer`
+ * (`~/.peaks/agents/ecc/code-reviewer.md`), so the composed id is
+ * `ecc:code-reviewer`. The previous id composed the OLD repo name
+ * (`everything-claude-code`) with a non-existent `code-review` agent, so it
+ * matched no registry entry and the native path silently fell through to
+ * inline review.
+ */
+export const DEFAULT_NATIVE_ECC_AGENT_ID = 'ecc:code-reviewer';
+
+/** Materialized path hint for the cache-backed agent, e.g. `~/.peaks/agents/ecc/code-reviewer.md`. */
+function materializedAgentPath(name: string | undefined): string {
+  const resolved = name !== undefined && name.length > 0 ? name : DEFAULT_CACHE_ECC_AGENT_NAME;
+  return `~/.peaks/agents/ecc/${resolved}.md`;
+}
+
+/**
+ * 6-state ECC detection result:
  *   - `ready`               — ECC plugin is installed and reachable
- *   - `plugin-missing`      — `everything-claude-code` not in skill list
- *   - `agent-missing`       — plugin present but `code-review` agent absent
+ *   - `ready-via-cache`     — plugin/agent absent, but the materialized ECC
+ *                             review agent (real name `code-reviewer`, NOT
+ *                             `code-review`) exists under `~/.peaks/agents/ecc/`;
+ *                             dispatch a GENERIC sub-agent with that body
+ *   - `plugin-missing`      — `everything-claude-code` not in skill list and no materialized cache
+ *   - `agent-missing`       — plugin present but `code-review` agent absent and no materialized cache
  *   - `dispatch-failed`     — Agent tool call threw before returning envelope
  *   - `envelope-malformed`  — returned value failed `isEccEnvelope` validation
  *
- * The caller (peaks-rd's sub-agent 1 contract) inspects `state` and
- * either proceeds with the envelope or records a degradation note in
- * the request artifact body (`code-review-ecc-degraded-to-inline`).
+ * Fallback order (RD fan-out, 2026-09-09-ecc-dynamic): native plugin →
+ * cache-backed generic agent → inline. The caller (peaks-rd's sub-agent 1
+ * contract) inspects `state` and either proceeds with the envelope or records
+ * a degradation note in the request artifact body
+ * (`code-review-ecc-degraded-to-inline`).
  */
 export type EccDetectState =
   | 'ready'
+  | 'ready-via-cache'
   | 'plugin-missing'
   | 'agent-missing'
   | 'dispatch-failed'
@@ -187,7 +221,7 @@ export function adaptEccEnvelopeToRdCodeReview(
     `## Summary`,
     '',
     `- generatedAt: ${opts.generatedAt}`,
-    `- source: everything-claude-code:code-review (Tier 7 bridge)`,
+    `- source: ${DEFAULT_NATIVE_ECC_AGENT_ID} (Tier 7 bridge)`,
     `- gateAction: ${env.gateAction}`,
     `- passed: ${env.passed}`,
     `- violations: ${env.violations.length}`,
@@ -259,50 +293,109 @@ function renderFindings(violations: ReadonlyArray<EccViolation>): string {
 }
 
 /**
- * 5-state detector — mirrors `detectOcr`'s shape (state enum + warnings
+ * 6-state detector — mirrors `detectOcr`'s shape (state enum + warnings
  * + nextActions). The caller passes in the result of its own probe:
  *
  * - `pluginInstalled`: did the skill list scan find `everything-claude-code`?
  * - `agentAvailable`: did the Agent tool say `code-review` is registered?
+ * - `cacheAgentAvailable`: does the resolved materialized agent exist
+ *   (`~/.peaks/agents/ecc/<cacheAgentName>.md`, default `code-reviewer`)?
  * - `dispatchError`: optional — the Agent tool threw before returning.
  * - `envelope`: optional — what came back (if anything).
  *
- * The detector never blocks: when state !== `ready`, the parent RD
- * loop records a `code-review-ecc-degraded-to-inline` note and falls
- * back to inline review. This matches `detectOcr`'s soft-fail policy.
+ * The detector never blocks: when the state is not dispatchable
+ * (`ready` / `ready-via-cache`), the parent RD loop records a
+ * `code-review-ecc-degraded-to-inline` note and falls back to inline
+ * review. This matches `detectOcr`'s soft-fail policy.
+ *
+ * Backward compat: the native id is `DEFAULT_NATIVE_ECC_AGENT_ID`
+ * (`ecc:code-reviewer` — plugin `ecc`, agent `code-reviewer`). A registry
+ * that still exposes the OLD `everything-claude-code` plugin id will not
+ * match it, so the operator should pin the id explicitly. peaks-loop
+ * cannot enumerate the user's plugin registry: detection stays
+ * caller-supplied (`pluginInstalled` / `agentAvailable`), never probed here.
  */
 export function detectEcc(input: {
   readonly pluginInstalled: boolean;
   readonly agentAvailable: boolean;
+  /**
+   * Did the caller find the materialized review agent (written by
+   * `peaks ecc install` / `materializeEccAgents`) under `~/.peaks/agents/ecc/`?
+   * When true and the native plugin path is unavailable, `state` becomes
+   * `ready-via-cache` so the RD loop can dispatch a generic sub-agent with
+   * the materialized body.
+   */
+  readonly cacheAgentAvailable?: boolean;
+  /**
+   * Resolved materialized agent name — pass
+   * `resolveMaterializedAgentName(['code-reviewer', 'code-review'])` from
+   * `peaks-loop-mut`. Defaults to `code-reviewer` (the real upstream name);
+   * upstream has no `code-review.md`.
+   */
+  readonly cacheAgentName?: string;
   readonly dispatchError?: unknown;
   readonly envelope?: unknown;
 }): EccDetectResult {
   const warnings: string[] = [];
   const nextActions: string[] = [];
+  const cacheAgentAvailable = input.cacheAgentAvailable === true;
+  const cacheAgentPath = materializedAgentPath(input.cacheAgentName);
 
   if (!input.pluginInstalled) {
+    if (cacheAgentAvailable) {
+      return {
+        state: 'ready-via-cache',
+        pluginInstalled: false,
+        agentAvailable: false,
+        warnings: [
+          'ECC Claude Code plugin is not installed; using the cache-backed generic agent instead.'
+        ],
+        nextActions: [
+          `Dispatch a generic sub-agent with the body of \`${cacheAgentPath}\` (see \`buildCacheBackedEccPrompt\`).`,
+          'Refresh the materialized copy with `peaks ecc install`.',
+          'Install the `ecc` plugin for the native path (optional; native plugin → cache-backed → inline).'
+        ]
+      };
+    }
     return {
       state: 'plugin-missing',
       pluginInstalled: false,
       agentAvailable: false,
       warnings,
       nextActions: [
-        'Install the `everything-claude-code` plugin (Claude Code marketplace).',
-        'Until installed, peaks-rd falls back to inline code review (degradation note: code-review-ecc-degraded-to-inline).'
+        'Install the `ecc` plugin (Claude Code marketplace).',
+        'Or run `peaks ecc install` to populate the cache-backed generic agent path.',
+        'Until one of the two is available, peaks-rd falls back to inline code review (degradation note: code-review-ecc-degraded-to-inline).'
       ]
     };
   }
 
   if (!input.agentAvailable) {
+    if (cacheAgentAvailable) {
+      return {
+        state: 'ready-via-cache',
+        pluginInstalled: true,
+        agentAvailable: false,
+        warnings: [
+          '`ecc` is installed but its `code-reviewer` agent is not registered; using the cache-backed generic agent instead.'
+        ],
+        nextActions: [
+          `Dispatch a generic sub-agent with the body of \`${cacheAgentPath}\` (see \`buildCacheBackedEccPrompt\`).`,
+          'Verify the plugin is enabled in your Claude Code settings (MCP servers / agent registry) to restore the native path.'
+        ]
+      };
+    }
     return {
       state: 'agent-missing',
       pluginInstalled: true,
       agentAvailable: false,
       warnings: [
-        '`everything-claude-code` is installed but its `code-review` agent is not registered.'
+        '`ecc` is installed but its `code-reviewer` agent is not registered.'
       ],
       nextActions: [
         'Verify the plugin is enabled in your Claude Code settings (MCP servers / agent registry).',
+        `If your registry still exposes the old \`everything-claude-code\` plugin id, pin the native agent id explicitly (\`${DEFAULT_NATIVE_ECC_AGENT_ID}\`) instead of relying on detection.`,
+        'Or run `peaks ecc install` to populate the cache-backed generic agent path.',
         'Until resolved, peaks-rd falls back to inline code review.'
       ]
     };
@@ -350,24 +443,85 @@ export function detectEcc(input: {
 /**
  * Convenience: run `detectEcc` and `adaptEccEnvelopeToRdCodeReview`
  * in one call. The parent RD loop calls this after the Agent tool
- * returns. When `detectEcc` returns state !== 'ready', the caller
- * should NOT call `adaptEccEnvelopeToRdCodeReview` — fall back to
- * inline review instead.
+ * returns. When `detectEcc` returns a non-dispatchable state
+ * (`plugin-missing` / `agent-missing` / `dispatch-failed` /
+ * `envelope-malformed`), the caller should NOT call
+ * `adaptEccEnvelopeToRdCodeReview` — fall back to inline review instead.
+ *
+ * Both `ready` (native plugin) and `ready-via-cache` (materialized generic
+ * agent) adapt the envelope through the SAME bridge.
  */
 export function runEccCodeReview(input: {
   readonly rid: string;
   readonly generatedAt: string;
   readonly pluginInstalled: boolean;
   readonly agentAvailable: boolean;
+  readonly cacheAgentAvailable?: boolean;
+  /** Resolved materialized agent name (see `detectEcc`); defaults to `code-reviewer`. */
+  readonly cacheAgentName?: string;
   readonly dispatchError?: unknown;
   readonly envelope?: unknown;
 }): { detect: EccDetectResult; doc: RdCodeReviewDoc | null } {
   const detect = detectEcc(input);
-  if (detect.state !== 'ready' || input.envelope === undefined) {
+  const dispatchable = detect.state === 'ready' || detect.state === 'ready-via-cache';
+  if (!dispatchable || input.envelope === undefined) {
     return { detect, doc: null };
   }
-  // Detect.state === 'ready' implies input.envelope passed isEccEnvelope; the runtime
+  // A dispatchable state implies input.envelope passed isEccEnvelope; the runtime
   // type is therefore EccEnvelope, not `unknown`. Cast is justified by detect's contract.
   const env = input.envelope as EccEnvelope;
   return { detect, doc: adaptEccEnvelopeToRdCodeReview(env, { rid: input.rid, generatedAt: input.generatedAt }) };
+}
+
+/**
+ * The exact JSON shape the generic (cache-backed) sub-agent MUST return.
+ * Kept as a const so the RD reference docs and the prompt builder cannot
+ * drift: `isEccEnvelope` is the authoritative validator.
+ */
+export const ECC_OUTPUT_CONTRACT = [
+  'Return ONLY a single JSON object (no prose, no markdown fence) with this exact shape:',
+  '{',
+  '  "passed": boolean,',
+  '  "violations": [{ "kind": string, "line": number, "snippet": string, "hint": string }],',
+  '  "gateAction": "pass" | "warn" | "block"',
+  '}',
+  '`kind` is one of: correctness, type-safety, error-handling, mutation, file-size, naming, dead-code, regression, contract-drift, other.',
+  '`gateAction: "block"` requires at least one violation; `pass` requires an empty violations array.'
+].join('\n');
+
+/**
+ * Compose the plugin-free dispatch prompt for sub-agent 1.
+ *
+ * `instructions` is the body of the materialized review agent
+ * (`~/.peaks/agents/ecc/code-reviewer.md` — resolve the real name with
+ * `resolveMaterializedAgentName`, never hardcode `code-review.md`);
+ * `diff` is the slice diff. The
+ * composed prompt is handed to a GENERIC sub-agent (no ECC plugin needed)
+ * and its reply is validated with `isEccEnvelope`, then rendered by
+ * `adaptEccEnvelopeToRdCodeReview` — the same bridge the native path uses.
+ */
+export function buildCacheBackedEccPrompt(input: {
+  readonly rid: string;
+  readonly instructions: string;
+  readonly diff: string;
+}): string {
+  return [
+    '# Code review (ECC cache-backed generic agent)',
+    '',
+    `Request: ${input.rid}`,
+    '',
+    `## Agent instructions (materialized from ${DEFAULT_NATIVE_ECC_AGENT_ID})`,
+    '',
+    input.instructions.trim(),
+    '',
+    '## Diff under review',
+    '',
+    '```diff',
+    input.diff.trim(),
+    '```',
+    '',
+    '## Required output',
+    '',
+    ECC_OUTPUT_CONTRACT
+  ].join('\n');
 }

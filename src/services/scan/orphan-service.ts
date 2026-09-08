@@ -83,7 +83,7 @@ const PARENT_COMMANDS = new Set([
   'qa', 'sc', 'txt', 'code-review', 'rd', 'sh', 'config', 'audit', 'codegraph',
   'context', 'agent', 'capability', 'classify', 'gstack', 'gate',
   'hook', 'hooks', 'log', 'loop', 'memory', 'perf', 'playwright', 'preferences',
-  'project', 'retrospective', 'slice', 'statusline', 'understand', 'workflow',
+  'project', 'retrospective', 'slice', 'statusline', 'workflow',
   'migrate', 'mcp', 'doctor', 'help'
 ]);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);

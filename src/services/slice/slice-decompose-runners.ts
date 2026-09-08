@@ -7,10 +7,9 @@
  * does not inject fakes via `DecomposeOptions`. The 6-stage pure
  * algorithm itself lives in `slice-decompose-service.ts`.
  *
- * Public surface (3 exported factories):
+ * Public surface (2 exported factories):
  *
  *   defaultCodegraphRunner()  -- spawns `npx codegraph <cmd>`
- *   defaultUnderstandRunner() -- reads .understand-anything/knowledge-graph.json
  *   defaultImportEdgeRunner() -- reads source files for import statements
  *
  * v2.18.3 file-split: this module is the extracted sub-tree of the
@@ -26,8 +25,7 @@ import type {
   CodegraphQueryHit,
   CodegraphRunner,
   ImportEdge,
-  ImportEdgeRunner,
-  UnderstandRunner
+  ImportEdgeRunner
 } from './slice-decompose-types.js';
 
 export function defaultCodegraphRunner(): CodegraphRunner {
@@ -127,26 +125,6 @@ function runCodegraph(args: string[], projectRoot: string): string {
     }
     throw error;
   }
-}
-
-export function defaultUnderstandRunner(): UnderstandRunner {
-  return {
-    async read(projectRoot) {
-      const kgPath = join(projectRoot, '.understand-anything', 'knowledge-graph.json');
-      if (!existsSync(kgPath)) return null;
-      try {
-        const raw = readFileSync(kgPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        return {
-          nodes: parsed.nodes ?? [],
-          edges: parsed.edges ?? [],
-          layers: parsed.layers ?? []
-        };
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        return null;
-      }
-    }
-  };
 }
 
 export function defaultImportEdgeRunner(): ImportEdgeRunner {

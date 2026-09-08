@@ -18,10 +18,7 @@
  *   by an LLM and must carry the arbitration trace via `arbitratedBy`.
  */
 
-import type {
-  CodegraphEnvelope,
-  UnderstandAnythingEnvelope
-} from './slice-decompose-types.js';
+import type { CodegraphEnvelope } from './slice-decompose-types.js';
 
 /** Schema discriminator. v1 files do NOT carry a `schemaVersion` field. */
 export type SchemaVersion = 'v1' | 'v2';
@@ -64,7 +61,7 @@ export interface SliceV2 {
   readonly loc: number;
   /** Parent slice id from the previous pass, or null for Pass 1. */
   readonly parentSliceId: string | null;
-  /** Domain anchor; "domain:<name>" if understand-anything indexed, else "file:<path>". */
+  /** Domain anchor; always "file:<path>" (codegraph / structural evidence). */
   readonly semanticAnchor: string;
 }
 
@@ -124,7 +121,6 @@ export interface DecompositionResultV2 {
   readonly crossPassEdges: readonly CrossPassEdge[];
   readonly llmArbitrations: readonly LlmArbitration[];
   readonly codegraph: CodegraphEnvelope;
-  readonly understandAnything: UnderstandAnythingEnvelope;
   /** True iff any pass failed to complete and the result is a partial. */
   readonly partial: boolean;
 }

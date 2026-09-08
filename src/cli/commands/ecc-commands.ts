@@ -39,7 +39,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
   const ecc = program
     .command('ecc')
     .description(
-      'affaan-m/everything-claude-code cache: download + read-only access for the LLM (no subprocess; no peaks agent run).'
+      'affaan-m/ECC cache: download + read-only access for the LLM (no subprocess; no peaks agent run).'
     );
 
   addJsonOption(
@@ -59,6 +59,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
         [],
         [
           `Cache landed at ~/.peaks/cache/ecc-${result.sha}/agents/`,
+          `Plugin-free copy materialized at ~/.peaks/agents/ecc/ (read it directly when the ECC plugin is absent)`,
           `Inspect with: peaks ecc ls`,
           `Consume one agent with: peaks ecc show <name>`,
         ]
@@ -70,7 +71,7 @@ export function registerEccCommands(program: Command, io: ProgramIO): void {
         io,
         fail('ecc.install', 'FETCH_FAILED', message, { ref: options.ref ?? 'latest' }, [
           'Network failure during ECC download. Manual fallback:',
-          '  git clone https://github.com/affaan-m/everything-claude-code.git',
+          '  git clone https://github.com/affaan-m/ECC.git',
           '  Copy <repo>/agents/*.md into ~/.peaks/cache/ecc-<sha>/agents/.',
           '  Drop a minimal ecc-installed.json manifest into ~/.peaks/cache/.',
         ]),
