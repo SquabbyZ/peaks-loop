@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-09T17:16:10.142Z",
+  "updatedAt": "2026-09-09T22:49:36.123Z",
   "hot": {
     "rule": [
       {
@@ -296,10 +296,26 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "detached 子代理架构 user 反馈 — headless 应该是 in-shell background，不是新 OS process",
+        "kind": "feedback",
+        "description": "detached 子代理架构 user 反馈 > **优先级 = 项目元规则**（与 human-nl-choice-only / two-forms-only 同级）。任何 detached 子代理实现都必须先确认符合本反馈；不符合...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-detached-architecture-feedback-in-shell-background.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
         "name": "dogfood-2026-06-02-wechat-post-sop",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , ga...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "headroom-ai 半成品集成 — N-7 proxy 后端未接，当前 0 token 节省；省 token 主杠杆是 G7 + auto-compact + cache 对齐",
+        "kind": "feedback",
+        "description": "headroom-ai 半成品集成 > **优先级**：项目级 finding（user 反馈第 4 条）。headroom 的 proxy 后端（N-7）未接之前， /  都是 no-op。 结论 headroom-ai 是「con...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-01-headroom-half-baked-integration.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       },
@@ -526,12 +542,52 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "2026-09-03 codegraph 生命周期闭环 — slice 完成自动 refresh + RD 规划前强制 pre-read",
+        "kind": "lesson",
+        "description": "codegraph 生命周期闭环（pre-read + post-refresh） 一句话总结 把 codegraph 从\"LLM 自觉执行的编排规范 prose\"升级为**系统强制闭环**：① RD 规划前 pre-dispatch...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-03-codegraph-lifecycle-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-03"
+      },
+      {
+        "name": "2026-09-03 user feedback batch — codegraph 数据目录回根 + env 优先模型窗口识别（1M）",
+        "kind": "lesson",
+        "description": "codegraph 数据目录回根 + env 优先 1M 窗口识别 一句话总结 两个用户反馈 bugfix：① 把 codegraph 数据目录从 rid-CG-003 引入的  **完全改回根 **（用户明确\"完全回根，去掉 .pe...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-03-codegraph-root-revert-and-env-1m-window.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-03"
+      },
+      {
         "name": "2026-09-10-memory-system-overhaul",
         "kind": "lesson",
-        "description": "记忆系统 overhaul（2026-09-09/10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Commits:** （A+B+D）、（C） 一句话...",
+        "description": "记忆系统 overhaul（2026-09-09/10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Released:** 4.0.35 一句话 pea...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-10-memory-system-overhaul.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-09"
+      },
+      {
+        "name": "4.0.20 dogfood — CLI wiring gap + vendor detectInstalled Windows ENOENT + peaks-rd agent-type papercut",
+        "kind": "lesson",
+        "description": "4.0.20 dogfood 发现的 3 个缺陷 在 session  用 4.0.20 做 dogfood 时，连续暴露 3 个问题。前两个是真实 shipping 缺陷，第三个是编排器人体工学 papercut。 缺陷 1 — d...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-dogfood-4-0-20-cli-wiring-and-vendor-detect-defects.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准",
+        "kind": "lesson",
+        "description": "auto-compact context probe 根因修复 > **优先级**：项目级 lesson。任何 context-probe / auto-compact 改动必须遵守本文三条约束：(1) fallback 必须 ada...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-01-auto-compact-context-probe-root-cause.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "codegraph 8 子任务集成 closure — 7 ship + 1 spike PARTIAL verdict (CG-006/007/001/009/005/008/002 ship; CG-003 spike 4 follow-ups)",
+        "kind": "lesson",
+        "description": "codegraph 8-子任务集成 closure > **优先级**：项目级 lesson。codegraph 集成的 future slice 必须按本 sediment 的 downstream-compat filter + ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-codegraph-8-subtask-integration-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
       },
       {
         "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
@@ -547,6 +603,14 @@
         "description": "session 2026-07-08-session-17918f zcode-adapter 关键设计:z-code 是 VS Code-style 桌面应用,无 binary CLI。 机制: 留 undefined(z-code...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\desktop-application-ide-adapter-z-code-cli.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "F2 detached arch ship + 4.0.21 publish closure (with publish.yml auto-bump lesson + 4.0.22 retry) — session 476090 final sediment",
+        "kind": "lesson",
+        "description": "F2 detached arch ship + 4.0.21 publish closure > **优先级**：项目级 lesson。任何未来 release 必须 DELETE publish.yml line 189 ( ste...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-f2-detached-arch-closure-and-4-0-21-publish-sediment.md",
+        "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       },
       {
@@ -674,6 +738,14 @@
         "kind": "lesson",
         "description": "For any  call on Windows that goes through , assertion-only dogfood (e.g.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\real-cmdline-regression-test-for-spawn.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "rid-001 redo fake-green recovery closure — 9 文件 commit landed e8fb5ed9",
+        "kind": "lesson",
+        "description": "rid-001 redo closure — fake-green recovery 完整 cycle > **优先级**：项目级 hard lesson。任何 \"新增 CLI 表面\" slice 都必须按本 sediment 的 a...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-rid-001-redo-fake-green-recovery-closure.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       },
