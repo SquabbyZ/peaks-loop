@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.0.36 — 2026-09-10 (派发提示词瘦身 + 波次调度 + 编排器上下文审计)
+
+**Highlights**:
+
+1. **派发提示词瘦身（不牺牲规则）** — 每次派发的提示词里约 52% 是 CLI 注入的重复 boilerplate。本轮压缩 L1/生命周期/上下文探测段，并把 test-tool 块统一为一份（去掉 vitest/jest/mocha 举例，保留全部操作性规则，补上只存在于完整块里的 PB-5 例外规则）。7 个角色现在**字节完全一致**：rd/qa/qa-business/sc/prd **3897 → 3191 B（−18.1%）**。绑定规则 **21/21**、runner 规则 **5/5** 全角色断言。
+   - 契约指针实验**已回退**——它每次多 165 B 却不减任何内容，净亏。
+
+2. **文件重叠感知的波次调度** — 新 planner 按切面文件集计算波次：同一波内文件两两不重叠，重叠的推迟到后续波并**注明被哪个文件挡住**；附加式接入 `--from-dag`（`firstLevelWaves`），不改原调度语义。
+
+3. **编排器上下文审计 + 纪律** — 新增 `peaks code context-audit`：读会话 transcript 按 (工具, 命令) 汇总上下文消耗 Top-N。本仓库实测 **779 KB / 586 组**，且 Top-5 仅占 ~15%——**是长尾，不是单一元凶**。
+   - `--summary` 用于 memory reindex/list、doctor、request list：envelope **9.4–59 KB → 1.7–1.9 KB**（−79% ~ −97%），默认 `--json` 形状字节不变。
+   - SKILL.md 绑定规则：单次工具输出 >2 KB 禁止直接灌入编排器上下文。
+   - 子代理最终报告封顶 **≤40 行 / 2 KB**（5 个必填字段，细节写 artifact），已纳入 `BINDING_RULE_TOKENS`。
+
+**验证**：build clean、tsc clean、全量 141 files / 1270 passed（1 skipped）。
+
 ## 4.0.35 — 2026-09-10 (记忆系统 overhaul — 写入合一 / 索引重建 / 按任务调取 / 漂移健康检查 / rotate)
 
 **Highlights**:
