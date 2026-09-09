@@ -26,6 +26,7 @@ import {
   registerAwaitCommand,
   registerFinalizeCommand
 } from './share-commands.js';
+import { registerWavePlanCommand } from './wave-plan-commands.js';
 
 // Re-export `validateRole` for backward compat — the integration test
 // suite and any external callers still import it from this entry file.
@@ -47,4 +48,5 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
   registerSharedReadCommand(subAgent, io);
   registerAwaitCommand(subAgent, io);
   registerFinalizeCommand(subAgent, io); // D21
+  registerWavePlanCommand(subAgent, io); // §3 file-overlap wave planner
 }

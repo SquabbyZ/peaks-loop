@@ -50,14 +50,14 @@ import {
 } from './sub-agent-shared.js';
 import { runDispatchFromDag } from './dispatch-from-dag.js';
 import {
-  TEST_TOOL_DETECTION_BLOCK,
-  formatTestToolDetection
+  TEST_TOOL_DETECTION_BLOCK
 } from '../../services/dispatch/test-tool-detection.js';
 import {
   MemoryPreflightService,
   deriveMemoryQuery
 } from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
+import { readSessionCapsule } from '../../services/dispatch/session-capsule.js';
 import { computeUiLibraryDispatchBlock } from '../../services/standards/ui-library-dispatch-block.js';
 import { readFreshContextBlock } from '../../services/fresh-context/fresh-context-block.js';
 import type { ContextPercentProbe } from '../../services/context/auto-compact-types.js';
@@ -482,10 +482,17 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // "no probe available" hint instead of failing the
         // dispatch.
       }
+      // Slice 2026-09-10-dispatch-token-and-swarm §4: advisory background
+      // capsule published by the orchestrator via `peaks sub-agent share`.
+      // Absent capsule → no pointer and no precedence line (byte-identical
+      // legacy prompt).
+      const capsuleRef = readSessionCapsule({ projectRoot, sid, rid });
       const memoryAugmentedBody = buildDispatchSystemPrompt({
         taskTitle: role,
         taskBody: options.prompt,
         memoryBlock,
+        // 2026-09-10-dispatch-block-d (Option D): the composer owns the ONE
+        // unified Test Tool Detection injection for every role.
         contextProbe,
         // exactOptionalPropertyTypes: only set codegraphBlock when the rd
         // preflight actually produced a value (null = attempted-unavailable,
@@ -498,7 +505,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // Same optionality contract for the fresh-context block: set only
         // when the rd/prd read ran (null = no block on disk → no block,
         // undefined = non-rd/prd role → legacy prompt unchanged).
-        ...(freshContextBlock !== undefined ? { freshContextBlock } : {})
+        ...(freshContextBlock !== undefined ? { freshContextBlock } : {}),
+        // §4: advisory session capsule pointer + precedence line.
+        ...(capsuleRef !== null
+          ? { capsule: { batchId: capsuleRef.batchId, key: capsuleRef.key, bytes: capsuleRef.bytes } }
+          : {})
       });
       // Part 2.C: when --isolation worktree, prepend an isolation envelope
       // block so the sub-agent sees the lease id + worktree path. The block
@@ -537,7 +548,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           `confirm the file exists. Anti-fake-green rule (sediment 2026-08-11-rid-001-redo-fake-green-recovery-closure §Lesson 1): ` +
           `if the file does not exist, your verdict MUST be \`status: "blocked"\` with reason "must_ls_files_failed". Do NOT silently skip this step.\n`;
       }
-      const effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
+      const effectivePrompt = `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
       const warnings: string[] = [...decision.warnings];
 
       let toolCall: SubAgentToolCall;

@@ -35,6 +35,7 @@ import { getAdapter } from '../../services/ide/ide-registry.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { SliceDag } from '../../services/dispatch/slice-dag.js';
+import { planFileOverlapWaves } from '../../services/dispatch/file-overlap-wave-planner.js';
 import type { SliceContract } from '../../services/dispatch/contract-store.js';
 import type {
   DispatchSpec,
@@ -164,6 +165,21 @@ export async function runDispatchFromDag(
   // end-to-end, but they are NOT surfaced in the CLI envelope (the LLM
   // sees them only after re-invoking with fresh level-1 contracts).
   const firstLevelIds = new Set<string>(levelArr[0] ?? []);
+
+  // Slice 2026-09-10-dispatch-token-and-swarm §3: when EVERY first-level
+  // node declares `files`, refine the level into file-overlap waves so the
+  // LLM fans out without serializing on a shared file. Emitted additively
+  // in the envelope; the topological dispatch flow itself is unchanged.
+  // Nodes without `files` → `firstLevelWaves: null` (legacy envelope).
+  const firstLevelDescriptors = [...firstLevelIds].map((id) => ({
+    id,
+    files: dag.nodes.find((n) => n.id === id)?.files ?? []
+  }));
+  const firstLevelWaves = firstLevelDescriptors.length > 0
+    && firstLevelDescriptors.every((d) => d.files.length > 0)
+    ? planFileOverlapWaves(firstLevelDescriptors).waves
+    : null;
+
   const emittedToolCalls: SubAgentToolCall[] = [];
   const emittedSliceIds: string[] = [];
 
@@ -272,6 +288,9 @@ export async function runDispatchFromDag(
     dispatchCount: emittedSliceIds.length,
     levelsTotal: levelArr.length,
     firstLevel: emittedSliceIds,
+    // §3: file-overlap wave plan for the first level (null when any
+    // first-level node omits `files`). Additive field.
+    firstLevelWaves,
     toolCalls: emittedToolCalls,
     existingContractCount: existingContracts.length,
     expectedCompletionSeconds: 60,

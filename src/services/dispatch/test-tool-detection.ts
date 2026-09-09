@@ -26,26 +26,27 @@
  *  "remove the redundancy" of a test-tool-detection instruction because
  *  the dispatch CLI always prepends it. This is a guarantee, not a
  *  suggestion.
+ *
+ * 2026-09-10-dispatch-block-d (Option D): ONE block for EVERY role. The
+ * runner-table EXAMPLES were dropped — they were never rules, and
+ * `package.json#scripts.test` is the source of truth at run time — while
+ * the one missing real rule is stated inline: PB-5, i.e. repo-defined
+ * `test` / `test:*` scripts are the human/LLM direct path and are NOT
+ * gated by the scope rule. The soft fallback ("only as a last resort, ask
+ * the user before assuming a runner") and the Windows-aware note on
+ * `peaks test <file>` are RETAINED — they are quality guidance, not
+ * examples. No role split remains, so every role receives a byte-identical
+ * block.
  */
 export const TEST_TOOL_DETECTION_BLOCK = `## Test Tool Detection (mandatory)
 
-Before running any test, read \`package.json#scripts.test\` to identify the project's test framework. Use the project-local runner — do NOT invoke \`npx <runner>\`:
-
-- **vitest** → \`./node_modules/.bin/vitest run <file>\` (or \`pnpm test -- <file>\`)
-- **jest**   → \`./node_modules/.bin/jest <file>\`   (or \`pnpm test -- <file>\`)
-- **mocha**  → \`./node_modules/.bin/mocha <file>\`  (or \`pnpm test -- <file>\`)
+Read \`package.json#scripts.test\` for the project's framework and use the project-local runner — do NOT invoke \`npx <runner>\`. If unsure, run \`peaks test --json\` first. Only as a last resort, ask the user before assuming a runner. \`peaks test <file>\` already resolves the local binary for you (Windows-aware).
 
 ## Test Scope (mandatory)
 
-The dispatched test command MUST be **scoped** to a single file or pattern. An unscoped \`./node_modules/.bin/vitest run\` (no path filter) is **refused** because the 483-file suite is one keystroke from a 36-minute wall clock:
+Any test command MUST be **scoped** to a single file or pattern; a bare \`./node_modules/.bin/vitest run\` is **refused** unless you prefix the explicit opt-in token \`PEAKS_FULL_TEST=1\` (CI / release verification only, never routine slice verification).
 
-- **scoped**    → \`./node_modules/.bin/vitest run tests/unit/foo.test.ts\` (or any explicit file/pattern)
-- **intentional full run** → prefix with the explicit opt-in token \`PEAKS_FULL_TEST=1\` to override the scope gate. Use only for CI / release verification, never for routine verification during a slice.
-- **refused**   → bare \`./node_modules/.bin/vitest run\` (no argument after \`run\`) without the opt-in token.
-
-\`pnpm test\` / \`pnpm test:unit\` / \`pnpm test:cli\` / \`pnpm test:integration\` and any repo-defined \`test*\` script remain the **human / LLM direct path** and are not gated by this rule (PB-5).
-
-If unsure which framework the consumer project uses, run \`peaks test --json\` first to introspect the resolved framework + argv. Only as a last resort, ask the user before assuming a runner. The CLI command \`peaks test <file>\` already resolves the local binary for you (Windows-aware).`;
+Repo-defined \`test\` / \`test:*\` scripts are the human/LLM direct path and are NOT gated by this scope rule (PB-5).`;
 
 /**
  * Pure helper that returns the block. Exists as a function (not just an

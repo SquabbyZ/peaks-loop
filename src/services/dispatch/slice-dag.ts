@@ -68,6 +68,15 @@ export interface SliceNode {
    * (complex = user-attended, simple/trivial = overnight). Optional.
    */
   readonly complexity?: SliceComplexity;
+  /**
+   * Slice 2026-09-10-dispatch-token-and-swarm §3: files this slice is
+   * expected to touch. When EVERY node of a topological level declares
+   * `files`, `--from-dag` emits a file-overlap wave plan (`firstLevelWaves`)
+   * so the LLM can fan the level out without serializing on a shared file.
+   * Optional and additive: absent → DAG hash and dispatch behavior are
+   * byte-identical to before this slice.
+   */
+  readonly files?: readonly string[];
 }
 
 export interface DependsOn {
@@ -152,6 +161,11 @@ export function validateDag(dag: SliceDag): void {
       throw new InvalidSliceDagError(
         `node ${n.id} complexity must be one of ${SLICE_COMPLEXITIES.join('|')} when present`
       );
+    }
+    // Slice 2026-09-10 §3: optional file list. Only shape-checked when
+    // present so pre-existing DAGs stay valid.
+    if (n.files !== undefined && (!Array.isArray(n.files) || n.files.some((f: unknown) => typeof f !== 'string' || f.length === 0))) {
+      throw new InvalidSliceDagError(`node ${n.id} files must be an array of non-empty strings when present`);
     }
   }
 
@@ -281,7 +295,10 @@ export function serializeDag(dag: SliceDag): string {
       // (only when present, preserving hash stability for old DAGs).
       ...(n.foundation !== undefined ? { foundation: n.foundation } : {}),
       ...(n.upstreamSync !== undefined ? { upstreamSync: n.upstreamSync } : {}),
-      ...(n.complexity !== undefined ? { complexity: n.complexity } : {})
+      ...(n.complexity !== undefined ? { complexity: n.complexity } : {}),
+      // Slice 2026-09-10 §3: only present when declared, so the hash of a
+      // file-less DAG is unchanged.
+      ...(n.files !== undefined ? { files: [...n.files] } : {})
     }));
   const edges = [...dag.edges]
     .sort((a, b) => {

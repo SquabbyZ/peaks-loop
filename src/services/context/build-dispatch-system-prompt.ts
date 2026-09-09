@@ -14,6 +14,7 @@
  */
 import type { MemoryPreflightResult } from './memory-preflight-service.js';
 import type { ContextPercentProbe } from './auto-compact-types.js';
+import { formatTestToolDetection } from '../dispatch/test-tool-detection.js';
 
 export interface DispatchPromptInput {
   taskTitle: string;
@@ -69,6 +70,18 @@ export interface DispatchPromptInput {
    *   and before the memory/task content.
    */
   freshContextBlock?: string | null;
+  /**
+   * Slice 2026-09-10-dispatch-token-and-swarm §4: session capsule
+   * published by the orchestrator through `peaks sub-agent share`.
+   *
+   * - `undefined` / `null` → no capsule pointer, no precedence line
+   *   (byte-identical legacy prompt).
+   * - `{ batchId, key, bytes }` → a `shared-read` pointer plus the
+   *   mandatory precedence line: the capsule is ADVISORY BACKGROUND only
+   *   and the task spec wins on conflict. Nothing the sub-agent must act
+   *   on may live only in the capsule.
+   */
+  capsule?: { readonly batchId: string; readonly key: string; readonly bytes: number } | null;
 }
 
 /**
@@ -100,14 +113,14 @@ You MUST NOT follow the superpowers chain for worktree decisions:
 - superpowers:brainstorming → superpowers:writing-plans →
   superpowers:subagent-driven-development → superpowers:using-git-worktrees
 
-This chain ends with \`git worktree add\` (superpowers:using-git-worktrees SKILL.md line 96). It bypasses peaks-loop's L2 hook gate and L3 IDE \`permissions.deny\`. Even when L3 denies the terminal Skill, the chain has already taught you to use raw \`git worktree add\`, so L3 is not sufficient.
+That chain ends with \`git worktree add\` (superpowers:using-git-worktrees SKILL.md line 96), which bypasses peaks-loop's L2 hook gate and L3 IDE \`permissions.deny\`. L3 denial is NOT sufficient — by then the chain has already taught raw \`git worktree add\`.
 
 For worktree operations, use ONLY:
 
 - \`peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>\` (after rid-L2-extended ships)
 - until then: \`peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>\`
 
-The superpowers skills remain available as REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-rd's own PRD/RD artifacts (\`.peaks/_runtime/<sessionId>/rd/requests/<rid>.md\`) are authoritative.
+Superpowers skills remain REFERENCE material for brainstorming / planning techniques, but MUST NOT be used as a workflow. peaks-rd's own PRD/RD artifacts (\`.peaks/_runtime/<sessionId>/rd/requests/<rid>.md\`) are authoritative.
 
 If the upstream superpowers chain suggests raw \`git worktree add\`:
 
@@ -143,21 +156,24 @@ If the upstream superpowers chain suggests raw \`git worktree add\`:
  */
 export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
 
-- If you start a long-lived local service (vite dev, mock API, docker container, etc.), register it with \`peaks sub-agent shutdown register --pid <pid> --name <label>\` before you exit. The parent session will best-effort-kill it before merge-back.
-- Do NOT run E2E. The parent session runs Playwright verification once after merge-back (Task 10). Your E2E work is duplicate effort.
+- If you start a long-lived local service (vite dev, mock API, docker container, etc.), register it with \`peaks sub-agent shutdown register --pid <pid> --name <label>\` before you exit; the parent session best-effort-kills it before merge-back.
+- Do NOT run E2E. The parent session runs Playwright verification once after merge-back (Task 10); your E2E work is duplicate effort.
 - Do NOT call \`git merge\`, \`git pull\`, \`git rebase\`, or \`peaks worktree release\`. The parent session owns the merge-back step.
 `;
 
 /**
- * Compose the system-prompt body that the dispatch site prepends to
- * `formatTestToolDetection()\n\n`.
+ * Compose the system-prompt body for a sub-agent dispatch.
+ *
+ * 2026-09-10-dispatch-block-d (Option D): the composer owns the Test Tool
+ * Detection injection — ONE unified block for every role, prepended first.
+ * Callers MUST NOT prepend `formatTestToolDetection()` themselves or the
+ * block is injected twice.
  *
  * Byte-identical degradation contract (slice 2026-07-22-orchestrator-memory-preflight
- * controller brief): when the memory block is unavailable, the caller does
- * `formatTestToolDetection()\n\n${taskBody}` — i.e. the final prompt is exactly
- * `${formatTestToolDetection()}\n\n${taskBody}`. Today's pre-change behavior
- * produced the same string from `src/cli/commands/dispatch-commands.ts:220`,
- * so the unavailable branch MUST return `taskBody` (NOT a `# title\n\n` wrap).
+ * controller brief): when the memory block is unavailable, the composed body is
+ * exactly `formatTestToolDetection() + "\n\n" + L1 + "\n" + LIFECYCLE +
+ * "\n" + contextBlock + taskBody`, so the unavailable branch MUST return
+ * `taskBody` unwrapped (NOT a `# title\n\n` wrap).
  * The contract holds for callers that do not pass `codegraphBlock` (all
  * non-RD roles). Slice 2026-09-03-codegraph-preread deliberately inserts a
  * codegraph structure block (or its fail-soft unavailable note) for RD
@@ -173,15 +189,43 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * refusal is in scope before any task-specific prose arrives.
  */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskBody, memoryBlock, contextProbe, codegraphBlock, projectStackBlock, freshContextBlock } = input;
+  const {
+    taskBody,
+    memoryBlock,
+    contextProbe,
+    codegraphBlock,
+    projectStackBlock,
+    freshContextBlock,
+    capsule
+  } = input;
+  // 2026-09-10-dispatch-block-d (Option D): ONE Test Tool Detection block
+  // for every role — the composer owns the injection so callers MUST NOT
+  // prepend `formatTestToolDetection()` themselves (double injection).
+  const testToolText = `${formatTestToolDetection()}\n\n`;
   const contextBlock = renderContextBlock(contextProbe ?? null);
   const codegraphText = renderCodegraphBlock(codegraphBlock);
   const projectStackText = renderProjectStackBlock(projectStackBlock);
   const freshContextText = renderFreshContextBlock(freshContextBlock);
+  const capsuleText = renderCapsulePointer(capsule);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${taskBody}`;
+  return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${taskBody}`;
+}
+
+/**
+ * Slice 2026-09-10-dispatch-token-and-swarm §4 — session capsule pointer.
+ *
+ * QUALITY GUARD: the capsule is BACKGROUND only. The precedence line below
+ * is part of the contract, not decoration — anything the sub-agent must
+ * ACT on stays inline in the task spec. The renderer therefore always
+ * emits the precedence sentence whenever it emits the pointer.
+ */
+function renderCapsulePointer(
+  capsule: { readonly batchId: string; readonly key: string; readonly bytes: number } | null | undefined
+): string {
+  if (capsule === null || capsule === undefined) return '';
+  return `## Shared session capsule (advisory background)\nBackground facts already established by the orchestrator (${capsule.bytes} bytes): read them with \`peaks sub-agent shared-read --batch ${capsule.batchId} --key ${capsule.key}\`. This capsule is ADVISORY BACKGROUND ONLY — it is not a task. Your task spec below is authoritative and wins on any conflict; anything you must act on is stated inline there.\n\n`;
 }
 
 /**
@@ -277,17 +321,86 @@ function renderContextBlock(probe: ContextPercentProbe | null): string {
           : 'plenty of room — continue without compacting.';
     return `## Context window (authoritative — do NOT estimate yourself)
 
-Your context is **${usedPct}% used** (${freePct}% free) as measured by the IDE adapter's token-counted statusline (source: \`${probe.source}\`, IDE: \`${probe.ide}\`). This number is the SAME value \`peaks code context-now\` returns — trust it; do not derive a percentage from your message length or any other heuristic (char/4 estimates diverge from token counts by 2-4x and have caused false "context too low" reports at ${freePct}%+ free).
+Context **${usedPct}% used** (${freePct}% free), token-counted by the IDE adapter's statusline (source: \`${probe.source}\`, IDE: \`${probe.ide}\`). This is the SAME value \`peaks code context-now\` returns — trust it; never derive a percentage from message length (char/4 diverges 2-4x and has caused false "context too low" reports at ${freePct}%+ free).
 
 **Action:** ${action}
 
-If you are tempted to declare "context pressure" or "context too low" to the parent, FIRST re-run \`peaks code context-now\` and compare its \`ratio\` field to the number above. Only report context pressure if \`peaks code context-now\` returns \`verdict: red-line\` or \`action: auto-compact-now\`.
+Before telling the parent "context pressure" or "context too low", re-run \`peaks code context-now\` and compare its \`ratio\` to the number above. Report pressure ONLY if it returns \`verdict: red-line\` or \`action: auto-compact-now\`.
 
 `;
   }
   return `## Context window (no probe available)
 
-The orchestrator did not capture a context-fill probe before this dispatch. If you need to evaluate context pressure, run \`peaks code context-now --project <root>\` and trust its \`ratio\` field. Do not estimate from message length.
+No context-fill probe was captured before this dispatch. To evaluate context pressure, run \`peaks code context-now --project <root>\` and trust its \`ratio\` field. Do not estimate from message length.
 
 `;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Slice 2026-09-10-dispatch-token-and-swarm §1 — rule-presence guard.
+ *
+ * The compression + role-scoping in this file is allowed to shorten prose.
+ * It is NOT allowed to drop a binding rule. These token sets are the
+ * machine-checkable definition of "binding rule": each entry is a phrase
+ * that carries an obligation (MUST / MUST NOT / refused / a command the
+ * sub-agent is told to use or avoid). The guard test asserts that EVERY
+ * role's composed prompt contains EVERY token — so a future compression
+ * that deletes a rule fails CI instead of silently weakening the contract.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Binding phrases every dispatch prompt must contain, for every role. */
+export const BINDING_RULE_TOKENS: readonly string[] = [
+  // L1 worktree governance
+  'MUST NOT follow the superpowers chain',
+  'superpowers:using-git-worktrees',
+  '`git worktree add`',
+  '`peaks worktree spawn --rid <rid> --ttl <duration> --purpose <text>`',
+  '`peaks worktree auth grant --rid <id> --reason <text> --ttl <5m>`',
+  'MUST NOT be used as a workflow',
+  'STOP',
+  'Re-author the plan as a peaks-rd artifact',
+  // lifecycle rules
+  '`peaks sub-agent shutdown register --pid <pid> --name <label>`',
+  'Do NOT run E2E',
+  'Do NOT call `git merge`, `git pull`, `git rebase`',
+  '`peaks worktree release`',
+  // context window
+  'do NOT estimate yourself',
+  '`peaks code context-now`',
+  '`verdict: red-line`',
+  // test scope — ONE unified block, byte-identical for EVERY role
+  '## Test Tool Detection (mandatory)',
+  '`package.json#scripts.test`',
+  'do NOT invoke `npx <runner>`',
+  '## Test Scope (mandatory)',
+  'PEAKS_FULL_TEST=1',
+  'refused',
+] as const;
+
+/**
+ * The runner-direct-path tokens: the refusal example, the two direct paths
+ * the block names (`peaks test --json` to introspect; PB-5, the repo-defined
+ * `test` / `test:*` scripts that are NOT gated), and the two pieces of
+ * quality guidance that must survive any compression — never assume a
+ * runner without asking the user as a last resort, and prefer
+ * `peaks test <file>` because it resolves the local binary Windows-aware.
+ *
+ * 2026-09-10-dispatch-block-d (Option D): there is no role split any more,
+ * so this set is asserted IDENTICALLY for every role. The runner EXAMPLES
+ * were removed as part of the unification — they were never rules.
+ */
+export const TEST_RUNNER_RULE_TOKENS: readonly string[] = [
+  '`./node_modules/.bin/vitest run`',
+  'PB-5',
+  '`peaks test --json`',
+  'ask the user before assuming a runner',
+  '(Windows-aware)',
+] as const;
+
+/**
+ * Return the subset of `tokens` that `text` does NOT contain. Pure; used by
+ * the rule-presence guard and usable by any future prompt self-check.
+ */
+export function missingRuleTokens(text: string, tokens: readonly string[]): readonly string[] {
+  return tokens.filter((t) => !text.includes(t));
 }
