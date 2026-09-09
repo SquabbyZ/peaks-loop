@@ -281,7 +281,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .option('--session-id <session>', 'restrict to a specific session id')
       .option('--reason <text>', 'reason appended as a transition note; required when --allow-incomplete is set')
       .option('--allow-incomplete', 'bypass artifact prerequisite checks; requires --reason and records the bypass in the artifact')
-      .option('--confirm', 'skip interactive confirmation prompt (for non-interactive / LLM contexts)')
+      .option('--confirm', 'skip the confirmation gate (for non-interactive / LLM contexts)')
       .option('--force-confirm', 'bypass mode-enforced confirmation (use with caution)')
   ).action(async (requestId: string, options: RequestTransitionOptions) => {
     try {
@@ -319,7 +319,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
               fail('request.transition', 'ALLOW_INCOMPLETE_RESTRICTED',
                 `--allow-incomplete requires --confirm in ${presence.mode} mode`,
                 { role, requestId, mode: presence.mode },
-                ['Add --confirm to proceed non-interactively, or run in an interactive terminal.']),
+                ['Ask the user via AskUserQuestion whether to proceed, then re-run with --confirm if they approve.']),
               options.json
             );
             process.exitCode = 1;
@@ -594,12 +594,8 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             'request.transition',
             'CONFIRMATION_REQUIRED',
             error.message,
-            { role: options.role, requestId },
-            [
-              'Add --confirm to proceed non-interactively.',
-              'Or run in an interactive terminal.',
-              'In assisted/strict mode, major workflow boundaries require explicit user approval.'
-            ]
+            { role: options.role, requestId, transitionKey: error.transitionKey, mode: error.mode },
+            [...error.nextActions]
           ),
           options.json
         );

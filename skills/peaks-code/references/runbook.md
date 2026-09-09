@@ -12,6 +12,8 @@
 
 The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `24h` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
 
+> **How to resolve a `[CONFIRM]` marker (never a terminal prompt):** the CLI does not read stdin. Without `--confirm` / `--force-confirm` the transition fails with `CONFIRMATION_REQUIRED` and `nextActions`. Code must ask the user via `AskUserQuestion` whether to proceed; if the user approves, re-run the *same* command with `--confirm`. Never wait for a `y/N` prompt — no TTY exists in an LLM-driven session.
+
 Canonical single-shot sub-agent dispatch (the `--prompt` flag is required):
 
 ```bash
@@ -38,7 +40,7 @@ peaks scan existing-system --project <repo> --json
 #    --apply is the default — Standards files (CLAUDE.md, .claude/rules/**) live INSIDE
 #    the target project and are required for downstream skill preflight, so producing
 #    them is part of completing the workflow. Assisted/Strict modes pause for [CONFIRM]
-#    between dry-run and apply.
+#    between dry-run and apply (AskUserQuestion → re-run with --confirm; no terminal prompt).
 peaks standards init   --project <repo> --dry-run --json
 # or: peaks standards update --project <repo> --dry-run --json
 peaks standards init   --project <repo> --apply --json
@@ -57,7 +59,8 @@ peaks standards init   --project <repo> --apply --json
 # 若 LLM 看到 peaks-code runbook 里出现老命令(>9 之外的 raw 名字),
 # 先 `peaks --help` 校验当前 surface,再决定改 runbook 还是改命令。
 
-# 2. Peaks-Loop PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
+# 2. Peaks-Loop PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user
+#    → AskUserQuestion; on approval re-run the transition with --confirm)
 # Classify the request type from the PRD: feature | bugfix | refactor | docs | config | chore
 # This drives RD/QA gate strictness — see "Mandatory RD QA repair loop" for the matrix.
 peaks request init --role prd --id <rid> --project <repo> --apply --type <type> --json
@@ -139,6 +142,7 @@ ls .peaks/_runtime/<sid>/qa/test-cases/<rid>.md                # QA test-cases (
 ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (Gate B info)
 # Apply the degradation rules in the main SKILL.md if any artefact is missing.
 # → Peaks-Loop Gate B convergence check. Assisted/Strict: [CONFIRM]
+#   → AskUserQuestion; on approval re-run the transition with --confirm
 
 # 4. Peaks-Loop RD planning artifact (the file required by the prerequisite gate)
 #    feature / refactor → write .peaks/_runtime/<id>/rd/tech-doc.md
@@ -163,6 +167,7 @@ peaks request transition <rid> --role qa --state running --project <repo> --json
 #                                 + .peaks/_runtime/<id>/qa/performance-findings.md (feature/refactor only)
 peaks request transition <rid> --role qa --state verdict-issued --project <repo> --json
 # → Peaks-Loop Gate D check. Assisted/Strict: [CONFIRM]
+#   → AskUserQuestion; on approval re-run the transition with --confirm
 
 # 7. Peaks-Loop RD↔QA repair loop — if verdict is return-to-rd, re-run 4 through 6 until QA passes or blocked TXT.
 #    Before invoking peaks-rd again, check the cycle count so you don't blow past the cap silently:

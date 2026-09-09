@@ -16,6 +16,8 @@ Map the user's selection to the `--mode` flag value (used by `peaks skill presen
 | Assisted | `assisted` |
 | Strict | `strict` |
 
+> Note: in `assisted` / `strict`, a workflow-boundary confirmation is resolved by asking the user via `AskUserQuestion` and, on approval, re-running the same CLI command with `--confirm`. The CLI never opens a terminal prompt (no stdin read, no `y/N`) — an LLM-driven session has no TTY.
+
 > Note: parallel role/worker fan-out is the default execution strategy in **every** mode — it is not a mode of its own. The old `swarm` profile was removed; a legacy on-disk `mode: 'swarm'` is read as `full-auto`.
 
 > Note: `peaks workflow route --mode code|team` is a **different** CLI dimension (code developer vs team flow) and is unrelated to the profile choice here. Do not conflate them.

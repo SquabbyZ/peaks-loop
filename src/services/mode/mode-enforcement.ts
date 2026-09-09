@@ -1,4 +1,3 @@
-import * as readline from 'node:readline';
 import { getSkillPresence, type SkillPresenceMode } from '../skills/skill-presence-service.js';
 
 type TransitionKey = `${string}:${string}`;
@@ -37,14 +36,26 @@ export type ConfirmationOptions = {
 };
 
 export class ConfirmationRequiredError extends Error {
-  constructor(transitionKey: TransitionKey) {
+  readonly transitionKey: TransitionKey;
+  readonly mode: SkillPresenceMode;
+  readonly nextActions: readonly string[];
+
+  constructor(transitionKey: TransitionKey, mode: SkillPresenceMode) {
     const description = describeTransition(transitionKey);
+    const nextActions = [
+      `Ask the user via AskUserQuestion whether to proceed with ${description} in ${mode} mode.`,
+      'If the user approves, re-run the same command with --confirm.'
+    ];
     super(
-      `Confirmation required for: ${description}\n` +
-      'Add --confirm to proceed non-interactively, or run in an interactive terminal.\n' +
-      'In assisted/strict mode, major workflow boundaries require explicit user approval.'
+      `Confirmation required for: ${description} (mode: ${mode})\n` +
+      `${nextActions[0]}\n` +
+      `${nextActions[1]}\n` +
+      'No terminal prompt is available: this gate never reads stdin.'
     );
     this.name = 'ConfirmationRequiredError';
+    this.transitionKey = transitionKey;
+    this.mode = mode;
+    this.nextActions = nextActions;
   }
 }
 
@@ -61,7 +72,7 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
     return;
   }
 
-  // --confirm flag bypasses interactive prompt
+  // --confirm flag bypasses the gate
   if (options.confirmed) {
     return;
   }
@@ -76,7 +87,7 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
       );
       return;
     }
-    throw new ConfirmationRequiredError(options.transitionKey);
+    throw new ConfirmationRequiredError(options.transitionKey, mode);
   }
 
   // --force-confirm without env var
@@ -88,23 +99,9 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
     return;
   }
 
-  // Interactive prompt
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stderr
-  });
-
-  return new Promise((resolve, reject) => {
-    const description = describeTransition(options.transitionKey);
-    const prompt = `\n[CONFIRM] ${description}\nProceed? (y/N) `;
-    rl.question(prompt, (answer) => {
-      rl.close();
-      const normalized = answer.trim().toLowerCase();
-      if (normalized === 'y' || normalized === 'yes') {
-        resolve();
-      } else {
-        reject(new ConfirmationRequiredError(options.transitionKey));
-      }
-    });
-  });
+  // No bypass flag: refuse immediately. Never read stdin — in an LLM-driven
+  // session there is no TTY, so a prompt would hang forever, and a `y/N`
+  // terminal prompt would also violate the Human-NL-Choice-Only rule (the
+  // user answers via AskUserQuestion, never by typing into a shell).
+  throw new ConfirmationRequiredError(options.transitionKey, mode);
 }

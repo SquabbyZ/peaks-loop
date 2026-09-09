@@ -270,7 +270,7 @@ After `peaks-rd` finishes, Code MUST auto-route to `peaks-qa` without waiting fo
 
 ## Default runbook
 
-The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`24h` auto-proceed.
+The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`24h` auto-proceed. At a `[CONFIRM]` gate the CLI never prompts: the transition throws `CONFIRMATION_REQUIRED`, so Code asks the user via `AskUserQuestion` and, on approval, re-runs the same command with `--confirm`. Never expect or ask for a terminal `y/N` prompt.
 
 When adding new CLI commands, mirror into `references/runbook.md` and `tests/unit/skill-default-runbook.test.ts` (test falls back to the reference).
 
