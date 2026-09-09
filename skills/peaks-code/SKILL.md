@@ -104,7 +104,7 @@ peaks sub-agent dispatch rd --prompt '<your task>' --graph-node <nid> --workflow
 **Integration surfaces:** `peaks code run --24h` / `peaks dashboard long-run --since 24h` / `peaks session 24h-mode state|transition|attempts|reset`.
 
 **Red lines (peaks-code side):**
-- No auto-compact prose ban: never write "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks compact auto` manually" / "the user is responsible for context management" / legacy 50/75/90 percent tiers. **0.85 / 0.95 contract is mandatory.**
+- No auto-compact prose ban: never write "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks code auto-compact` manually" / "the user is responsible for context management" / legacy 50/75/90 percent tiers. **0.85 / 0.95 contract is mandatory.**
 - SquabbyZ sole-author rule: no `Co-Authored-By: Claude/Anthropic` trailer.
 - 24h mode is a flag on `peaks-code`; MUST NOT introduce a sibling `peaks-24h` skill or competing top-level verb.
 
@@ -151,7 +151,7 @@ Before the first planning action, run `peaks fresh-context preflight --prompt "<
 1. **PreToolUse hook — `peaks code gate-step-08`.** Installed by `peaks workspace init` on the `Bash` matcher; checks `job-shape.json` presence + fail-closed backup regex. If `job-shape.json` AND `progress.json` exist, surfaces `Next: slice #N of M (<currentSlice>)` so the LLM cannot wake up cold.
 2. **Size-fear ban — `peaks code emit-handoff`.** Refuses to emit a final handoff while `remaining > 0` under Job mode. Pass `--force-under-job` only with explicit user approval.
 3. **On-disk slice progress — `peaks job progress`.** `peaks job checkpoint --state done` writes `progress.json`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader.
-4. **Forced auto-compact — `--enforce-job-mode`.** `peaks code context-now --enforce-job-mode` returns `action: 'auto-compact-now'` at ≥ 0.85. **Job mode at ≥ 0.85 is MANDATORY auto-compact** — Code MUST call `peaks compact auto --execute` without confirmation.
+4. **Forced auto-compact — `--enforce-job-mode`.** `peaks code context-now --enforce-job-mode` returns `action: 'auto-compact-now'` at ≥ 0.85. **Job mode at ≥ 0.85 is MANDATORY auto-compact** — Code MUST call `peaks code auto-compact` without confirmation.
 
 **Step 0.7 resume rule (read-FIRST):** on resume, `peaks code gate-step-08` reads `progress.json` first and surfaces `Next: slice #N of M (<currentSlice>)` so the orchestrator picks up at the right slice without re-reading the artifact tree.
 
@@ -161,26 +161,26 @@ Before the first planning action, run `peaks fresh-context preflight --prompt "<
 
 ### Peaks-Loop Step N+2: Auto-compact at the warning line (v2.13.0 zero-pause contract)
 
-> **Zero-pause contract.** When context usage crosses the pre-compact threshold, peaks-loop **automatically fires `peaks compact auto --execute` — the LLM does NOT prompt the user to run `/compact` manually**. Stale prose that says "ask the user to compact" silently stalls the workflow. The v2.13.0 contract makes auto-compact a system responsibility, not a user action.
+> **Zero-pause contract.** When context usage crosses the pre-compact threshold, peaks-loop **automatically fires `peaks code auto-compact` — the LLM does NOT prompt the user to run `/compact` manually**. Stale prose that says "ask the user to compact" silently stalls the workflow. The v2.13.0 contract makes auto-compact a system responsibility, not a user action.
 
 **Thresholds (v2.13.0, replacing legacy 50/75/90):**
 
 | ratio zone | zone name | action |
 |---|---|---|
 | `< 0.85` | normal | skip — LLM keeps working |
-| `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks compact auto --execute` fires **automatically** (deferred only when in-flight sub-agent batch is running; fires the moment the batch lands). The LLM does not prompt the user. |
-| `ratio ≥ 0.95` | **red-line (Karpathy §4)** | synchronous gate — `peaks compact auto --execute` invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 automatic exception** — LLM cannot opt out. |
+| `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks code auto-compact` fires **automatically** (deferred only when in-flight sub-agent batch is running; fires the moment the batch lands). The LLM does not prompt the user. |
+| `ratio ≥ 0.95` | **red-line (Karpathy §4)** | synchronous gate — `peaks code auto-compact` invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 automatic exception** — LLM cannot opt out. |
 
-**Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks compact auto --execute` on `auto-compact-now` or `red-line` without user confirmation.
+**Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks code auto-compact` on `auto-compact-now` or `red-line` without user confirmation.
 
 **Enforcement layers (defense in depth):**
 1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line`. Only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM/human approval branch.
 2. `--enforce-job-mode` (v3.1.2) — Job mode elevates ≥0.85 to MANDATORY regardless of in-flight batch.
 3. `peaks code gate-step-08` (PreToolUse hook) — surfaces `auto-compact-now` on every Bash call when ratio is in the zone, so the LLM cannot wake up cold and forget.
-4. Karpathy §4 exception: `peaks compact auto --execute` is fired *by the orchestrator*, not by the user. If you find yourself about to write "ask the user to compact" / "prompt the user to run `/compact`", STOP — that is the regression.
+4. Karpathy §4 exception: `peaks code auto-compact` is fired *by the orchestrator*, not by the user. If you find yourself about to write "ask the user to compact" / "prompt the user to run `/compact`", STOP — that is the regression.
 
 **Anti-pattern (DO NOT introduce):** any of these strings in skills/* or comments signals the zero-pause contract has been broken:
-- "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks compact auto` manually" / "the user is responsible for context management" / legacy mid/seventy-five/ninety percent tiers (current is 0.85 / 0.95).
+- "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks code auto-compact` manually" / "the user is responsible for context management" / legacy mid/seventy-five/ninety percent tiers (current is 0.85 / 0.95).
 
 If the prose audit (`peaks audit red-lines`) flags any of the above, the slice is **blocked** until the prose is rewritten.
 
@@ -270,7 +270,7 @@ After `peaks-rd` finishes, Code MUST auto-route to `peaks-qa` without waiting fo
 
 ## Default runbook
 
-The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`swarm` auto-proceed.
+The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`24h` auto-proceed.
 
 When adding new CLI commands, mirror into `references/runbook.md` and `tests/unit/skill-default-runbook.test.ts` (test falls back to the reference).
 

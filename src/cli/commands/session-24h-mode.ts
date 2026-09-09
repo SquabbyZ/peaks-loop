@@ -31,6 +31,7 @@ import {
   write24hState,
   type State
 } from '../../services/24h-mode/index.js';
+import { applyAutoEngagePresenceMode } from '../../services/24h-mode/auto-engage.js';
 
 type ParentOptions = {
   json?: boolean;
@@ -167,7 +168,14 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
           exitCondition: target === 'HANDOFF' ? (merged.exitCondition ?? null) : current.exitCondition
         };
         const result = write24hState(projectRoot, sid, next);
-        printJson(io, { ok: true, data: { ...next, path: result.path } }, merged);
+        // Slice 2026-09-09-mode-consolidation (Slice B): entering 24H_ACTIVE
+        // is an auto-engage of the `24h` mode. Stamp it onto the presence
+        // lease; every other target state leaves the mode untouched (the
+        // guard in `applyAutoEngagePresenceMode` refuses non-24h modes).
+        const presenceMode = target === '24H_ACTIVE'
+          ? applyAutoEngagePresenceMode({ projectRoot, sessionId: sid })
+          : null;
+        printJson(io, { ok: true, data: { ...next, path: result.path, presenceMode } }, merged);
       } catch (error) {
         printError(io, '24H_STATE_WRITE_FAILED', getErrorMessage(error), merged);
         process.exitCode = 1;

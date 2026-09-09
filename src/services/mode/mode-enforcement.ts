@@ -10,7 +10,9 @@ const ASSISTED_CONFIRM_TRANSITIONS: ReadonlySet<TransitionKey> = new Set([
 ]);
 
 export function requiresConfirmation(mode: SkillPresenceMode, transitionKey: TransitionKey): boolean {
-  if (mode === 'full-auto' || mode === 'swarm') {
+  // Slice 2026-09-09-mode-consolidation: `swarm` removed as a mode; the
+  // two auto-proceed peers are `full-auto` and `24h`.
+  if (mode === 'full-auto' || mode === '24h') {
     return false;
   }
   if (mode === 'strict') {
@@ -64,7 +66,7 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
     return;
   }
 
-  // PEAKS_AUTO_CONFIRM=1 only works for full-auto/swarm (already returned above)
+  // PEAKS_AUTO_CONFIRM=1 only works for full-auto/24h (already returned above)
   // For assisted/strict, env var is ignored unless --force-confirm is also set
   if (process.env.PEAKS_AUTO_CONFIRM === '1') {
     if (options.forceConfirm) {

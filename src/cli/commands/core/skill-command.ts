@@ -231,9 +231,9 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('skill.presence:set', 'INVALID_MODE',
-          `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, swarm, strict)`,
+          `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, strict, 24h)`,
           { name, mode: options.mode },
-          ['Use a valid mode: full-auto, assisted, swarm, or strict']),
+          ['Use a valid mode: full-auto, assisted, strict, or 24h']),
         options.json
       );
       process.exitCode = 1;

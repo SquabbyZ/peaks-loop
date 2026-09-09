@@ -49,7 +49,7 @@ export type CompactTrigger =
   | { kind: 'soft-warn'; ratio: number; message: string }
   /**
    * Part 22: auto-fire zone (0.80 ≤ ratio < 0.85). peaks-loop
-   * preempts and runs `peaks compact auto --execute` itself
+   * preempts and runs `peaks code auto-compact` itself
    * without LLM involvement. The LLM is not asked to "decide";
    * the toolkit is applied synchronously.
    */
@@ -185,6 +185,18 @@ export interface ContextPercentProbe {
    * percent sources.
    */
   readonly capacityTokens?: number;
+  /**
+   * Which layer produced `capacityTokens` (token-based sources only):
+   *   - `env-override`    — `PEAKS_CONTEXT_WINDOW_TOKENS`
+   *   - `config`          — `context.windowTokens` (`peaks config set`)
+   *   - `model-heuristic` — `[1M]` suffix / known-1M model allowlist
+   *   - `default`         — 200K safe default
+   * Undefined for byte / percent sources (`user-overridden`, `${ideId}-env`,
+   * `statusline-poll`), which have no token window. Slice
+   * 2026-09-09-context-window-override: lets a wrong window be diagnosed in
+   * one read instead of guessing which heuristic fired.
+   */
+  readonly capacitySource?: string;
   readonly ide: string;
   readonly capturedAt: string;
 }

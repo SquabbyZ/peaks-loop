@@ -22,6 +22,9 @@
 //
 // Run with: pnpm vitest run tests/unit/context/auto-compact-reader.test.ts
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import {
@@ -166,5 +169,66 @@ describe('Scenario: behavior — readContextPercent promptSizeBytes P0 short-cir
     });
     expect(out.source).not.toBe('user-overridden');
     expect(out.source).toBe('conservative-fallback');
+  });
+});
+
+// Slice 2026-09-09-context-window-override — the generic reader hands the
+// adapter the RAW `context.windowTokens` config value (project layer over user
+// layer) so the adapter's window resolver can honor an explicit user pin. The
+// reader stays vendor-neutral: it reads the config, the adapter validates it.
+describe('Scenario: integration — config context.windowTokens reaches the adapter fallback', () => {
+  let project: string;
+
+  beforeEach(() => {
+    project = mkdtempSync(join(tmpdir(), 'peaks-ctx-window-'));
+  });
+
+  afterEach(() => {
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  function seedProjectConfig(windowTokens: unknown): void {
+    mkdirSync(join(project, '.peaks'), { recursive: true });
+    writeFileSync(
+      join(project, '.peaks', 'config.json'),
+      JSON.stringify({ version: '2.0.1', context: { windowTokens } }),
+      'utf8'
+    );
+  }
+
+  /** Adapter whose fallback records the input it was handed. */
+  function capturingAdapter(record: (value: unknown) => void): IdeAdapter {
+    return {
+      ...CLAUDE_CODE_ADAPTER,
+      compact: {
+        envVarForContextPercent: 'PEAKS_TEST_CONTEXT_PCT',
+        compactCommand: 'claude --compact',
+        compactPathway: 'ide-native',
+        readContextPercentFallback: (input) => {
+          record(input.configWindowTokens);
+          return {
+            ratio: 0.1,
+            source: 'adapter-fallback-probe',
+            ide: 'claude-code',
+            capturedAt: '2026-01-01T00:00:00.000Z'
+          };
+        }
+      }
+    };
+  }
+
+  it('when the project config pins context.windowTokens, should pass the raw value to the fallback', () => {
+    seedProjectConfig(500_000);
+    let captured: unknown = 'sentinel';
+    _setAdapterForTesting('claude-code', capturingAdapter((value) => { captured = value; }));
+    readContextPercent({ projectRoot: project, sessionId: SID, env: {} });
+    expect(captured).toBe(500_000);
+  });
+
+  it('when the project config has no override, should pass undefined so the adapter falls back to heuristics', () => {
+    let captured: unknown = 'sentinel';
+    _setAdapterForTesting('claude-code', capturingAdapter((value) => { captured = value; }));
+    readContextPercent({ projectRoot: project, sessionId: SID, env: {} });
+    expect(captured).toBeUndefined();
   });
 });

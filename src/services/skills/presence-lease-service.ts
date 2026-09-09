@@ -263,6 +263,36 @@ export function setPresenceLease(input: SetPresenceLeaseInput): SetPresenceLease
   } as SetPresenceLeaseResult & SkillPresenceLease;
 }
 
+/**
+ * Slice 2026-09-09-mode-consolidation (Slice B): stamp `mode` onto every
+ * in-flight lease of the bound session, in place.
+ *
+ * Used by the 24h auto-engage path (T3/T4, `peaks code run --24h`,
+ * `peaks session 24h-mode transition --state 24H_ACTIVE`) to record the
+ * autonomy level without re-creating the lease (a fresh `setPresenceLease`
+ * would reset `startedAt` / `status`). `lastHeartbeat` is intentionally
+ * NOT touched — stamping a mode is not a liveness signal.
+ *
+ * Returns the number of leases updated; 0 when there is nothing in flight.
+ * Callers are responsible for the "only `24h` may be auto-set" guard.
+ */
+export function stampPresenceLeaseMode(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly mode: string;
+}): { updated: number; leasePaths: string[] } {
+  const sessionId = validateSessionId(input.sessionId);
+  const leasePaths: string[] = [];
+  for (const lease of listPresenceLeases(input.projectRoot, sessionId)) {
+    if (lease.status !== 'preparing' && lease.status !== 'running') continue;
+    const path = leaseFilePath(input.projectRoot, sessionId, lease.callerId, lease.workflowId);
+    const next: Record<string, unknown> = { ...lease, mode: input.mode };
+    writeAtomic(path, JSON.stringify(next, null, 2));
+    leasePaths.push(path);
+  }
+  return { updated: leasePaths.length, leasePaths };
+}
+
 export function readPresenceLease(input: ReadPresenceLeaseInput): PresenceProjection {
   const sessionId = validateSessionId(input.sessionId ?? null);
   const callerId = validateCallerId(input.callerId);

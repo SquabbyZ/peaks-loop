@@ -5,7 +5,7 @@
  * pause for an AskUserQuestion round-trip?" The D5 design (per
  * `.peaks/memory/2026-06-26-v2-11-full-auto-self-decision.md`) requires:
  *
- *   - `full-auto` and `swarm` modes → auto-proceed (recommended = chosen)
+ *   - `full-auto` and `24h` modes → auto-proceed (recommended = chosen)
  *   - `assisted` and `strict` modes → pause for confirmation
  *   - 3 hard-floor categories ALWAYS ask, regardless of mode:
  *     1. Irreversible external side effects (git push, npm publish, …)
@@ -27,8 +27,8 @@ export type CodeMode = SkillPresenceMode;
 export const CODE_MODES: readonly CodeMode[] = [
   'full-auto',
   'assisted',
-  'swarm',
-  'strict'
+  'strict',
+  '24h'
 ] as const;
 
 export type HardFloorCategory =
@@ -135,10 +135,14 @@ export function isHardFloorCategory(value: string): value is HardFloorCategory {
 /**
  * `true` when the current mode should auto-proceed (skip the
  * AskUserQuestion round-trip). Mirrors D5.a: "recommended = chosen
- * in full-auto / swarm; always log, never silently skip".
+ * in full-auto / 24h; always log, never silently skip".
+ *
+ * Slice 2026-09-09-mode-consolidation: `swarm` was removed as a mode
+ * (parallel fan-out is now the default execution strategy in every
+ * mode); `24h` replaces it as the second auto-proceed peer.
  */
 export function shouldAutoProceed(mode: CodeMode): boolean {
-  return mode === 'full-auto' || mode === 'swarm';
+  return mode === 'full-auto' || mode === '24h';
 }
 
 /**

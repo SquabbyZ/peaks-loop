@@ -182,5 +182,5 @@ ls <repo>/.claude/rules/common/coding-style.md \
 # standards init/update with --apply and re-verify.
 # Skipping Peaks-Loop Gate G (e.g. because the user did not explicitly authorize writes) is
 # only acceptable in `assisted`/`strict` modes where the user actively declined; in
-# `full-auto`/`swarm` the absence of these files is a workflow violation.
+# `full-auto`/`24h` the absence of these files is a workflow violation.
 ```

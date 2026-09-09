@@ -252,12 +252,12 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
     blockers.push(
       `context red-line (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_REDLINE_RATIO}); auto-compact now or push to next session`
     );
-    suggestions.push('peaks compact auto --execute');
+    suggestions.push('peaks code auto-compact');
   } else if (signals.q4ContextRatio >= ORCHESTRATOR_PRECOMPACT_RATIO) {
     blockers.push(
       `context near limit (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_PRECOMPACT_RATIO}); auto-compact or push to next session`
     );
-    suggestions.push('peaks compact auto --execute');
+    suggestions.push('peaks code auto-compact');
   }
 
   // Q3 — user-decision keywords → soft warning, NOT a blocker. The

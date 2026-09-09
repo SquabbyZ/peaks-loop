@@ -357,9 +357,15 @@ function writePresence(h: Harness, overrides: Record<string, unknown> = {}): voi
   const skill = typeof overrides.skill === 'string' && overrides.skill.length > 0
     ? overrides.skill
     : 'peaks-rd';
+  // Slice 2026-09-09-mode-consolidation tightened `SkillPresenceMode` to
+  // `'full-auto' | 'assisted' | 'strict' | '24h'` and normalizes the mode
+  // on read (`normalizeSkillPresenceMode`). The previous fixture default
+  // `'integration-test'` was an INVALID mode used as a display label; the
+  // normalizer drops it, so the renderer emitted no `[...]` token and the
+  // assertion below failed. The fixture must use a VALID mode.
   const mode = typeof overrides.mode === 'string' && overrides.mode.length > 0
     ? overrides.mode
-    : 'integration-test';
+    : 'full-auto';
   const gate = typeof overrides.gate === 'string' && overrides.gate.length > 0
     ? overrides.gate
     : 'implementation';
@@ -685,8 +691,8 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     // `↑peaks-code` bee-tier parent marker. With NO in-flight leaf
     // dispatch seeded, `activeLeaf === null` and the line collapses to
     // `${dot} ${skill}${modeToken}` — so the expected shape is
-    // `● peaks-rd [integration-test]`.
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
+    // `● peaks-rd [full-auto]`.
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 
@@ -781,7 +787,7 @@ describe("Scenario: render — primary `peaks statusline` with stdin renders the
     rmSync(active.lifecyclePath, { force: true });
     const r = await runStatuslineStdin(active);
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 });
@@ -813,7 +819,7 @@ describe("Scenario: behavior — completed lifecycle EXPIRES after 10s in the pr
     expect(r.status === 0 || r.signal === "SIGTERM").toBe(true);
     // The 10-second expiry has elapsed: the compact segment is suppressed,
     // the primary line returns to the C1 baseline (active presence + brand).
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[integration-test\] → /);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-rd \[full-auto\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
     expect(stripped(r.stdout)).not.toContain('✓');
     expect(stripped(r.stdout)).not.toMatch(/\[[█░]+]/);
@@ -1003,7 +1009,7 @@ describe("Scenario: integration — the CLI reads the lifecycle + presence from 
     // rendered with the brand glyph, root label appended. (See
     // skill-statusline-renderer.test.ts for the attention-gate render
     // surface, which is unit-tested at the pure renderer level.)
-    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-qa \[integration-test\] → /);
+    expect(stripped(r.stdout)).toMatch(/^Peaks [●◐◑◒◓] peaks-qa \[full-auto\] → /);
     expect(stripped(r.stdout)).toContain(basename(active.projectRoot));
   });
 });

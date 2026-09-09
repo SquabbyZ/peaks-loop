@@ -48,7 +48,7 @@ Return a compact JSON envelope — do not write prose.
 - session-id: <sid>          (from .peaks/.active-skill.json or .peaks/.session.json)
 - request-id: <rid>          (PRD id)
 - type: <type>               (feature | bugfix | refactor | config | docs | chore)
-- mode: <mode>               (full-auto | swarm | assisted | strict)
+- mode: <mode>               (full-auto | assisted | strict | 24h)
 - project-scan-path: <path>  (read this for component library / CSS / build tool)
 - existing-system-path: <path>  (legacy projects only)
 - frontendOnly: <bool>       (from project-scan)
@@ -209,7 +209,7 @@ Sub-agent presence in this list = Code launched a Task for it. Absence = the rol
 | Mode | How the swarm plan is decided | What Code does |
 |---|---|---|
 | `full-auto` | Compute plan from signals above, no question to user | Auto-launch all sub-agents in the plan in parallel |
-| `swarm` | Same as `full-auto` | Same as `full-auto` (this profile name is historical — behavior is identical) |
+| `24h` | Same as `full-auto` | Same as `full-auto` (long-run profile; the fan-out shape is identical, only the auto-compact cadence differs) |
 | `assisted` | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan |
 | `strict` | Same as `assisted` (the question is informational; strict still enforces confirmation gates later) | Same as `assisted` |
 

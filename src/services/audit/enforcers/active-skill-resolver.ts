@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import { getSessionIdCanonical } from '../../session/session-manager.js';
 import { getSessionDir } from '../../session/getSessionDir.js';
 import { readPresenceLease, listPresenceLeases } from '../../skills/presence-lease-service.js';
-import { getCurrentSessionId } from '../../skills/skill-presence-service.js';
+import { getCurrentSessionId, normalizeSkillPresenceMode } from '../../skills/skill-presence-service.js';
 
 const ACTIVE_SKILL_PREFIX = 'active-skill-';
 
@@ -40,7 +40,9 @@ export interface ActiveSkillResolution {
   readonly sessionId: string | null;
   /**
    * Mode token recorded on the canonical lease (e.g. `full-auto`,
-   * `assisted`, `swarm`, `strict`). `null` when the source is not
+   * `assisted`, `strict`, `24h`). Normalized on read: a legacy
+   * on-disk `'swarm'` surfaces as `'full-auto'` (slice
+   * 2026-09-09-mode-consolidation). `null` when the source is not
    * `canonical` (the legacy `active-skill-*.json` files do not
    * surface a mode field, and the `env` / `none` cases are test
    * overrides). Slice 2026-08-04-rid-005 surfaced this so the
@@ -120,7 +122,7 @@ export function resolveActiveSkillForCaller(
           skill: projection.lease.skill,
           callerId: lease.callerId,
           sessionId,
-          mode: typeof projection.mode === 'string' && projection.mode.length > 0 ? projection.mode : null,
+          mode: normalizeSkillPresenceMode(typeof projection.mode === 'string' ? projection.mode : null) ?? null,
           source: 'canonical',
         };
       }
@@ -146,9 +148,7 @@ export function resolveActiveSkillForCaller(
         const raw = readFileSync(filePath, 'utf8');
         const parsed = JSON.parse(raw) as { skill?: unknown; mode?: unknown };
         if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
-          const legacyMode = typeof parsed.mode === 'string' && parsed.mode.length > 0
-            ? parsed.mode
-            : null;
+          const legacyMode = normalizeSkillPresenceMode(typeof parsed.mode === 'string' ? parsed.mode : null) ?? null;
           return { skill: parsed.skill, callerId, sessionId, mode: legacyMode, source: 'file' };
         }
       } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)

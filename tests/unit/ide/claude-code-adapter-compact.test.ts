@@ -101,8 +101,11 @@ declareDimensions(
 
 import {
   CLAUDE_CODE_ADAPTER,
+  CONTEXT_WINDOW_TOKENS_ENV_VAR,
   modelContextWindowTokens,
+  parseContextWindowOverride,
   resolveClaudeModelFromEnv,
+  resolveContextWindow,
 } from '~/src/services/ide/adapters/claude-code-adapter';
 
 const fallback = () => CLAUDE_CODE_ADAPTER.compact!.readContextPercentFallback!;
@@ -292,6 +295,79 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     expect(probe!.ratio).toBe(1);
   });
 
+  // Slice 2026-09-09-context-window-override — the user report: a third-party
+  // model id with no `[1M]` suffix reports a 5×-inflated ratio because the
+  // window silently defaults to 200K. The explicit override + capacitySource
+  // make that diagnosable and fixable in one read.
+  it('when PEAKS_CONTEXT_WINDOW_TOKENS is set, should use it as the window and tag capacitySource env-override', () => {
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: { PEAKS_CONTEXT_WINDOW_TOKENS: '400000' }
+    });
+    expect(probe).not.toBeNull();
+    expect(probe!.capacityTokens).toBe(400_000);
+    expect(probe!.capacitySource).toBe('env-override');
+    expect(probe!.ratio).toBeCloseTo(100_000 / 400_000, 5);
+  });
+
+  it('when config context.windowTokens is set (env absent), should tag capacitySource config', () => {
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: {}, configWindowTokens: 400_000
+    });
+    expect(probe!.capacityTokens).toBe(400_000);
+    expect(probe!.capacitySource).toBe('config');
+    expect(probe!.ratio).toBeCloseTo(0.25, 5);
+  });
+
+  it('when no override is set, should tag capacitySource from the winning heuristic layer', () => {
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const known = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    expect(known!.capacitySource).toBe('model-heuristic');
+
+    const unknownOuter = '12e57453-default-source-0000-000000000000';
+    writeTranscript(unknownOuter, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const unknown = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: unknownOuter, env: {} });
+    expect(unknown!.capacitySource).toBe('default');
+    expect(unknown!.capacityTokens).toBe(200_000);
+  });
+
+  it('when an explicit override is in effect, the late 1M rescue must NOT fight it', () => {
+    // given: 500K observed tokens (which would trigger the ≥1M rescue) and a
+    //        pinned 400K window
+    // when: the transcript fallback runs
+    // then: the pinned window wins — no silent bump to 1M
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: { PEAKS_CONTEXT_WINDOW_TOKENS: '400000' }
+    });
+    expect(probe!.capacityTokens).toBe(400_000);
+    expect(probe!.capacitySource).toBe('env-override');
+    expect(probe!.ratio).toBe(1);
+  });
+
+  it('regression: the late 1M rescue still fires when the window came from the heuristic/default layer', () => {
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    const probe = fallback()({ projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer, env: {} });
+    expect(probe!.capacityTokens).toBe(1_000_000);
+    expect(probe!.capacitySource).toBe('default');
+  });
+
   it('when no entry carries a numeric message.usage, should return null (conservative)', () => {
     const noUsage = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'hello' } });
     writeTranscript(outer, [noUsage, noUsage]);
@@ -435,5 +511,117 @@ describe('Scenario: behavior — env-model resolver precedence + [1M] suffix win
     // when: modelContextWindowTokens runs
     // then: returns the 200_000 safe default
     expect(modelContextWindowTokens('deepseek-v4-flash')).toBe(200_000);
+  });
+});
+
+// Slice 2026-09-09-context-window-override — explicit user override above the
+// model-name heuristics. The user report: a third-party model id with no
+// `[1M]` suffix is stuck at 200K, so `ratio` is inflated up to 5× and the
+// probe emits false soft-warn / auto-compact-now verdicts.
+describe('Scenario: behavior — explicit context-window override precedence + source', () => {
+  const ENV = CONTEXT_WINDOW_TOKENS_ENV_VAR;
+
+  it('when both env and config overrides are set, should let the env override win (env > config)', () => {
+    // given: env + config carry different positive integers
+    // when: resolveContextWindow runs
+    // then: the env value + source 'env-override' win
+    const out = resolveContextWindow('deepseek-v4-flash', {
+      env: { [ENV]: '800000' },
+      configWindowTokens: 500_000
+    });
+    expect(out.tokens).toBe(800_000);
+    expect(out.source).toBe('env-override');
+  });
+
+  it('when only the config override is set, should beat the model heuristic (config > heuristic)', () => {
+    // given: a model the heuristic would map to 1M, plus a config override of 300K
+    // when: resolveContextWindow runs
+    // then: the config value wins with source 'config' (explicit beats heuristic)
+    const out = resolveContextWindow('deepseek-v4-flash[1M]', { configWindowTokens: 300_000 });
+    expect(out.tokens).toBe(300_000);
+    expect(out.source).toBe('config');
+  });
+
+  it('when no override is set, should report the heuristic source for a known 1M model', () => {
+    // given: no env / config override and a `[1M]`-suffixed model id
+    // when: resolveContextWindow runs
+    // then: source is 'model-heuristic' with the 1M window
+    expect(resolveContextWindow('deepseek-v4-flash[1M]', { env: {} })).toEqual({
+      tokens: 1_000_000,
+      source: 'model-heuristic'
+    });
+    expect(resolveContextWindow('claude-opus-4-5-20251101', { env: {} }).source).toBe('model-heuristic');
+    // regression: the documented allowlist ids still resolve to 1M
+    expect(modelContextWindowTokens('claude-opus-4')).toBe(1_000_000);
+    expect(modelContextWindowTokens('claude-sonnet-4')).toBe(1_000_000);
+  });
+
+  it('when no override is set and the model is unknown, should report source default with 200K', () => {
+    // given: no override and an unrecognised suffix-less model id
+    // when: resolveContextWindow runs
+    // then: source is 'default' with the 200_000 safe default
+    expect(resolveContextWindow('deepseek-v4-flash', { env: {} })).toEqual({
+      tokens: 200_000,
+      source: 'default'
+    });
+    expect(resolveContextWindow('', { env: {} }).source).toBe('default');
+  });
+
+  it('when the env override is invalid (0 / negative / non-numeric / NaN), should warn and fall through', () => {
+    // given: invalid env override values and a config override of 400K
+    // when: resolveContextWindow runs
+    // then: each invalid value is ignored with a warning; config still wins
+    for (const bad of ['0', '-1', 'abc', 'NaN', '', '1.5', 'Infinity']) {
+      const warnings: string[] = [];
+      const out = resolveContextWindow('deepseek-v4-flash', {
+        env: { [ENV]: bad },
+        configWindowTokens: 400_000,
+        onInvalidOverride: (m) => warnings.push(m)
+      });
+      expect(out).toEqual({ tokens: 400_000, source: 'config' });
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain(ENV);
+    }
+  });
+
+  it('when the config override is invalid, should warn and fall through to the heuristic', () => {
+    // given: an invalid config override and a `[1M]` model id
+    // when: resolveContextWindow runs
+    // then: the config value is ignored with a warning; the heuristic wins
+    const warnings: string[] = [];
+    const out = resolveContextWindow('deepseek-v4-flash[1M]', {
+      env: {},
+      configWindowTokens: 0,
+      onInvalidOverride: (m) => warnings.push(m)
+    });
+    expect(out).toEqual({ tokens: 1_000_000, source: 'model-heuristic' });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('context.windowTokens');
+  });
+
+  it('when both overrides are invalid, should warn twice and fall through to the default', () => {
+    // given: invalid env AND config overrides
+    // when: resolveContextWindow runs
+    // then: both are ignored (2 warnings) and the 200K default wins
+    const warnings: string[] = [];
+    const out = resolveContextWindow('deepseek-v4-flash', {
+      env: { [ENV]: 'nope' },
+      configWindowTokens: -5,
+      onInvalidOverride: (m) => warnings.push(m)
+    });
+    expect(out).toEqual({ tokens: 200_000, source: 'default' });
+    expect(warnings).toHaveLength(2);
+  });
+
+  it('when parseContextWindowOverride runs, should accept only positive integers', () => {
+    // given: a spread of candidate override values
+    // when: parseContextWindowOverride runs
+    // then: only positive finite integers (number or numeric string) pass
+    expect(parseContextWindowOverride(1_000_000)).toBe(1_000_000);
+    expect(parseContextWindowOverride('1000000')).toBe(1_000_000);
+    expect(parseContextWindowOverride(' 1000000 ')).toBe(1_000_000);
+    for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, '', '  ', 'abc', null, undefined, {}, [], true]) {
+      expect(parseContextWindowOverride(bad)).toBeNull();
+    }
   });
 });

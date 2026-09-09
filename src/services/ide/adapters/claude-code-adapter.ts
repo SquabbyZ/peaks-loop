@@ -161,6 +161,9 @@ export function resolveClaudeModelFromEnv(env: NodeJS.ProcessEnv | undefined): s
  * Callers MAY additionally infer ≥1M from the observed token count: if
  * `contextTokens > DEFAULT_CONTEXT_WINDOW_TOKENS`, the model cannot be a
  * 200K model and must be ≥1M (see `readClaudeTranscriptEstimate`).
+ *
+ * This is the HEURISTIC layer only. Explicit user overrides sit ABOVE it —
+ * see `resolveContextWindow`, which is what the probe actually calls.
  */
 export function modelContextWindowTokens(model: string): number {
   const m = model.trim().toLowerCase();
@@ -170,6 +173,85 @@ export function modelContextWindowTokens(model: string): number {
     if (m.includes(known)) return ONE_MILLION_CONTEXT_TOKENS;
   }
   return DEFAULT_CONTEXT_WINDOW_TOKENS;
+}
+
+/**
+ * Slice 2026-09-09-context-window-override: vendor-neutral escape hatch for
+ * the context-window size in tokens. Third-party / proxied models whose id
+ * carries no `[1M]` suffix (and is absent from the hardcoded allowlist) are
+ * otherwise stuck at the 200K default, which inflates `ratio` up to 5×.
+ * Same spirit as `PEAKS_CALLER_ID`: an env var the user can export, plus a
+ * machine-wide `peaks config set --key context.windowTokens` twin.
+ */
+export const CONTEXT_WINDOW_TOKENS_ENV_VAR = 'PEAKS_CONTEXT_WINDOW_TOKENS';
+
+/**
+ * Which layer produced a resolved context window:
+ *   - `env-override`     — `PEAKS_CONTEXT_WINDOW_TOKENS`
+ *   - `config`           — `context.windowTokens` (`peaks config set`)
+ *   - `model-heuristic`  — `[1M]` suffix / `ONE_MILLION_CONTEXT_MODELS`
+ *   - `default`          — 200K safe default
+ */
+export type ContextWindowSource = 'env-override' | 'config' | 'model-heuristic' | 'default';
+
+export interface ContextWindowResolution {
+  readonly tokens: number;
+  readonly source: ContextWindowSource;
+}
+
+/** Explicit override inputs (both optional; env wins over config). */
+export interface ContextWindowOverrides {
+  readonly env?: NodeJS.ProcessEnv | undefined;
+  /** Raw `context.windowTokens` value (unvalidated — validated here). */
+  readonly configWindowTokens?: unknown;
+  /** Warning sink for an invalid override (defaults to `console.warn`). */
+  readonly onInvalidOverride?: ((message: string) => void) | undefined;
+}
+
+/**
+ * Parse an explicit context-window override. Accepts a positive finite
+ * integer only (number, or a numeric string so an env var works); anything
+ * else — `0`, negative, `NaN`, `Infinity`, `1.5`, `'abc'`, `''` — returns
+ * null so the caller can ignore it and fall through to the next layer.
+ */
+export function parseContextWindowOverride(raw: unknown): number | null {
+  if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+  if (typeof raw === 'string' && raw.trim().length === 0) return null;
+  const parsed = typeof raw === 'number' ? raw : Number(raw.trim());
+  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+/**
+ * Resolve the context window in tokens AND report which layer won
+ * (first hit wins):
+ *   1. env `PEAKS_CONTEXT_WINDOW_TOKENS`
+ *   2. config `context.windowTokens`
+ *   3. model-name heuristic (`modelContextWindowTokens`)
+ *   4. `DEFAULT_CONTEXT_WINDOW_TOKENS` (200_000)
+ *
+ * An invalid explicit override is ignored with a warning and falls through
+ * to the next layer — a typo must never crash or silently win the probe.
+ */
+export function resolveContextWindow(
+  model: string,
+  overrides: ContextWindowOverrides = {}
+): ContextWindowResolution {
+  const warn = overrides.onInvalidOverride ?? ((message: string) => console.warn(message));
+  const envRaw = overrides.env?.[CONTEXT_WINDOW_TOKENS_ENV_VAR];
+  if (envRaw !== undefined) {
+    const parsed = parseContextWindowOverride(envRaw);
+    if (parsed !== null) return { tokens: parsed, source: 'env-override' };
+    warn(`[peaks] ${CONTEXT_WINDOW_TOKENS_ENV_VAR}="${String(envRaw)}" is not a positive integer — ignoring the override`);
+  }
+  if (overrides.configWindowTokens !== undefined) {
+    const parsed = parseContextWindowOverride(overrides.configWindowTokens);
+    if (parsed !== null) return { tokens: parsed, source: 'config' };
+    warn(`[peaks] config context.windowTokens=${JSON.stringify(overrides.configWindowTokens)} is not a positive integer — ignoring the override`);
+  }
+  const heuristic = modelContextWindowTokens(model);
+  return heuristic === DEFAULT_CONTEXT_WINDOW_TOKENS
+    ? { tokens: heuristic, source: 'default' }
+    : { tokens: heuristic, source: 'model-heuristic' };
 }
 
 /** A non-negative finite number, or null when the value is not numeric. */
@@ -261,14 +343,23 @@ function findLatestTranscriptUsage(filePath: string): { contextTokens: number; m
 }
 
 /**
- * Resolve the context window for a transcript usage entry. Prefers the
- * explicit `modelContextWindowTokens(model)` mapping; when the observed token
- * count contradicts it (tokens exceed the mapped window), the model must be
- * ≥1M, so bump to the 1M window.
+ * Resolve the context window for a transcript usage entry. Explicit user
+ * overrides (`resolveContextWindow`) win outright — the user pinned the
+ * number, so nothing else may contradict it. Without an explicit override,
+ * when the observed token count contradicts the heuristic window (tokens
+ * exceed it), the model must be ≥1M, so bump to the 1M window (the late
+ * rescue; it keeps the heuristic source tag, only the tokens change).
  */
-function resolveContextWindowTokens(model: string, contextTokens: number): number {
-  const window = modelContextWindowTokens(model);
-  return contextTokens > window ? ONE_MILLION_CONTEXT_TOKENS : window;
+function resolveContextWindowTokens(
+  model: string,
+  contextTokens: number,
+  overrides: ContextWindowOverrides = {}
+): ContextWindowResolution {
+  const resolved = resolveContextWindow(model, overrides);
+  if (resolved.source === 'env-override' || resolved.source === 'config') return resolved;
+  return contextTokens > resolved.tokens
+    ? { tokens: ONE_MILLION_CONTEXT_TOKENS, source: resolved.source }
+    : resolved;
 }
 
 /**
@@ -283,21 +374,25 @@ function resolveContextWindowTokens(model: string, contextTokens: number): numbe
  *
  * Window model resolution is env-first: when `envModel` is present, its id
  * (which Claude Code stamps with the `[1M]` / `[200K]` suffix) drives the
- * window; otherwise the transcript `message.model` is used.
+ * window; otherwise the transcript `message.model` is used. Explicit
+ * overrides (env `PEAKS_CONTEXT_WINDOW_TOKENS` / config `context.windowTokens`)
+ * sit above both and are reported via `capacitySource`.
  */
 function readClaudeTranscriptEstimate(
   outerSessionId: string,
   envModel?: string,
-): { ratio: number; contextTokens: number; contextWindowTokens: number } | null {
+  overrides: ContextWindowOverrides = {},
+): { ratio: number; contextTokens: number; contextWindowTokens: number; capacitySource: ContextWindowSource } | null {
   const projectsDir = join(homedir(), '.claude', 'projects');
   const path = findTranscriptJsonl(projectsDir, outerSessionId);
   if (path === null) return null;
   const latest = findLatestTranscriptUsage(path);
   if (latest === null) return null;
   const model = envModel !== undefined && envModel.trim().length > 0 ? envModel : latest.model;
-  const contextWindowTokens = resolveContextWindowTokens(model, latest.contextTokens);
+  const resolved = resolveContextWindowTokens(model, latest.contextTokens, overrides);
+  const contextWindowTokens = resolved.tokens;
   const ratio = Math.min(1, latest.contextTokens / contextWindowTokens);
-  return { ratio, contextTokens: latest.contextTokens, contextWindowTokens };
+  return { ratio, contextTokens: latest.contextTokens, contextWindowTokens, capacitySource: resolved.source };
 }
 
 /**
@@ -333,13 +428,17 @@ function readContextPercentFallback(input: ContextPercentFallbackInput): Context
 
   if (typeof input.outerSessionId === 'string' && input.outerSessionId.length > 0) {
     const envModel = resolveClaudeModelFromEnv(input.env);
-    const estimate = readClaudeTranscriptEstimate(input.outerSessionId, envModel);
+    const estimate = readClaudeTranscriptEstimate(input.outerSessionId, envModel, {
+      env: input.env,
+      configWindowTokens: input.configWindowTokens
+    });
     if (estimate !== null) {
       return {
         ratio: estimate.ratio,
         source: 'transcript-estimate',
         rawTokens: estimate.contextTokens,
         capacityTokens: estimate.contextWindowTokens,
+        capacitySource: estimate.capacitySource,
         ide,
         capturedAt
       };
@@ -392,7 +491,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // Pathway = 'ide-native' (not 'shell-exec') so the dispatcher
   // routes main-session compacts through the PreToolUse hook in
   // `.claude/settings.local.json`. The hook fires
-  // `peaks compact auto` on the NEXT Bash/Task tool
+  // `peaks code auto-compact` on the NEXT Bash/Task tool
   // call from the runner, which in-band spawns `claude --compact`
   // against the CURRENT runner — not a child process (the
   // shell-exec spawn-new-claude bug documented in
@@ -403,7 +502,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
-    postCompactDetectCommand: 'peaks compact auto --json',
+    postCompactDetectCommand: 'peaks code auto-compact --json',
     readContextPercentFallback
   },
   // Slice #011: standards profile. Claude Code reads its constitution at

@@ -8,7 +8,7 @@
  *
  * Slice 2026-07-29-context-evaluation-accuracy Part 22: a new
  * `autoFire` tier is added between soft-warn and preCompact. peaks-loop
- * preempts and runs `peaks compact auto --execute` itself when
+ * preempts and runs `peaks code auto-compact` itself when
  * context crosses `autoFire`; the LLM is NOT asked to "decide"
  * (the LLM-judged 0.85–0.95 zone was the source of false-positive
  * "context too low" reports at 60%+ free — the LLM was guessing).

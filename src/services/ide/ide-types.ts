@@ -211,7 +211,7 @@ export interface IdeCompactProfile {
   readonly compactPathway: 'shell-exec' | 'ide-native' | 'llm-self-compress' | 'noop';
   /**
    * Optional command the runner invokes post-compact to confirm
-   * ratio dropped (e.g. `peaks compact auto --json`). When omitted,
+   * ratio dropped (e.g. `peaks code auto-compact --json`). When omitted,
    * the orchestrator polls `envVarForContextPercent` directly.
    */
   readonly postCompactDetectCommand?: string;
@@ -256,6 +256,15 @@ export interface ContextPercentFallbackInput {
   readonly outerSessionId?: string | undefined;
   /** Injectable env (defaults to process.env in the reader). */
   readonly env?: NodeJS.ProcessEnv | undefined;
+  /**
+   * Raw `context.windowTokens` value from the merged config (project layer
+   * over user layer), read by the generic reader so the adapter stays free
+   * of config-path knowledge. UNVALIDATED — the adapter validates it via
+   * `parseContextWindowOverride` and warns on a bad value.
+   *
+   * Slice 2026-09-09-context-window-override.
+   */
+  readonly configWindowTokens?: unknown;
 }
 
 /**

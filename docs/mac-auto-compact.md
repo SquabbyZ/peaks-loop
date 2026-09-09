@@ -75,6 +75,27 @@ The Mac Claude Code team has not yet fixed the env-var injection, so
 On 4.0.4.x the same threshold auto-fires without `--prompt-size` as long as
 a transcript is present.
 
+## Context-window override (any platform)
+
+When the probe falls back to the transcript estimate, the denominator is the
+model's context window. Unknown third-party / proxied model ids default to
+200K, which inflates the ratio up to 5× (false `soft-warn` /
+`auto-compact-now`). Pin the real window explicitly — first hit wins:
+
+```bash
+# per shell
+export PEAKS_CONTEXT_WINDOW_TOKENS=1000000
+
+# once per machine (user layer)
+peaks config set --key context.windowTokens --value 1000000
+```
+
+Precedence: env → config → model-name heuristic (`[1M]` suffix, known 1M
+allowlist) → 200K default. A value that is not a positive integer is ignored
+with a stderr warning. `peaks code context-now --json` reports the winning
+layer as `capacitySource` (`env-override` | `config` | `model-heuristic` |
+`default`).
+
 ## Hook integration
 
 If you maintain a custom PreToolUse hook that calls

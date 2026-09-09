@@ -1,7 +1,7 @@
 /**
  * Auto-compact orchestrator (v2.13.0 AC-2 + AC-3 + AC-4).
  *
- * Closes the loop between `peaks compact auto` (AC-1) and the IDE's
+ * Closes the loop between `peaks code auto-compact` (AC-1) and the IDE's
  * native compact capability (AC-3). peaks-loop is project-aware: it
  * knows the current plan, open questions, recent decisions, in-flight
  * batches, todo state, git status, and active skills. That context is
@@ -16,7 +16,7 @@
  *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-loop prepares
  *      the convergence toolkit (checkpoint + auto-decisions log +
  *      IDE-dispatch handle) and surfaces it to the LLM. The LLM
- *      DECIDES when to fire `peaks compact auto --execute`;
+ *      DECIDES when to fire `peaks code auto-compact`;
  *      peaks-loop does NOT auto-fire. The toolkit is ready so the
  *      LLM doesn't lose context to a last-second `/compact` panic.
  *   4. If ratio < 0.85: skip — return a one-line info row.
@@ -49,7 +49,7 @@ import {
   describeMode,
   thresholdFor
 } from './auto-compact-modes.js';
-import { read24hState } from '../24h-mode/store.js';
+import { resolveAutoCompactProfile } from '../mode/mode-status-service.js';
 import type {
   CompactLifecycleRecord,
   CompactLifecycleStage
@@ -184,7 +184,7 @@ export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 's
   }
   if (ratio < preCompact) {
     // Part 22: auto-fire zone (0.80 ≤ ratio < 0.85). peaks-loop
-    // preempts and runs `peaks compact auto --execute` itself
+    // preempts and runs `peaks code auto-compact` itself
     // without LLM involvement. The LLM is not asked to "decide";
     // the toolkit is applied synchronously. Closes the
     // LLM-misjudges-context window that previously let the
@@ -424,19 +424,15 @@ function writePreCompactCheckpoint(input: {
 }
 
 /**
- * Slice 2026-07-28 (rid-027): resolve the auto-compact mode from
- * 24h-mode awareness. Returns `'partial'` when the session is
- * `24H_ACTIVE`, otherwise `'standard'`. The CLI flag `--mode` takes
- * precedence (caller passes `input.mode` directly), so this helper is
- * only consulted when the flag is absent.
+ * Slice 2026-07-28 (rid-027), re-keyed by slice
+ * 2026-09-09-mode-consolidation: resolve the auto-compact mode from
+ * the PRESENCE MODE, not the 24h state machine. Returns `'partial'`
+ * when the mode is `24h`, otherwise `'standard'`. The CLI flag
+ * `--mode` takes precedence (caller passes `input.mode` directly), so
+ * this helper is only consulted when the flag is absent.
  */
-function resolveAutoCompactMode(projectRoot: string, sessionId: string): AutoCompactMode {
-  try {
-    const snap = read24hState(projectRoot, sessionId);
-    return snap.state === '24H_ACTIVE' ? 'partial' : 'standard';
-  } catch {
-    return 'standard';
-  }
+function resolveAutoCompactMode(projectRoot: string): AutoCompactMode {
+  return resolveAutoCompactProfile(projectRoot);
 }
 
 /**
@@ -469,9 +465,10 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     };
   }
   // Slice 2026-07-28 (rid-027): resolve mode. CLI flag `--mode` wins;
-  // 24h-mode awareness yields 'partial' when 24h_ACTIVE; default
-  // 'standard' preserves v2.13.0 zero-pause contract.
-  const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot, sessionId);
+  // slice 2026-09-09-mode-consolidation keys the default off the
+  // presence MODE ('24h' → 'partial'); 'standard' preserves the
+  // v2.13.0 zero-pause contract.
+  const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot);
   // Lazy import to avoid the AC-1 module depending on the orchestrator.
   const { readContextPercent } = await import('../context/auto-compact-reader.js');
   const outerSessionId = resolveOuterSessionId(input.projectRoot, sessionId, input.env ?? process.env);
@@ -573,12 +570,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       ? [
           'RED-LINE compact dispatched — further sub-agent dispatch BLOCKED until ratio < 0.85',
           'Post-compact resume picks up the convergence plan from auto-decisions.md',
-          'Next `peaks compact auto` probe will confirm ratio dropped below 0.85'
+          'Next `peaks code auto-compact` probe will confirm ratio dropped below 0.85'
         ]
       : [
           'Pre-compact dispatched — IDE compact in progress (async)',
           'Post-compact resume picks up the convergence plan from auto-decisions.md',
-          'Next `peaks compact auto` probe will confirm ratio dropped below 0.85'
+          'Next `peaks code auto-compact` probe will confirm ratio dropped below 0.85'
         ];
 
     plan = buildConvergencePlan({

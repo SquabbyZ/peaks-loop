@@ -198,7 +198,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'hermes / openclaw register their own env-var via IdeAdapter.compact. ' +
           'v3.1.2: when --enforce-job-mode is set OR job-shape.json says isJob=true, ' +
           '≥0.85 emits action=auto-compact-now (MANDATORY, not advisory) and ' +
-          '≥0.95 emits action=red-line (forced hook fires next turn).'
+          '≥0.95 emits action=red-line (forced hook fires next turn). ' +
+          'Context-window override: set env PEAKS_CONTEXT_WINDOW_TOKENS=<positive int> ' +
+          'or `peaks config set --key context.windowTokens --value <positive int>`; ' +
+          'the JSON envelope reports the winning layer as capacitySource ' +
+          '(env-override | config | model-heuristic | default).'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
@@ -248,11 +252,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         let next: string | null = null;
         if (probe.ratio >= 0.95) {
           action = isJobMode ? 'red-line' : 'red-line';
-          next = 'peaks compact auto --execute';
+          next = 'peaks code auto-compact';
         } else if (probe.ratio >= 0.85) {
           if (isJobMode) {
             action = 'auto-compact-now';
-            next = 'peaks compact auto --execute';
+            next = 'peaks code auto-compact';
           } else {
             action = 'soft-warn';
           }
@@ -282,6 +286,10 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             rawBytes: probe.rawBytes ?? null,
             rawTokens: probe.rawTokens ?? null,
             capacityTokens: probe.capacityTokens ?? null,
+            // Slice 2026-09-09-context-window-override: which layer produced
+            // capacityTokens (env-override | config | model-heuristic |
+            // default) — null for byte/percent sources, which have no window.
+            capacitySource: probe.capacitySource ?? null,
             bytesPrompt: promptSizeBytes ?? null,
             capturedAt: probe.capturedAt
           }, [], [
@@ -291,8 +299,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
                 ? `Job-mode MANDATORY auto-compact. Code MUST call \`${next}\` WITHOUT confirmation.`
                 : action === 'soft-warn'
                   ? isJobMode
-                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks compact auto\` will re-check.`
-                    : `Soft warn (50–85%). Continue working; the next \`peaks compact auto\` will re-check.`
+                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
+                    : `Soft warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
                   : `Below 50%. No action required.`,
             jobModeNotice
           ]),

@@ -17,7 +17,7 @@ import {
   type DecisionKey,
   type State
 } from './state.js';
-import { read24hState } from './store.js';
+import { resolveAutoCompactProfile } from '../mode/mode-status-service.js';
 import type { AutoCompactMode } from '../code/auto-compact-modes.js';
 
 export type AttemptsMap = Record<DecisionKey, number>;
@@ -185,16 +185,17 @@ export function isHandoffState(s: State): boolean {
 }
 
 /**
- * Slice 2026-07-28 (rid-027): resolve the auto-compact mode from
- * 24h-mode awareness. Returns `'partial'` when the session is
- * `24H_ACTIVE`, otherwise `'standard'`. This is the CLI-side default;
- * the explicit `--mode` flag in `peaks compact auto` overrides it.
+ * Slice 2026-07-28 (rid-027), re-keyed by slice
+ * 2026-09-09-mode-consolidation: resolve the auto-compact mode from
+ * the PRESENCE MODE, not the 24h state machine. Returns `'partial'`
+ * when the mode is `24h`, otherwise `'standard'`. This is the CLI-side
+ * default; the explicit `--mode` flag in `peaks code auto-compact`
+ * overrides it.
+ *
+ * `sessionId` is retained in the signature for callers that still pass
+ * it; the resolution itself is project-scoped (the presence lease is
+ * per project + caller).
  */
-export function getAutoCompactMode(projectRoot: string, sessionId: string): AutoCompactMode {
-  try {
-    const snap = read24hState(projectRoot, sessionId);
-    return snap.state === '24H_ACTIVE' ? 'partial' : 'standard';
-  } catch {
-    return 'standard';
-  }
+export function getAutoCompactMode(projectRoot: string, _sessionId?: string): AutoCompactMode {
+  return resolveAutoCompactProfile(projectRoot);
 }

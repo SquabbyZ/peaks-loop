@@ -21,17 +21,38 @@ import type {
 // while the actual work flows through the canonical lease service.
 void (null as unknown as SetPresenceLeaseResult | null);
 
-export type SkillPresenceMode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
+export type SkillPresenceMode = 'full-auto' | 'assisted' | 'strict' | '24h';
 
 export const VALID_SKILL_PRESENCE_MODES: ReadonlyArray<SkillPresenceMode> = [
   'full-auto',
   'assisted',
-  'swarm',
-  'strict'
+  'strict',
+  '24h'
 ];
+
+// Migration note (slice 2026-09-09-mode-consolidation): `swarm` was REMOVED
+// as a mode — parallel fan-out is now the default execution strategy in
+// every mode. A legacy on-disk `mode: 'swarm'` is normalized on read to
+// `'full-auto'` (never crash, never drop the presence).
+export const LEGACY_SKILL_PRESENCE_MODE_ALIASES: Readonly<Record<string, SkillPresenceMode>> = {
+  swarm: 'full-auto'
+};
 
 export function isSkillPresenceMode(value: string): value is SkillPresenceMode {
   return (VALID_SKILL_PRESENCE_MODES as ReadonlyArray<string>).includes(value);
+}
+
+/**
+ * Normalize a raw on-disk / CLI mode token to a current
+ * `SkillPresenceMode`. Current values pass through; the legacy
+ * `'swarm'` alias maps to `'full-auto'`; anything else returns
+ * `undefined` so the caller can decide (drop the field, not the
+ * presence). Never throws.
+ */
+export function normalizeSkillPresenceMode(value: string | undefined | null): SkillPresenceMode | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  if (isSkillPresenceMode(value)) return value;
+  return LEGACY_SKILL_PRESENCE_MODE_ALIASES[value];
 }
 
 export type SkillPresence = {
@@ -165,8 +186,15 @@ function readSkillPresenceFromLease(projectRootOverride?: string): SkillPresence
   // The lease carries `callerId` (the adapter / harness session id),
   // not the legacy `outerSessionId` field. Project it for back-compat
   // with `clearStalePresenceOnRotation`'s outer-mismatch check.
+  //
+  // Slice 2026-09-09-mode-consolidation: `mode` is projected too (it was
+  // silently dropped before, which made `getSkillPresence().mode` always
+  // undefined and left every `presence.mode` consumer dead). Normalize on
+  // read so a legacy `'swarm'` lease surfaces as `'full-auto'`.
+  const leaseMode = normalizeSkillPresenceMode((lease as { mode?: string | undefined }).mode);
   return {
     skill: lease.skill,
+    ...(leaseMode !== undefined ? { mode: leaseMode } : {}),
     sessionId,
     outerSessionId: lease.callerId,
     setAt: lease.startedAt,
@@ -263,7 +291,7 @@ export function setSkillPresenceForCaller(
   mode?: string,
   gate?: string
 ): SkillPresence {
-  const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
+  const validatedMode = normalizeSkillPresenceMode(mode);
   const now = new Date().toISOString();
   const presence: SkillPresence = {
     skill,
@@ -323,7 +351,7 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
   //      the old shape don't break) but we surface a warning to the
   //      CLI boundary via the `outerSessionMismatch` field.
   //   3. delegates the canonical write to `setPresenceLease`.
-  const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
+  const validatedMode = normalizeSkillPresenceMode(mode);
   const sessionId = getCurrentSessionId(projectRootOverride);
   const outerSessionId = getCurrentOuterSessionId();
   const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);

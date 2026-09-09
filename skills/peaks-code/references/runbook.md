@@ -10,7 +10,7 @@
 
 ## Default runbook — CLI sequence
 
-The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `swarm` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
+The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `24h` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
 
 Canonical single-shot sub-agent dispatch (the `--prompt` flag is required):
 
@@ -34,7 +34,7 @@ peaks scan existing-system --project <repo> --json
 # → copy tokens, sources, conventions, inconsistencies into .peaks/_runtime/<session-id>/system/existing-system.md (Peaks-Loop Gate A.5)
 
 # 1. Peaks-Loop Standards preflight + apply
-#    Run dry-run first to inspect deltas, then APPLY. In full-auto and swarm modes,
+#    Run dry-run first to inspect deltas, then APPLY. In full-auto and 24h modes,
 #    --apply is the default — Standards files (CLAUDE.md, .claude/rules/**) live INSIDE
 #    the target project and are required for downstream skill preflight, so producing
 #    them is part of completing the workflow. Assisted/Strict modes pause for [CONFIRM]
@@ -289,7 +289,7 @@ peaks code emit-handoff --project <repo> --job-id <jid> --json
 # job-shape.json says isJob=true, ≥0.85 is MANDATORY auto-compact.
 # Code MUST call this without confirmation under Job mode.
 peaks code context-now --project <repo> --enforce-job-mode --json
-peaks compact auto --execute --project <repo> --json
+peaks code auto-compact --project <repo> --json
 
 # v3.1.2 PreToolUse gate (installed by `peaks workspace init`):
 # every Bash tool call runs `peaks code gate-step-08` automatically.

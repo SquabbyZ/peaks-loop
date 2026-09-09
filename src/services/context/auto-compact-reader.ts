@@ -30,6 +30,7 @@ import type { ContextPercentProbe } from './auto-compact-types.js';
 import { detectIdeFromEnv } from './ide-detect.js';
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
+import { readContextWindowTokensOverride } from '../config/config-service.js';
 
 export interface ReadContextPercentInput {
   readonly projectRoot: string;
@@ -132,11 +133,17 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
     // Fallback: the adapter owns any vendor-specific statusline /
     // transcript probe. When it returns a probe, honor it; otherwise
     // fall through to conservative-fallback.
+    //
+    // Slice 2026-09-09-context-window-override: the generic reader also
+    // hands the adapter the raw `context.windowTokens` config override, so
+    // the adapter's window resolver can prefer an explicit user value over
+    // its model-name heuristics (the env override arrives via `env`).
     const fallback = adapter.compact.readContextPercentFallback?.({
       projectRoot: input.projectRoot,
       sessionId: input.sessionId,
       outerSessionId: input.outerSessionId,
-      env
+      env,
+      configWindowTokens: readContextWindowTokensOverride(input.projectRoot)
     });
     if (fallback) return fallback;
   }

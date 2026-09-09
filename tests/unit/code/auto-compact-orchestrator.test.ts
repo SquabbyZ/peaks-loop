@@ -226,7 +226,7 @@ describe("Scenario: integration — real ≥256KB Mac-shaped transcript fixture 
 //
 //   `auto-compact-dispatcher.ts` documents, verbatim, that
 //   "the orchestrator MUST NOT treat `ok: true` as proof that the context
-//   actually shrunk; the next `peaks compact auto` probe confirms."
+//   actually shrunk; the next `peaks code auto-compact` probe confirms."
 //
 //   For target='main' the compact is executed by the IDE (the main-session
 //   LLM fires `/compact` in-band on its NEXT turn). The dispatching process
@@ -238,7 +238,7 @@ describe("Scenario: integration — real ≥256KB Mac-shaped transcript fixture 
 //   So a dispatch attempt observes exactly: queued → preparing → compacting.
 //   `verifying` and `completed` are driven by the REAL post-compact detection
 //   path — the adapter's own `postCompactDetectCommand`
-//   (`peaks compact auto --json`, see claude-code-adapter.ts:76), i.e. the
+//   (`peaks code auto-compact --json`, see claude-code-adapter.ts:76), i.e. the
 //   NEXT runAutoCompact probe. That probe MEASURES the ratio via
 //   `readContextPercent` and only then closes the run out. Those transitions
 //   are asserted in their own describe block below.
@@ -508,7 +508,7 @@ describe("Scenario: integration — verifying/completed driven by the real post-
     const runId = mid.record.runId;
 
     // Turn 2: the IDE has compacted; the adapter's postCompactDetectCommand
-    // (`peaks compact auto --json`) runs again and MEASURES 0.20.
+    // (`peaks code auto-compact --json`) runs again and MEASURES 0.20.
     const after = await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,

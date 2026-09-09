@@ -195,7 +195,7 @@ export function summarizeLifecycleError(error: unknown): string {
  *
  * This is the integration with the actual post-compact detection path.
  * The claude-code adapter's `postCompactDetectCommand` is
- * `peaks compact auto --json` — i.e. the next probe through this very
+ * `peaks code auto-compact --json` — i.e. the next probe through this very
  * function. So when a probe finds a run still sitting at `compacting`
  * and MEASURES a ratio that has dropped below the auto-fire threshold,
  * that measurement is the proof the compact landed. Only then do we

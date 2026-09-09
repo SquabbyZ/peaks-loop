@@ -195,6 +195,40 @@ export function isConfigLayer(value: string): value is ConfigLayer {
   return value === 'user' || value === 'project';
 }
 
+/**
+ * Machine-scoped context-window override key, the config twin of the
+ * `PEAKS_CONTEXT_WINDOW_TOKENS` env var (slice
+ * 2026-09-09-context-window-override). Written with
+ * `peaks config set --key context.windowTokens --value <positive-int>`
+ * (user layer) so the user pins it once instead of exporting an env var
+ * in every shell.
+ */
+export const CONTEXT_WINDOW_TOKENS_CONFIG_KEY = 'context.windowTokens';
+
+/**
+ * Read the raw `context.windowTokens` value from the merged config, project
+ * layer over user layer (most specific wins). Returns the RAW value —
+ * validation lives in the context-window resolver so exactly one warning is
+ * emitted per bad value. Returns `undefined` when absent or unreadable;
+ * never throws (a corrupt config must not crash a context probe).
+ */
+export function readContextWindowTokensOverride(projectRoot?: string | null): unknown {
+  try {
+    const projectRaw = readProjectJsonFile(projectRoot ?? null);
+    if (isRecord(projectRaw)) {
+      const fromProject = getNestedValue(projectRaw, CONTEXT_WINDOW_TOKENS_CONFIG_KEY);
+      if (fromProject !== undefined) return fromProject;
+    }
+    const userRaw = readUserJsonFile();
+    if (isRecord(userRaw)) {
+      return getNestedValue(userRaw, CONTEXT_WINDOW_TOKENS_CONFIG_KEY);
+    }
+    return undefined;
+  } catch { // TODO(g2): legacy silent catch — never let config IO break a probe (grace: 1 minor release, v2.14.0)
+    return undefined;
+  }
+}
+
 export function isSensitiveConfigPath(path: string): boolean {
   const normalized = path.toLowerCase().replace(/[^a-z0-9]/g, '');
   return normalized.includes('apikey') || normalized.includes('accesskey') || normalized.includes('privatekey') || normalized.includes('token') || normalized.includes('secret') || normalized.includes('password') || normalized.includes('bearer') || normalized.includes('credential') || normalized.includes('auth');

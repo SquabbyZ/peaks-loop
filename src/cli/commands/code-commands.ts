@@ -28,6 +28,7 @@ import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 
 import { registerCodeRunCommand } from './code-run-command.js';
+import { registerCodeModeStatusCommand } from './code-mode-status-command.js';
 import { registerCodeModeGateCommands } from './code-mode-gate-commands.js';
 import { registerCodeJobShapeCommands } from './code-job-shape-commands.js';
 import { registerCodeRuntimeCommands } from './code-runtime-commands.js';
@@ -161,6 +162,7 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
     .description('peaks-code LLM-side workflow planner (slice 2 fast mode)');
 
   registerCodeModeGateCommands(code, io);
+  registerCodeModeStatusCommand(code, io);
   registerCodeJobShapeCommands(code, io);
   registerCodeRuntimeCommands(code, io);
   registerCodeOrchestratorCanDoCommand(code, io);

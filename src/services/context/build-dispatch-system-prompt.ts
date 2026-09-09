@@ -269,9 +269,9 @@ function renderContextBlock(probe: ContextPercentProbe | null): string {
     const usedPct = (probe.ratio * 100).toFixed(1);
     const freePct = ((1 - probe.ratio) * 100).toFixed(1);
     const action = probe.ratio >= 0.95
-      ? 'RED-LINE — call `peaks compact auto --execute` immediately.'
+      ? 'RED-LINE — call `peaks code auto-compact` immediately.'
       : probe.ratio >= 0.85
-        ? 'pre-compact zone — consider running `peaks compact auto --execute` proactively.'
+        ? 'pre-compact zone — consider running `peaks code auto-compact` proactively.'
         : probe.ratio >= 0.5
           ? 'soft-warn zone — continue working; the next dispatch will re-check.'
           : 'plenty of room — continue without compacting.';

@@ -33,6 +33,8 @@ import type { CompactStatuslineState } from '../compact-statusline/compact-statu
  * documented back-compat path.
  */
 
+import { normalizeSkillPresenceMode } from './skill-presence-service.js';
+
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 export type StatusLineStdin = {
@@ -317,12 +319,14 @@ function readPresenceReadOnly(
   }
   // Leases on disk may carry an optional `mode` field (the lease constructor
   // spreads `input.mode` when present); the typed `SkillPresenceLease` does
-  // not declare it, so widen the read shape here.
-  const latestMode = (latest as { mode?: unknown }).mode;
+  // not declare it, so widen the read shape here. Normalized on read: a
+  // legacy `'swarm'` lease renders as `'full-auto'` (slice
+  // 2026-09-09-mode-consolidation).
+  const latestMode = normalizeSkillPresenceMode((latest as { mode?: string | undefined }).mode);
   return {
     presence: {
       skill: latest.skill,
-      ...(typeof latestMode === 'string' && latestMode.length > 0 ? { mode: latestMode } : {}),
+      ...(latestMode !== undefined ? { mode: latestMode } : {}),
       setAt: latest.startedAt,
     },
     invalid: false,

@@ -204,7 +204,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     expect(result.canDoInSession).toBe(false);
     expect(result.blockers.some((b) => b.includes('red-line'))).toBe(true);
     expect(result.blockers.some((b) => b.includes('0.95'))).toBe(true);
-    expect(result.suggestions).toContain('peaks compact auto --execute');
+    expect(result.suggestions).toContain('peaks code auto-compact');
   });
 
   it('Case 5 (NEW): ratio ≥ 0.85 but < 0.95 → canDoInSession=false (pre-compact)', () => {
@@ -220,7 +220,7 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     );
     expect(result.canDoInSession).toBe(false);
     expect(result.blockers.some((b) => b.includes('near limit'))).toBe(true);
-    expect(result.suggestions).toContain('peaks compact auto --execute');
+    expect(result.suggestions).toContain('peaks code auto-compact');
   });
 
   it('Case 6 (NEW): sub-agent dispatch unavailable → canDoInSession=false', () => {

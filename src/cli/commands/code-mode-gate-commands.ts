@@ -48,7 +48,7 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
       .command('should-pause')
       .description(
         'v2.11.0 D5: ask the mode-gate whether the LLM should pause for an AskUserQuestion at a given step. ' +
-          'full-auto / swarm auto-proceed (recommended = chosen); assisted / strict pause. ' +
+          'full-auto / 24h auto-proceed (recommended = chosen); assisted / strict pause. ' +
           'The 3 hard-floor categories always pause regardless of mode. ' +
           'v2.15.0 slice 002 AC-2: when --step step-1-mode-select AND the recorded skill presence is stale ' +
           '(outer-session-mismatch / no-presence), the gate returns shouldPause: true with reason "stale-presence" ' +
@@ -64,7 +64,7 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
       // pause on `step-1-mode-select` (mode-selection-itself) will
       // pause regardless, and the LLM-side caller can present
       // AskUserQuestion without first knowing the mode.
-      .option('--mode <mode>', 'one of: full-auto, assisted, swarm, strict. Defaults to full-auto when omitted (Step 1 chicken-and-egg fix).')
+      .option('--mode <mode>', 'one of: full-auto, assisted, strict, 24h. Defaults to full-auto when omitted (Step 1 chicken-and-egg fix).')
       .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment | commit-boundary-side-effect)')
       .option('--recommended <option>', 'recommended option label to log when auto-proceeding', 'recommended-option')
       .option('--project <path>', 'v2.15.0 slice 002 AC-2: project root for presence:check-stale. Default: cwd. Pass only when step=step-1-mode-select.')
@@ -91,7 +91,7 @@ export function registerCodeModeGateCommands(code: Command, io: ProgramIO): void
         if (!isCodeMode(mode)) {
           printResult(
             io,
-            fail('code.should-pause', 'INVALID_MODE', `mode must be one of full-auto, assisted, swarm, strict (got "${mode}")`, { provided: mode }, ['Pass --mode full-auto | assisted | swarm | strict']),
+            fail('code.should-pause', 'INVALID_MODE', `mode must be one of full-auto, assisted, strict, 24h (got "${mode}")`, { provided: mode }, ['Pass --mode full-auto | assisted | strict | 24h']),
             opts.json
           );
           process.exitCode = 1;

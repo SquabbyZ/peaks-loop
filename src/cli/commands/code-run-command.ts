@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { read24hState, write24hState, type State } from '../../services/24h-mode/index.js';
+import { applyAutoEngagePresenceMode } from '../../services/24h-mode/auto-engage.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 export type CodeRun24hOptions = {
@@ -66,9 +67,15 @@ export function registerCodeRunCommand(code: Command, io: ProgramIO): void {
           enteredFrom: current.state,
           exitCondition: null
         });
+        // Slice 2026-09-09-mode-consolidation (Slice B): auto-engage is the
+        // ONLY path allowed to set a mode without a user pick, and `24h` is
+        // the only mode it may set. Stamp it onto the in-flight presence
+        // lease so the mode gate / statusline / `peaks code mode status`
+        // see the same autonomy level the 24h state machine is running.
+        const presenceMode = applyAutoEngagePresenceMode({ projectRoot, sessionId: sid });
         emit(io, {
           ok: true,
-          data: { changeId: changeId ?? null, mode: '24H_ACTIVE', state: nextState, autoEngaged: true, trigger: options.trigger ?? options.tier, sessionId: sid, path: next.path },
+          data: { changeId: changeId ?? null, mode: '24H_ACTIVE', state: nextState, autoEngaged: true, trigger: options.trigger ?? options.tier, sessionId: sid, path: next.path, presenceMode },
           next: 'Continue the existing 24H_ACTIVE flow; no brainstorming gate is required for T3/T4.'
         }, options.json);
       } catch (error) {
