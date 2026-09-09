@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.0.34 — 2026-09-09 (mode 模型收敛 + auto-compact 死命令 + 上下文窗口覆盖 + 确认门去 TTY)
+
+**Highlights**:
+
+1. **mode 模型收敛（用户设计）** — 此前 `SkillPresenceMode` 与 24h 状态机是两个互不相识的自主性开关。
+
+   - `SkillPresenceMode = full-auto | assisted | strict | 24h`（四选一，并列）。
+   - `swarm` 从"模式"降级为**所有 mode 的默认执行策略**（与"fan-out 强制、不可退回串行"一致）。
+   - 24h 的 6 状态机保留为 **24h mode 的内部状态**；24h 是**唯一可自动开启**的 mode（T1–T5），其余 mode 仍需用户选。
+   - 新增 `peaks code mode status`：一条命令输出 presence mode / 24h 状态 / job mode / auto-compact profile。
+   - **顺带修好一个严重 bug**：`getSkillPresence()` 一直在丢掉 `mode` 字段，导致所有读 `presence.mode` 的守卫（mode-enforcement、assisted/strict 边界、post-compact-detector）**全是死代码**——用户选的 mode 从未真正生效。
+
+2. **auto-compact 契约指向不存在的命令（根因）** — `peaks compact auto --execute` 在 `skills/` + `src/` 出现 **49 次**（含 CLI 自己返回的 `next`），实际执行是 `COMMAND_NOT_FOUND`。真命令是 `peaks code auto-compact`。LLM 按契约执行 → 撞死命令 → 只能回头让用户手动 compact。全部引用已改指真命令，并加守卫测试防回归。
+
+3. **上下文窗口不再对未知模型默认 20w** — 新增 `PEAKS_CONTEXT_WINDOW_TOKENS`（env）与 `context.windowTokens`（config）覆盖，优先级 env > config > 启发式 > 默认；`peaks code context-now` 新增 `capacitySource` 字段，一眼看出窗口值来自哪。
+
+4. **assisted/strict 确认门不再阻塞在 TTY** — `requireUserConfirmation` 此前会开 `readline` 的 `(y/N)` 提示；LLM 会话里 stdin 非 TTY → 直接挂死，且违反 Human-NL-Choice-Only。现改为立即抛出带 `transitionKey` + `mode` + 可执行 nextActions 的错误，由 LLM 用 `AskUserQuestion` 承接、用户同意后重跑 `--confirm`。bypass 语义（`--confirm` / `--force-confirm` / `PEAKS_AUTO_CONFIRM`）完全不变。
+
+**验证**：build clean、tsc clean、全量 126 files / 1102 passed（1 skipped）；实测 `capacitySource` 默认 `model-heuristic`、`PEAKS_CONTEXT_WINDOW_TOKENS=400000` → `env-override`。
+
 ## 4.0.33 — 2026-09-09 (ECC 去插件化 + 动态获取修复 + 移除 understand-anything)
 
 **Highlights**:
