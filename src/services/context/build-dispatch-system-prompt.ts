@@ -162,6 +162,26 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
 `;
 
 /**
+ * Slice 2026-09-10-context-audit-and-discipline (Slice C): cap the sub-agent's
+ * FINAL report.
+ *
+ * Why (measured, session 2026-09-07-session-245530): 20 sub-agent final
+ * reports cost ≈ 60 KB ≈ 15K tokens of the ORCHESTRATOR's window in one
+ * session — the reports, not the dispatch boilerplate, were the second-largest
+ * consumer. The sub-agent already writes a full artifact to disk; the report
+ * only needs to be the index into it.
+ *
+ * QUALITY GUARD (binding): the cap removes no information. Everything the
+ * parent needs to ACT on stays in the report; everything longer lives in the
+ * artifact the parent can `Read`. The five mandatory fields below are exactly
+ * the ones the orchestrator must have to decide the next gate.
+ */
+export const REPORT_CAP_BLOCK = `## Final report cap (mandatory)
+
+Your FINAL report to the parent MUST be ≤ 40 lines and ≤ 2 KB. Write any longer detail into the artifact file you already own — the parent can \`Read\` that file for the full detail, so nothing is lost. The report itself MUST still carry: changed files (one line each), the exact commands you ran, pass/fail counts, tsc status, and any blocker. Do NOT paste file contents, full tool output, or logs into the report.
+`;
+
+/**
  * Compose the system-prompt body for a sub-agent dispatch.
  *
  * 2026-09-10-dispatch-block-d (Option D): the composer owns the Test Tool
@@ -172,8 +192,10 @@ export const LIFECYCLE_RULES = `## Sub-agent lifecycle rules (locked 2026-08-01)
  * Byte-identical degradation contract (slice 2026-07-22-orchestrator-memory-preflight
  * controller brief): when the memory block is unavailable, the composed body is
  * exactly `formatTestToolDetection() + "\n\n" + L1 + "\n" + LIFECYCLE +
- * "\n" + contextBlock + taskBody`, so the unavailable branch MUST return
- * `taskBody` unwrapped (NOT a `# title\n\n` wrap).
+ * "\n" + REPORT_CAP + "\n" + contextBlock + taskBody`, so the unavailable
+ * branch MUST return `taskBody` unwrapped (NOT a `# title\n\n` wrap).
+ * (REPORT_CAP joined the stable prefix in slice
+ * 2026-09-10-context-audit-and-discipline, Slice C.)
  * The contract holds for callers that do not pass `codegraphBlock` (all
  * non-RD roles). Slice 2026-09-03-codegraph-preread deliberately inserts a
  * codegraph structure block (or its fail-soft unavailable note) for RD
@@ -208,9 +230,9 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
   const freshContextText = renderFreshContextBlock(freshContextBlock);
   const capsuleText = renderCapsulePointer(capsule);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${taskBody}`;
+  return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${taskBody}`;
 }
 
 /**
@@ -368,6 +390,13 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'do NOT estimate yourself',
   '`peaks code context-now`',
   '`verdict: red-line`',
+  // final report cap (Slice 2026-09-10-context-audit-and-discipline, Slice C)
+  '## Final report cap (mandatory)',
+  '≤ 40 lines and ≤ 2 KB',
+  'the parent can `Read` that file for the full detail',
+  'changed files (one line each)',
+  'pass/fail counts',
+  'tsc status',
   // test scope — ONE unified block, byte-identical for EVERY role
   '## Test Tool Detection (mandatory)',
   '`package.json#scripts.test`',

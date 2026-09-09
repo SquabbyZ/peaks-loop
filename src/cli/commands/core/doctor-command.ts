@@ -5,6 +5,7 @@ import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { loadSkillRegistry } from '../../../services/skills/skill-registry.js';
 import { planStatusLineInstall } from '../../../services/skills/statusline-settings-service.js';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
+import { boundedNames, fitSummaryToBytes } from '../../../services/context/summary-view.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 // slice-3b Option C: the doctor subpackage owns the check pipeline but
@@ -38,6 +39,42 @@ function statusLineAlreadyInstalledForScope(scope: 'project' | 'global', project
   } catch {
     return false;
   }
+}
+
+/**
+ * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
+ * the doctor envelope. The `checks` array (one object per check, each with a
+ * full message) and the stale-binding instance list collapse to counts +
+ * names-of-first-N; the summary counters and log section are scalars and are
+ * kept verbatim. ≤ 2 KB by construction.
+ */
+export function buildDoctorSummary(data: Record<string, unknown>): Record<string, unknown> {
+  const checks = Array.isArray(data.checks) ? (data.checks as Array<{ id?: unknown; ok?: unknown; severity?: unknown; message?: unknown }>) : [];
+  const label = (c: { id?: unknown; ok?: unknown; severity?: unknown }): string => {
+    const id = typeof c.id === 'string' ? c.id : 'unknown';
+    if (c.ok === true) return `ok ${id}`;
+    return `${c.severity === 'warning' ? 'warn' : 'FAIL'} ${id}`;
+  };
+  const failed = checks.filter((c) => c.ok === false);
+  const stale = typeof data.staleBinding === 'object' && data.staleBinding !== null
+    ? (data.staleBinding as Record<string, unknown>)
+    : null;
+  const view: Record<string, unknown> = {
+    view: 'summary',
+    summary: data.summary,
+    checks: boundedNames(checks.map(label)),
+    failed: boundedNames(failed.map((c) => `${typeof c.id === 'string' ? c.id : 'unknown'}: ${typeof c.message === 'string' ? c.message : ''}`)),
+  };
+  if (stale !== null) {
+    view.staleBinding = {
+      ttlMs: stale.ttlMs,
+      staleCount: stale.staleCount,
+      droppedCount: stale.droppedCount,
+      droppedSids: boundedNames(Array.isArray(stale.droppedSids) ? stale.droppedSids.map((s) => String(s)) : []),
+    };
+  }
+  if (data.logs !== undefined) view.logs = data.logs;
+  return fitSummaryToBytes(view);
 }
 
 function doctorStatusLineInstalledProbe(): boolean {
@@ -154,7 +191,8 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       // hardcoded to findProjectRoot(process.cwd()) which is the
       // wrong default for users inspecting a sibling project.
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string; rebuildBinding?: boolean; project?: string }) => {
+      .option('--summary', 'JSON envelope only: emit check counts + names-of-first-N (≤ 2 KB) instead of the full checks/stale-binding arrays; the default envelope is unchanged')
+  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string; rebuildBinding?: boolean; project?: string; summary?: boolean }) => {
     // v2.18.2 cycle 2 (Q2 arbitration): --rebuild-binding and
     // --cleanup-stale BOTH mutate the binding file. Running them
     // together is ambiguous (rebuild rewrites callerIds; cleanup
@@ -244,9 +282,12 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       droppedSids: droppedStale
     };
 
-    const data = logsSection === null
+    const fullData = logsSection === null
       ? { ...report, staleBinding: staleBindingSection }
       : { ...report, logs: logsSection, staleBinding: staleBindingSection };
+    // Slice B: `--summary` is opt-in and affects the JSON envelope only (the
+    // human-readable path below already prints one line per check).
+    const data = options.summary === true ? buildDoctorSummary(fullData) : fullData;
     // Slice 2026-08-05-statusline-sid-only-marker-and-multi-binary-drift-guard
     // repair cycle: `report.summary.ok` already factors in the
     // severity-aware aggregation in `buildReport` (warnings do NOT

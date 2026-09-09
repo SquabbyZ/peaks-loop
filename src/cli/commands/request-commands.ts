@@ -11,8 +11,10 @@ import {
   VALID_REQUEST_TYPES,
   type RequestArtifactRole,
   type RequestArtifactState,
+  type RequestArtifactSummary,
   type RequestType
 } from '../../services/artifacts/request-artifact-service.js';
+import { boundedNames, fitSummaryToBytes } from '../../services/context/summary-view.js';
 import {
   applyPerArtifactFormat,
   inferArtifactName,
@@ -52,8 +54,24 @@ type RequestListOptions = {
   project: string;
   sessionId?: string;
   role?: RequestArtifactRole;
+  summary?: boolean;
   json?: boolean;
 };
+
+/**
+ * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
+ * `request list`. `count` is the true total; `names` carries
+ * `role/requestId (state)` labels for the first N entries. The full `items`
+ * array (with paths + timestamps) is one flag away — omit `--summary`.
+ */
+export function buildRequestListSummary(items: readonly RequestArtifactSummary[]): Record<string, unknown> {
+  const view = {
+    view: 'summary',
+    count: items.length,
+    items: boundedNames(items.map((i) => `${i.role}/${i.requestId} (${i.state})`)),
+  };
+  return fitSummaryToBytes(view);
+}
 
 type RequestShowOptions = {
   role: RequestArtifactRole;
@@ -195,6 +213,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'limit to a specific session id')
       .option('--role <role>', `limit to a single role (${VALID_ROLES.join(' | ')})`, parseRole)
+      .option('--summary', 'emit counts + names-of-first-N only (≤ 2 KB) instead of the full item array; the default envelope is unchanged')
   ).action(async (options: RequestListOptions) => {
     try {
       const listOptions: Parameters<typeof listRequestArtifacts>[0] = { projectRoot: options.project };
@@ -205,7 +224,12 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         listOptions.role = options.role;
       }
       const items = await listRequestArtifacts(listOptions);
-      printResult(io, ok('request.list', { count: items.length, items }), options.json);
+      // Slice B: `--summary` is opt-in; the default `{count, items}` shape is
+      // byte-identical to before.
+      const data = options.summary === true
+        ? buildRequestListSummary(items)
+        : { count: items.length, items };
+      printResult(io, ok('request.list', data), options.json);
     } catch (error) {
       printResult(
         io,

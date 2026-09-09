@@ -283,6 +283,8 @@ Reference: `references/context-capsule.md`.
 
 > peaks-txt is the TXT reducer; it sees the metadata-only view from G7 + the share entries from G8. The TXT handoff summarizes the slice at the slice-close gate. Detailed: `skills/peaks-code/references/context-governance.md`.
 
+**Large tool output (> 2 KB) MUST NOT be dumped into the orchestrator's context** — use `--summary` (`peaks request list --summary`, `peaks memory list --summary`, `peaks memory reindex --summary`) or write to a file and `Read` selectively. Rationale (measured, session 2026-09-07-session-245530): full-envelope dumps cost ≈ 40K tokens of a 68%-full 1M window. `--summary` is an additive view — no information is removed. → `skills/peaks-code/references/context-governance.md` §G0.
+
 ### G8 — TXT reducer sees share entries on completion
 
 When TXT reduces a batch, it consumes:

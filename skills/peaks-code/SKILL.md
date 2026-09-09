@@ -310,6 +310,14 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 Main LLM reducer sees metadata-only view (~200 chars/sub-agent); on-demand `Read` for full content. Threshold table: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject (CLI + hook double-guard). → `references/context-governance.md`.
 
+## Large tool output discipline (BLOCKING — slice 2026-09-10-context-audit-and-discipline)
+
+> **Hard rule.** Any tool output larger than **2 KB** MUST NOT be dumped into the orchestrator's own context. Use `--summary` (bounded counts + names-of-first-N, ≤ 2 KB) when the command offers it — `peaks memory reindex --summary`, `peaks memory list --summary`, `peaks doctor --summary`, `peaks request list --summary` — otherwise write the output to a file and `Read` only the slice you need. The default envelopes are unchanged; `--summary` is strictly opt-in.
+>
+> **Why (measured, not cargo-cult).** In session `2026-09-07-session-245530` the orchestrator spent ~68% of a 1M window on its OWN context. Two offenders dominated: 4 × dumping a full `peaks memory reindex --json` unclassified array ≈ 160 KB ≈ 40K tokens, and 20 × sub-agent final reports ≈ 60 KB ≈ 15K tokens. Neither was dispatch boilerplate — both were the orchestrator reading things it did not need in full. `peaks code context-audit` now measures this per group (`{tool, key, bytes, pctOfTotal, count}`); run it when the window feels heavy.
+>
+> **Quality guard.** `--summary` removes no information — it is an additive view. Every path, name and count stays on disk and is re-readable by re-running the command without the flag. Never silently drop data; shrink the in-context copy instead.
+
 ## Sub-agent cross-batch signal — G8.4 share / shared-read / await
 
 Three CLI primitives: `peaks sub-agent share / shared-read / await` (last-write-wins, ≤ 1KB warn / ≥ 64KB reject). Channel gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.

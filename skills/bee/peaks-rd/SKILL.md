@@ -239,6 +239,8 @@ The main RD loop MUST call `peaks job karpathy-cost-check` after every `peaks re
 
 RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md`.
 
+**Large tool output (> 2 KB) MUST NOT be dumped into the orchestrator's context** — use `--summary` (`peaks memory reindex --summary`, `peaks memory list --summary`, `peaks doctor --summary`, `peaks request list --summary`) or write to a file and `Read` selectively. Rationale (measured, session 2026-09-07-session-245530): 4 full `reindex --json` dumps ≈ 40K tokens of a 68%-full 1M window. `--summary` is an additive view — no information is removed. → `skills/peaks-code/references/context-governance.md` §G0.
+
 → see `references/rd-context-governance.md` for the full G7 / G8.6 / G9 protocol + RD sub-agent prompt template.
 
 ## Sub-stages (Plan 3 — strategic + tactical split)

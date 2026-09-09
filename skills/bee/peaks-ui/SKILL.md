@@ -333,6 +333,8 @@ Do not own backend architecture, non-UI implementation, runtime hook installatio
 
 UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifacts are large binary-ish; the 1MB artifact size limit (G7.3) applies. Detailed: `skills/peaks-code/references/context-governance.md`.
 
+**Large tool output (> 2 KB) MUST NOT be dumped into the orchestrator's context** — use `--summary` (`peaks request list --summary`, `peaks memory list --summary`) or write to a file and `Read` selectively. Rationale (measured, session 2026-09-07-session-245530): full-envelope dumps cost ≈ 40K tokens of a 68%-full 1M window. `--summary` is an additive view — no information is removed. → `skills/peaks-code/references/context-governance.md` §G0.
+
 ### G7 — UI sub-agent protocol
 
 1. Write design draft / component scaffold to `.peaks/_sub_agents/<sid>/artifacts/<rid>-ui-001.md` (size ≤ 1MB).

@@ -61,14 +61,16 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
       .option('--pick', 'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json')
       .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
+      .option('--summary', 'emit counts + names-of-first-N only (≤ 2 KB) instead of the full entry array; the default envelope is unchanged')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((options: { kind?: string; pick?: boolean; fzfBin?: string; project?: string; json?: boolean }) => {
+  ).action((options: { kind?: string; pick?: boolean; fzfBin?: string; project?: string; summary?: boolean; json?: boolean }) => {
     void import('../memory-commands.js').then(({ runMemoryList }) => {
       void runMemoryList(io, {
         ...(options.kind !== undefined ? { kind: options.kind } : {}),
         ...(options.pick === true ? { pick: true } : {}),
         ...(options.fzfBin ? { fzfBin: options.fzfBin } : {}),
         ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.summary === true ? { summary: true } : {}),
         ...(options.json !== undefined ? { json: options.json } : {}),
       });
     }).catch((error: unknown) => {
@@ -89,12 +91,14 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--dry-run', 'report drift without writing (default)')
       .option('--apply', 'rebuild index.json and regenerate MEMORY.md')
-  ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+      .option('--summary', 'emit drift counts + names-of-first-N only (≤ 2 KB) instead of the full arrays; the default envelope is unchanged')
+  ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; summary?: boolean; json?: boolean }) => {
     void import('../memory-commands.js').then(({ runMemoryReindex }) => {
       void runMemoryReindex(io, {
         ...(options.project !== undefined ? { project: options.project } : {}),
         ...(options.dryRun === true ? { dryRun: true } : {}),
         ...(options.apply === true ? { apply: true } : {}),
+        ...(options.summary === true ? { summary: true } : {}),
         ...(options.json !== undefined ? { json: options.json } : {}),
       });
     }).catch((error: unknown) => {

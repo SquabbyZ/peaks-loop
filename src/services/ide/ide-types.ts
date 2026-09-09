@@ -233,6 +233,21 @@ export interface IdeCompactProfile {
   readonly readContextPercentFallback?: (
     input: ContextPercentFallbackInput,
   ) => ContextPercentProbe | null;
+  /**
+   * Optional locator for the IDE's per-session transcript file (jsonl),
+   * keyed by the OUTER (harness) session id. `peaks code context-audit`
+   * (slice 2026-09-10-context-audit-and-discipline, Slice A) uses it to
+   * group the session's tool results by tool + short input key, so the
+   * generic audit service never learns any vendor's on-disk layout.
+   *
+   * Returns the absolute path, or `null` when the transcript does not
+   * exist. Adapters MUST NOT throw on a missing file — the audit treats
+   * `null` as `available: false` and continues.
+   *
+   * Adapters that do not opt in simply omit the field; the audit then
+   * reports `transcript-locator-unavailable`.
+   */
+  readonly resolveTranscriptPath?: (outerSessionId: string) => string | null;
 }
 
 /**

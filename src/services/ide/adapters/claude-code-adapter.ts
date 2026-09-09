@@ -89,6 +89,23 @@ function findTranscriptJsonl(
   return null;
 }
 
+/**
+ * Resolve the absolute path of a Claude Code transcript jsonl by OUTER
+ * session id, searching `~/.claude/projects/**` recursively.
+ *
+ * Exported (slice 2026-09-10-context-audit-and-discipline, Slice A) so
+ * `peaks code context-audit` reuses THIS locator instead of re-implementing
+ * the recursive find. Returns `null` when the transcript does not exist —
+ * callers MUST treat that as "unavailable", never as an error.
+ */
+export function resolveClaudeTranscriptPath(
+  outerSessionId: string,
+  projectsDir: string = join(homedir(), '.claude', 'projects'),
+): string | null {
+  if (typeof outerSessionId !== 'string' || outerSessionId.length === 0) return null;
+  return findTranscriptJsonl(projectsDir, outerSessionId);
+}
+
 /** 1M-context window size in tokens (documented single choice: 1,000,000). */
 const ONE_MILLION_CONTEXT_TOKENS = 1_000_000;
 /** Safe-default (non-1M) context window size in tokens. */
@@ -503,7 +520,12 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
     postCompactDetectCommand: 'peaks code auto-compact --json',
-    readContextPercentFallback
+    readContextPercentFallback,
+    // Slice 2026-09-10-context-audit-and-discipline (Slice A): the vendor
+    // layout knowledge (`~/.claude/projects/**/<outerSessionId>.jsonl`)
+    // stays here; `peaks code context-audit` resolves it through the
+    // adapter registry, never by naming this adapter directly.
+    resolveTranscriptPath: (outerSessionId: string) => resolveClaudeTranscriptPath(outerSessionId),
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror

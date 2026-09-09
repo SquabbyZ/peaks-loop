@@ -113,6 +113,20 @@ Any RD/QA/SC sub-agent dispatched by `peaks sub-agent dispatch --from-dag` (or b
 
 ---
 
+## Final report cap (mandatory, slice 2026-09-10-context-audit-and-discipline)
+
+Your FINAL report to the parent MUST be **≤ 40 lines and ≤ 2 KB**. Write any longer detail into the artifact file you already own (registered via `--write-artifact`); the parent can `Read` that file for the full detail, so nothing is lost. The report itself MUST still carry:
+
+- changed files (one line each)
+- the exact commands you ran
+- pass/fail counts
+- tsc status
+- any blocker
+
+Do NOT paste file contents, full tool output, or logs into the report. **Rationale (measured, session 2026-09-07-session-245530):** 20 sub-agent final reports ≈ 60 KB ≈ 15K tokens of the orchestrator's window — the report is an index into the artifact, not a copy of it. This rule is also machine-injected into every dispatch prompt (`REPORT_CAP_BLOCK` in `src/services/context/build-dispatch-system-prompt.ts`); this doc and that constant MUST stay in lockstep.
+
+---
+
 ## Test Tool Detection (mandatory)
 
 The dispatch CLI (`peaks sub-agent dispatch`) automatically prepends a Test Tool Detection block to every sub-agent prompt — telling the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`). NEVER use `npx <runner>`. This rule is machine-injected, not a prompt ritual — every sub-agent gets it including rd/qa/ui/txt/sc.

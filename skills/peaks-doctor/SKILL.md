@@ -47,6 +47,8 @@ If a doctor finding requires a code change, the workflow hands off to `peaks-rd`
 - `peaks openspec from-doctor` — L3.3 proposal generator
 - `peaks openspec validate` — gate a draft proposal
 
+**Large tool output (> 2 KB) MUST NOT be dumped into the orchestrator's context.** `peaks doctor` returns ~69 checks — use `peaks doctor --summary` (counts + names-of-first-N, ≤ 2 KB) and re-run without the flag only for the specific check you need to read. Rationale (measured, session 2026-09-07-session-245530): full-envelope dumps cost ≈ 40K tokens of a 68%-full 1M window; `--summary` is an additive view, so no information is removed.
+
 ## Boundaries
 
 - The doctor is read-only. It does NOT modify code, fix bugs, or clean up sessions.

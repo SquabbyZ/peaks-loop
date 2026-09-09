@@ -210,6 +210,8 @@ Do not own product scope or implementation. Do not modify runtime configuration.
 
 QA sub-agents (qa / qa-business / qa-perf / qa-security) follow the same G7 metadata-only + G8.6 share protocol as RD. Detailed: `skills/peaks-code/references/context-governance.md`.
 
+**Large tool output (> 2 KB) MUST NOT be dumped into the orchestrator's context** — use `--summary` (`peaks doctor --summary`, `peaks memory list --summary`, `peaks request list --summary`) or write to a file and `Read` selectively. Rationale (measured, session 2026-09-07-session-245530): full-envelope dumps cost ≈ 40K tokens of a 68%-full 1M window. `--summary` is an additive view — no information is removed. → `skills/peaks-code/references/context-governance.md` §G0.
+
 → see `references/qa-context-governance.md` for the full G7 / G8.6 / G9 protocol + QA sub-agent prompt template.
 
 ## References

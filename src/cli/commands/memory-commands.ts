@@ -1,7 +1,8 @@
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
-import { loadMemoryIndex, searchMemory, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
-import { executeMemoryReindex, VALID_PROJECT_MEMORY_KINDS } from '../../services/memory/project-memory-service.js';
+import { loadMemoryIndex, searchMemory, type MemoryIndexEntry, type MemoryIndexSnapshot, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
+import { executeMemoryReindex, VALID_PROJECT_MEMORY_KINDS, type MemoryReindexReport } from '../../services/memory/project-memory-service.js';
+import { boundedNames, fitSummaryToBytes } from '../../services/context/summary-view.js';
 import { executeMemoryIngest } from '../../services/memory/memory-ingest-service.js';
 import { executeMemoryRotate } from '../../services/memory/memory-rotate-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
@@ -26,6 +27,8 @@ export interface MemoryListCommandOptions {
   fzfBin?: string;
   project?: string;
   json?: boolean;
+  /** Slice B: emit counts + names-of-first-N instead of the full entry array. */
+  summary?: boolean;
 }
 
 export interface MemoryReindexCommandOptions {
@@ -33,6 +36,64 @@ export interface MemoryReindexCommandOptions {
   dryRun?: boolean;
   apply?: boolean;
   json?: boolean;
+  /** Slice B: emit counts + names-of-first-N instead of the full arrays. */
+  summary?: boolean;
+}
+
+/**
+ * Slice 2026-09-10-context-audit-and-discipline (Slice B): bounded view of
+ * `memory reindex`. The full report's arrays stay on disk / in the default
+ * envelope; this replaces them with `{count, names}` views (≤ 2 KB).
+ */
+export function buildMemoryReindexSummary(report: MemoryReindexReport): Record<string, unknown> {
+  const view = {
+    view: 'summary',
+    apply: report.apply,
+    projectRoot: report.projectRoot,
+    memoryDir: report.memoryDir,
+    indexPath: report.indexPath,
+    memoryMdPath: report.memoryMdPath,
+    scannedFiles: report.scannedFiles,
+    indexed: report.indexed,
+    indexedByKind: report.indexedByKind,
+    unclassified: boundedNames(report.unclassified.map((u) => `${u.name}${u.rawKind === null ? '' : ` (${u.rawKind})`}`)),
+    nameConflicts: boundedNames(report.nameConflicts.map((c) => c.name)),
+    orphanIndex: boundedNames(report.orphanIndex.map((o) => o.name)),
+    orphanDisk: boundedNames(report.orphanDisk.map((p) => p.split(/[\\/]/).pop() ?? p)),
+    memoryMd: report.memoryMd,
+    writtenFiles: boundedNames(report.writtenFiles.map((p) => p.split(/[\\/]/).pop() ?? p)),
+  };
+  return fitSummaryToBytes(view);
+}
+
+/**
+ * Slice B: bounded view of `memory list`. `count` is the true total; `names`
+ * carries `name (kind)` labels for the first N entries.
+ */
+export function buildMemoryListSummary(data: {
+  snapshot: MemoryIndexSnapshot;
+  entries: readonly MemoryIndexEntry[];
+  kindFilter: ProjectMemoryKind | undefined;
+  pickedEntries: readonly MemoryIndexEntry[];
+  pickedOutputPath: string | null;
+  fzfVersion: string | null;
+}): Record<string, unknown> {
+  const label = (e: MemoryIndexEntry): string => `${e.name} (${e.kind})`;
+  const view: Record<string, unknown> = {
+    view: 'summary',
+    indexPath: data.snapshot.indexPath,
+    version: data.snapshot.version,
+    updatedAt: data.snapshot.updatedAt,
+    total: data.entries.length,
+    kindFilter: data.kindFilter ?? null,
+    entries: boundedNames(data.entries.map(label)),
+  };
+  if (data.pickedOutputPath !== null) {
+    view.picked = boundedNames(data.pickedEntries.map(label));
+    view.pickedOutputPath = data.pickedOutputPath;
+    view.fzfVersion = data.fzfVersion;
+  }
+  return fitSummaryToBytes(view);
 }
 
 export interface MemoryIngestCommandOptions {
@@ -108,11 +169,19 @@ export async function runMemoryList(io: ProgramIO, options: MemoryListCommandOpt
       nextActions.push('No entries match; run `peaks memory extract` to build the index from memory/*.md files.');
     }
 
-    printResult(
-      io,
-      ok(
-        'memory.list',
-        {
+    // Slice B: `--summary` swaps the full entry array for a bounded
+    // `{count, names}` view. The default (no flag) envelope is byte-identical
+    // to before — the flag is strictly opt-in.
+    const data: Record<string, unknown> = options.summary === true
+      ? buildMemoryListSummary({
+          snapshot,
+          entries,
+          kindFilter,
+          pickedEntries,
+          pickedOutputPath,
+          fzfVersion,
+        })
+      : {
           indexPath: snapshot.indexPath,
           version: snapshot.version,
           updatedAt: snapshot.updatedAt,
@@ -120,12 +189,9 @@ export async function runMemoryList(io: ProgramIO, options: MemoryListCommandOpt
           kindFilter: kindFilter ?? null,
           entries,
           ...(options.pick === true ? { picked: pickedEntries, pickedOutputPath, fzfVersion } : {})
-        },
-        warnings,
-        nextActions
-      ),
-      options.json
-    );
+        };
+
+    printResult(io, ok('memory.list', data, warnings, nextActions), options.json);
   } catch (error) {
     const message = getErrorMessage(error);
     const code = (error as { code?: string }).code ?? 'MEMORY_LIST_FAILED';
@@ -224,7 +290,13 @@ export async function runMemoryReindex(io: ProgramIO, options: MemoryReindexComm
     if (report.nameConflicts.length > 0) {
       nextActions.push(`${report.nameConflicts.length} name collision(s) across files; both entries are kept — rename one file to disambiguate.`);
     }
-    printResult(io, ok('memory.reindex', report, [], nextActions), options.json);
+    // Slice B: `--summary` keeps the scalar drift counts + names-of-first-N;
+    // the full report (with every unclassified/orphan path) stays available
+    // by omitting the flag. Default shape is unchanged.
+    const data = options.summary === true
+      ? buildMemoryReindexSummary(report)
+      : report;
+    printResult(io, ok('memory.reindex', data, [], nextActions), options.json);
   } catch (error) {
     const message = getErrorMessage(error);
     const code = (error as { code?: string }).code ?? 'MEMORY_REINDEX_FAILED';

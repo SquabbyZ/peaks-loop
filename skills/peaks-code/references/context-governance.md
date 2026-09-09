@@ -3,6 +3,35 @@
 > Slice #010 (G7 + G8 + G9 context-governance push).
 > See: `.peaks/memory/sub-agent-context-minimal-occupation.md` + `sub-agent-shared-channel-cross-completion.md` for the red lines.
 
+## G0 — orchestrator large-tool-output discipline (slice 2026-09-10-context-audit-and-discipline)
+
+### The measurement (session `2026-09-07-session-245530`, ~68% of a 1M window)
+
+The real token cost is the ORCHESTRATOR's own context — not dispatch boilerplate:
+
+| Offender | Volume | Cost |
+|---|---|---|
+| 4 × full `peaks memory reindex --json` unclassified array | ≈ 160 KB | ≈ 40K tokens |
+| 20 × sub-agent final reports | ≈ 60 KB | ≈ 15K tokens |
+| several `cat` of large docs | ≈ 15 KB | ≈ 4K tokens |
+
+`peaks code context-now` reports a RATIO only. `peaks code context-audit --project <root> --json` reports WHAT fills the window — top-N groups of `{tool, key, bytes, pctOfTotal, count}` — so the next session can name the offender instead of guessing. Read-only, fail-soft (`available: false` + reason; never blocks, never exits non-zero).
+
+### The rule (BLOCKING)
+
+- Tool output **> 2 KB** MUST NOT be dumped into the orchestrator's context.
+- Prefer the opt-in `--summary` flag, which emits counts + names-of-first-N (≤ 2 KB) instead of the full array:
+  - `peaks memory reindex --summary`
+  - `peaks memory list --summary`
+  - `peaks doctor --summary` (JSON envelope)
+  - `peaks request list --summary`
+- When a command has no `--summary`, write the output to a file and `Read` only the needed slice (offset/limit), or pipe through a filter before it reaches the orchestrator.
+- Default (no flag) envelopes are byte-identical to before — `--summary` is strictly opt-in, so back-compat is preserved.
+
+### Quality guard (binding)
+
+`--summary` is an ADDITIVE view. It removes no information: every path, name and count remains on disk and is re-readable by re-running the same command without the flag. Silently dropping data is forbidden; shrinking the in-context copy is the goal. The sub-agent FINAL report cap (≤ 40 lines / 2 KB, detail in the artifact the parent can `Read`) follows the same principle — see the dispatch prompt's `## Final report cap (mandatory)` block.
+
 ## G7 — sub-agent context minimal-occupation (metadata-only + 按需 Read)
 
 ### Path convention
