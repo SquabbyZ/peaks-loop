@@ -12,26 +12,21 @@
 //      are stored as standard YAML frontmatter (name / description /
 //      metadata.type / metadata.sourceArtifact) followed by the body.
 //
-// Both parsers share the 8-kind `VALID_MEMORY_KINDS` allow-list and the
+// Both parsers share the `VALID_MEMORY_KINDS` allow-list (derived from the
+// canonical `PROJECT_MEMORY_KINDS` tuple in `../types.ts`) and the
 // `slugify` helper used to derive filenames from titles.
 // ---------------------------------------------------------------------------
 
+import { PROJECT_MEMORY_KINDS } from '../types.js';
 import type { ExtractedProjectMemory, ProjectMemoryKind, StoredProjectMemory } from '../types.js';
 
-export const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>([
-  'project',
-  'rule',
-  'decision',
-  'reference',
-  'feedback',
-  'convention',
-  'module',
-  'lesson'
-]);
+/** Accepted-kind set, derived from the canonical `PROJECT_MEMORY_KINDS`
+ *  tuple so the parser cannot drift from the union type / tier map. */
+export const VALID_MEMORY_KINDS: ReadonlySet<ProjectMemoryKind> = new Set<ProjectMemoryKind>(PROJECT_MEMORY_KINDS);
 
-/** Exported for guard tests + tooling that needs to enumerate the valid
- *  set without duplicating the literal. Single source of truth. */
-export const VALID_PROJECT_MEMORY_KINDS: readonly ProjectMemoryKind[] = Array.from(VALID_MEMORY_KINDS);
+/** Exported for guard tests + tooling that needs to enumerate the accepted
+ *  set (CLI help text, `--kind` validation) without duplicating the literal. */
+export const VALID_PROJECT_MEMORY_KINDS: readonly ProjectMemoryKind[] = PROJECT_MEMORY_KINDS;
 
 export function slugify(title: string): string {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -82,7 +77,8 @@ export function renderMemoryFile(memory: ExtractedProjectMemory): string {
 /**
  * Where a stored memory file's `kind` came from. `'none'` means the file
  * has no resolvable kind (no `metadata.type`, no `kind:`, no `type:`, or
- * the value present is not one of the 8 valid kinds).
+ * the value present is not one of the accepted kinds in
+ * `PROJECT_MEMORY_KINDS`).
  */
 export type MemoryKindSource = 'metadata.type' | 'kind' | 'type' | 'none';
 

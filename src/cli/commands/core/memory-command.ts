@@ -1,8 +1,11 @@
 import type { Command } from 'commander';
-import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult } from '../../../services/memory/project-memory-service.js';
+import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
+
+/** Derived from the canonical kind vocabulary — never hand-maintain a list here. */
+const KIND_HELP = VALID_PROJECT_MEMORY_KINDS.join(', ');
 
 export function registerMemoryCommand(program: Command, io: ProgramIO): void {
   const memory = program.command('memory').description('Manage project-local Peaks memory');
@@ -55,7 +58,7 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
     memory
       .command('list')
       .description('List all memory entries from .peaks/memory/index.json. Pass --pick to spawn fzf for interactive multi-select; the picked subset is written to .peaks/memory/picked.json.')
-      .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
+      .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
       .option('--pick', 'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json')
       .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
@@ -125,9 +128,30 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
 
   addJsonOption(
     memory
+      .command('rotate')
+      .description('Tier-driven retention for .peaks/memory/ (sediment pruning policy, tier 1: archive only, never delete). Tier assignment: explicit `metadata.tier: A|B|C|D` wins; else files under archived/ are D, files pinned in MEMORY.md are B, kinds rule/convention/project-rule are A, kinds decision/reference/feedback/module/bug/investigation/technical-pattern are B, everything else is C. Tier C older than 6 months (frontmatter updatedAt/updated/modified, else file mtime) and not pinned is archived; tier D is reported as a delete-candidate only. Tier A/B are never selected, every candidate must pass a reference grep against src/ + skills/, and --apply refuses an empty plan or a failed gate. Dry-run by default.')
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+      .option('--dry-run', 'report the rotation plan without moving anything (default)')
+      .option('--apply', 'move tier-C candidates into .peaks/memory/archived/')
+  ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+    void import('../memory-commands.js').then(({ runMemoryRotate }) => {
+      void runMemoryRotate(io, {
+        ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+        ...(options.apply === true ? { apply: true } : {}),
+        ...(options.json !== undefined ? { json: options.json } : {}),
+      });
+    }).catch((error: unknown) => {
+      printResult(io, fail('memory.rotate', 'MEMORY_ROTATE_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
+      process.exitCode = 1;
+    });
+  });
+
+  addJsonOption(
+    memory
       .command('search <query>')
       .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
-      .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
+      .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
       .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
   ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {

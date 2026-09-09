@@ -164,12 +164,14 @@ describe('executeMemoryReindex', () => {
   });
 
   it('reports an unrecognized kind value instead of inventing a type', () => {
+    // `design` became a valid kind in slice 2026-09-10-memory-vocab-and-rotate
+    // (E); use a value that is still outside the vocabulary.
     writeMemory('weird.md', [
       '---',
       'name: weird',
       'description: An unknown kind value',
       'metadata:',
-      '  type: design',
+      '  type: not-a-real-kind',
       '---',
       '',
       'Body text long enough to be summarized.',
@@ -179,7 +181,7 @@ describe('executeMemoryReindex', () => {
     const report = executeMemoryReindex({ projectRoot: root, apply: false });
     expect(report.indexed).toBe(0);
     expect(report.unclassified).toHaveLength(1);
-    expect(report.unclassified[0]!.rawKind).toBe('design');
-    expect(report.unclassified[0]!.reason).toContain('unrecognized kind value: design');
+    expect(report.unclassified[0]!.rawKind).toBe('not-a-real-kind');
+    expect(report.unclassified[0]!.reason).toContain('unrecognized kind value: not-a-real-kind');
   });
 });

@@ -26,6 +26,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 
 import type { MemoryIndex, MemoryIndexEntry, ProjectMemoryKind } from '../types.js';
+import { MEMORY_KIND_TIER } from '../types.js';
 import { parseMemoryFrontmatter } from '../parsers/frontmatter.js';
 import { summarizeMemoryBody } from '../parsers/markdown-pure.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
@@ -40,18 +41,12 @@ export const MEMORY_MD_FILENAME = 'MEMORY.md';
 
 /**
  * Deterministic section order for the generated `MEMORY.md`: hot kinds
- * first (mirrors `HOT_KINDS` in `ranking.ts`), warm kinds last.
+ * first (mirrors `HOT_KINDS` in `ranking.ts`), warm kinds last. Derived
+ * from the insertion order of `MEMORY_KIND_TIER` so the vocabulary has
+ * exactly one definition.
  */
-export const KIND_ORDER: readonly ProjectMemoryKind[] = [
-  'feedback',
-  'decision',
-  'rule',
-  'convention',
-  'module',
-  'lesson',
-  'project',
-  'reference'
-];
+export const KIND_ORDER: readonly ProjectMemoryKind[] =
+  Object.keys(MEMORY_KIND_TIER) as ProjectMemoryKind[];
 
 export interface ReindexUnclassified {
   name: string;

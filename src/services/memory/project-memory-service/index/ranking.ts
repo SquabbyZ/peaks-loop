@@ -4,9 +4,9 @@
 // The memory index is the always-available summary of every memory in
 // `.peaks/memory/`. This module owns its write path:
 //
-//   - `HOT_KINDS` — the kinds whose full body is kept in the index
-//     (`feedback`, `decision`, `rule`, `convention`, `module`, `lesson`).
-//     Anything not in `HOT_KINDS` lands in `warm` with the same shape.
+//   - `HOT_KINDS` — the kinds whose full body is kept in the index,
+//     derived from `MEMORY_KIND_TIER` in `../types.ts`. Anything not in
+//     `HOT_KINDS` lands in `warm` with the same shape.
 //   - `readMemoryFileMtime` / `readStoredMemoryNames` — small stat /
 //     filename helpers used by the index generator and by the slug-
 //     collision idempotency check.
@@ -25,13 +25,14 @@ import { closeSync, constants, existsSync, openSync, readFileSync, statSync, wri
 import { basename, join } from 'node:path';
 
 import type { MemoryIndex, MemoryIndexEntry, ProjectMemoryKind } from '../types.js';
+import { HOT_MEMORY_KINDS, MEMORY_KIND_TIER, PROJECT_MEMORY_KINDS } from '../types.js';
 import { parseStoredMemoryFile } from '../parsers/frontmatter.js';
 import { summarizeMemoryBody } from '../parsers/markdown-pure.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
 import { ensureMemoryBootstrap, listMarkdownFiles, readProjectMemories } from './search.js';
 
-// Hot kinds: full body kept in index for always-available context
-const HOT_KINDS = new Set<ProjectMemoryKind>(['feedback', 'decision', 'rule', 'convention', 'module', 'lesson']);
+// Hot kinds: full body kept in index for always-available context.
+const HOT_KINDS = new Set<ProjectMemoryKind>(HOT_MEMORY_KINDS);
 
 export function readMemoryFileMtime(filePath: string): string {
   try {
@@ -73,12 +74,13 @@ export function readStoredMemoryNames(memoryDir: string): Set<string> {
 export function buildMemoryIndex(projectRoot: string): MemoryIndex {
   const memories = readProjectMemories(projectRoot);
 
-  const hot: Record<string, MemoryIndexEntry[]> = {
-    feedback: [], decision: [], rule: [], convention: [], module: [], lesson: []
-  };
-  const warm: Record<string, MemoryIndexEntry[]> = {
-    project: [], reference: []
-  };
+  // Full-shape hot/warm buckets, derived from the canonical tier map so a
+  // newly accepted kind cannot be silently absent from the index.
+  const hot: Record<string, MemoryIndexEntry[]> = {};
+  const warm: Record<string, MemoryIndexEntry[]> = {};
+  for (const kind of PROJECT_MEMORY_KINDS) {
+    (MEMORY_KIND_TIER[kind] === 'hot' ? hot : warm)[kind] = [];
+  }
 
   for (const memory of memories.memories) {
     const entry: MemoryIndexEntry = {

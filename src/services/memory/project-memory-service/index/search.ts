@@ -31,6 +31,7 @@ import type {
   ProjectMemoryShowResult,
   StoredProjectMemory
 } from '../types.js';
+import { MEMORY_KIND_TIER, PROJECT_MEMORY_KINDS } from '../types.js';
 import { parseStoredMemoryFile } from '../parsers/frontmatter.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
 
@@ -64,39 +65,27 @@ export function listMarkdownFiles(dirPath: string, options: { maxDepth?: number;
 }
 
 export function emptyByKind(): Record<ProjectMemoryKind, StoredProjectMemory[]> {
-  return {
-    project: [],
-    rule: [],
-    decision: [],
-    reference: [],
-    feedback: [],
-    convention: [],
-    module: [],
-    lesson: []
-  };
+  const byKind = {} as Record<ProjectMemoryKind, StoredProjectMemory[]>;
+  for (const kind of PROJECT_MEMORY_KINDS) byKind[kind] = [];
+  return byKind;
 }
 
 export function emptyIndex(): MemoryIndex {
   // Cast through unknown: we *intend* the two halves to together cover the
   // union `ProjectMemoryKind`, but TS does not know that. The `MemoryIndex`
   // type's `hot` / `warm` fields together cover the union; we split the
-  // construction so the JSON output mirrors the hot/warm layout the reader
-  // expects.
+  // construction from the canonical tier map so the JSON output mirrors the
+  // hot/warm layout the reader expects.
+  const hot: Record<string, MemoryIndexEntry[]> = {};
+  const warm: Record<string, MemoryIndexEntry[]> = {};
+  for (const kind of PROJECT_MEMORY_KINDS) {
+    (MEMORY_KIND_TIER[kind] === 'hot' ? hot : warm)[kind] = [];
+  }
   return {
     version: 1,
     updatedAt: new Date().toISOString(),
-    hot: {
-      feedback: [],
-      decision: [],
-      rule: [],
-      convention: [],
-      module: [],
-      lesson: []
-    } as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
-    warm: {
-      project: [],
-      reference: []
-    } as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>
+    hot: hot as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
+    warm: warm as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>
   };
 }
 

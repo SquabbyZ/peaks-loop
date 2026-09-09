@@ -39,11 +39,20 @@ backfill audit only.
 |---|---|---|
 | **A — operational contract** | gates the project; ABI; pinned rules | **never delete**. If growth happens, file a slice to consolidate. |
 | **B — descriptive governance** | policy / SOP / escalation tables | may be replaced by newer version; mark `@deprecated` cross-ref. **Do not delete** without successor file. |
-| **C — retrospective analysis** | audit output, design-plan retros, slice closure | **rotate**: archive after 12 months unless pinned via `MEMORY.md` index. |
+| **C — retrospective analysis** | audit output, design-plan retros, slice closure | **rotate**: archive after **6 months** unless pinned via `MEMORY.md` index. |
 | **D — ephemeral artifact** | RD pass-2 notes, scratch drafts | sediment at session-end via `peaks memory extract --apply`, then **drop** from `.peaks/memory/` if not surfaced in `MEMORY.md`. |
 
 `MEMORY.md` index is the authoritative tier reference:
 each pinner's `MEMORY.md` line says which tier governs it.
+
+> **Retention override — 2026-09-10 (user decision).** The tier-C
+> rotation window is **6 months**, not the 12 months originally written
+> above. Slice `2026-09-10-memory-vocab-and-rotate` (F) implements the
+> mechanism as `peaks memory rotate`, and the user chose the shorter
+> window at implementation time. Everything else in this table stands:
+> tier A/B are never touched, tier C is archived (never deleted), tier D
+> is reported as a delete-candidate only. The CLI is dry-run by default;
+> `--apply` archives tier-C candidates into `archived/`.
 
 ## 3. Size thresholds (use these as flag triggers, **never auto-prune**)
 
@@ -92,9 +101,11 @@ mandates a **shrink**:
 ### Scenario D — 12 entries in `archived/` need review
 
 The 12 entries in `archived/` are historical. They are not
-eligible for re-promotion by count. A future slice may
-sweep them with a `peaks memory rotation` CLI command (which
-**does not yet exist** but is on the post-4.x roadmap).
+eligible for re-promotion by count. As of 2026-09-10 they are
+swept by `peaks memory rotate` (slice
+`2026-09-10-memory-vocab-and-rotate`, F): files under `archived/`
+resolve to tier D and are reported as delete-candidates only —
+the command never deletes them.
 
 ## 5. Idempotent re-run (next session, cheap)
 

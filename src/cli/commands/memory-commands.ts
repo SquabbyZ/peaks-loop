@@ -1,24 +1,16 @@
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { loadMemoryIndex, searchMemory, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
-import { executeMemoryReindex } from '../../services/memory/project-memory-service.js';
+import { executeMemoryReindex, VALID_PROJECT_MEMORY_KINDS } from '../../services/memory/project-memory-service.js';
 import { executeMemoryIngest } from '../../services/memory/memory-ingest-service.js';
+import { executeMemoryRotate } from '../../services/memory/memory-rotate-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { join } from 'node:path';
 
-const VALID_KINDS: ReadonlyArray<ProjectMemoryKind> = [
-  'project',
-  'rule',
-  'decision',
-  'reference',
-  'feedback',
-  'convention',
-  'module',
-  'lesson',
-];
+const VALID_KINDS: ReadonlyArray<ProjectMemoryKind> = VALID_PROJECT_MEMORY_KINDS;
 
 export interface MemorySearchCommandOptions {
   query: string;
@@ -46,6 +38,13 @@ export interface MemoryReindexCommandOptions {
 export interface MemoryIngestCommandOptions {
   project?: string;
   sourceDir?: string;
+  dryRun?: boolean;
+  apply?: boolean;
+  json?: boolean;
+}
+
+export interface MemoryRotateCommandOptions {
+  project?: string;
   dryRun?: boolean;
   apply?: boolean;
   json?: boolean;
@@ -229,6 +228,49 @@ export async function runMemoryReindex(io: ProgramIO, options: MemoryReindexComm
     printResult(
       io,
       fail('memory.reindex', code, message, { projectRoot }, ['Check that the project has a readable .peaks/memory directory']),
+      options.json
+    );
+    process.exitCode = 1;
+  }
+}
+
+/**
+ * `peaks memory rotate` — tier-driven retention for `.peaks/memory/`.
+ * Implements the sediment pruning policy (tier 1: archive, never delete).
+ * Dry-run by default; `--apply` moves tier-C candidates into `archived/`.
+ */
+export async function runMemoryRotate(io: ProgramIO, options: MemoryRotateCommandOptions): Promise<void> {
+  const projectRoot = resolveMemoryProjectRoot(options.project);
+
+  if (options.dryRun === true && options.apply === true) {
+    printResult(io, fail('memory.rotate', 'INVALID_MEMORY_ROTATE_FLAGS', 'Use either --dry-run or --apply, not both', {}, ['Run without --apply to preview the rotation plan, or pass --apply to archive tier-C candidates']), options.json);
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
+    const report = executeMemoryRotate({ projectRoot, apply: options.apply === true });
+    const nextActions: string[] = [];
+    if (report.refused) {
+      nextActions.push(`Refused to apply: ${report.refusalReasons.join('; ')}`);
+    } else if (options.apply !== true) {
+      nextActions.push('Preview only — re-run with --apply to move the tier-C candidates into archived/.');
+    }
+    if (report.excluded.length > 0) {
+      nextActions.push(`${report.excluded.length} candidate(s) excluded by a safety gate (see \`excluded\`).`);
+    }
+    const deleteCandidates = report.candidates.filter((candidate) => candidate.action === 'delete-candidate');
+    if (deleteCandidates.length > 0) {
+      nextActions.push(`${deleteCandidates.length} tier-D file(s) are delete-candidates only; peaks never deletes them — remove by hand if you are sure.`);
+    }
+    printResult(io, ok('memory.rotate', report, report.warnings, nextActions), options.json);
+    if (report.refused) process.exitCode = 1;
+  } catch (error) {
+    const message = getErrorMessage(error);
+    const code = (error as { code?: string }).code ?? 'MEMORY_ROTATE_FAILED';
+    printResult(
+      io,
+      fail('memory.rotate', code, message, { projectRoot }, ['Check that the project has a readable .peaks/memory directory']),
       options.json
     );
     process.exitCode = 1;

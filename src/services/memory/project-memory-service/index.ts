@@ -14,6 +14,7 @@
 export type {
   BackupPlanOptions,
   ExtractedProjectMemory,
+  MemoryKindTier,
   ExtractPlanOptions,
   ExtractSessionMemoriesOptions,
   ExtractSessionMemoriesResult,
@@ -34,6 +35,14 @@ export type {
 } from './types.js';
 
 export { VALID_PROJECT_MEMORY_KINDS } from './parsers/frontmatter.js';
+
+// Canonical kind vocabulary + hot/warm tier map (slice E)
+export {
+  HOT_MEMORY_KINDS,
+  MEMORY_KIND_TIER,
+  PROJECT_MEMORY_KINDS,
+  WARM_MEMORY_KINDS
+} from './types.js';
 
 // Pure markdown helpers
 export {
