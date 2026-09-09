@@ -1,235 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T15:42:15.460Z",
+  "updatedAt": "2026-09-09T17:16:10.142Z",
   "hot": {
-    "feedback": [
-      {
-        "name": "2026-06-22-cc-connect-removal-publish",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> 2.8.2 publish day — 2026-06-22 Local commit  (37 files, +22/-7713) was auth...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-22-cc-connect-removal-publish.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "2026-06-22-top-level-change-id-cleanup",
-        "kind": "feedback",
-        "description": "Top-level  cleanup — slice 2026-06-22-top-level-change-id-cleanup + 2026-06-23-audit-followup **Commits delivered:** ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-22-top-level-change-id-cleanup.md",
-        "sourceArtifact": "tests/unit/workspace/top-level-change-id-guard.test.ts",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "2026-06-28-full-auto-boundary",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=C --> full-auto mode 的实际边界（2026-06-28 用户明确划定） **触发**: 在 v2.14.0 ship 收尾时，我越界做 pus...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-28-full-auto-boundary.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "2026-07-16-claude-code-subagent-display-recycle-observation",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> Claude Code sub-agent display recycle — observation (NOT a fix) **Date:** 2...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-claude-code-subagent-display-recycle-observation.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> Slice 2 — Commander 12  API drift (D-007) What we thought PRD v3 §Slice 2 +...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-commander-12-hidden-api-drift.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> 2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-code-orchestrator-capability-misjudgment.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "active-skill-cli-routing",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> Active-skill reads go through the CLI When checking the active Peaks skill ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\active-skill-cli-routing.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "coverage-red-line",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> When a coverage gate fails on a new file, do NOT reflexively add tests just...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\coverage-red-line.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "dogfood-2026-06-02-wechat-post-sop",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , ga...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "main-branch-iteration",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> For future iterations in this project, do not create worktrees by default; ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\main-branch-iteration.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-cli-version-shared-chicken-egg",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop CLI_VERSION shared chicken-egg (2026-07-22) 2026-07-22 04:15Z ic...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-cli-version-shared-chicken-egg.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-code-to-peaks-code-rename-session-directive",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-current-directory-scope",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=B --> Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-current-directory-scope.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> The  skill's step 5 references a \"thin helper\" for the audit log writer.",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-release-4-0-2-published",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop 4.0.2 — accidental publish (2026-07-22) 2026-07-22 published  + ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-release-4-0-2-published.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-skill-output-style",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> When the user uses Peaks skills from  in any project, the response should l...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-skill-output-style.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "rd-gstack-dry-run",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> The skills under this project's  directory should deeply integrate and refe...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rd-gstack-dry-run.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "user-decision-2026-07-05-eradicate-peaks-code",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 u...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision 2026-07-08: revive peaks-solo as dispatcher > **Why:** 这次商讨直接...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "windows-shell-quoting-divergence",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\windows-shell-quoting-divergence.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      }
-    ],
-    "decision": [
-      {
-        "name": "ide-adapter-resource-profile-framework",
-        "kind": "decision",
-        "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "memory-search-y2-rerank-2026-06-19-decision",
-        "kind": "decision",
-        "description": "Slice Z-A — LLM Rerank Spike Decision **Date:** 2026-06-19 **Verdict:** ❌ **NO-GO** **Decision owner:** peaks-code (i...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\memory-search-y2-rerank-2026-06-19-decision.md",
-        "sourceArtifact": "src/services/memory/llm-reranker.ts",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
-        "kind": "decision",
-        "description": "peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-ide-dashboard-ok-policy-workspace-only-default.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/010-008-008-2026-06-07-peaks-ide-cleanup.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-memory-scan-is-intentionally-not-a-cli",
-        "kind": "decision",
-        "description": "is intentionally NOT a CLI command.",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-memory-scan-is-intentionally-not-a-cli.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "peaks-zvec-spike-proposal-2026-06-18",
-        "kind": "decision",
-        "description": "Proposal:  目录整改 + zvec 集成评估 **Status**: DRAFT — 待用户 review（2026-06-18） **Locked decisions**: Semantic search 策略 = **Y...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-18-peaks-zvec-spike-proposal.md",
-        "sourceArtifact": "null",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
-        "kind": "decision",
-        "description": "Slice #009 (PRD #002) added a new  CLI primitive.",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\skill-first-cli-auxiliary-sub-agent-dispatch.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "slim-ideadapter-shape-is-the-contract",
-        "kind": "decision",
-        "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-09-01"
-      },
-      {
-        "name": "subagent-tool-matcher-per-ide",
-        "kind": "decision",
-        "description": "Per-IdeAdapter.subAgentToolMatcher is a string field declared in .",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      }
-    ],
     "rule": [
       {
         "name": "jsdoc-breaks-on-glob-literals-in-tsc",
@@ -332,6 +104,306 @@
         "kind": "rule",
         "description": "Under , any top-level directory whose name starts with  is **ephemeral** and is automatically gitignored by the  rule...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\workspace-underscore-convention.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "decision": [
+      {
+        "name": "ide-adapter-resource-profile-framework",
+        "kind": "decision",
+        "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "memory-search-y2-rerank-2026-06-19-decision",
+        "kind": "decision",
+        "description": "Slice Z-A — LLM Rerank Spike Decision **Date:** 2026-06-19 **Verdict:** ❌ **NO-GO** **Decision owner:** peaks-code (i...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\memory-search-y2-rerank-2026-06-19-decision.md",
+        "sourceArtifact": "src/services/memory/llm-reranker.ts",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
+        "kind": "decision",
+        "description": "peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-ide-dashboard-ok-policy-workspace-only-default.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/010-008-008-2026-06-07-peaks-ide-cleanup.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-memory-scan-is-intentionally-not-a-cli",
+        "kind": "decision",
+        "description": "is intentionally NOT a CLI command.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-memory-scan-is-intentionally-not-a-cli.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-zvec-spike-proposal-2026-06-18",
+        "kind": "decision",
+        "description": "Proposal:  目录整改 + zvec 集成评估 **Status**: DRAFT — 待用户 review（2026-06-18） **Locked decisions**: Semantic search 策略 = **Y...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-18-peaks-zvec-spike-proposal.md",
+        "sourceArtifact": "null",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
+        "kind": "decision",
+        "description": "Slice #009 (PRD #002) added a new  CLI primitive.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\skill-first-cli-auxiliary-sub-agent-dispatch.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "slim-ideadapter-shape-is-the-contract",
+        "kind": "decision",
+        "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "subagent-tool-matcher-per-ide",
+        "kind": "decision",
+        "description": "Per-IdeAdapter.subAgentToolMatcher is a string field declared in .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "feedback": [
+      {
+        "name": "2026-06-16-six-issue-user-feedback-batch",
+        "kind": "feedback",
+        "description": "For session  on , the user gave 6 real-world Claude Code usage issues + 1 follow-up observation about integration gap.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-16-six-issue-user-feedback-batch.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-06-22-cc-connect-removal-publish",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> 2.8.2 publish day — 2026-06-22 Local commit  (37 files, +22/-7713) was auth...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-22-cc-connect-removal-publish.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-06-22-top-level-change-id-cleanup",
+        "kind": "feedback",
+        "description": "Top-level  cleanup — slice 2026-06-22-top-level-change-id-cleanup + 2026-06-23-audit-followup **Commits delivered:** ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-22-top-level-change-id-cleanup.md",
+        "sourceArtifact": "tests/unit/workspace/top-level-change-id-guard.test.ts",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-06-28-full-auto-boundary",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=C --> full-auto mode 的实际边界（2026-06-28 用户明确划定） **触发**: 在 v2.14.0 ship 收尾时，我越界做 pus...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-28-full-auto-boundary.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-16-claude-code-subagent-display-recycle-observation",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> Claude Code sub-agent display recycle — observation (NOT a fix) **Date:** 2...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-claude-code-subagent-display-recycle-observation.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> Slice 2 — Commander 12  API drift (D-007) What we thought PRD v3 §Slice 2 +...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-commander-12-hidden-api-drift.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-publish-yml-if-quoting",
+        "kind": "feedback",
+        "description": "publish.yml step-level  quoting requirement (locked 2026-07-30) Symptom GitHub Actions workflow file fails validation...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-publish-yml-if-quoting.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-windows-parallel-hooktimeout-fix",
+        "kind": "feedback",
+        "description": "Windows parallel hookTimeout flake in vitest@4.1.10 When this happens A vitest 4.1.10 unit suite that: runs under  + ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-windows-parallel-hooktimeout-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-01-subagent-merge-and-e2e",
+        "kind": "feedback",
+        "description": "Sub-agent merge-back and end-to-end verification (effective 2026-08-01) Every downstream project's sub-agent dispatch...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-subagent-merge-and-e2e.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-01-ui-library-priority",
+        "kind": "feedback",
+        "description": "UI library priority (effective 2026-08-01, no exceptions) Once  has identified a frontend framework with a known UI c...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-ui-library-priority.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> 2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-code-orchestrator-capability-misjudgment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "active-skill-cli-routing",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> Active-skill reads go through the CLI When checking the active Peaks skill ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\active-skill-cli-routing.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "auto-compact-threshold-policy",
+        "kind": "feedback",
+        "description": "peaks-loop auto-compact threshold policy (2026-07-27 user 校准) 触发条件 (binding) | Context ratio 阈值 | LLM 行为 | 强制级别 | |--...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\auto-compact-threshold-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "bash-pretooluse-hook-json-error-fix",
+        "kind": "feedback",
+        "description": "Bash PreToolUse hook JSON validation 错误 — 修复 2026-07-27 TL;DR  中的  Bash PreToolUse hook 输出**空 stdout**(无  flag),触发 Cl...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\bash-pretooluse-hook-json-error-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "coverage-red-line",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> When a coverage gate fails on a new file, do NOT reflexively add tests just...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\coverage-red-line.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "dogfood-2026-06-02-wechat-post-sop",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , ga...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "main-branch-iteration",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> For future iterations in this project, do not create worktrees by default; ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\main-branch-iteration.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-cli-version-shared-chicken-egg",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop CLI_VERSION shared chicken-egg (2026-07-22) 2026-07-22 04:15Z ic...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-cli-version-shared-chicken-egg.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-code-to-peaks-code-rename-session-directive",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-current-directory-scope",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=B --> Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-current-directory-scope.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> The  skill's step 5 references a \"thin helper\" for the audit log writer.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-loop-2026-07-30-nightshift-test-failures-fix",
+        "kind": "feedback",
+        "description": "peaks-loop 4.0.0 publish-prep test-failures fix (2026-07-30) TL;DR pnpm test:full 在 4.0.0 publish 准备阶段出现 **47 failed ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-nightshift-test-failures-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-release-4-0-2-published",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop 4.0.2 — accidental publish (2026-07-22) 2026-07-22 published  + ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-release-4-0-2-published.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-skill-output-style",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> When the user uses Peaks skills from  in any project, the response should l...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-skill-output-style.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "rd-gstack-dry-run",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> The skills under this project's  directory should deeply integrate and refe...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rd-gstack-dry-run.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "redline-no-claude-co-author",
+        "kind": "feedback",
+        "description": "Red line: never credit Claude / AI assistants in commit messages > **Effective 2026-07-01:** No peaks-loop commit sha...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\redline-no-claude-co-author.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "user-decision-2026-07-05-eradicate-peaks-code",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 u...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision 2026-07-08: revive peaks-solo as dispatcher > **Why:** 这次商讨直接...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "windows-shell-quoting-divergence",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\windows-shell-quoting-divergence.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       }
@@ -444,6 +516,22 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-28-rid-034-handoff-no-sediment-block.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-01-agent-worktree-governance-bypass",
+        "kind": "lesson",
+        "description": "Agent isolation bypassed Peaks worktree governance During the statusline auto-compact implementation, six  calls used...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-agent-worktree-governance-bypass.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-09-10-memory-system-overhaul",
+        "kind": "lesson",
+        "description": "记忆系统 overhaul（2026-09-09/10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Commits:** （A+B+D）、（C） 一句话...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-10-memory-system-overhaul.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-09"
       },
       {
         "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
@@ -563,6 +651,22 @@
         "description": "session 2026-07-08-session-17918f 实施 polyrepo 工作流。 机制: 在父目录写 root ,child  在首次 dispatch 时 lazy 创建(Karpathy #2 Simplici...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\polyrepo-root-child-peaks-lazy.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "r3-format-compact-defaults-by-artifact-type",
+        "kind": "lesson",
+        "description": "r3 — per-artifact compact-by-default Slice 023 (R3).",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\r3-format-compact-defaults-by-artifact-type.md",
+        "sourceArtifact": "src/cli/commands/request-commands.ts",
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "r3-retrospective-defaults-to-index-compact",
+        "kind": "lesson",
+        "description": "r3 — retrospective reads come from index.json Slice 023 (R3).",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\r3-retrospective-defaults-to-index-compact.md",
+        "sourceArtifact": "src/services/retrospective/retrospective-index.ts",
         "updatedAt": "2026-09-01"
       },
       {
@@ -811,6 +915,46 @@
         "description": "session 2026-07-08-session-17918f 新增 zcode-adapter(,98 行),peaks-loop 首次支持 z-code 桌面应用。 机制:沿用 claude-code-adapter.ts 模...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "bug": [
+      {
+        "name": "peaks-request-session-id-leaks-into-change-id",
+        "kind": "bug",
+        "description": "**Bug location:**  --session-id <scope> **Why:** The \"back-compat\" comment is misleading — pre-1.3.0 the on-disk dir ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-21-peaks-request-session-id-leaks-into-change-id.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "investigation": [
+      {
+        "name": "v2-11-0-window-orphan-path-stripping-bug",
+        "kind": "investigation",
+        "description": "Path-Stripping Orphan — Investigation **Date:** 2026-06-26 **Trigger:** User noticed  directory in project root after...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-26-orphan-path-stripping-bug-investigation.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "technical-pattern": [
+      {
+        "name": "ide-adapter-detectcurrentmodel-optional-interface-pattern",
+        "kind": "technical-pattern",
+        "description": "IdeAdapter optional  扩展模式 **日期:** 2026-07-09 **触发:** RID 003 Slice C 新增运行时探测 model Pattern 为什么这么做 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ide-adapter-detectcurrentmodel-optional-interface-pattern.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/qa/003-add-zcode-adapter/slice-C-completion.md",
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "project-rule": [
+      {
+        "name": "incremental-first-no-touch-stockcode-rule",
+        "kind": "project-rule",
+        "description": "Incremental-first / no-touch-stockcode rule (effective 2026-08-06) TL;DR peaks-loop 所有 lint rule / code-review gate 的...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-incremental-first-no-touch-stockcode-rule.md",
+        "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       }
     ]
@@ -1122,6 +1266,30 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "2026-07-27-rid-015-monorepo-version-sync",
+        "kind": "project",
+        "description": "rid-015 — monorepo-wide subpackage version sync (2026-07-27) What changed now scans  (8 publishable directories today...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-27-rid-015-monorepo-version-sync.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-27-rid-016-monorepo-delete-5-subpackages",
+        "kind": "project",
+        "description": "rid-016 — monorepo delete 5 sub-packages + fold into src/services/* (2026-07-27) What changed Deleted 5 pure-internal...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-27-rid-016-monorepo-delete-5-subpackages.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-27-rid-017-publish-yml-release-ordering",
+        "kind": "project",
+        "description": "rid-017 — publish.yml release ordering + tag/version gate (2026-07-27) What changed Added a GitHub Release creation s...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-27-rid-017-publish-yml-release-ordering.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
         "name": "2026-07-29-worktree-l1-dispatch-block",
         "kind": "project",
         "description": "rid-L1 — Sub-agent dispatch prompt hardening (Layer 1) — SHIPPED 2026-07-29 决策 L3()只 deny  一个 Skill。但 superpowers 链( ...",
@@ -1190,6 +1358,62 @@
         "kind": "project",
         "description": "rid-SKILL.md — Worktree governance 章节 ship — 2026-07-29 决策 用户的洞察 \"SKILL.md 是 npm package 合约,改源一次所有下游免费生效\" 是本 rid 的杠杆点...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-29-worktree-skills-md-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-4-0-0-ga-attempted-not-published",
+        "kind": "project",
+        "description": "2026-07-30 4.0.0 GA attempt — NOT published (locked 2026-07-30) Headline  was **NOT published** to npm as of 2026-07-...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-4-0-0-ga-attempted-not-published-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-4-0-0-ga-release-flow",
+        "kind": "project",
+        "description": "4.0.0 GA release flow (locked 2026-07-30) > **This sediment is the single source of truth for the 4.0.0 > GA cutover.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-4-0-0-ga-release-flow.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-4-0-0-publish-root-cause-fixed-blocked-on-tombstone",
+        "kind": "project",
+        "description": "4.0.0 publish — root cause fixed, blocked on npm tombstone (locked 2026-07-30) Headline The publish pipeline is **fix...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-4-0-0-publish-root-cause-fixed-blocked-on-tombstone.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-4-0-1-published-tombstone-resolution",
+        "kind": "project",
+        "description": "4.0.1 GA published — tombstone resolution (locked 2026-07-30) Outcome  is **live on npm**.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-4-0-1-published-tombstone-resolution.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-karpathy-evaluation-cost-self-review-design",
+        "kind": "project",
+        "description": "Karpathy 评估成本自审设计（2026-07-30 用户新方向） > ⚠️ **本文件仅为设计与 sediment 提案，尚未实施任何代码。** 用户在 2026-07-30 决定调整方向时明确说\"先讨论\"，本文是讨论沉淀。 用...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-karpathy-evaluation-cost-self-review-design.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-07-30-test-rebuild-epic-sediment",
+        "kind": "project",
+        "description": "2026-07-30-test-rebuild epic — sediment Why this epic was launched The user noticed two things that did not add up: 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-30-test-rebuild-epic-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-02-4-0-5-release",
+        "kind": "project",
+        "description": "peaks-loop@4.0.5 — 2026-08-02 (statusline polish + sub-agent merge bundle) What shipped Two coordinated slices and th...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-02-4-0-5-release.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       },
@@ -1820,6 +2044,22 @@
     ],
     "reference": [
       {
+        "name": "2026-08-01-peaks-statusline-accent-color",
+        "kind": "reference",
+        "description": "Peaks 状态栏主题色 （slate-purple，bold 24-bit ANSI：）是 Peaks-Loop 的官方主题色。 适用范围： 状态栏 brand 文本（） 状态栏活动点 / idle 圆点 状态栏紧凑生命周期各阶段 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-peaks-statusline-accent-color.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "2026-08-02-publish-runbook",
+        "kind": "reference",
+        "description": "peaks-loop publish runbook (2026-08-02 — verified on the 4.0.5 release) This is the post-mortem of the 4.0.5 release ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-02-publish-runbook.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
         "name": "fzf-for-js-api-semantics-used-by-peaks-loop-fuzzy-matching",
         "kind": "reference",
         "description": "When wrapping  (npm) in TypeScript, the relevant API surface is: —  is required when items are not strings.",
@@ -1865,6 +2105,152 @@
         "description": "Slice #2 closed with 12/13 ACs unconditional + 1 PASS-WITH-CAVEAT (AC-10 audit log writer scope).",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "design": [
+      {
+        "name": "m1-loop-release-design-notes",
+        "kind": "design",
+        "description": "M1 — Loop Release Schema: design notes > First crystallizable artifact for the Loop Engineering Asset layer > (spec §...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-07-m1-loop-release-design-notes.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "handoff": [
+      {
+        "name": "2026-07-09-zcode-context-probe-handoff",
+        "kind": "handoff",
+        "description": "z-code 上下文探测 — peaks-solo → peaks-code handoff **触发:** 2026-07-09 user 在 z-code 桌面应用里开 peaks-loop 项目,提出\"peaks-loop 应该...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-09-zcode-context-probe-handoff.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "session-handoff": [
+      {
+        "name": "peaks-code vs superpowers 污染根因 + peaks-loop@4.0.0-beta.14 治理 session 交接",
+        "kind": "session-handoff",
+        "description": "Session handoff — peaks-code bridge 治根 session 用户原始诉求 > \"我需要你把代码回退到4.0.0-beta.36版本的代码\" + \"现在 peaks-loop 把 superpowers...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-peaks-code-bridge-002-session-handoff.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "project-todo": [
+      {
+        "name": "4016-lint-strict-prd-todo",
+        "kind": "project-todo",
+        "description": "PRD-002b — ESLint 严格化 + LLM 红线 baseline (合并进 4.0.16) 状态 ⏸ **WAITING** — 等当前 4.0.16 ship 闭环（已 7 commits on main, verif...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-4016-lint-strict-prd-todo.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "prd002b-qa-cycle3-blocked-on-pre-existing-flakes",
+        "kind": "project-todo",
+        "description": "PRD-002b QA cycle 3 BLOCKED — root cause = pre-existing flakes, not F6 Status 🟡 **PRD-002b slice is functionally com...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-prd002b-qa-cycle3-blocked-on-pre-existing-flakes.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "publish-closure": [
+      {
+        "name": "4016-publish-closure",
+        "kind": "publish-closure",
+        "description": "peaks-loop 4.0.16 publish closure — 2026-08-06 TL;DR **4.0.16 published to npm at **.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-4016-publish-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "project-closure": [
+      {
+        "name": "task1-task2-ship-closure-2026-08-06",
+        "kind": "project-closure",
+        "description": "Task 1 + Task 2 ship closure — 2026-08-06 TL;DR 两个 user-given 任务在 24h 模式 + 5 cycles 内全部 ship,5 个 commits 落地,form 失败的 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-task1-task2-ship-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "slice-closure": [
+      {
+        "name": "24h-slice-2-3-ship-closure-2026-08-07",
+        "kind": "slice-closure",
+        "description": "24h mode slice 2+3 ship closure (2026-08-07) TL;DR 24h mode active.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-24h-slice-2-3-ship-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "9-slices-shipped-2026-08-07",
+        "kind": "slice-closure",
+        "description": "9 Slices Shipped (2026-08-07) TL;DR Single session shipped all 9 planned follow-up slices via parallel sub-agent disp...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-9-slices-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "complexity-A-and-followups-2026-08-07",
+        "kind": "slice-closure",
+        "description": "Complexity A + follow-up investigations (2026-08-07) TL;DR PRD-002b slice 3 Commits A + B shipped: 3 source files ref...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-complexity-A-and-followups.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "prd002b-option1-ship-closure-2026-08-07",
+        "kind": "slice-closure",
+        "description": "PRD-002b Option 1 — ship closure (2026-08-07) TL;DR PRD-002b pilot + Option 1 ship 在本 session 完成。**8-slice mega-cycle...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-prd002b-option1-ship-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "slice-pilot-findings": [
+      {
+        "name": "pilot-no-duplicate-imports-findings-2026-08-07",
+        "kind": "slice-pilot-findings",
+        "description": "PRD-002b 1-slice pilot —  findings (2026-08-07) TL;DR The first PRD-002b pilot slice () **stopped without applying an...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-pilot-no-duplicate-imports-findings.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      }
+    ],
+    "sediment": [
+      {
+        "name": "MEMORY.md ghost sediment drift — finding 2026-07-27",
+        "kind": "sediment",
+        "description": "MEMORY.md ghost sediment drift — finding 2026-07-27 TL;DR Prior auto-memory 在 system prompt 中引用 3 个 sediment 文件名,但这些文...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\memory-md-ghost-sediment-finding.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "rid-001 envelope closure 第 4 处 — Phase 1 tail closeout",
+        "kind": "sediment",
+        "description": "rid-001 envelope closure 第 4 处 — Phase 1 tail closeout TL;DR Phase 1 governance plan 的 rid-001 (envelope closure 第 4 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rid-001-envelope-closure-closeout.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "rid-003 coverage tooling 收口 — Phase 1 tail closeout",
+        "kind": "sediment",
+        "description": "rid-003 coverage tooling 收口 — Phase 1 tail closeout TL;DR Phase 1 governance plan 的 rid-003 (coverage tooling + 3 fla...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rid-003-coverage-tooling-closeout.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "rid-005 B1 coverage tooling ceiling — accepted 2026-07-27",
+        "kind": "sediment",
+        "description": "rid-005 B1 coverage tooling ceiling — accepted 2026-07-27 TL;DR Phase 1 governance rid-005 标记为 partial improvement:B1...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rid-005-b1-tooling-ceiling-acceptance.md",
+        "sourceArtifact": null,
         "updatedAt": "2026-09-01"
       }
     ]
