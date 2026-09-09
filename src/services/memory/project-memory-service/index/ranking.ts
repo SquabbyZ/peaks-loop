@@ -63,7 +63,14 @@ export function readStoredMemoryNames(memoryDir: string): Set<string> {
   return names;
 }
 
-export function generateMemoryIndexFile(projectRoot: string, memoryDir: string, indexPath: string): void {
+/**
+ * Build the hot/warm index object from the current `.peaks/memory/` contents
+ * without touching disk. Pure read + in-memory assembly; `generateMemoryIndexFile`
+ * serializes the result. Exposed so `peaks memory reindex` can reuse the exact
+ * same entry construction for its counts + `MEMORY.md` regeneration instead of
+ * duplicating it.
+ */
+export function buildMemoryIndex(projectRoot: string): MemoryIndex {
   const memories = readProjectMemories(projectRoot);
 
   const hot: Record<string, MemoryIndexEntry[]> = {
@@ -95,12 +102,21 @@ export function generateMemoryIndexFile(projectRoot: string, memoryDir: string, 
     if (arr) arr.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const index: MemoryIndex = {
+  return {
     version: 1,
     updatedAt: new Date().toISOString(),
     hot: hot as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
     warm: warm as Record<ProjectMemoryKind, MemoryIndexEntry[]>
   };
+}
+
+export function generateMemoryIndexFile(
+  projectRoot: string,
+  memoryDir: string,
+  indexPath: string,
+  prebuilt?: MemoryIndex
+): void {
+  const index = prebuilt ?? buildMemoryIndex(projectRoot);
 
   const fd = openSync(indexPath, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC, 0o644);
   try {

@@ -215,6 +215,12 @@ peaks memory extract --project <repo> --artifact .peaks/_runtime/<id>/txt/handof
 #      --apply is REQUIRED to write .peaks/memory/; without it the command only
 #      previews. The extract regenerates index.json in the same call.
 
+# 10d. Index hygiene (single authority: .peaks/memory/ is peaks-owned):
+peaks memory reindex --project <repo> --json          # drift report (unclassified / orphans both ways)
+peaks memory reindex --project <repo> --apply --json  # rebuild index.json + regenerate MEMORY.md
+peaks memory ingest  --project <repo> --json          # preview IDE-side session notes
+peaks memory ingest  --project <repo> --apply --json  # import them into .peaks/memory (IDE side stays read-only)
+
 # 11. Peaks-Loop Final snapshot
 peaks project dashboard --project <repo> --json
 peaks skill doctor --json

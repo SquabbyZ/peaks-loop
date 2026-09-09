@@ -296,7 +296,7 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 ## Peaks-Loop Step 11: Memory sediment (BLOCKING on workflow complete)
 
-> **Hard rule.** Code MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Canonical CLI: `peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json` (the artifact-scoped extract; the batch-scoped sibling `peaks project memories:extract` is for non-handoff flows only). Substeps 11a/11b/11c/11d (Gate A/B/C), D-010 fix root cause check → `references/step-11-memory-sediment.md` + `references/runbook.md` §Step 11.
+> **Hard rule.** Code MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Canonical CLI: `peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json` (the artifact-scoped extract; the batch-scoped sibling `peaks project memories:extract` is for non-handoff flows only). **Single authority:** inside a peaks-code workflow, sedimenting memory writes to `.peaks/memory/`; the IDE-side memory dir (`~/.claude/projects/<hash>/memory/`) is a session note, not the authority and is read-only for peaks — pull any session note in with `peaks memory ingest --apply`, and keep the index in sync with `peaks memory reindex --apply`. Substeps 11a/11b/11c/11d (Gate A/B/C), 11e (index hygiene), 11f (IDE-side ingest), D-010 fix root cause check → `references/step-11-memory-sediment.md` + `references/runbook.md` §Step 11.
 
 ## Peaks-Loop External references and lifecycle
 

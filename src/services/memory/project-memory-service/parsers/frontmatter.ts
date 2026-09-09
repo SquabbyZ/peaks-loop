@@ -79,34 +79,122 @@ export function renderMemoryFile(memory: ExtractedProjectMemory): string {
   ].join('\n');
 }
 
-export function parseStoredMemoryFile(content: string, filePath: string): StoredProjectMemory | null {
+/**
+ * Where a stored memory file's `kind` came from. `'none'` means the file
+ * has no resolvable kind (no `metadata.type`, no `kind:`, no `type:`, or
+ * the value present is not one of the 8 valid kinds).
+ */
+export type MemoryKindSource = 'metadata.type' | 'kind' | 'type' | 'none';
+
+export interface MemoryKindResolution {
+  kind: ProjectMemoryKind | null;
+  source: MemoryKindSource;
+  /** The first raw value found in the frontmatter, even when it is not a valid kind. */
+  rawKind: string | null;
+}
+
+export interface ParsedMemoryFrontmatter {
+  hasFrontmatter: boolean;
+  name?: string;
+  description?: string;
+  sourceArtifact?: string;
+  kind: MemoryKindResolution;
+  /** Raw frontmatter block text (without the `---` fences); '' when absent. */
+  frontmatter: string;
+  body: string;
+}
+
+/**
+ * Resolve the peaks memory kind from a stored memory file's frontmatter.
+ *
+ * Resolution order (first *valid* kind wins):
+ *   1. nested `metadata.type`   — the canonical peaks contract
+ *   2. top-level `kind:`        — the legacy alias (was silently dropped before)
+ *   3. top-level `type:`        — tolerated by the pre-existing trim-based reader
+ *   4. `none`                   — reported as unclassified; never invented
+ *
+ * Slice 2026-09-09-memory-system-overhaul (B): before this helper, files
+ * using a top-level `kind:` were silently dropped by the reader (defect
+ * #2). Falling through to `kind:` / `type:` is a strict superset of the
+ * old behaviour — no previously-indexed file changes kind.
+ */
+export function resolveMemoryKind(content: string): MemoryKindResolution {
+  const parsed = parseMemoryFrontmatter(content);
+  return parsed.kind;
+}
+
+/**
+ * Single parse surface for stored memory frontmatter. Both
+ * `parseStoredMemoryFile` (read path) and the reindex / ingest / doctor
+ * classifiers consume this so there is exactly one kind-resolution rule
+ * in the codebase.
+ */
+export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter {
   const normalized = content.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) return null;
+  if (!normalized.startsWith('---\n')) {
+    return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
+  }
   const endIndex = normalized.indexOf('\n---\n', 4);
-  if (endIndex < 0) return null;
+  if (endIndex < 0) {
+    return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
+  }
 
   const frontmatter = normalized.slice(4, endIndex);
   const body = normalized.slice(endIndex + '\n---\n'.length).trim();
 
   let name: string | undefined;
   let description: string | undefined;
-  let kind: string | undefined;
   let sourceArtifact: string | undefined;
+  let nestedType: string | undefined;
+  let topType: string | undefined;
+  let kindField: string | undefined;
+  let inMetadata = false;
 
   for (const rawLine of frontmatter.split('\n')) {
+    const indented = /^\s/.test(rawLine);
     const line = rawLine.trim();
+    if (!indented) {
+      inMetadata = line === 'metadata:';
+    }
     if (line.startsWith('name:')) name = line.slice('name:'.length).trim();
     else if (line.startsWith('description:')) description = line.slice('description:'.length).trim();
-    else if (line.startsWith('type:')) kind = line.slice('type:'.length).trim();
+    else if (line.startsWith('type:')) {
+      const value = line.slice('type:'.length).trim();
+      if (indented || inMetadata) nestedType ??= value;
+      else topType ??= value;
+    } else if (line.startsWith('kind:')) kindField ??= line.slice('kind:'.length).trim();
     else if (line.startsWith('sourceArtifact:')) sourceArtifact = line.slice('sourceArtifact:'.length).trim();
   }
 
-  if (!name || !kind || !VALID_MEMORY_KINDS.has(kind as ProjectMemoryKind) || body.length === 0) return null;
+  const candidates: ReadonlyArray<readonly [MemoryKindSource, string | undefined]> = [
+    ['metadata.type', nestedType],
+    ['kind', kindField],
+    ['type', topType]
+  ];
+  let kind: MemoryKindResolution = { kind: null, source: 'none', rawKind: null };
+  for (const [source, raw] of candidates) {
+    if (raw === undefined || raw === '') continue;
+    if (kind.rawKind === null) kind = { kind: null, source: 'none', rawKind: raw };
+    if (VALID_MEMORY_KINDS.has(raw as ProjectMemoryKind)) {
+      kind = { kind: raw as ProjectMemoryKind, source, rawKind: raw };
+      break;
+    }
+  }
+
+  return { hasFrontmatter: true, frontmatter, ...(name !== undefined ? { name } : {}), ...(description !== undefined ? { description } : {}), ...(sourceArtifact !== undefined ? { sourceArtifact } : {}), kind, body };
+}
+
+export function parseStoredMemoryFile(content: string, filePath: string): StoredProjectMemory | null {
+  const parsed = parseMemoryFrontmatter(content);
+  if (!parsed.hasFrontmatter) return null;
+  const { name, description, sourceArtifact, body } = parsed;
+  const kind = parsed.kind.kind;
+  if (!name || kind === null || body.length === 0) return null;
 
   return {
     name,
     title: description ?? name,
-    kind: kind as ProjectMemoryKind,
+    kind,
     sourceArtifact: sourceArtifact && sourceArtifact !== 'undefined' ? sourceArtifact : null,
     body,
     filePath

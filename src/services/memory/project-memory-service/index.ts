@@ -48,9 +48,17 @@ export {
 // Frontmatter parser + renderer
 export {
   parseBlock,
+  parseMemoryFrontmatter,
   parseStoredMemoryFile,
   renderMemoryFile,
+  resolveMemoryKind,
   slugify
+} from './parsers/frontmatter.js';
+
+export type {
+  MemoryKindResolution,
+  MemoryKindSource,
+  ParsedMemoryFrontmatter
 } from './parsers/frontmatter.js';
 
 // Store: path safety + sensitive content
@@ -83,12 +91,29 @@ export {
 } from './index/search.js';
 
 export {
+  buildMemoryIndex,
   generateMemoryIndexFile,
   readExistingIndex,
   readMemoryFileMtime,
   readMemoryIndex,
   readStoredMemoryNames
 } from './index/ranking.js';
+
+// Full index rebuild + drift report (`peaks memory reindex`)
+export {
+  executeMemoryReindex,
+  renderMemoryMarkdown,
+  KIND_ORDER,
+  MEMORY_MD_BANNER,
+  MEMORY_MD_FILENAME
+} from './index/reindex.js';
+
+export type {
+  MemoryReindexOptions,
+  MemoryReindexReport,
+  ReindexOrphanEntry,
+  ReindexUnclassified
+} from './index/reindex.js';
 
 export {
   createProjectMemoryBackupPlan,

@@ -81,6 +81,50 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
 
   addJsonOption(
     memory
+      .command('reindex')
+      .description('Rebuild .peaks/memory/index.json from every memory file on disk and regenerate MEMORY.md; reports unclassified files and orphans both ways. Dry-run by default; pass --apply to write.')
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+      .option('--dry-run', 'report drift without writing (default)')
+      .option('--apply', 'rebuild index.json and regenerate MEMORY.md')
+  ).action((options: { project?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+    void import('../memory-commands.js').then(({ runMemoryReindex }) => {
+      void runMemoryReindex(io, {
+        ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+        ...(options.apply === true ? { apply: true } : {}),
+        ...(options.json !== undefined ? { json: options.json } : {}),
+      });
+    }).catch((error: unknown) => {
+      printResult(io, fail('memory.reindex', 'MEMORY_REINDEX_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
+      process.exitCode = 1;
+    });
+  });
+
+  addJsonOption(
+    memory
+      .command('ingest')
+      .description('Import memories written by the IDE-side agent (~/.claude/projects/<hash>/memory/*.md) into the peaks-owned .peaks/memory store. The IDE-side dir is read-only. Dry-run by default; pass --apply to write.')
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+      .option('--source-dir <path>', 'override the IDE-side memory directory')
+      .option('--dry-run', 'preview imports without writing (default)')
+      .option('--apply', 'write normalized memories into .peaks/memory')
+  ).action((options: { project?: string; sourceDir?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+    void import('../memory-commands.js').then(({ runMemoryIngest }) => {
+      void runMemoryIngest(io, {
+        ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.sourceDir !== undefined ? { sourceDir: options.sourceDir } : {}),
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+        ...(options.apply === true ? { apply: true } : {}),
+        ...(options.json !== undefined ? { json: options.json } : {}),
+      });
+    }).catch((error: unknown) => {
+      printResult(io, fail('memory.ingest', 'MEMORY_INGEST_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
+      process.exitCode = 1;
+    });
+  });
+
+  addJsonOption(
+    memory
       .command('search <query>')
       .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
       .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
