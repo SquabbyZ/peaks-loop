@@ -53,7 +53,10 @@ import {
   TEST_TOOL_DETECTION_BLOCK,
   formatTestToolDetection
 } from '../../services/dispatch/test-tool-detection.js';
-import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
+import {
+  MemoryPreflightService,
+  deriveMemoryQuery
+} from '../../services/context/memory-preflight-service.js';
 import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
 import { computeUiLibraryDispatchBlock } from '../../services/standards/ui-library-dispatch-block.js';
 import { readFreshContextBlock } from '../../services/fresh-context/fresh-context-block.js';
@@ -409,7 +412,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // memory preflight block (or silently skip when unavailable) via the
       // pure-function builder.
       const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
-      const memoryBlock = await preflightService.fetchBlock(role);
+      // Slice 2026-09-09-memory-retrieval: rank the injected memory by the
+      // task at hand (role + first line of the brief), not the bare role.
+      const memoryBlock = await preflightService.fetchBlock(
+        deriveMemoryQuery(role, options.prompt)
+      );
       // Slice 2026-09-03-codegraph-preread (Option A): pre-dispatch
       // codegraph preflight for RD planning. BEFORE the RD sub-agent's
       // prompt is composed, ensure the codegraph index exists (init +

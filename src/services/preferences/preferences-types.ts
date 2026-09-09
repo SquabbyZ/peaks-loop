@@ -137,9 +137,23 @@ export interface ProjectPreferences {
    */
   readonly memoryPreflight?: {
     readonly enabled?: boolean;
+    /** Back-compat token cap; converted to bytes as `maxTokens * 4`. */
     readonly maxTokens?: number;
+    /** Back-compat hot item cap; `hotItemCap` overrides it when set. */
     readonly listCap?: number;
     readonly contentCacheBytes?: number;
+    /** Slice 2026-09-09-memory-retrieval: hard byte cap on the block. */
+    readonly maxBytes?: number;
+    /** Slice 2026-09-09-memory-retrieval: max hot items (default 10). */
+    readonly hotItemCap?: number;
+    /** Slice 2026-09-09-memory-retrieval: max warm items (default 4; 0 disables). */
+    readonly warmItemCap?: number;
+    /** Slice 2026-09-09-memory-retrieval: min task-token hits for warm eligibility. */
+    readonly warmMinTokenHits?: number;
+    /** Slice 2026-09-09-memory-retrieval: soft selection wall-clock budget (ms). */
+    readonly selectionTimeBudgetMs?: number;
+    /** Slice 2026-09-09-memory-retrieval: inline memo bodies (default false). */
+    readonly includeBodies?: boolean;
   };
 }
 
@@ -194,5 +208,13 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     maxTokens: 1200,
     listCap: 12,
     contentCacheBytes: 6000,
+    // Slice 2026-09-09-memory-retrieval tiered budget (see
+    // memory-preflight-config.ts::DEFAULTS).
+    maxBytes: 4800,
+    hotItemCap: 10,
+    warmItemCap: 4,
+    warmMinTokenHits: 1,
+    selectionTimeBudgetMs: 200,
+    includeBodies: false,
   },
 };
