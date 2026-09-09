@@ -10,7 +10,10 @@
 //
 //   2. `parseStoredMemoryFile` — read-path side. Files in `.peaks/memory/`
 //      are stored as standard YAML frontmatter (name / description /
-//      metadata.type / metadata.sourceArtifact) followed by the body.
+//      metadata.type / metadata.sourceArtifact) followed by the body. A file
+//      may also open with HTML-comment lines (the `<!-- peaks-memory:start -->`
+//      sediment marker) before the frontmatter; `parseMemoryFrontmatter`
+//      skips that leading comment run before looking for the `---` fence.
 //
 // Both parsers share the `VALID_MEMORY_KINDS` allow-list (derived from the
 // canonical `PROJECT_MEMORY_KINDS` tuple in `../types.ts`) and the
@@ -125,24 +128,69 @@ export function resolveMemoryKind(content: string): MemoryKindResolution {
   return parsed.kind;
 }
 
+/** Start of an HTML comment line, allowing leading horizontal whitespace. */
+const LEADING_COMMENT_OPEN = /^[ \t]*<!--/;
+
+/**
+ * Length of the leading run of blank lines and standalone HTML-comment lines.
+ *
+ * A stored memory may be written with the documented sediment marker
+ * (`<!-- peaks-memory:start -->`) — or any HTML comment — BEFORE its YAML
+ * frontmatter. This helper reports how much of the file to skip so the fence
+ * can still be found. At least one comment line must be present: a file that
+ * merely starts with blank lines is not treated as marker-prefixed, so the
+ * pre-existing (fence-at-byte-0) behaviour is preserved exactly.
+ */
+function leadingCommentPrefixLength(normalized: string): number {
+  let offset = 0;
+  let sawComment = false;
+  for (;;) {
+    const rest = normalized.slice(offset);
+    const blank = /^[ \t]*\n/.exec(rest);
+    if (blank !== null) {
+      offset += blank[0].length;
+      continue;
+    }
+    const open = LEADING_COMMENT_OPEN.exec(rest);
+    if (open === null) break;
+    const closeIndex = rest.indexOf('-->', open[0].length);
+    if (closeIndex < 0) break;
+    const afterClose = closeIndex + '-->'.length;
+    const lineEnd = rest.indexOf('\n', afterClose);
+    if (lineEnd < 0) break;
+    // Only a whole comment line counts; trailing prose after `-->` means the
+    // file does not open with a comment block.
+    if (rest.slice(afterClose, lineEnd).trim() !== '') break;
+    offset += lineEnd + 1;
+    sawComment = true;
+  }
+  return sawComment ? offset : 0;
+}
+
 /**
  * Single parse surface for stored memory frontmatter. Both
  * `parseStoredMemoryFile` (read path) and the reindex / ingest / doctor
  * classifiers consume this so there is exactly one kind-resolution rule
  * in the codebase.
+ *
+ * Tolerates a leading run of HTML-comment lines (e.g. the
+ * `<!-- peaks-memory:start -->` sediment marker) before the opening `---`
+ * fence. The closing fence is still required and body extraction is
+ * unchanged: the body is the text after the closing fence.
  */
 export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter {
   const normalized = content.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) {
+  const head = normalized.slice(leadingCommentPrefixLength(normalized));
+  if (!head.startsWith('---\n')) {
     return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
   }
-  const endIndex = normalized.indexOf('\n---\n', 4);
+  const endIndex = head.indexOf('\n---\n', 4);
   if (endIndex < 0) {
     return { hasFrontmatter: false, kind: { kind: null, source: 'none', rawKind: null }, frontmatter: '', body: normalized.trim() };
   }
 
-  const frontmatter = normalized.slice(4, endIndex);
-  const body = normalized.slice(endIndex + '\n---\n'.length).trim();
+  const frontmatter = head.slice(4, endIndex);
+  const body = head.slice(endIndex + '\n---\n'.length).trim();
 
   let name: string | undefined;
   let titleField: string | undefined;
