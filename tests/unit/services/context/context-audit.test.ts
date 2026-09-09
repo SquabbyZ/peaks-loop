@@ -92,6 +92,8 @@ describe('behavior — grouping by (tool, key)', () => {
     expect(result.entries[0]?.count).toBe(2);
     expect(result.entries[0]?.bytes).toBe(8000);
     expect(result.totalBytes).toBe(8000);
+    // the only group holds 100% — pctOfTotal is a percentage, not a ratio
+    expect(result.entries[0]?.pctOfTotal).toBe(100);
   });
 
   it('when different tools and paths are present, should group separately and sum pct to 1', () => {
@@ -108,14 +110,18 @@ describe('behavior — grouping by (tool, key)', () => {
     // when: the transcript is audited
     const result = auditContext({ transcriptPath: path });
 
-    // then: three groups, sorted desc, pct sums to ~1
+    // then: three groups, sorted desc, pct is a percentage summing to ~100
     expect(result.groupCount).toBe(3);
     expect(result.entries.map((e) => e.tool)).toEqual(['Bash', 'Read', 'Grep']);
     // Read key is the last two path segments — short but identifiable
     expect(result.entries[1]?.key).toBe('doctor/index.ts');
     expect(result.entries[2]?.key).toBe('TODO @ src');
+    // the top group is 1000 / 2300 = 43.5% (percentage form, one decimal)
+    expect(result.entries[0]?.pctOfTotal).toBe(43.5);
+    expect(result.entries[0]?.pctOfTotal).toBeGreaterThan(0);
+    expect(result.entries[0]?.pctOfTotal).toBeLessThan(100);
     const pctSum = result.entries.reduce((acc, e) => acc + e.pctOfTotal, 0);
-    expect(pctSum).toBeCloseTo(1, 3);
+    expect(Math.abs(pctSum - 100)).toBeLessThan(1);
   });
 
   it('when more groups exist than --top, should report groupCount but emit only topN', () => {

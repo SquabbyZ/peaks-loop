@@ -51,7 +51,11 @@ export interface ContextAuditEntry {
   readonly key: string;
   /** Total UTF-8 bytes of every tool result in this group. */
   readonly bytes: number;
-  /** `bytes / totalBytes`, rounded to 4 decimals. */
+  /**
+   * Share of the session's tool-result bytes, as a PERCENTAGE in `[0, 100]`
+   * with one decimal (e.g. `4.2` — not the `0.042` ratio). The name and the
+   * value agree: `pct` means percent.
+   */
   readonly pctOfTotal: number;
   /** How many tool results landed in this group. */
   readonly count: number;
@@ -241,7 +245,8 @@ function scanTranscript(filePath: string, topN: number): ContextAuditResult {
       tool: g.tool,
       key: g.key,
       bytes: g.bytes,
-      pctOfTotal: totalBytes > 0 ? Math.round((g.bytes / totalBytes) * 10_000) / 10_000 : 0,
+      // Percentage in [0, 100], one decimal — see ContextAuditEntry.pctOfTotal.
+      pctOfTotal: totalBytes > 0 ? Math.round((g.bytes / totalBytes) * 1000) / 10 : 0,
       count: g.count,
     }))
     .sort((a, b) => b.bytes - a.bytes || a.tool.localeCompare(b.tool) || a.key.localeCompare(b.key));
