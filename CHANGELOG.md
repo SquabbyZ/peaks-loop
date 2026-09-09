@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.0.35 — 2026-09-10 (记忆系统 overhaul — 写入合一 / 索引重建 / 按任务调取 / 漂移健康检查 / rotate)
+
+**Highlights**:
+
+1. **记忆写入单一权威** — `peaks memory ingest` 把 IDE 侧（Claude Code）记忆导入 `.peaks/memory/`，源目录只读、**绝不写 `~/.claude/`**；SKILL.md 明确：工作流内"沉淀记忆"落 `.peaks/memory/`，IDE 侧仅作会话笔记。
+
+2. **索引重建 + 根因修复** — `peaks memory reindex` 全量重扫并重建 `index.json`。**根因**：共享 frontmatter 解析器只认顶层 `type:`，按契约写 `metadata.type` 的文件被**静默丢弃**。现按 `metadata.type → kind → type` 解析，未识别值**输出清单**而非静默跳过。name 解析新增 `name → title → 文件名` 回退；重名冲突上报不覆盖。本仓库实测：索引 **231 → 276**。
+
+3. **调取按任务 + 分层预算** — preflight 此前 `fetchBlock(_taskTitle)` 的 `taskTitle` **完全未使用**，永远注入同一批 feedback+layerA。现按任务排序（per-token fuzzy，无网络/无 embedding），hot 必进、warm 按相关度入选，三重预算（条数/字节/时间）+ 可观测字段。warm 层首次可被注入。顺带修：读取器原来只扁平化 4 种 kind，丢了 decision/rule/convention/module/lesson。
+
+4. **kind 词表 8 → 21** — 纳入语料中实际使用的 13 个 kind（`bug`/`investigation`/`technical-pattern`/`project-rule`/`design`/`handoff`/`session-handoff`/`project-todo`/`publish-closure`/`project-closure`/`slice-closure`/`slice-pilot-findings`/`sediment`），单一常量驱动解析/索引/CLI/doctor。
+
+5. **`peaks memory rotate`（清除机制）** — 实现 2026-07-24 pruning policy 早已规定但从未实现的轮转：A/B 层永不入选（测试断言）、C 层满 **6 个月**且未被钉住 → 归档、D 层 → 报告待删（不删）、每个候选先过 `src/`+`skills/` 引用 grep。默认 dry-run。
+
+6. **doctor 漂移检查** — 新增 `l3-memory-coverage` / `l3-memory-orphans` / `l3-memory-unclassified`；此前只校验"index.json 是合法 JSON"，46% 不可见也报 ok。
+
+**验证**：build clean、tsc clean、全量 133 files / 1180 passed（1 skipped）；本仓库 rotate dry-run `A:22 B:146 C:138 D:12`。
+
 ## 4.0.34 — 2026-09-09 (mode 模型收敛 + auto-compact 死命令 + 上下文窗口覆盖 + 确认门去 TTY)
 
 **Highlights**:
