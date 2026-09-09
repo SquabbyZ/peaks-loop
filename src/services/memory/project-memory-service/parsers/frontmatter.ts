@@ -17,6 +17,8 @@
 // `slugify` helper used to derive filenames from titles.
 // ---------------------------------------------------------------------------
 
+import { basename } from 'node:path';
+
 import { PROJECT_MEMORY_KINDS } from '../types.js';
 import type { ExtractedProjectMemory, ProjectMemoryKind, StoredProjectMemory } from '../types.js';
 
@@ -92,6 +94,10 @@ export interface MemoryKindResolution {
 export interface ParsedMemoryFrontmatter {
   hasFrontmatter: boolean;
   name?: string;
+  /** Top-level `title:` frontmatter value. Never the nested `metadata.title`
+   *  (that is a different semantic); used only as a name fallback on the
+   *  read path — see `resolveMemoryName`. */
+  title?: string;
   description?: string;
   sourceArtifact?: string;
   kind: MemoryKindResolution;
@@ -139,6 +145,7 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
   const body = normalized.slice(endIndex + '\n---\n'.length).trim();
 
   let name: string | undefined;
+  let titleField: string | undefined;
   let description: string | undefined;
   let sourceArtifact: string | undefined;
   let nestedType: string | undefined;
@@ -153,6 +160,7 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
       inMetadata = line === 'metadata:';
     }
     if (line.startsWith('name:')) name = line.slice('name:'.length).trim();
+    else if (line.startsWith('title:')) { if (!indented) titleField = line.slice('title:'.length).trim(); }
     else if (line.startsWith('description:')) description = line.slice('description:'.length).trim();
     else if (line.startsWith('type:')) {
       const value = line.slice('type:'.length).trim();
@@ -177,15 +185,46 @@ export function parseMemoryFrontmatter(content: string): ParsedMemoryFrontmatter
     }
   }
 
-  return { hasFrontmatter: true, frontmatter, ...(name !== undefined ? { name } : {}), ...(description !== undefined ? { description } : {}), ...(sourceArtifact !== undefined ? { sourceArtifact } : {}), kind, body };
+  return { hasFrontmatter: true, frontmatter, ...(name !== undefined ? { name } : {}), ...(titleField !== undefined ? { title: titleField } : {}), ...(description !== undefined ? { description } : {}), ...(sourceArtifact !== undefined ? { sourceArtifact } : {}), kind, body };
+}
+
+/** Which frontmatter field (or the filename) supplied a memory's name. */
+export type MemoryNameSource = 'name' | 'title' | 'stem' | 'none';
+
+export interface MemoryNameResolution {
+  /** The resolved name, or null when every fallback was empty. */
+  name: string | null;
+  source: MemoryNameSource;
+}
+
+/**
+ * Deterministic name fallback chain for the read path:
+ *
+ *   1. `name:`            — the canonical field written by `renderMemoryFile`
+ *   2. `title:`           — hand-written / legacy files (the 5 on-disk files
+ *                           this slice fixes carried only `title:` + `kind:`)
+ *   3. filename stem      — last resort, so a well-formed memory with a valid
+ *                           kind is never dropped just for missing a name
+ *
+ * Empty values are skipped rather than accepted: a `name:` of `''` still
+ * falls through, and a file whose stem is also empty resolves to null so the
+ * caller's validation is preserved (never invents a name).
+ */
+export function resolveMemoryName(parsed: ParsedMemoryFrontmatter, filePath: string): MemoryNameResolution {
+  if (parsed.name !== undefined && parsed.name.length > 0) return { name: parsed.name, source: 'name' };
+  if (parsed.title !== undefined && parsed.title.length > 0) return { name: parsed.title, source: 'title' };
+  const stem = basename(filePath, '.md');
+  if (stem.length > 0) return { name: stem, source: 'stem' };
+  return { name: null, source: 'none' };
 }
 
 export function parseStoredMemoryFile(content: string, filePath: string): StoredProjectMemory | null {
   const parsed = parseMemoryFrontmatter(content);
   if (!parsed.hasFrontmatter) return null;
-  const { name, description, sourceArtifact, body } = parsed;
+  const { description, sourceArtifact, body } = parsed;
   const kind = parsed.kind.kind;
-  if (!name || kind === null || body.length === 0) return null;
+  const { name } = resolveMemoryName(parsed, filePath);
+  if (name === null || kind === null || body.length === 0) return null;
 
   return {
     name,

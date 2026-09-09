@@ -221,6 +221,9 @@ export async function runMemoryReindex(io: ProgramIO, options: MemoryReindexComm
     if (report.orphanIndex.length > 0) {
       nextActions.push(`${report.orphanIndex.length} previous index entry(ies) point at missing files; they are dropped from the rebuilt index.`);
     }
+    if (report.nameConflicts.length > 0) {
+      nextActions.push(`${report.nameConflicts.length} name collision(s) across files; both entries are kept — rename one file to disambiguate.`);
+    }
     printResult(io, ok('memory.reindex', report, [], nextActions), options.json);
   } catch (error) {
     const message = getErrorMessage(error);

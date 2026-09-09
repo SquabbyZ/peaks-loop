@@ -27,7 +27,7 @@ import { basename, join, relative } from 'node:path';
 
 import type { MemoryIndex, MemoryIndexEntry, ProjectMemoryKind } from '../types.js';
 import { MEMORY_KIND_TIER } from '../types.js';
-import { parseMemoryFrontmatter } from '../parsers/frontmatter.js';
+import { parseMemoryFrontmatter, parseStoredMemoryFile } from '../parsers/frontmatter.js';
 import { summarizeMemoryBody } from '../parsers/markdown-pure.js';
 import { assertSafeProjectMemoryDir, normalizeRoot } from '../store/paths.js';
 import { buildMemoryIndex, generateMemoryIndexFile, readExistingIndex } from './ranking.js';
@@ -63,6 +63,18 @@ export interface ReindexOrphanEntry {
   sourcePath: string;
 }
 
+/**
+ * Two or more different files resolve to the same memory name (after the
+ * `name:` → `title:` → filename-stem fallback chain). Reported, never
+ * resolved by overwriting: both files keep their own index entry, and the
+ * collision is surfaced so a human/LLM can rename one of them.
+ */
+export interface ReindexNameConflict {
+  name: string;
+  /** Every file that resolves to this name, sorted. Always length >= 2. */
+  filePaths: string[];
+}
+
 export interface MemoryReindexReport {
   apply: boolean;
   projectRoot: string;
@@ -76,6 +88,8 @@ export interface MemoryReindexReport {
   indexedByKind: Record<string, number>;
   /** Files on disk with no resolvable kind — reported, never invented. */
   unclassified: ReindexUnclassified[];
+  /** Distinct files that resolve to the same index name — reported, never overwritten. */
+  nameConflicts: ReindexNameConflict[];
   /** Previous index entries whose `sourcePath` no longer exists (error-class drift). */
   orphanIndex: ReindexOrphanEntry[];
   /** Files on disk that the rebuilt index does not contain (warn-class drift). */
@@ -134,6 +148,35 @@ function collectUnclassified(diskFiles: readonly string[]): ReindexUnclassified[
 }
 
 /**
+ * Detect files that resolve to the same memory name. Only files the read
+ * path actually indexes participate (a file rejected for a missing kind is
+ * not an index entry and cannot collide with one).
+ *
+ * Deterministic: names sorted, each `filePaths` sorted. Never resolves the
+ * collision itself — the caller reports it; both files keep their entries.
+ */
+function collectNameConflicts(diskFiles: readonly string[]): ReindexNameConflict[] {
+  const byName = new Map<string, string[]>();
+  for (const filePath of diskFiles) {
+    let parsed;
+    try {
+      parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
+    } catch {
+      continue; // unreadable files are reported by collectUnclassified
+    }
+    if (parsed === null) continue;
+    const bucket = byName.get(parsed.name);
+    if (bucket === undefined) byName.set(parsed.name, [filePath]);
+    else if (!bucket.includes(filePath)) bucket.push(filePath);
+  }
+
+  return [...byName.entries()]
+    .filter(([, filePaths]) => filePaths.length > 1)
+    .map(([name, filePaths]) => ({ name, filePaths: [...filePaths].sort((left, right) => left.localeCompare(right)) }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/**
  * Render the human/LLM-facing `MEMORY.md` from a built index. Deterministic:
  * kinds in `KIND_ORDER`, entries sorted by name, no timestamps.
  */
@@ -183,6 +226,7 @@ export function executeMemoryReindex(options: MemoryReindexOptions): MemoryReind
     .sort((left, right) => left.name.localeCompare(right.name));
 
   const unclassified = collectUnclassified(diskFiles);
+  const nameConflicts = collectNameConflicts(diskFiles);
 
   // Build once; reuse for the write, the counts, and MEMORY.md so all three
   // views are guaranteed identical.
@@ -226,6 +270,7 @@ export function executeMemoryReindex(options: MemoryReindexOptions): MemoryReind
     indexed: memories.memories.length,
     indexedByKind,
     unclassified,
+    nameConflicts,
     orphanIndex,
     orphanDisk,
     memoryMd: { path: memoryMdPath, regenerated: memoryMdRegenerated },

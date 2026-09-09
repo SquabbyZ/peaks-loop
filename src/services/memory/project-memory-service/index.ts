@@ -61,12 +61,15 @@ export {
   parseStoredMemoryFile,
   renderMemoryFile,
   resolveMemoryKind,
+  resolveMemoryName,
   slugify
 } from './parsers/frontmatter.js';
 
 export type {
   MemoryKindResolution,
   MemoryKindSource,
+  MemoryNameResolution,
+  MemoryNameSource,
   ParsedMemoryFrontmatter
 } from './parsers/frontmatter.js';
 
@@ -120,6 +123,7 @@ export {
 export type {
   MemoryReindexOptions,
   MemoryReindexReport,
+  ReindexNameConflict,
   ReindexOrphanEntry,
   ReindexUnclassified
 } from './index/reindex.js';
