@@ -137,6 +137,44 @@ export function setCallerBinding(
 }
 
 /**
+ * Repoint an EXISTING per-caller binding at a new peak session id.
+ *
+ * Slice 2026-09-10 (rid=rebind-must-update-caller-binding): an explicit
+ * `peaks workspace init --session-id <X> --allow-session-rebind` rewrites
+ * the project-global `.peaks/_runtime/session.json`. Without this call the
+ * per-caller file keeps shadowing it for `getSessionIdCanonical`, so the
+ * rebind silently did not take for every command that resolves through
+ * that variant (`peaks session checkpoint`, `peaks session 24h-mode`, ...)
+ * while `getCurrentSessionId` reported the new session.
+ *
+ * Only the binding of the caller that performed the rebind is repointed —
+ * a second caller keeps its own session, which is the multi-caller
+ * isolation the per-caller design exists for.
+ *
+ * Every other field is preserved: `createdAt` is the session creation
+ * stamp the legacy `session.json` dual-write reuses, and `skill` / `mode`
+ * / `gate` are live presence state.
+ *
+ * @returns `true` when a binding existed and was repointed, `false` when
+ *   the caller had no binding file (nothing was shadowing the rebind, and
+ *   we do not create one speculatively).
+ */
+export function updateCallerBindingSessionId(
+  projectRoot: string,
+  callerId: string,
+  peakSessionId: string
+): boolean {
+  const existing = getCallerBinding(projectRoot, callerId);
+  if (existing === null) return false;
+  setCallerBinding(projectRoot, callerId, {
+    ...existing,
+    peakSessionId,
+    lastActivityAt: new Date().toISOString()
+  });
+  return true;
+}
+
+/**
  * Enumerate the per-caller binding files under
  * `.peaks/_runtime/callers/`. Returns the parsed bindings plus the
  * raw filenames (so callers can list orphan / legacy files without

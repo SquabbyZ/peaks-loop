@@ -4,7 +4,31 @@ import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
 import { getSessionIdCanonical, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
+import { updateCallerBindingSessionId } from '../session/caller-binding-service.js';
+import { resolveCallerProjection } from '../session/resolve-caller-id.js';
 import { normalizePath } from '../../shared/path-utils.js';
+
+/**
+ * Slice 2026-09-10 (rid=rebind-must-update-caller-binding): repoint the
+ * calling process's own per-caller binding at the session id this init just
+ * bound. `getSessionIdCanonical` reads `callers/<callerId>.json` FIRST, so a
+ * binding left behind by an earlier session shadows every explicit rebind.
+ *
+ * Best-effort: an unresolvable callerId (`PEAKS_CALLER_NOT_RESOLVED`, e.g. a
+ * stock shell with no IDE adapter) means there is no binding file to
+ * repoint, and `session.json` alone answers both resolvers.
+ *
+ * @returns `true` when a binding file existed and was repointed.
+ */
+function rebindCurrentCallerBinding(projectRoot: string, sessionId: string): boolean {
+  let callerId: string;
+  try {
+    callerId = resolveCallerProjection({ projectRoot, env: process.env }).callerId;
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    return false;
+  }
+  return updateCallerBindingSessionId(projectRoot, callerId, sessionId);
+}
 
 /**
  * Slice 2026-06-29-change-id-root-removal: list the immediate children of
@@ -415,6 +439,15 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // Either: existing session dir is empty (true leftover, no user data),
     // or the caller explicitly authorised a rebind. Overwrite.
     setCurrentSessionBinding(options.projectRoot, options.sessionId);
+    // Slice 2026-09-10 (rid=rebind-must-update-caller-binding): an
+    // explicit rebind must ALSO repoint this caller's per-caller binding.
+    // `getSessionIdCanonical` prefers `callers/<callerId>.json`, so leaving
+    // it untouched shadowed the rebind for every command resolving through
+    // it (session checkpoint / 24h-mode wrote into the stale session dir)
+    // while `getCurrentSessionId` (session.json) reported the new one.
+    // Only THIS caller's binding is repointed — a second caller keeps its
+    // own session by design.
+    rebindCurrentCallerBinding(options.projectRoot, options.sessionId);
     bound = true;
   }
 
