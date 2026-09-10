@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T10:02:16.111Z",
+  "updatedAt": "2026-09-10T10:44:46.350Z",
   "hot": {
     "rule": [
+      {
+        "name": "a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository",
+        "kind": "rule",
+        "description": "On 2026-09-10 a survey of \"what work is left\" read  for every job and found roughly **20 pending slices across four j...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md",
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "a-measurement-whose-command-failed-silently-is-not-a-pass",
         "kind": "rule",
@@ -161,6 +169,14 @@
         "description": "Six times in one session I wrote a premise into a dispatch brief that I had taken from a report rather than from the ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verify-a-cross-module-premise-before-asserting-it-in-a-dispatch-brief.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "verify-a-memory-entry-s-premise-before-relaying-it-as-an-open-item",
+        "kind": "rule",
+        "description": "While inventorying outstanding work, several memory entries were relayed as live blockers before being checked.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verify-a-memory-entry-s-premise-before-relaying-it-as-an-open-item.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md",
         "updatedAt": "2026-09-10"
       },
       {
@@ -1740,10 +1756,10 @@
       {
         "name": "2026-08-10-4-0-18-release-pending-verification",
         "kind": "project",
-        "description": "4.0.18 release — pending GitHub Actions verification 状态 ✅ **本地完成**： — root + 3 sub-packages lockstep +  rebuild share...",
+        "description": "4.0.18 release — pending GitHub Actions verification > **RESOLVED / OBSOLETE — verified 2026-09-10.** This entry was ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-10-4-0-18-release-pending-verification.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "2026-08-10-rid-statusline-24h-overlay-sediment",
@@ -2478,18 +2494,18 @@
       {
         "name": "4016-lint-strict-prd-todo",
         "kind": "project-todo",
-        "description": "PRD-002b — ESLint 严格化 + LLM 红线 baseline (合并进 4.0.16) 状态 ⏸ **WAITING** — 等当前 4.0.16 ship 闭环（已 7 commits on main, verif...",
+        "description": "PRD-002b — ESLint 严格化 + LLM 红线 baseline (合并进 4.0.16) > **RESOLVED — verified 2026-09-10.** This entry waited on 4.0.1...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-4016-lint-strict-prd-todo.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "prd002b-qa-cycle3-blocked-on-pre-existing-flakes",
         "kind": "project-todo",
-        "description": "PRD-002b QA cycle 3 BLOCKED — root cause = pre-existing flakes, not F6 Status 🟡 **PRD-002b slice is functionally com...",
+        "description": "PRD-002b QA cycle 3 BLOCKED — root cause = pre-existing flakes, not F6 > **PARTLY RESOLVED — verified 2026-09-10.** T...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-prd002b-qa-cycle3-blocked-on-pre-existing-flakes.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       }
     ],
     "publish-closure": [

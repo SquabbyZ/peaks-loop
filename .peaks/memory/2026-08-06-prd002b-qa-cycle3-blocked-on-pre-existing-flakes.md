@@ -11,6 +11,16 @@ metadata:
 
 # PRD-002b QA cycle 3 BLOCKED — root cause = pre-existing flakes, not F6
 
+> **PARTLY RESOLVED — verified 2026-09-10.** The A/B/C decision this entry puts to the user is **moot
+> for option B**: the lint subcommand it would have shipped without now exists (`peaks lint check` /
+> `baseline`, see the sibling entry above). The F6 fix is in the tree and was never reverted, which is
+> what the captured decision required.
+> **Still open and NOT verified as resolved:** the flaky/timeout test residue. One of the files named
+> in the related `codegraph-8-subtask` F4 list
+> (`tests/unit/services/dispatch/dispatch-isolation-lifecycle.test.ts`) no longer exists, but that does
+> not establish the rest were fixed. Treat the flaky-test class as **unresolved** until measured. See
+> `.peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md` §C.
+
 ## Status
 
 🟡 **PRD-002b slice is functionally complete**, but **QA cycle 3 emit BLOCKED verdict** because of 5 pre-existing test timeouts (not the F6 fix). 3 cycle repair budget is **exhausted**.

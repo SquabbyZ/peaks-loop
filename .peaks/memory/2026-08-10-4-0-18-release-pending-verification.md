@@ -11,6 +11,14 @@ metadata:
 
 # 4.0.18 release — pending GitHub Actions verification
 
+> **RESOLVED / OBSOLETE — verified 2026-09-10.** This entry was recorded as an open blocker; it is
+> not one. The project is at **4.0.36**, and `v4.0.18` through `v4.0.36` are all tagged — the CI
+> verification this was waiting on completed eighteen releases ago. The three named failure modes
+> (gate-cli-version pin, gate-capability-baseline, extract-release-notes awk) did not stop the release
+> train and need no action. **Kept rather than deleted** so the record of what was believed — and why
+> it stopped being true — survives. Do not resurrect this as a todo. See
+> `.peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md` §C.
+
 ## 状态
 
 ✅ **本地完成**：

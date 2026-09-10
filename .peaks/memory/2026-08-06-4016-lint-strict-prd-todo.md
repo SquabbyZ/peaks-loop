@@ -10,6 +10,14 @@ metadata:
 
 # PRD-002b — ESLint 严格化 + LLM 红线 baseline (合并进 4.0.16)
 
+> **RESOLVED — verified 2026-09-10.** This entry waited on 4.0.16 shipping before opening a new slice.
+> 4.0.16 shipped, and the capability it was blocked on is present: **`peaks lint check`,
+> `peaks lint baseline` and `peaks lint detect-eslint` all exist** and respond. The strict-rule
+> promotion is no longer gated on anything recorded here. Its only live residue is the flaky-test
+> class tracked separately in `2026-08-06-prd002b-qa-cycle3-blocked-on-pre-existing-flakes.md`.
+> **Kept rather than deleted** for the same reason as the sibling entry. See
+> `.peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md` §C.
+
 ## 状态
 
 ⏸ **WAITING** — 等当前 4.0.16 ship 闭环（已 7 commits on main, verify-pipeline PASS, request handed-off）后开 1 个新 slice。**预算充足**，可立即开。
