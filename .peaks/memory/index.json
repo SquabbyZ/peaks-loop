@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T07:23:53.642Z",
+  "updatedAt": "2026-09-10T10:02:16.111Z",
   "hot": {
     "rule": [
       {
@@ -9,6 +9,22 @@
         "description": "During acceptance I reported \"0 orphan daemon processes, 0 chrome\" as evidence AC6 passed.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-measurement-whose-command-failed-silently-is-not-a-pass.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "a-test-that-cannot-fail-is-worse-than-no-test",
+        "kind": "rule",
+        "description": "Slice S4 of  needed five review rounds, and the **first three each found a defect behind a green suite — in every cas...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-test-that-cannot-fail-is-worse-than-no-test.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "an-absolute-rule-collides-with-implementation-reality-enumerate-the-carve-outs",
+        "kind": "rule",
+        "description": "S4's cookie rule was amended to \"**no other artifact may hold these values, anywhere** — not under , not elsewhere in...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-absolute-rule-collides-with-implementation-reality-enumerate-the-carve-outs.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-09-10"
       },
       {
@@ -145,6 +161,14 @@
         "description": "Six times in one session I wrote a premise into a dispatch brief that I had taken from a report rather than from the ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verify-a-cross-module-premise-before-asserting-it-in-a-dispatch-brief.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "when-a-reviewer-objects-to-a-mechanism-ask-what-else-it-is-holding-up",
+        "kind": "rule",
+        "description": "In S4, a reviewer correctly flagged that a  staging file contradicted the project's \"no other artifact may hold these...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\when-a-reviewer-objects-to-a-mechanism-ask-what-else-it-is-holding-up.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-09-10"
       },
       {
@@ -628,6 +652,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-dogfood-4-0-20-cli-wiring-and-vendor-detect-defects.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers",
+        "kind": "lesson",
+        "description": "S1, S2 and S3 of  each needed **one** repair pass.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准",
@@ -1114,6 +1146,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ide-adapter-detectcurrentmodel-optional-interface-pattern.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/qa/003-add-zcode-adapter/slice-C-completion.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "run-the-typecheck-config-that-includes-the-tests",
+        "kind": "technical-pattern",
+        "description": "S4 made  a **required** member.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\run-the-typecheck-config-that-includes-the-tests.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
+        "updatedAt": "2026-09-10"
       }
     ],
     "project-rule": [
