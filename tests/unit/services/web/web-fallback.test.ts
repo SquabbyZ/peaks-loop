@@ -56,6 +56,14 @@ const ALL_OPS: readonly WebOp[] = [
 /** The ops that have a browser path, and therefore something to degrade. */
 const BROWSER_OPS: readonly WebOp[] = ['open', 'text', 'snap', 'click', 'shot', 'metrics', 'login'];
 
+/**
+ * The members of `BROWSER_OPS` that also have an MCP stand-in. `login` is a
+ * browser op WITHOUT one: no `mcp__playwright__*` tool persists a storage state,
+ * so naming `browser_navigate` for it sent the caller to a dead end (S4 R3). It
+ * is the one browser op whose `mcpTool` is empty.
+ */
+const MCP_BACKED_OPS: readonly WebOp[] = ['open', 'text', 'snap', 'click', 'shot', 'metrics'];
+
 describe('behavior — the degraded envelope', () => {
   it('when the gate refuses a browser op, should answer tier 3 with the fallback tool named', () => {
     // given: the disabled gate's reason for each browser-touching op
@@ -68,8 +76,32 @@ describe('behavior — the degraded envelope', () => {
       expect(envelope.code).toBe('WEB_DISABLED');
       expect(envelope.data.tier).toBe(3);
       expect(envelope.data.mcpTool).toBe(MCP_TOOL_FOR_OP[op]);
-      expect(envelope.data.mcpTool.length).toBeGreaterThan(0);
       expect(envelope.data.installHint).toContain('playwright install chromium');
+    }
+  });
+
+  it('when login degrades, should not name an MCP tool that cannot persist a session', () => {
+    // given: the gate's refusal for `login` — the one browser verb whose whole
+    //        purpose is persisting a session, which no MCP tool can do (S4 R3)
+    // when:  the envelope is built
+    const envelope = degradedEnvelope('login', 'PEAKS_WEB_DISABLED=1');
+    // then:  the machine-readable field agrees with the human-readable one. The
+    //        old value was `mcp__playwright__browser_navigate` — a tool that
+    //        saves nothing — while `nextActions` said the fallback cannot save a
+    //        login profile at all. A consumer reads `mcpTool` as "call this
+    //        instead", so an empty string is the only honest answer here.
+    expect(envelope.data.mcpTool).toBe('');
+    expect(MCP_TOOL_FOR_OP['login']).toBe('');
+    expect(envelope.nextActions.join('\n')).not.toContain('mcp__playwright__');
+    expect(envelope.nextActions.join('\n')).toContain('PEAKS_WEB_DISABLED');
+  });
+
+  it('when an op has an MCP stand-in, should still name it', () => {
+    // given: every browser op that is NOT login
+    // when:  each is degraded
+    // then:  the empty-mcpTool carve-out above did not spread to its neighbours
+    for (const op of MCP_BACKED_OPS) {
+      expect(degradedEnvelope(op, 'PEAKS_WEB_DISABLED=1').data.mcpTool.length).toBeGreaterThan(0);
     }
   });
 

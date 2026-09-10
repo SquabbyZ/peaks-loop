@@ -31,6 +31,13 @@ export type DegradationTier = 3 | 4;
  * (`status` reports the disabled flag, `stop` stops a process). The empty
  * string is that "no fallback exists" answer, and `degradedEnvelope` — the only
  * caller — says so rather than naming a tool that cannot do the job.
+ *
+ * `login` is empty for the SAME reason, and it is the one browser op where that
+ * is not obvious (S4 R3). No `mcp__playwright__*` tool persists a storage state,
+ * so `browser_navigate` was a dead end for the only verb whose whole purpose is
+ * persistence: an envelope that told a caller to call it would contradict its own
+ * `nextActions`. The machine-readable field now agrees with the human-readable
+ * one.
  */
 export const MCP_TOOL_FOR_OP: Record<WebOp, string> = {
   open: 'mcp__playwright__browser_navigate',
@@ -39,7 +46,7 @@ export const MCP_TOOL_FOR_OP: Record<WebOp, string> = {
   click: 'mcp__playwright__browser_click',
   shot: 'mcp__playwright__browser_take_screenshot',
   metrics: 'mcp__playwright__browser_evaluate',
-  login: 'mcp__playwright__browser_navigate',
+  login: '',
   install: 'mcp__playwright__browser_install',
   status: '',
   stop: '',
@@ -132,6 +139,17 @@ function nextActions(op: WebOp, mcpTool: string): string[] {
     ];
   }
   const install = 'Run `peaks web install` for the local path';
+  // `login` is the one browser op its MCP fallback cannot stand in for: no
+  // `mcp__playwright__*` tool persists a storage state, so naming
+  // `browser_navigate` would send the caller to a dead end for the only verb
+  // whose whole purpose is persistence (S4 R3). The gate is the real recovery.
+  if (op === 'login') {
+    return [
+      'Unset PEAKS_WEB_DISABLED and re-run `peaks web login --profile <name>` — ' +
+        'the MCP fallback cannot save a login profile',
+      install
+    ];
+  }
   if (mcpTool === '') {
     return [install];
   }

@@ -113,6 +113,39 @@ describe("Scenario: render — printResult shape", () => {
     expect(err).toMatch(/- restart/);
     expect(err).toMatch(/- escalate/);
   });
+
+  it("when invoked, should err result with asJson=false prints the warnings spread over it", () => {
+    // given: the shape `degradedEnvelope` (web-fallback.ts) and `peaks web
+    //        login` build — `fail()` hard-codes `warnings: []`, so a failed
+    //        envelope only ever carries one by spreading (S4 repair, F6)
+    const { io, captured } = makeCapturedIo();
+    // when:  the failed envelope is printed for a human
+    printResult(
+      io,
+      {
+        ...fail('peaks.web.login', 'WEB_LOGIN_FAILED', 'msg', {}, ['retry']),
+        warnings: ['local browser skipped (PEAKS_WEB_DISABLED=1)', 'MCP fallback warning'],
+      },
+      false,
+    );
+    // then:  the failure branch does not DROP them: they are the only news some
+    //        failures have, and the JSON branch is untouched by this loop
+    const err = captured.stderrText();
+    expect(err).toMatch(/^WEB_LOGIN_FAILED: msg/);
+    expect(err).toContain('warning: local browser skipped (PEAKS_WEB_DISABLED=1)');
+    expect(err).toContain('warning: MCP fallback warning');
+    expect(captured.text()).toBe('');
+  });
+
+  it("when invoked, should err result with asJson=true keeps warnings in the envelope only", () => {
+    // given: the same failed envelope read by a machine
+    const { io, captured } = makeCapturedIo();
+    // when:  it is printed as JSON
+    printResult(io, { ...fail('demo', 'CODE', 'msg', {}, []), warnings: ['w1'] }, true);
+    // then:  nothing goes to stderr and the shape is unchanged
+    expect(captured.stderrText()).toBe('');
+    expect((JSON.parse(captured.text()) as { warnings: string[] }).warnings).toEqual(['w1']);
+  });
 });
 
 describe("Scenario: render — printSuperCommandCatalog", () => {

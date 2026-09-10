@@ -393,6 +393,27 @@ function installEnvelope(captured: { text: () => string }): InstallEnvelope {
   return JSON.parse(captured.text()) as InstallEnvelope;
 }
 
+describe('behavior — `peaks web login` under the gate', () => {
+  it('when the gate refuses an upper-case --profile, should say the name was not folded', async () => {
+    // given: PEAKS_WEB_DISABLED=1 and a name a live run would fold. The gate is
+    //        statement #1, so this needs no session binding and opens no browser.
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    try {
+      // when:  login degrades
+      const parsed = envelope((await runWebArgv(['login', '--profile', 'Work'])).captured);
+      // then:  the refusal does not look like it disagrees with a live run about
+      //        the profile: it says out loud that no fold happened here, instead
+      //        of echoing "Work" as if it were the canonical name (S4 repair,
+      //        code F5 / security S5)
+      expect(parsed.code).toBe('WEB_DISABLED');
+      expect(parsed.warnings.join('\n')).toContain('NOT folded');
+      expect(parsed.warnings.join('\n')).toContain('"Work"');
+    } finally {
+      delete process.env['PEAKS_WEB_DISABLED'];
+    }
+  });
+});
+
 describe('behavior — `peaks web install`', () => {
   // The env is saved and cleared around each test rather than with the shared
   // `withEnv` helper: that helper registers its restore hook from inside the

@@ -105,13 +105,22 @@ If the page redirects to a login challenge:
 
 ## Sensitive data sanitization
 
-Never persist any of the following in `.peaks/_runtime/<session-id>/**` artifacts:
+**Default: never persist.** Never persist any of the following in `.peaks/_runtime/<session-id>/**` artifacts:
 
 - Login URLs, redirect URLs, OAuth callback URLs containing tokens or state.
 - Cookies, request or response headers, session tokens, storage state, QR payloads.
 - Raw network logs.
 - Raw browser state, browser traces.
 - Screenshots or logs containing PII, SSO challenge content, or MFA material.
+
+**The one exception, and it is narrow.** `peaks web login --profile <name>` persists a Playwright `storageState.json` to `~/.peaks/web-profiles/<name>/`. It is allowed only when the user explicitly asks for a persistent login. An LLM must never choose it on its own initiative, and it is never part of a default workflow. That name at that path is the whole of the exception: **no other artifact may hold these values, anywhere** — not under `.peaks/_runtime/`, not elsewhere in the project tree, not elsewhere under the user's home. This file is written outside the project tree and outside git; that is a property of this one path, not a licence to persist these values wherever the project tree happens to end.
+
+**Two named carve-outs, so the rule above can be read literally.**
+
+1. **The staging file.** The state is published atomically, which means writing it to a staging file **in the same profile directory** (`0600`) and renaming it into place. The staging name is **per-run** (`storageState.json.<pid>.staging`) so two concurrent logins cannot overwrite each other's in-flight bytes — the rule sanctions *a* staging file, and that is the only form it takes. It is sanctioned **only** while a publish is in flight: it must be deleted on every failure path, must never outlive the command that created it, and nothing may ever read it as a profile. A single non-atomic write is **not** an acceptable alternative — it truncates the previous session before writing the new one, so a failed write destroys a working login and the caller is told nothing happened.
+2. **The browser's own profile directory.** A headed Chromium writes its live session cookies to an **ephemeral profile directory the browser manages itself** (under the OS temp directory for the duration of the session, normally removed on close). This is not something a login flow can prevent and it is not what this rule is about — but it is a place those values are held, so it is named here rather than left implied. Launching a headed browser to log in is therefore **never zero-exposure**, and anyone weighing the exception above should weigh that too.
+
+**The risk, stated plainly.** That file holds live session cookies and tokens for the sites that were logged into. Any process running as this user can read it. It does not expire with the browser session, and it survives until it is deleted. Deleting `~/.peaks/web-profiles/<name>/` removes what the tool stored — it does not revoke the session at the site, so log out there as well if the account matters. Only persist a login for an account that may safely stay logged in on this machine.
 
 Redact sensitive values before retention. Store evidence as sanitized observations (e.g., "user reached settings page; first 3 list items had a missing-image regression") rather than raw captures.
 

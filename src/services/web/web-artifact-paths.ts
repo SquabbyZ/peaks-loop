@@ -125,6 +125,24 @@ export function webInstallLockPath(): string {
   return join(homedir(), '.peaks', 'web', 'install.lock');
 }
 
+/**
+ * `<homedir>/.peaks/web-profiles/` — the root of the user-level login profiles
+ * (S4, design §10.2).
+ *
+ * Deliberately CROSS-PROJECT: one logged-in session reused across every project
+ * and worktree is the feature's whole value, so it is scoped to the user, not to
+ * `(projectRoot, sessionId)`. AC1's "no root pollution" is untouched — this
+ * lives under the user's home, never under the project root.
+ *
+ * The name lives HERE rather than in `web-login-profile.ts` for the same reason
+ * `webInstallLockPath` does: this module is the only one under
+ * `src/services/web/` allowed to contain the `.peaks` literal (tech-doc §7.2
+ * rule 1).
+ */
+export function userWebProfilesDir(): string {
+  return join(homedir(), '.peaks', 'web-profiles');
+}
+
 /** `<root>/.peaks/_runtime/<sid>/web/daemon/daemon.log` — daemon stdout/stderr. */
 export function webLogPath(projectRoot: string, sessionId: string): string {
   return join(webDaemonDir(projectRoot, sessionId), 'daemon.log');

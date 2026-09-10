@@ -18,6 +18,13 @@ export function printResult<T>(io: ProgramIO, result: ResultEnvelope<T>, asJson 
 
   if (!result.ok) {
     io.stderr(`${result.code}: ${result.message}`);
+    // S1's F1, at the printer: a warning carried by a FAILED envelope is the
+    // only news some failures have — `peaks web login` reports a headed browser
+    // it could not close this way. `fail()` hard-codes `warnings: []`, so only
+    // an envelope that spreads its own warnings over a `fail()` reaches here.
+    for (const warning of result.warnings) {
+      io.stderr(`warning: ${warning}`);
+    }
     for (const action of result.nextActions) {
       io.stderr(`- ${action}`);
     }
