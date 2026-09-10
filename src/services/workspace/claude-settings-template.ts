@@ -14,10 +14,12 @@
  * the in-memory template byte-for-byte.
  *
  * One matcher is emitted:
- *   1. `Write|Edit|MultiEdit` — a node one-liner that path-matches
- *      `.peaks/_runtime/` and `.peaks/_runtime/<sessionId>/`. Exits 0 (allow)
- *      for those paths, non-zero (deny → fall through to gate) for
- *      everything else.
+ *   1. `Write|Edit|MultiEdit` — a `node <script>` handler that runs the
+ *      path gate shipped at `src/services/hooks/write-gate.js`. Exits 0
+ *      (allow) for the paths the gate skips, exit 1 (deny → fall through to
+ *      gate) for everything else. TEMPLATE_VERSION 1.6.0 moved the decision
+ *      out of an inlined `node -e "<js>"` one-liner, whose escaping was
+ *      bash-specific and therefore could not take a platform `shell` pin.
  *
  * The previous `Bash` matcher (which whitelisted a fixed `peaks
  * <subcommand>` prefix) was removed in TEMPLATE_VERSION 1.2.0. The
@@ -31,6 +33,9 @@
  * consumer project's `.claude/settings.json` and which exits 0
  * silently for any command not guarded by a registered SOP gate.
  */
+
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
 
@@ -71,8 +76,14 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           gate-step-08` handler. It runs on the same `Bash` matcher,
  *           so leaving it un-pinned left the console-window defect in
  *           place for half of every Bash tool call.
+ *   1.6.0 — the `Write|Edit|MultiEdit` handler no longer inlines its
+ *           JavaScript as `node -e "<js>"`. It invokes the shipped script
+ *           `src/services/hooks/write-gate.js` instead, so the command
+ *           string carries no shell-escaped payload at all and the handler
+ *           can take the same platform `shell` pin as its siblings. The
+ *           decision itself is a verbatim relocation — see that file.
  */
-export const TEMPLATE_VERSION = '1.5.0';
+export const TEMPLATE_VERSION = '1.6.0';
 
 /**
  * Compare two serialized template strings for semantic equivalence.
@@ -166,65 +177,46 @@ function sameHooksArray(
 }
 
 /**
- * Wrap an inner JavaScript payload as a shell-evaluable `node -e "..."`
- * one-liner. The returned string is what Claude Code writes verbatim
- * into `.claude/settings.local.json` under the `command` field. Per
- * Node.js docs (https://nodejs.org/api/process.html#processargv), when
- * using `-e` there is no script-file slot, so `process.argv[1]` is the
- * first user-passed extra argument. This is consistent across Windows,
- * macOS, and Linux.
+ * This module's own directory — `<root>/src/services/workspace` in the
+ * source tree, `<root>/dist/services/workspace` in a build.
  *
- * Every `"` character in the inner JS must be JSON-escaped as `\\"`
- * so that the surrounding wrapper `node -e "..."` parses correctly:
- * the shell sees the escape and passes a literal `"` to Node. A
- * single missed escape closes the wrapper early and the entire hook
- * regresses to the bash-syntax-error class of bug.
- *
- * @param js Inner JavaScript payload. Must be a single statement or a
- *           sequence of statements joined with `;`. The wrapper does
- *           not insert any `;` between the payload and the closing
- *           `"` because Node accepts a trailing expression with `;`
- *           already terminated by the payload itself.
+ * Anchored on the running module rather than on `process.argv[1]`: the
+ * same reason `daemon-supervisor.ts` documents — `argv[1]` is a different
+ * file in each way the CLI is entered (`bin/peaks.js`, `src/cli/index.ts`
+ * under tsx, `dist/cli/index.js` when invoked directly), whereas the
+ * module's own location is the one fact that is always true.
  */
-function wrapAsNodeOneLiner(js: string): string {
-  // Only `"` needs JSON-escaping: the wrapper uses double quotes, so an
-  // unescaped inner `"` would close the wrapper prematurely. Backslashes
-  // do NOT need escaping here — bash inside a `"..."` wrapper reduces
-  // `\\` to `\`, so any `\X` in the inner JS reaches Node as `\X`,
-  // which is what regex literals like `/\.peaks\//` need. Adding a
-  // second `\\` → `\\` pass would double-escape backslashes and break
-  // every regex literal the inner JS contains.
-  const escaped = js.replace(/"/g, '\\"');
-  return `node -e "${escaped}"`;
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Absolute path of the shipped Write|Edit|MultiEdit gate script.
+ *
+ * `write-gate.js` is a plain `.js` (not a compiled `.ts`) precisely so this
+ * single relative filename resolves in BOTH trees: `src/services/hooks/` for
+ * `tsx` / vitest, `dist/services/hooks/` for an installed consumer (copied by
+ * `scripts/copy-templates.mjs`; the `dist/**` `*.js` glob in
+ * `package.json#files` already ships it).
+ *
+ * Separators are normalized to `/` so the emitted command contains no
+ * backslash at all. That is what makes the handler shell-agnostic: bash
+ * reduces `\X` inside `"..."` and PowerShell escapes with a backtick, so any
+ * backslash in the string is one dialect's problem waiting to happen.
+ */
+export function writeGateScriptPath(): string {
+  return resolve(MODULE_DIR, '..', 'hooks', 'write-gate.js').replaceAll('\\', '/');
 }
 
 /**
- * Build the Write|Edit|MultiEdit matcher command. The command reads
- * the candidate file path from argv[2] and exits 0 iff the path
- * contains `.peaks/_runtime/` or `.peaks/_runtime/<sessionId>/` (the change-id
- * segment is the next path component after `.peaks/`). All other
- * paths exit 1 so the gate fires normally.
+ * Build the Write|Edit|MultiEdit matcher command.
  *
- * The matcher is intentionally narrow: it only fires for tools that
- * take a `file_path` (Write/Edit/MultiEdit) and for the Bash
- * subcommand allow-list. It does NOT silently allow arbitrary paths
- * under `.peaks/_runtime/<sessionId>/` — only those matching the documented
- * pattern. Future slice work can broaden the allow-list if the
- * peaks-code workflow needs more paths.
+ * TEMPLATE_VERSION 1.6.0: `node "<script>"` with NO inline payload. The
+ * decision lives in `src/services/hooks/write-gate.js` and was relocated
+ * there verbatim. Because there is nothing left to escape, this handler is
+ * shell-dialect-independent and can carry the same platform `shell` pin as
+ * its Bash siblings (see `resolveHookShell`).
  */
 function buildWriteHookCommand(): string {
-  // Path-matching: allow when the path contains `.peaks/_runtime/`
-  // OR when the second `.peaks/` segment starts with anything that
-  // looks like a change-id (kebab-case slug). Exit 0 for allow, exit
-  // 1 for deny. The candidate path arrives on `process.argv[1]` per
-  // Node.js argv layout under `-e` (cross-platform consistent).
-  const js =
-    'const p=process.argv[1]||"";' +
-    'if(p.includes(".peaks/_runtime/"))process.exit(0);' +
-    'const m=p.match(/\\.peaks\\/([a-z0-9][a-z0-9.-]*)\\//);' +
-    'if(m&&m[1]&&m[1]!=="_runtime"&&m[1]!=="_dogfood"&&m[1]!=="_sub_agents"&&m[1]!=="memory"&&m[1]!=="sops"&&m[1]!=="retrospective"&&m[1]!=="project-scan"&&m[1]!=="perf-baseline")process.exit(0);' +
-    'process.exit(1)';
-  return wrapAsNodeOneLiner(js);
+  return `node "${writeGateScriptPath()}"`;
 }
 
 /**
@@ -261,6 +253,14 @@ type ClaudeSettingsLocal = { hooks: { PreToolUse: ClaudePreToolUseEntry[] } };
  * `.claude/settings.json` (not `.claude/settings.local.json`).
  */
 export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
+  // TEMPLATE_VERSION 1.6.0 — the write handler can now be shell-pinned for the
+  // same Windows reason as the two Bash handlers below: a shell-form command is
+  // executed by Git Bash / MSYS2, which force-allocates a console window on
+  // every matching tool call. It could NOT take the pin while its payload was
+  // inlined JavaScript, because PowerShell does not perform bash's backslash
+  // reduction and would have corrupted the payload. `undefined` on POSIX omits
+  // the key entirely.
+  const writeShell = resolveHookShell();
   return {
     hooks: {
       PreToolUse: [
@@ -269,7 +269,8 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
           hooks: [
             {
               type: 'command',
-              command: buildWriteHookCommand()
+              command: buildWriteHookCommand(),
+              ...(writeShell !== undefined ? { shell: writeShell } : {})
             }
           ]
         },

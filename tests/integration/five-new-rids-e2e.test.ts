@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe('rid-010 fix-claude-settings-template-hook-node-wrapper', () => {
-  test('skips then restores the JSON-safe node wrapper with argv[1]', () => {
+  test('skips then restores the JSON-safe node wrapper (now a script invocation)', () => {
     const project = makeProject('peaks-rid-010-');
     const settingsPath = join(project, '.claude', 'settings.local.json');
     const sessionArgs = ['--session-id', '2026-07-25-rid010-e2e'] as const;
@@ -84,8 +84,13 @@ describe('rid-010 fix-claude-settings-template-hook-node-wrapper', () => {
     const commands = (settings.hooks?.PreToolUse ?? [])
       .flatMap((entry) => entry.hooks ?? [])
       .map((hook) => hook.command ?? '');
-    expect(commands.some((command) => /node\s+-e\s+"/.test(command))).toBe(true);
-    expect(commands.some((command) => command.includes('process.argv[1]'))).toBe(true);
+    // Slice c5-write-hook-exec-form (TEMPLATE_VERSION 1.6.0): the Write|Edit|
+    // MultiEdit handler is still a JSON-safe `node` invocation, but the
+    // JavaScript is no longer inlined as `node -e "<js>"` — that form's escaping
+    // was bash-specific, so it could not take a platform `shell` pin. It now
+    // invokes the shipped gate script, which carries no escaped payload at all.
+    expect(commands.some((command) => /^node "[^"]*\/services\/hooks\/write-gate\.js"$/.test(command))).toBe(true);
+    expect(commands.some((command) => command.includes('process.argv[1]'))).toBe(false);
   });
 });
 

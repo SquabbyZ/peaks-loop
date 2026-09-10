@@ -60,6 +60,18 @@ const targets = [
     src: join(packageRoot, 'src/services/skillhub/migrations'),
     dest: join(packageRoot, 'dist/services/skillhub/migrations'),
     extensions: ['.sql']
+  },
+  {
+    // Slice c5-write-hook-exec-form: the Write|Edit|MultiEdit PreToolUse gate
+    // emitted by `peaks workspace init` is invoked as `node <path>`, and the
+    // path is resolved relative to this module — `dist/services/hooks/` in an
+    // installed consumer, `src/services/hooks/` under tsx. A plain `.js` asset
+    // (not a `.ts` compiled by tsc) is what lets ONE relative filename be valid
+    // in both trees. Without this copy the hook would be a broken path in every
+    // installed consumer while every test in this repo still passed.
+    src: join(packageRoot, 'src/services/hooks'),
+    dest: join(packageRoot, 'dist/services/hooks'),
+    extensions: ['.js']
   }
 ];
 

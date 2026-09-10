@@ -214,7 +214,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     // then: the template carries the same shell-pinned entry the installer
     //       writes — the machine-local file has two writers, and a template
     //       that omitted the entry would erase it on the next init
-    expect(TEMPLATE_VERSION).toBe('1.5.0');
+    // 1.6.0 = slice c5-write-hook-exec-form: the Write|Edit|MultiEdit handler
+    // moved from an inlined `node -e "<js>"` payload to `node <script>`.
+    expect(TEMPLATE_VERSION).toBe('1.6.0');
     expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe('powershell');
   });
 
