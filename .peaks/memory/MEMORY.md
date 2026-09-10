@@ -51,7 +51,7 @@
 - [slim-ideadapter-shape-is-the-contract](slim-ideadapter-shape-is-the-contract.md) — Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...
 - [subagent-tool-matcher-per-ide](subagent-tool-matcher-per-ide.md) — Per-IdeAdapter.subAgentToolMatcher is a string field declared in .
 
-## rule (24)
+## rule (25)
 
 - [a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository](a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository.md) — On 2026-09-10 a survey of "what work is left" read  for every job and found roughly **20 pending slices across four j...
 - [a-measurement-whose-command-failed-silently-is-not-a-pass](a-measurement-whose-command-failed-silently-is-not-a-pass.md) — During acceptance I reported "0 orphan daemon processes, 0 chrome" as evidence AC6 passed.
@@ -65,6 +65,7 @@
 - [peaks-loop-tenet-one-key-completion-and-minimal-user-operation](peaks-cli-tenet-one-key-completion.md) — > Source: peaks-loop repo, user-stated principle 2026-06-11 late session (smallMark).
 - [peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first](peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md) — In peaks-loop, each top-level command (, , etc.) is registered in exactly one place.
 - [peaks-memory-start-blocks-must-survive-the-slice-close-not-stay-under-peaks-runtime](peaks-memory-start-blocks-must-survive-the-slice-close-not-stay-under-peaks-runtime.md) — peaks-txt's Step 11 BLOCKING contract: durable, LLM-authored memories land in  (the canonical project-local store).
+- [peaks-on-path-is-the-installed-build-not-the-working-tree-never-verify-cli-changes-with-it](peaks-on-path-is-the-installed-build-not-the-working-tree-never-verify-cli-changes-with-it.md) — While verifying a fix to ,  returned  even though the source plainly declared that flag 13 times and contained the ne...
 - [removing-a-tool-removes-the-guarantees-it-made-implicitly](removing-a-tool-removes-the-guarantees-it-made-implicitly.md) — launched the daemon via , which did two jobs: it launched the process **and it pinned the Playwright version by const...
 - [staged-enforcer-delivery-via-deferred-enforcers-set](staged-enforcer-delivery-via-deferred-enforcers-set.md) — For multi-commit enforcer delivery (source shipped first, integration wired in a follow-up commit), use a  set in the...
 - [sub-agent-context-minimal-occupation](sub-agent-context-minimal-occupation.md) — User hard rule (2026-06-07 1:38 + 1:40 GMT+8): "**子 agent 会把上下文撑爆吧**" + "**能不能让子 agent 不占用上下文,或者极少的占用呢**".

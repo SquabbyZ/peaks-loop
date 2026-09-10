@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T10:44:46.350Z",
+  "updatedAt": "2026-09-10T11:10:59.200Z",
   "hot": {
     "rule": [
       {
@@ -98,6 +98,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-memory-start-blocks-must-survive-the-slice-close-not-stay-under-peaks-runtime.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "peaks-on-path-is-the-installed-build-not-the-working-tree-never-verify-cli-changes-with-it",
+        "kind": "rule",
+        "description": "While verifying a fix to ,  returned  even though the source plainly declared that flag 13 times and contained the ne...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-on-path-is-the-installed-build-not-the-working-tree-never-verify-cli-changes-with-it.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "removing-a-tool-removes-the-guarantees-it-made-implicitly",
