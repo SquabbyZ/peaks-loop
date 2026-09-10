@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T14:33:16.799Z",
+  "updatedAt": "2026-09-10T15:03:53.586Z",
   "hot": {
     "rule": [
+      {
+        "name": "a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing",
+        "kind": "rule",
+        "description": "reports  alongside , and it is **diff-scoped** (, default ).",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-defect-sweep.md",
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository",
         "kind": "rule",
@@ -25,6 +33,14 @@
         "description": "Slice S4 of  needed five review rounds, and the **first three each found a defect behind a green suite — in every cas...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-test-that-cannot-fail-is-worse-than-no-test.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "a-windows-cmd-shim-cannot-be-spawned-with-or-without-a-shell-and-the-failure-is-silent",
+        "kind": "rule",
+        "description": "Seven sites in this repo spawned a Windows  shim and **all of them were wrong**: Neither branch works, so every affec...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-windows-cmd-shim-cannot-be-spawned-with-or-without-a-shell-and-the-failure-is-silent.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-defect-sweep.md",
         "updatedAt": "2026-09-10"
       },
       {
@@ -169,6 +185,14 @@
         "description": "S2's race fix shipped with a test using a single trigger (the loser delayed at the lock) and it was accepted as proof...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\test-a-concurrency-fix-against-every-distinct-trigger-class-not-one.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "two-functions-answering-what-is-the-current-session-will-drift-and-the-shadowed-one-wins-silently",
+        "kind": "rule",
+        "description": "read ;  **preferred a per-caller binding** and only fell back to that file.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-functions-answering-what-is-the-current-session-will-drift-and-the-shadowed-one-wins-silently.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-defect-sweep.md",
         "updatedAt": "2026-09-10"
       },
       {
