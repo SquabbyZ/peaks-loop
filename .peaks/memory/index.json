@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T11:10:59.200Z",
+  "updatedAt": "2026-09-10T14:33:16.799Z",
   "hot": {
     "rule": [
       {
@@ -365,7 +365,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> Active-skill reads go through the CLI When checking the active Peaks skill ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\active-skill-cli-routing.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "auto-compact-threshold-policy",
@@ -609,7 +609,7 @@
         "description": "is the canonical home for the per-session workspace.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\src-services-session-canonical-workspace-resolver.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       }
     ],
     "lesson": [
@@ -883,7 +883,7 @@
         "description": "As of slice  (2026-06-07), the canonical per-session workspace lives at  (NOT the legacy ).",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\session-dir-canonical-resolver-must-route-all-writes.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "silent-warning-5-grace-marker-slice-1-5",
@@ -1067,7 +1067,7 @@
         "description": "The path-construction static scan in  was originally written to cover only  (slice 005's defense-in-depth).",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",

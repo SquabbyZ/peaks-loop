@@ -45,7 +45,7 @@ Other references to `.peaks/.active-skill.json` in `skills/peaks-*/references/*.
 ## Dogfood evidence (2026-06-10 micro-cycle)
 
 - `peaks skill presence --json` returns the active skill correctly: `{ active: true, skill: "peaks-code", sessionId: "2026-06-10-session-c4a2be", ... }`
-- Tests: 18 + 42 + 8 + 15 = **83 tests pass** across `project-standards-service`, `skill-presence-service`, `skill-statusline-service`, `session-dir-canonical`. 1 pre-existing skip.
+- Tests: 18 + 42 + 8 + 15 = **83 tests pass** across `project-standards-service`, `skill-presence-service`, `skill-statusline-service`, `session-dir-canonical`. 1 pre-existing skip. **(Corrected 2026-09-10: this was true when measured on 2026-06-10. The `session-dir-canonical` share of that 83 stopped existing on 2026-07-30, when commit `f17aa377` deliberately deleted `tests/unit/services/session/session-dir-canonical.test.ts`. It was rebuilt in the S5 slice on 2026-09-10.)**
 - `tsc --noEmit`: **0 errors**.
 - No test asserts the old "Read `.peaks/.active-skill.json`" string, so the doc-only change did not break any test.
 
