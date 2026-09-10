@@ -1,8 +1,24 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T00:17:44.110Z",
+  "updatedAt": "2026-09-10T07:23:53.642Z",
   "hot": {
     "rule": [
+      {
+        "name": "a-measurement-whose-command-failed-silently-is-not-a-pass",
+        "kind": "rule",
+        "description": "During acceptance I reported \"0 orphan daemon processes, 0 chrome\" as evidence AC6 passed.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-measurement-whose-command-failed-silently-is-not-a-pass.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "delete-the-line-and-see-whether-the-suite-still-passes",
+        "kind": "rule",
+        "description": "AC6's linchpin —  — had **zero coverage**: deleting it left all 129 tests green.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\delete-the-line-and-see-whether-the-suite-still-passes.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "jsdoc-breaks-on-glob-literals-in-tsc",
         "kind": "rule",
@@ -10,6 +26,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\jsdoc-breaks-on-glob-literals-in-tsc.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "on-windows-windowshide-covers-only-the-process-you-spawn",
+        "kind": "rule",
+        "description": "applies to the immediate child.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\on-windows-windowshide-covers-only-the-process-you-spawn.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes",
@@ -50,6 +74,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-memory-start-blocks-must-survive-the-slice-close-not-stay-under-peaks-runtime.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "removing-a-tool-removes-the-guarantees-it-made-implicitly",
+        "kind": "rule",
+        "description": "launched the daemon via , which did two jobs: it launched the process **and it pinned the Playwright version by const...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\removing-a-tool-removes-the-guarantees-it-made-implicitly.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
@@ -98,6 +130,22 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "test-a-concurrency-fix-against-every-distinct-trigger-class-not-one",
+        "kind": "rule",
+        "description": "S2's race fix shipped with a test using a single trigger (the loser delayed at the lock) and it was accepted as proof...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\test-a-concurrency-fix-against-every-distinct-trigger-class-not-one.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "verify-a-cross-module-premise-before-asserting-it-in-a-dispatch-brief",
+        "kind": "rule",
+        "description": "Six times in one session I wrote a premise into a dispatch brief that I had taken from a report rather than from the ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verify-a-cross-module-premise-before-asserting-it-in-a-dispatch-brief.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "workspace-underscore-convention",
@@ -620,6 +668,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-f2-detached-arch-closure-and-4-0-21-publish-sediment.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "measure-the-alternatives-before-fixing-a-wrong-target-defect",
+        "kind": "lesson",
+        "description": "A probe checked for full  while  needed .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\measure-the-alternatives-before-fixing-a-wrong-target-defect.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "monorepo-test-fix-2026-07-20",
@@ -1674,6 +1730,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "2026-09-10-peaks-web-s1-s3-shipped-s4-queued",
+        "kind": "project",
+        "description": "peaks-web — 3 of 4 slices shipped, E2E-verified (2026-09-10) **Job:** .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-10-peaks-web-s1-s3-shipped-s4-queued.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "24h-loop-audit-2026-07-28",
         "kind": "project",
         "description": "peaks-loop 24h 长任务代码审计（2026-07-28） > **状态**：报告-only，未实施、未派 sub-agent、未改代码。 > **触发**：用户 2026-07-28 显式要求\"审视 + 不改代码\"。 > ...",
@@ -2282,6 +2346,14 @@
         "kind": "design",
         "description": "Auto-compact protocol (v2.13.0) Motivation The v2.11.0 D6 context monitor () returns a trigger path the LLM should fo...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-27-auto-compact-design.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-09-10-peaks-web-design-accepted",
+        "kind": "design",
+        "description": "设计已接受（2026-09-10）· 待实施 **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **状态：设计定稿 + goal 已接受，S1-S4 未开工** 要...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-10-peaks-web-design-accepted.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-10"
       },
