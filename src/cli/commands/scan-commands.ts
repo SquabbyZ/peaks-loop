@@ -266,7 +266,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     scan
       .command('file-size')
-      .description('Check git diff for files exceeding a line count threshold (karpathy-skills "Simplicity First"; generated artifacts and lockfiles excluded)')
+      .description('Check git diff for files exceeding a line count threshold (karpathy-skills "Simplicity First"; tool output, lockfiles and append-only records such as CHANGELOG.md excluded)')
       .requiredOption('--project <path>', 'target project root')
       .option('--base-ref <ref>', 'compare working tree against this git ref (default: HEAD)')
       .option('--threshold <n>', `line count threshold (default: ${DEFAULT_FILE_SIZE_THRESHOLD})`)

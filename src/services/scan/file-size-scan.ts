@@ -5,20 +5,36 @@ import { join } from 'node:path';
 export const DEFAULT_FILE_SIZE_THRESHOLD = 800;
 
 /**
- * Paths exempt from the file-size cap because they are whole-cloth tool
- * output, not source a human maintains. `.peaks/**` is Peaks-Loop's own state
- * store and holds three derived indexes already over the cap
- * (`memory/index.json`, `lint/baseline.json`, `retrospective/index.json`);
- * exempting only `memory/` would leave the other two false positives intact.
- * No source module lives there, and its largest hand-authored file is under
- * 500 lines. Lockfiles are regenerated on every install. Declared once, here
- * — do not add special-cases in the scan loop.
+ * Paths exempt from the file-size cap. The cap is Karpathy's "Simplicity
+ * First": it exists to make a human *simplify* an over-long file. A path is
+ * therefore exempt exactly when no such simplification exists — which is two
+ * kinds of file, both listed below so the reason is visible next to the rule.
+ *
+ * Tool output (whole-cloth generated, nobody maintains it by hand):
+ * `.peaks/**` is Peaks-Loop's own state store and holds three derived indexes
+ * already over the cap (`memory/index.json`, `lint/baseline.json`,
+ * `retrospective/index.json`); exempting only `memory/` would leave the other
+ * two false positives intact. No source module lives there, and its largest
+ * hand-authored file is under 500 lines. Lockfiles are regenerated on every
+ * install.
+ *
+ * Append-only records: `CHANGELOG.md` is history, so its length is a function
+ * of how long the project has existed, not of anyone's design choices — the
+ * only way to "fix" a violation would be to delete the record. Left checked,
+ * this gate is reliably red on every release, precisely when it cannot be
+ * acted on, which trains people to ignore it. A nested changelog under
+ * `packages/` is the same kind of record.
+ *
+ * Declared once, here — do not add special-cases in the scan loop.
  */
-export const GENERATED_ARTIFACT_PATTERNS: readonly string[] = [
+export const SIZE_CAP_EXEMPT_PATTERNS: readonly string[] = [
+  // tool output
   '.peaks/**',
   '**/pnpm-lock.yaml',
   '**/package-lock.json',
-  '**/yarn.lock'
+  '**/yarn.lock',
+  // append-only records
+  '**/CHANGELOG.md'
 ];
 
 /**
@@ -27,7 +43,7 @@ export const GENERATED_ARTIFACT_PATTERNS: readonly string[] = [
  * directory-wildcard prefix matches zero directories, so a root-level
  * lockfile still counts.
  */
-function generatedPatternToRegExp(pattern: string): RegExp {
+function exemptPatternToRegExp(pattern: string): RegExp {
   const body = pattern
     .split(/(\*\*\/|\*\*|\*)/)
     .map((part) => {
@@ -40,9 +56,9 @@ function generatedPatternToRegExp(pattern: string): RegExp {
   return new RegExp(`^${body}$`);
 }
 
-export function isGeneratedArtifact(file: string): boolean {
+export function isSizeCapExempt(file: string): boolean {
   const normalized = file.replace(/\\/g, '/');
-  return GENERATED_ARTIFACT_PATTERNS.some((pattern) => generatedPatternToRegExp(pattern).test(normalized));
+  return SIZE_CAP_EXEMPT_PATTERNS.some((pattern) => exemptPatternToRegExp(pattern).test(normalized));
 }
 
 export type FileSizeViolation = {
@@ -54,8 +70,9 @@ export type FileSizeScanResult = {
   ok: boolean;
   threshold: number;
   checkedFiles: number;
-  /** Generated artifacts skipped by GENERATED_ARTIFACT_PATTERNS. Reported so
-   *  the exemption is auditable rather than a silent skip. */
+  /** Paths skipped by SIZE_CAP_EXEMPT_PATTERNS (tool output + append-only
+   *  records). Reported so the exemption is auditable rather than a silent
+   *  skip. */
   exemptFiles: string[];
   /** Files that appeared in `git diff` but no longer exist on disk (e.g.
    *  deleted in the working tree). Pre-#015 the scan crashed on these via
@@ -103,7 +120,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   let checkedFiles = 0;
 
   for (const file of files) {
-    if (isGeneratedArtifact(file)) {
+    if (isSizeCapExempt(file)) {
       exemptFiles.push(file);
       continue;
     }

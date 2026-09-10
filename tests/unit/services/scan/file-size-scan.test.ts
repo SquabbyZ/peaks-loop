@@ -3,10 +3,13 @@
 // 2026-09-10 — `peaks scan file-size` is diff-scoped and flags any changed
 // file over the 800-line cap. `.peaks/memory/index.json` is 2657 lines and is
 // rebuilt wholesale by `peaks memory reindex`, so every commit that reindexes
-// memory reported a violation on a derived index. The exemption lives in
-// GENERATED_ARTIFACT_PATTERNS (file-size-scan.ts) and this file locks down
-// both halves of the contract:
-//   - a generated artifact is skipped and reported in `exemptFiles`;
+// memory reported a violation on a derived index. 2026-09-11 — the same gate
+// fired on every release, on CHANGELOG.md (4747 lines), which no one can
+// "simplify" without deleting history. The exemption lives in
+// SIZE_CAP_EXEMPT_PATTERNS (file-size-scan.ts) and this file locks down both
+// halves of the contract:
+//   - an exempt path (tool output OR append-only record) is skipped and
+//     reported in `exemptFiles`;
 //   - a >800-line change in a REAL source file is still a violation —
 //     an exemption that also hides source files would be worse than the
 //     false positive it removes.
@@ -28,7 +31,7 @@ import { makeCapturedIo } from '../../_setup/io.js';
 import { registerScanCommands } from '../../../../src/cli/commands/scan-commands.js';
 import {
   DEFAULT_FILE_SIZE_THRESHOLD,
-  isGeneratedArtifact,
+  isSizeCapExempt,
   scanFileSize,
 } from '../../../../src/services/scan/file-size-scan.js';
 
@@ -88,7 +91,7 @@ afterEach(() => {
   }
 });
 
-describe('file-size scan — generated-artifact exemption', () => {
+describe('file-size scan — size-cap exemption', () => {
   describe('(integration) diff-scoped scan over a real repo', () => {
     it('when the changed files are a source file and a reindexed generated index, should exempt the index and still check the source file', () => {
       // given: `git diff HEAD` lists src/small.ts and .peaks/memory/index.json
@@ -142,11 +145,37 @@ describe('file-size scan — generated-artifact exemption', () => {
       expect(result.violations).toEqual([]);
       expect(result.exemptFiles).toContain('pnpm-lock.yaml');
     });
+
+    it('when a release commit appends an over-cap CHANGELOG.md entry, should exempt it and still check the source it touched (the reported 4.0.37 case)', () => {
+      // given: a >800-line CHANGELOG plus a real source change, both in the diff
+      writeLines('CHANGELOG.md', OVER_CAP, repo);
+      writeLines('src/small.ts', OVER_CAP, repo);
+      // when:  the scan runs
+      const result = scanFileSize({ projectRoot: repo });
+      // then:  the changelog is history — nothing a human could simplify — so
+      //        the release gate is green...
+      expect(result.exemptFiles).toContain('CHANGELOG.md');
+      // ...and the exemption is not a blanket amnesty: the source file in the
+      // same commit is still counted and still reported.
+      expect(result.violations).toEqual([{ file: 'src/small.ts', lines: OVER_CAP + 1 }]);
+      expect(result.ok).toBe(false);
+    });
+
+    it('when a nested package CHANGELOG.md is over the cap, should exempt it too', () => {
+      // given: the monorepo shape (packages/*/CHANGELOG.md), which the root
+      //        CHANGELOG.md would not cover if the pattern were root-anchored
+      writeLines('packages/peaks-loop-shared/CHANGELOG.md', OVER_CAP, repo);
+      // when:  the scan runs
+      const result = scanFileSize({ projectRoot: repo });
+      // then:  it is the same kind of append-only record
+      expect(result.violations).toEqual([]);
+      expect(result.exemptFiles).toContain('packages/peaks-loop-shared/CHANGELOG.md');
+    });
   });
 
-  describe('(behavior) isGeneratedArtifact matcher', () => {
-    it('when given a generated artifact path, should return true', () => {
-      // given/when/then: known tool output only
+  describe('(behavior) isSizeCapExempt matcher', () => {
+    it('when given a generated artifact or append-only record path, should return true', () => {
+      // given/when/then: known tool output, plus the append-only records
       for (const file of [
         '.peaks/memory/index.json',
         '.peaks/lint/baseline.json',
@@ -155,13 +184,16 @@ describe('file-size scan — generated-artifact exemption', () => {
         'examples/video-demo/pnpm-lock.yaml',
         'package-lock.json',
         'yarn.lock',
+        'CHANGELOG.md',
+        'packages/peaks-loop-shared/CHANGELOG.md',
       ]) {
-        expect(isGeneratedArtifact(file), file).toBe(true);
+        expect(isSizeCapExempt(file), file).toBe(true);
       }
     });
 
     it('when given a source or test path, should return false', () => {
-      // given/when/then: the exemption must not reach source
+      // given/when/then: the exemption must not reach source, and must not
+      // turn into "markdown in general" or "anything named like a changelog"
       for (const file of [
         'src/services/config/config-service.ts',
         'src/peaks/not-a-state-dir.ts',
@@ -169,16 +201,19 @@ describe('file-size scan — generated-artifact exemption', () => {
         'tests/unit/services/scan/file-size-scan.test.ts',
         '.peaks.json',
         'docs/peaks-lock.yaml.bak',
+        'docs/CHANGELOG-history.md',
+        'docs/superpowers/plans/2026-08-03-capability-baseline-guard-audit.md',
+        'CHANGELOG.md.bak',
       ]) {
-        expect(isGeneratedArtifact(file), file).toBe(false);
+        expect(isSizeCapExempt(file), file).toBe(false);
       }
     });
 
     it('when given a Windows-separator path, should normalize before matching', () => {
       // given: git emits forward slashes, but a caller may not
       // when/then: the separator does not change the verdict
-      expect(isGeneratedArtifact('.peaks\\memory\\index.json')).toBe(true);
-      expect(isGeneratedArtifact('src\\services\\config\\config-service.ts')).toBe(false);
+      expect(isSizeCapExempt('.peaks\\memory\\index.json')).toBe(true);
+      expect(isSizeCapExempt('src\\services\\config\\config-service.ts')).toBe(false);
     });
   });
 
