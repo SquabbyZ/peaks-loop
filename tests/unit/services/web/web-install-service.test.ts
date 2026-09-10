@@ -87,7 +87,9 @@ beforeEach(() => {
   }
   // The loader scans `<home>/.npm/_npx` and, on win32, `<LOCALAPPDATA>/npm-cache/_npx`;
   // both now resolve under the tmp workspace.
-  mkdirSync(join(ws().path, 'npm-cache', '_npx'), { recursive: true });
+  for (const root of cacheRoots()) {
+    mkdirSync(root, { recursive: true });
+  }
   // The loader memoizes a successful resolution (R10) and each test plants its
   // own cache, so a probe test must not inherit the previous one's answer.
   vi.resetModules();
@@ -124,32 +126,50 @@ function plantLock(body: unknown): void {
 const lockPath = (): string => webInstallLockPath();
 
 /**
+ * Both cache-root spellings the loader can scan: `<home>/.npm/_npx` (POSIX, and
+ * the first tier on every platform) and `<LOCALAPPDATA>/npm-cache/_npx`
+ * (win32). Planting the platform's own spelling alone is what made this file
+ * pass on Windows and fail on the ubuntu runner (CI, 2026-09-10) — the assertion
+ * was about the machine's platform, not about the probe.
+ */
+const cacheRoots = (): string[] => [
+  join(ws().path, '.npm', '_npx'),
+  join(ws().path, 'npm-cache', '_npx')
+];
+
+/**
  * Plant a complete npm exec cache entry holding a `playwright` package that
  * declares `version`, whose `chromium.executablePath()` answers `chromiumPath`.
  * `playwright-core` beside it declares `coreVersion`, so the cross-check the
- * loader performs can be exercised in both directions.
+ * loader performs can be exercised in both directions. Written under EVERY
+ * cache root the loader scans, so the answer does not depend on the platform
+ * running the test.
  */
 function plantCachedPlaywright(options: {
   version?: string;
   coreVersion?: string;
   chromiumPath: string;
 }): string {
-  const modules = join(ws().path, 'npm-cache', '_npx', 'deadbeef', 'node_modules');
-  mkdirSync(join(modules, 'playwright'), { recursive: true });
-  mkdirSync(join(modules, 'playwright-core'), { recursive: true });
-  writeFileSync(
-    join(modules, 'playwright', 'package.json'),
-    JSON.stringify({ name: 'playwright', version: options.version ?? PLAYWRIGHT_VERSION_PIN })
-  );
-  writeFileSync(
-    join(modules, 'playwright', 'index.js'),
-    `module.exports = { chromium: { executablePath: () => ${JSON.stringify(options.chromiumPath)} } };\n`
-  );
-  writeFileSync(
-    join(modules, 'playwright-core', 'package.json'),
-    JSON.stringify({ name: 'playwright-core', version: options.coreVersion ?? PLAYWRIGHT_VERSION_PIN })
-  );
-  return join(modules, 'playwright', 'index.js');
+  let planted = '';
+  for (const root of cacheRoots()) {
+    const modules = join(root, 'deadbeef', 'node_modules');
+    mkdirSync(join(modules, 'playwright'), { recursive: true });
+    mkdirSync(join(modules, 'playwright-core'), { recursive: true });
+    writeFileSync(
+      join(modules, 'playwright', 'package.json'),
+      JSON.stringify({ name: 'playwright', version: options.version ?? PLAYWRIGHT_VERSION_PIN })
+    );
+    writeFileSync(
+      join(modules, 'playwright', 'index.js'),
+      `module.exports = { chromium: { executablePath: () => ${JSON.stringify(options.chromiumPath)} } };\n`
+    );
+    writeFileSync(
+      join(modules, 'playwright-core', 'package.json'),
+      JSON.stringify({ name: 'playwright-core', version: options.coreVersion ?? PLAYWRIGHT_VERSION_PIN })
+    );
+    planted = join(modules, 'playwright', 'index.js');
+  }
+  return planted;
 }
 
 /** The registry root the planted package points at, laid out like Playwright's. */

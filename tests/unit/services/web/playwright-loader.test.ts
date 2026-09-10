@@ -105,10 +105,26 @@ const cacheRoots = (): string[] => [
   join(ws().path, '.npm', '_npx')
 ];
 
+/**
+ * Plant the pinned pair under EVERY cache-root spelling, not just the one this
+ * machine's platform makes the loader scan: the loader reads
+ * `<home>/.npm/_npx` on POSIX and `<LOCALAPPDATA>/npm-cache/_npx` on win32, so
+ * planting the platform's own spelling alone passed here and failed on the
+ * ubuntu runner (CI, 2026-09-10) for a reason that had nothing to do with the
+ * admission rule under test.
+ */
+function plantInEveryCacheRoot(
+  options: Parameters<typeof plantPackage>[1] = {},
+): void {
+  for (const root of cacheRoots()) {
+    plantPackage(cacheEntryModules(root), options);
+  }
+}
+
 describe('behavior — the admission rule', () => {
   it('when a consistent pinned package sits in the exec cache, should resolve it', async () => {
     // given: the arrangement acquisition actually produces
-    plantPackage(cacheEntryModules(cacheRoots()[0]!));
+    plantInEveryCacheRoot();
     // when:  the loader resolves
     const resolved = (await loader()).resolvePlaywrightModule();
     // then:  it is that package — the positive control for every refusal below,
@@ -144,7 +160,7 @@ describe('behavior — the admission rule', () => {
 
   it('when the cached package declares a prerelease of the pin, should not resolve it', async () => {
     // given: the multi-version cache this machine really has, with the alpha first
-    plantPackage(cacheEntryModules(cacheRoots()[0]!), { version: `${PIN}-alpha-1234` });
+    plantInEveryCacheRoot({ version: `${PIN}-alpha-1234` });
     // when:  the loader resolves
     // then:  an honest version mismatch is still rejected, on this tier too
     const mod = await loader();
@@ -153,7 +169,7 @@ describe('behavior — the admission rule', () => {
 
   it('when playwright-core contradicts the playwright manifest, should not resolve it', async () => {
     // given: a single forged manifest — the cheap half of a planted package
-    plantPackage(cacheEntryModules(cacheRoots()[0]!), { version: PIN, coreVersion: '0.0.1' });
+    plantInEveryCacheRoot({ version: PIN, coreVersion: '0.0.1' });
     // when:  the loader resolves
     // then:  the second, independent manifest must agree before anything loads
     const mod = await loader();
@@ -163,8 +179,11 @@ describe('behavior — the admission rule', () => {
   it('when a package is planted one level above the cache entry, should not resolve it', async () => {
     // given: `<cacheRoot>/node_modules/playwright`, reachable only by letting
     //        `require.resolve` walk UP out of the entry being scanned
-    const root = cacheRoots()[0]!;
-    plantPackage(join(root, 'node_modules'));
+    for (const root of cacheRoots()) {
+      // the entry the scan actually reads, so the walk-up is reachable at all
+      mkdirSync(cacheEntryModules(root), { recursive: true });
+      plantPackage(join(root, 'node_modules'));
+    }
     // when:  the loader resolves
     // then:  the answer must be inside the anchor it scanned, so it is refused
     const mod = await loader();
@@ -177,14 +196,16 @@ describe('behavior — the admission rule', () => {
     //        `require.resolve` alone cannot see, because it reports the link
     const outside = join(ws().path, 'outside');
     plantPackage(join(outside, 'node_modules'));
-    const entryModules = cacheEntryModules(cacheRoots()[0]!);
-    mkdirSync(entryModules, { recursive: true });
+    const entries = cacheRoots().map((root) => cacheEntryModules(root));
     try {
-      symlinkSync(
-        join(outside, 'node_modules', 'playwright'),
-        join(entryModules, 'playwright'),
-        'junction'
-      );
+      for (const entryModules of entries) {
+        mkdirSync(entryModules, { recursive: true });
+        symlinkSync(
+          join(outside, 'node_modules', 'playwright'),
+          join(entryModules, 'playwright'),
+          'junction'
+        );
+      }
     } catch {
       // Windows without the privilege: the containment rule under test is the
       // same one the walk-up case above exercises, so skip rather than pretend.
@@ -194,6 +215,8 @@ describe('behavior — the admission rule', () => {
     // then:  realpath puts the payload outside the scanned root and it is refused
     const mod = await loader();
     expect(() => mod.resolvePlaywrightModule()).toThrow(/PLAYWRIGHT_NOT_RESOLVABLE/);
-    rmSync(join(entryModules, 'playwright'), { recursive: true, force: true });
+    for (const entryModules of entries) {
+      rmSync(join(entryModules, 'playwright'), { recursive: true, force: true });
+    }
   });
 });

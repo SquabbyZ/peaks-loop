@@ -355,7 +355,12 @@ describe('Scenario: integration — Q2/Q4 probes reach a runnable CLI (D1)', () 
     //       returns source 'unavailable' with ratio 0)
     const probe = await probeContextRatio(REPO_ROOT);
     expect(probe.source).not.toBe('unavailable');
-    expect(probe.ratio).toBeGreaterThan(0);
+    // A real reading is not the same as a non-zero one: with no Claude
+    // transcript on the box (every CI runner) the CLI honestly answers
+    // `{ratio: 0, source: 'conservative-fallback'}`, and `> 0` asserted the
+    // developer's transcript, not the probe's reach — the `source` check above
+    // is what fails when the spawn/parse fallback comes back.
+    expect(probe.ratio).toBeGreaterThanOrEqual(0);
   }, 60_000);
 });
 
