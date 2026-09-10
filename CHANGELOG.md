@@ -1,5 +1,29 @@
 # Changelog
 
+## 4.0.37 — 2026-09-10 (Windows spawn 根因 + 会话解析 + 诚实性修复)
+
+**Highlights**:
+
+1. **Windows `.cmd` spawn 根因，7 处一并修复** — `execFile`/`spawnSync` 一个 `.cmd` shim：**带 shell 时路径里的空格会被 shell 切开，不带 shell 时 Node ≥20 直接 `EINVAL`**。两条分支都不成立，所以在不含空格的路径上一切正常、在每个测试里都绿。
+   - `peaks slice check` 在**路径含空格的项目上整体失效**——这是本仓库自己所在的平台。改为 `process.execPath` + 包的 JS entry（无 shim、无 shell）。
+   - `version-precheck`：`projectRoot` 作为 **git 的参数**传入，空格路径下 git 退出 128，该层退化成 "layer skipped" —— **把一个真实存在的 tag 冲突报告成了"只是延后"**。
+   - `peaks code orchestrator-can-do`：两个探针在 Windows 上**恒返回失败**，所以 `q2SubAgentAvailable` 永远是 false、`q4ContextRatio` 永远是硬编码的 `0`（那是 fallback，不是读数）。
+   - 其余：`slice-decompose-runners`（失败被吞进 `indexed:false`，codegraph 信号静默消失）、`detect-eslint`、`coverage-c8`（`--src=`/`--reports-dir=` 携带项目路径）、若干 release 脚本。
+
+2. **会话解析根因——显式 rebind 此前只对一半 CLI 生效** — 两个函数都在回答"当前是哪个 session"，来源却不同：`getCurrentSessionId` 读 `.peaks/_runtime/session.json`，`getSessionIdCanonical` **优先 per-caller binding**。`peaks workspace init --session-id X --allow-session-rebind` 只改前者，于是 caller binding **遮蔽**了显式 rebind。实测后果：`session checkpoint` 与 `24h-mode` 把状态写进**另一个 session 的目录**，而 `peaks job` 读的是正确的那个。现在 rebind 同步更新当前 caller 的 binding——**更新而非清除**，因为清除会丢掉 per-caller 身份且没有任何代码会重建它。未 rebind 的其它 caller 文件**字节不变**，隔离不受影响。
+
+3. **job 可按 session 寻址（D6）+ `--slice-id` 不再静默 no-op（D7）** — 11 个 job 子命令补上 `--session-id`，解析顺序 `flag → PEAKS_SESSION_ID → binding`；job 不在绑定的 session 里时不再吐 `UNHANDLED_ERROR`，而是 `JOB_NOT_IN_SESSION` **指名它在哪个 session** 并给出重跑命令。`--slice-id` 现在接受 label 别名，未匹配则 `SLICE_NOT_FOUND` 并**列出全部合法 id**，且**不写入任何文件**（此前 `ok: true` 却什么都没做）。
+
+4. **`peaks web open --profile <name>`——持久登录终于有人消费** — S4 落的 `~/.peaks/web-profiles/<name>/storageState.json` 此前**没有任何动词读取**。`--profile` 只加在 `open` 上；名字在 **CLI 与 daemon 两侧**各校验一次（走线上的名字不是证据）；profile **只读**（自动浏览是否该回写用户级凭据文件是未决设计问题，本轮不替你决定）；指定了不存在的 profile **按名字失败**，而不是静默用一个未登录的浏览器。
+
+5. **诚实性修复——工具不再报告它没有的证据** — `peaks best-practice-scan` 此前把 stub 片段渲染成 8 行表格 + "方案 A ★" + 强制 ⚠️ 闸门，**全部来自合成文本**；现在合成结果直接拒绝（`ok:false`、exit 1，无推荐无表格）。`peaks slice check` 的 typecheck 阶段此前跑默认 `tsconfig.json`（272 个既有错误、**全部在 `tests/`**），**永远红**；现在 gate 于干净的 build 配置，宽口径计数对基线比较并在 detail 里如实报出。`peaks scan file-size` 不再把**生成文件**（记忆索引、lockfile）算作超长。
+
+6. **两个"不可能失败"的守卫测试** — 重建被删的 session-dir 静态扫描时发现**原版三个不变量都失效**：`src/` 正则只匹配链条**末尾**的 session id（而它要防的 bug 在**中间**，命中 0 次）；`skills/` 遍历只下一层（**完全看不到** `skills/bee/<skill>/references/`，包括它当初就是为了守的那个文件）；占位符比自己的注释窄。两侧都补了永久性的可证伪用例。`withEnv` 此前通过**在测试体内部注册 `afterEach`** 来还原环境变量——作用域错误，值会漏给下一个测试；改用 `onTestFinished`。**当前没有测试是因为这个泄漏才通过的**——真实的假通过来源，暂无受害者。
+
+7. **write gate 收紧且与 shell 解耦** — 放行范围从"**除 8 个名字外全部放行**"（那会放行顶层的 `.peaks/<change-id>/`，而 CLAUDE.md 明令禁止）收紧为**仅 `.peaks/_runtime/`**。handler 从 `node -e "<bash 专属转义的内联 JS>"` 改为调用随包发布的脚本文件，因而可像它的兄弟一样 pin PowerShell。顺带查明：**这个 hook 在 Windows 上从未真正生效过**——Claude Code 的 payload 走 stdin，而它读 argv，所以每次写入都落到 fall-through。
+
+**验证**：build clean、`tsc -p tsconfig.build.json` exit 0、宽口径 `tsconfig.json` 维持既有 142；全量 **175 files / 1679 passed（3 skipped）**；0 个 `daemon-entry` 进程残留。以上每一项都在**构建产物**（`bin/peaks.js`，非 `tsx src/`）上冒烟过，含"路径含空格的项目"这一验收场景。
+
 ## 4.0.36 — 2026-09-10 (派发提示词瘦身 + 波次调度 + 编排器上下文审计)
 
 **Highlights**:
