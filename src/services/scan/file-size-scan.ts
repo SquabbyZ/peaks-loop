@@ -4,6 +4,47 @@ import { join } from 'node:path';
 
 export const DEFAULT_FILE_SIZE_THRESHOLD = 800;
 
+/**
+ * Paths exempt from the file-size cap because they are whole-cloth tool
+ * output, not source a human maintains. `.peaks/**` is Peaks-Loop's own state
+ * store and holds three derived indexes already over the cap
+ * (`memory/index.json`, `lint/baseline.json`, `retrospective/index.json`);
+ * exempting only `memory/` would leave the other two false positives intact.
+ * No source module lives there, and its largest hand-authored file is under
+ * 500 lines. Lockfiles are regenerated on every install. Declared once, here
+ * — do not add special-cases in the scan loop.
+ */
+export const GENERATED_ARTIFACT_PATTERNS: readonly string[] = [
+  '.peaks/**',
+  '**/pnpm-lock.yaml',
+  '**/package-lock.json',
+  '**/yarn.lock'
+];
+
+/**
+ * Glob → RegExp for the shapes above only, in a single split pass (chained
+ * string replaces would re-expand the `.*` they had just produced). The
+ * directory-wildcard prefix matches zero directories, so a root-level
+ * lockfile still counts.
+ */
+function generatedPatternToRegExp(pattern: string): RegExp {
+  const body = pattern
+    .split(/(\*\*\/|\*\*|\*)/)
+    .map((part) => {
+      if (part === '**/') return '(?:.*/)?';
+      if (part === '**') return '.*';
+      if (part === '*') return '[^/]*';
+      return part.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('');
+  return new RegExp(`^${body}$`);
+}
+
+export function isGeneratedArtifact(file: string): boolean {
+  const normalized = file.replace(/\\/g, '/');
+  return GENERATED_ARTIFACT_PATTERNS.some((pattern) => generatedPatternToRegExp(pattern).test(normalized));
+}
+
 export type FileSizeViolation = {
   file: string;
   lines: number;
@@ -13,6 +54,9 @@ export type FileSizeScanResult = {
   ok: boolean;
   threshold: number;
   checkedFiles: number;
+  /** Generated artifacts skipped by GENERATED_ARTIFACT_PATTERNS. Reported so
+   *  the exemption is auditable rather than a silent skip. */
+  exemptFiles: string[];
   /** Files that appeared in `git diff` but no longer exist on disk (e.g.
    *  deleted in the working tree). Pre-#015 the scan crashed on these via
    *  ENOENT; now they are reported here as informational data. */
@@ -55,9 +99,14 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
   const files = getChangedFiles(options.projectRoot, baseRef);
   const violations: FileSizeViolation[] = [];
   const deletedFiles: string[] = [];
+  const exemptFiles: string[] = [];
   let checkedFiles = 0;
 
   for (const file of files) {
+    if (isGeneratedArtifact(file)) {
+      exemptFiles.push(file);
+      continue;
+    }
     const absolute = join(options.projectRoot, file);
     // Pre-#015: readFileSync threw ENOENT for files that appear in
     // `git diff --name-only` but no longer exist on disk (e.g. a refactor
@@ -89,6 +138,7 @@ export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {
     ok: violations.length === 0,
     threshold,
     checkedFiles,
+    exemptFiles,
     deletedFiles,
     violations
   };
