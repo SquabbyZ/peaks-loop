@@ -90,6 +90,7 @@ import { registerVendorDetectCommand } from './vendor-detect.js';
 import { registerUpgradeCommands } from './upgrade-commands.js';
 import { registerUserTouchpointCommands } from './user-touchpoint-commands.js';
 import { registerVerdictAggregateCommands } from './verdict-aggregate-command.js';
+import { registerWebCommands } from './web-commands.js';
 import { registerWorkflowCommands } from './workflow-commands.js';
 import { registerWorkflowPlanCommands } from './workflow-plan-commands.js';
 import { registerWorktreeAuthCommand } from './worktree-auth-commands.js';
@@ -156,6 +157,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['session-spill-demo', registerSpillDemoCommand],
   ['outer-cache-commands', registerOuterCacheCommands],
   ['vendor-detect', registerVendorDetectCommand],
+  ['web-commands', registerWebCommands],
 ];
 
 function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO): void {
