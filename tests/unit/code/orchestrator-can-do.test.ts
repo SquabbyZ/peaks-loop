@@ -32,6 +32,7 @@
 //                 in error path
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolve } from 'node:path';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import {
@@ -44,10 +45,15 @@ import {
   OrchestratorCanDoError,
   ORCHESTRATOR_PRECOMPACT_RATIO,
   ORCHESTRATOR_REDLINE_RATIO,
+  probeContextRatio,
+  probeSubAgentAvailable,
   type ContextProbe,
 } from '~/src/services/code/orchestrator-can-do';
 import { registerCodeOrchestratorCanDoCommand } from '~/src/cli/commands/code-orchestrator-can-do';
 import { Command } from 'commander';
+
+/** Repo root — the tree the un-injected probes must resolve their own CLI from. */
+const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
 declareDimensions(
   'tests/unit/code/orchestrator-can-do.test.ts',
@@ -321,6 +327,36 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
     expect(result.contextRatio).toBe(0.91);
     expect(result.blockers.some((b) => b.includes('near limit'))).toBe(true);
   });
+});
+
+// ---------------------------------------------------------------------------
+// D1 (2026-09-10) — the un-injected probes must reach a runnable peaks CLI.
+//
+// These are the regression net for the phantom-blocker defect: both probes
+// spawned a bare `peaks`, which on Windows is a `.cmd` shim that `execFile`
+// cannot run (no PATHEXT resolution; Node >= 20 refuses `.cmd` without
+// `shell: true`). Q2 therefore answered "unavailable" and Q4 answered
+// ratio 0 for every slice-spec, whatever the CLI actually did when run by
+// hand. Both tests fail on the pre-fix code.
+// ---------------------------------------------------------------------------
+
+describe('Scenario: integration — Q2/Q4 probes reach a runnable CLI (D1)', () => {
+  it('when no peaks binary is injected, should report sub-agent dispatch available', async () => {
+    // given: the default sentinel bin — i.e. no --peaks-bin override
+    // when: the Q2 probe runs against this repository
+    // then: it observes a dispatchable CLI, not a spawn ENOENT
+    expect(await probeSubAgentAvailable(REPO_ROOT)).toBe(true);
+  }, 60_000);
+
+  it('when no peaks binary is injected, should read a real context ratio instead of the unavailable fallback', async () => {
+    // given: the default sentinel bin — i.e. no --peaks-bin override
+    // when: the Q4 probe runs against this repository
+    // then: the envelope parsed, so the source is a real one (a spawn failure
+    //       returns source 'unavailable' with ratio 0)
+    const probe = await probeContextRatio(REPO_ROOT);
+    expect(probe.source).not.toBe('unavailable');
+    expect(probe.ratio).toBeGreaterThan(0);
+  }, 60_000);
 });
 
 // ---------------------------------------------------------------------------

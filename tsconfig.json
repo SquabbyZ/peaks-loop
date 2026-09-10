@@ -11,6 +11,10 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/src/*": ["src/*.ts", "src/*/index.ts", "src/*"]
+    },
     "rootDir": ".",
     "outDir": "dist",
     "declaration": true,

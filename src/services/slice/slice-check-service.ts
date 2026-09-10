@@ -31,6 +31,19 @@ const HEAD_LINES_IN_TAIL = 3;
 const AUDIT_MIN_RED_LINES = 60;
 const REVIEW_FILE_MIN_BYTES = 20;
 
+/**
+ * 2026-09-10 D1-follow-up (G5): `tsconfig.build.json` is the type contract the
+ * package actually ships (`src/**` only) and it is clean, so the typecheck
+ * stage GATES on it. The wider `tsconfig.json` adds `tests/**`, which still
+ * carries errors this slice did not cause — 142 as measured on 2026-09-10
+ * (`pnpm exec tsc -p tsconfig.json --noEmit 2>&1 | grep -c "error TS"`), all
+ * of them under `tests/`, none under `src/`. That count is therefore a
+ * baseline, not a gate: the stage fails only when it GROWS, which is the
+ * question "did this slice add a type error anywhere?". Re-measure and update
+ * this constant when the residue is paid down.
+ */
+export const TYPECHECK_PREEXISTING_BASELINE = 142;
+
 interface RunResult {
   status: 'pass' | 'fail';
   stdout: string;
@@ -129,17 +142,54 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   // installed by pnpm at workspace-install time and avoids the
   // npx PATH-lookup issue.
   const tsc = resolveLocalBinary(projectRoot, 'tsc');
-  const result = runCommand(tsc.command, [...tsc.args, '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS, tsc.shell);
-  const testFiles = result.stdout.match(/(tests?\/.*\.test\.ts)/g) ?? [];
+
+  // 2026-09-10 G5: this stage used to run a bare `tsc --noEmit`, which picked
+  // up the DEFAULT tsconfig.json (src/** + tests/**) and its 142 pre-existing
+  // test-side errors — so the stage was permanently red and its one real
+  // signal was buried. The gate is now the build tsconfig, which covers
+  // exactly what ships.
+  const buildConfig = 'tsconfig.build.json';
+  const hasBuildConfig = existsSync(join(projectRoot, buildConfig));
+  const gate = runCommand(
+    tsc.command,
+    [...tsc.args, '-p', hasBuildConfig ? buildConfig : 'tsconfig.json', '--noEmit'],
+    projectRoot,
+    TYPECHECK_TIMEOUT_MS,
+    tsc.shell
+  );
+
+  // Measure the wider count so the residue is surfaced rather than hidden.
+  // The baseline comparison only applies when a clean build tsconfig gives it
+  // a meaning; without one the gate above already IS this run.
+  const wide = hasBuildConfig
+    ? runCommand(tsc.command, [...tsc.args, '-p', 'tsconfig.json', '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS, tsc.shell)
+    : gate;
+  const wideErrors = (wide.stdout + wide.stderr).match(/error TS\d+/g)?.length ?? 0;
+  const wideLabel = hasBuildConfig ? 'tsconfig.json (src/** + tests/**)' : 'tsconfig.json';
+  const regressed = hasBuildConfig && gate.status === 'pass' && wideErrors > TYPECHECK_PREEXISTING_BASELINE;
+
+  const reason = gate.status !== 'pass'
+    ? `tsc -p ${hasBuildConfig ? buildConfig : 'tsconfig.json'} --noEmit exited ${gate.exitCode}`
+    : regressed
+      ? `typecheck errors grew to ${wideErrors} (pre-existing baseline ${TYPECHECK_PREEXISTING_BASELINE})`
+      : '';
+
   return {
     name: 'typecheck',
-    description: `${tsc.command} --noEmit (no JS emit, type-only check)`,
-    status: result.status,
-    durationMs: result.durationMs,
-    detail: result.status === 'pass'
-      ? `Typecheck passed in ${result.durationMs}ms.`
-      : tailLines(result.stdout + result.stderr, TYPECHECK_TAIL_LINES) || `tsc exited with code ${result.exitCode}.`,
-    data: { exitCode: result.exitCode }
+    description: hasBuildConfig
+      ? `${tsc.command} -p ${buildConfig} --noEmit (gate) + -p tsconfig.json (baseline report)`
+      : `${tsc.command} --noEmit (no JS emit, type-only check)`,
+    status: reason.length === 0 ? 'pass' : 'fail',
+    durationMs: Date.now() - start,
+    detail: reason.length === 0
+      ? `${hasBuildConfig ? `${buildConfig} (src/**) clean; ` : ''}${wideLabel}: ${wideErrors} pre-existing error(s), baseline ${TYPECHECK_PREEXISTING_BASELINE} — reported, not hidden.`
+      : `${reason}. ${tailLines(gate.status !== 'pass' ? gate.stdout + gate.stderr : wide.stdout + wide.stderr, TYPECHECK_TAIL_LINES)}`,
+    data: {
+      exitCode: gate.exitCode,
+      wideTsconfigErrors: wideErrors,
+      preExistingBaseline: hasBuildConfig ? TYPECHECK_PREEXISTING_BASELINE : null,
+      ...(regressed ? { regression: wideErrors - TYPECHECK_PREEXISTING_BASELINE } : {})
+    }
   };
 }
 

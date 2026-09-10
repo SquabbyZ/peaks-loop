@@ -37,7 +37,31 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 
+// 2026-09-10 D1: both probes used to spawn a bare `peaks`. On Windows that name
+// resolves to a `.cmd` shim, which `execFile` cannot run: it does not apply
+// PATHEXT, and Node >= 20 refuses to spawn `.cmd`/`.bat` at all without
+// `shell: true` (CVE-2024-27980). So Q2 reported "sub-agent dispatch
+// unavailable" and Q4 reported ratio 0 for every slice-spec on Windows —
+// phantom blockers produced by the spawn, not by the CLI. Running this tree's
+// own CLI entry through `process.execPath` needs no shell and no shim.
+import { cliEntryPath, interpreterArgs } from '../web/daemon-supervisor.js';
+
 const execFileAsync = promisify(execFile);
+
+/** Sentinel: no explicit binary was injected, so resolve this tree's own CLI. */
+const DEFAULT_PEAKS_BIN = 'peaks';
+
+/**
+ * Spawn argv for the peaks CLI. An explicitly injected `peaksBin` (the
+ * `--peaks-bin` test seam) is spawned verbatim; the default sentinel resolves
+ * to this tree's own CLI entry, interpreted by the running Node.
+ */
+function peaksSpawn(peaksBin: string): { command: string; args: readonly string[] } {
+  if (peaksBin !== DEFAULT_PEAKS_BIN) {
+    return { command: peaksBin, args: [] };
+  }
+  return { command: process.execPath, args: interpreterArgs(cliEntryPath()) };
+}
 
 /** Slice 2026-08-05-orchestrator-can-do-probe: red-line threshold. */
 export const ORCHESTRATOR_REDLINE_RATIO = 0.95;
@@ -176,10 +200,11 @@ export function detectRequiresUserDecision(sliceSpec: string): boolean {
  */
 export async function probeSubAgentAvailable(
   projectRoot: string,
-  peaksBin: string = 'peaks'
+  peaksBin: string = DEFAULT_PEAKS_BIN
 ): Promise<boolean> {
   try {
-    await execFileAsync(peaksBin, ['sub-agent', 'dispatch', '--role', 'rd', '--help'], {
+    const { command, args } = peaksSpawn(peaksBin);
+    await execFileAsync(command, [...args, 'sub-agent', 'dispatch', '--role', 'rd', '--help'], {
       cwd: projectRoot,
       timeout: 5000,
     });
@@ -196,13 +221,18 @@ export async function probeSubAgentAvailable(
  */
 export async function probeContextRatio(
   projectRoot: string,
-  peaksBin: string = 'peaks'
+  peaksBin: string = DEFAULT_PEAKS_BIN
 ): Promise<ContextProbe> {
   try {
-    const { stdout } = await execFileAsync(peaksBin, ['code', 'context-now', '--project', projectRoot, '--json'], {
-      cwd: projectRoot,
-      timeout: 10000,
-    });
+    const { command, args } = peaksSpawn(peaksBin);
+    const { stdout } = await execFileAsync(
+      command,
+      [...args, 'code', 'context-now', '--project', projectRoot, '--json'],
+      {
+        cwd: projectRoot,
+        timeout: 10000,
+      }
+    );
     const parsed = JSON.parse(stdout) as { data?: { ratio?: number; source?: string } };
     const ratio = typeof parsed.data?.ratio === 'number' ? parsed.data.ratio : 0;
     const source = typeof parsed.data?.source === 'string' ? parsed.data.source : 'unavailable';
