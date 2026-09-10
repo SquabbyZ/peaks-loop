@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-b1-manifest-v2-b2-policy
+description: RID-008 (Tier-1.1) — B1 manifest v2-b2 cleanup [engineer-write phase 1 of 11]
+metadata:
+  type: slice-closure
+---
+
 # RID-008 (Tier-1.1) — B1 manifest v2-b2 cleanup [engineer-write phase 1 of 11]
 
 **Date:** 2026-07-24

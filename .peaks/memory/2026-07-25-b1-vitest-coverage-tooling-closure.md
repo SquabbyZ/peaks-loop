@@ -1,3 +1,10 @@
+---
+name: 2026-07-25-b1-vitest-coverage-tooling-closure
+description: B1 — vitest-coverage-tooling — Closure
+metadata:
+  type: slice-closure
+---
+
 # B1 — vitest-coverage-tooling — Closure
 
 **Date:** 2026-07-25

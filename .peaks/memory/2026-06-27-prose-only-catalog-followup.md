@@ -2,6 +2,7 @@
 name: 2026-06-27-prose-only-catalog-followup
 description: Follow-up slice (deferred from v2.12.1 patch) — triage the 89 prose-only red-lines the v2.12.0 dogfood flagged. Catalog governance work, NOT a regression.
 metadata:
+  type: project-todo
   priority: P3
   scope: src/services/audit/enforcers
   affects: peaks audit static prose-only ratio (60.1% vs target 5%)

@@ -1,3 +1,10 @@
+---
+name: 2026-06-23-audit-4th-plan
+description: 2026-06-23 4 度审计 plan (post-compact handoff)
+metadata:
+  type: handoff
+---
+
 # 2026-06-23 4 度审计 plan (post-compact handoff)
 
 > **Context.** User said "commit, then I compact, then do 4度审计". The

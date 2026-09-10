@@ -1,3 +1,10 @@
+---
+name: 2026-06-23-audit-4th-findings
+description: 2026-06-23 4 度审计 findings
+metadata:
+  type: investigation
+---
+
 # 2026-06-23 4 度审计 findings
 archived: 2026-06-29
 reason: v2.16.0-alpha change-id axis scope reduction

@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-sediment-pruning-policy
+description: Sediment Pruning Policy — peaks-loop governance for `.peaks/memory/` size health
+metadata:
+  type: project-rule
+---
+
 # Sediment Pruning Policy — peaks-loop governance for `.peaks/memory/` size health
 
 **Date:** 2026-07-24

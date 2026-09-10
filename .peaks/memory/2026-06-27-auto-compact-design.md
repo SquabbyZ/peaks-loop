@@ -2,6 +2,7 @@
 name: 2026-06-27-auto-compact-design
 description: v2.13.0 auto-compact protocol design — peaks-loop drives context compaction autonomously (zero human / zero LLM intervention) so the LLM-runner stays alive with context < 95% on any AI CLI.
 metadata:
+  type: design
   affects: peaks-code auto-compact, IdeAdapter.compact, context-monitor D6
   related: 2026-06-27-v2-12-fanout-3way.md, 2026-06-27-prose-only-catalog-followup.md
 ---

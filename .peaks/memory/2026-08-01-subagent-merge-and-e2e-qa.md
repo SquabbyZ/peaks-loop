@@ -1,3 +1,10 @@
+---
+name: 2026-08-01-subagent-merge-and-e2e-qa
+description: peaks-loop 2026-08-01 sub-agent merge-and-e2e archive sediment
+metadata:
+  type: slice-closure
+---
+
 # peaks-loop 2026-08-01 sub-agent merge-and-e2e archive sediment
 
 sessionId: 2026-08-01-session-410315

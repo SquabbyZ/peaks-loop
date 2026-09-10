@@ -1,3 +1,10 @@
+---
+name: security-perf-plan-result-split
+description: Security + Perf plan/result split (slice 025)
+metadata:
+  type: lesson
+---
+
 # Security + Perf plan/result split (slice 025)
 
 > Source: project-local lesson, captured 2026-06-10 from slice 025.

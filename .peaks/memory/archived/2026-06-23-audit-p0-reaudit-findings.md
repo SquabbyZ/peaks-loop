@@ -1,3 +1,10 @@
+---
+name: 2026-06-23-audit-p0-reaudit-findings
+description: 2026-06-23 audit-p0 re-audit findings (handoff after compact)
+metadata:
+  type: investigation
+---
+
 # 2026-06-23 audit-p0 re-audit findings (handoff after compact)
 archived: 2026-06-29
 reason: v2.16.0-alpha change-id axis scope reduction

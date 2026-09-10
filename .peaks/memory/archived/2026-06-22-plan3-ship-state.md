@@ -1,3 +1,10 @@
+---
+name: 2026-06-22-plan3-ship-state
+description: Plan 3 ship state — peaks-rd strategic/tactical split (Tasks 1-11 done)
+metadata:
+  type: handoff
+---
+
 # Plan 3 ship state — peaks-rd strategic/tactical split (Tasks 1-11 done)
 archived: 2026-06-29
 reason: v2.16.0-alpha change-id axis scope reduction

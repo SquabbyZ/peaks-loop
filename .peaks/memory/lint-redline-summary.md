@@ -3,6 +3,8 @@ title: lint red-line summary (auto-generated)
 rid: 2026-08-06-eslint-strict-metrics
 generatedAt: 2026-08-06T16:08:07.022Z
 source: `peaks lint --red-line` (PRD-002b slice)
+metadata:
+  type: reference
 ---
 
 # Lint red-line summary

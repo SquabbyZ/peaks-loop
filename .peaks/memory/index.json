@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-09T22:49:36.123Z",
+  "updatedAt": "2026-09-10T00:17:44.110Z",
   "hot": {
     "rule": [
       {
@@ -558,6 +558,14 @@
         "updatedAt": "2026-09-03"
       },
       {
+        "name": "2026-09-10-dispatch-and-orchestrator-context",
+        "kind": "lesson",
+        "description": "派发提示词瘦身 + 编排器上下文审计（2026-09-10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Released:** 4.0.36 一句话 省...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-09-10-dispatch-and-orchestrator-context.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "2026-09-10-memory-system-overhaul",
         "kind": "lesson",
         "description": "记忆系统 overhaul（2026-09-09/10） **Date:** 2026-09-10 **Session:** 2026-09-07-session-245530 **Released:** 4.0.35 一句话 pea...",
@@ -748,6 +756,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-rid-001-redo-fake-green-recovery-closure.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "security-perf-plan-result-split",
+        "kind": "lesson",
+        "description": "Security + Perf plan/result split (slice 025) > Source: project-local lesson, captured 2026-06-10 from slice 025.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\security-perf-plan-result-split.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "session-dir-canonical-resolver-must-route-all-writes",
@@ -1002,6 +1018,30 @@
     ],
     "investigation": [
       {
+        "name": "2026-06-23-audit-3rd-findings",
+        "kind": "investigation",
+        "description": "2026-06-23 3度审计 findings (post-fix 71bf964) archived: 2026-06-29 reason: v2.16.0-alpha change-id axis scope reduction...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-23-audit-3rd-findings.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-06-23-audit-4th-findings",
+        "kind": "investigation",
+        "description": "2026-06-23 4 度审计 findings archived: 2026-06-29 reason: v2.16.0-alpha change-id axis scope reduction status: archived ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-23-audit-4th-findings.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-06-23-audit-p0-reaudit-findings",
+        "kind": "investigation",
+        "description": "2026-06-23 audit-p0 re-audit findings (handoff after compact) archived: 2026-06-29 reason: v2.16.0-alpha change-id ax...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-23-audit-p0-reaudit-findings.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "v2-11-0-window-orphan-path-stripping-bug",
         "kind": "investigation",
         "description": "Path-Stripping Orphan — Investigation **Date:** 2026-06-26 **Trigger:** User noticed  directory in project root after...",
@@ -1021,6 +1061,46 @@
       }
     ],
     "project-rule": [
+      {
+        "name": "2026-07-24-l1-f-slice-check-rid-policy",
+        "kind": "project-rule",
+        "description": "L1.F Policy —  requires  **Date:** 2026-07-24 **Session:**  **Author:** MiniMax (Opus 4.8) — owner-takeover ACTIVE **...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-l1-f-slice-check-rid-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-07-24-multi-ide-adapter-policy",
+        "kind": "project-rule",
+        "description": "Multi-IDE Adapter Policy — peaks-loop governance for adapter field verification **Date:** 2026-07-24 **Session:**  **...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-multi-ide-adapter-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-07-24-openspec-enforce-artifact-policy",
+        "kind": "project-rule",
+        "description": "OpenSpec  Policy — peaks-loop governance **Date:** 2026-07-24 **Session:**  **Rid:**  **Sources:** (this session's au...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-openspec-enforce-artifact-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-07-24-parked-tests-policy",
+        "kind": "project-rule",
+        "description": "Parked Tests Policy — peaks-loop governance for slice-boundary prose-contract locks **Date:** 2026-07-24 **Session:**...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-parked-tests-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-07-24-sediment-pruning-policy",
+        "kind": "project-rule",
+        "description": "Sediment Pruning Policy — peaks-loop governance for  size health **Date:** 2026-07-24 **Session:**  **Rid:**  **Sourc...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-sediment-pruning-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "incremental-first-no-touch-stockcode-rule",
         "kind": "project-rule",
@@ -2140,6 +2220,22 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "lint red-line summary (auto-generated)",
+        "kind": "reference",
+        "description": "Lint red-line summary > LLM-facing card.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\lint-redline-summary.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "peaks-loop positioning — Loop Engineering crystallization (2026-07-08)",
+        "kind": "reference",
+        "description": "peaks-loop positioning — Loop Engineering crystallization TL;DR (one sentence) peaks-loop is a **Loop Engineering cry...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-loop-positioning-loop-engineering.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "peaks-loop-1-3-2-windows-test-baseline-30-fail",
         "kind": "reference",
         "description": "peaks-loop 1.3.2 baseline test failure count on Windows: 30 pre-existing failures (all  on Windows-without-developer-...",
@@ -2182,6 +2278,14 @@
     ],
     "design": [
       {
+        "name": "2026-06-27-auto-compact-design",
+        "kind": "design",
+        "description": "Auto-compact protocol (v2.13.0) Motivation The v2.11.0 D6 context monitor () returns a trigger path the LLM should fo...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-27-auto-compact-design.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "m1-loop-release-design-notes",
         "kind": "design",
         "description": "M1 — Loop Release Schema: design notes > First crystallizable artifact for the Loop Engineering Asset layer > (spec §...",
@@ -2191,6 +2295,38 @@
       }
     ],
     "handoff": [
+      {
+        "name": "2026-06-22-plan-3a-baseline-repair-state",
+        "kind": "handoff",
+        "description": "**Plan 3a ship state (Windows session, 2026-06-22, mid-compact):** archived: 2026-06-29 reason: v2.16.0-alpha change-...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-22-plan-3a-baseline-repair-state.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-06-22-plan3-midpoint-checkpoint",
+        "kind": "handoff",
+        "description": "Plan 3 midpoint checkpoint (Tasks 1-4 done, 7 remaining) archived: 2026-06-29 reason: v2.16.0-alpha change-id axis sc...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-22-plan3-midpoint-checkpoint.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-06-22-plan3-ship-state",
+        "kind": "handoff",
+        "description": "Plan 3 ship state — peaks-rd strategic/tactical split (Tasks 1-11 done) archived: 2026-06-29 reason: v2.16.0-alpha ch...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\archived\\2026-06-22-plan3-ship-state.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-06-23-audit-4th-plan",
+        "kind": "handoff",
+        "description": "2026-06-23 4 度审计 plan (post-compact handoff) > **Context.** User said \"commit, then I compact, then do 4度审计\".",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-23-audit-4th-plan.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "2026-07-09-zcode-context-probe-handoff",
         "kind": "handoff",
@@ -2202,6 +2338,14 @@
     ],
     "session-handoff": [
       {
+        "name": "2026-07-24-engineer-write-continuation-rid-008",
+        "kind": "session-handoff",
+        "description": "Engineer-Write Continuation — RID-008 / session  **Date:** 2026-07-24 **Session:**  (continuation) **Author:** MiniMa...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-engineer-write-continuation-rid-008.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "peaks-code vs superpowers 污染根因 + peaks-loop@4.0.0-beta.14 治理 session 交接",
         "kind": "session-handoff",
         "description": "Session handoff — peaks-code bridge 治根 session 用户原始诉求 > \"我需要你把代码回退到4.0.0-beta.36版本的代码\" + \"现在 peaks-loop 把 superpowers...",
@@ -2211,6 +2355,14 @@
       }
     ],
     "project-todo": [
+      {
+        "name": "2026-06-27-prose-only-catalog-followup",
+        "kind": "project-todo",
+        "description": "Prose-only red-line catalog follow-up (deferred) Context The v2.12.0 self-dogfood surfaced this as a pre-existing bas...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-27-prose-only-catalog-followup.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "4016-lint-strict-prd-todo",
         "kind": "project-todo",
@@ -2250,6 +2402,30 @@
     ],
     "slice-closure": [
       {
+        "name": "2026-07-24-b1-manifest-v2-b2-policy",
+        "kind": "slice-closure",
+        "description": "RID-008 (Tier-1.1) — B1 manifest v2-b2 cleanup [engineer-write phase 1 of 11] **Date:** 2026-07-24 **Engineer-write p...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-24-b1-manifest-v2-b2-policy.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-07-25-b1-vitest-coverage-tooling-closure",
+        "kind": "slice-closure",
+        "description": "B1 — vitest-coverage-tooling — Closure **Date:** 2026-07-25 **Session:**  **Author:** MiniMax (Opus 4.8) — engineer-w...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-25-b1-vitest-coverage-tooling-closure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "2026-08-01-subagent-merge-and-e2e-qa",
+        "kind": "slice-closure",
+        "description": "peaks-loop 2026-08-01 sub-agent merge-and-e2e archive sediment sessionId: 2026-08-01-session-410315 rid: 2026-08-01-s...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-subagent-merge-and-e2e-qa.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
+      {
         "name": "24h-slice-2-3-ship-closure-2026-08-07",
         "kind": "slice-closure",
         "description": "24h mode slice 2+3 ship closure (2026-08-07) TL;DR 24h mode active.",
@@ -2264,6 +2440,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-07-9-slices-shipped.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "claude-code-end-to-end-2026-07-24",
+        "kind": "slice-closure",
+        "description": "B1 Closure — Claude Code End-to-End Adapter Verification **Date:** 2026-07-24 **Owner-takeover author:** MiniMax (Opu...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\claude-code-end-to-end-2026-07-24.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
       },
       {
         "name": "complexity-A-and-followups-2026-08-07",
@@ -2293,6 +2477,14 @@
       }
     ],
     "sediment": [
+      {
+        "name": "ESLint JS/TS Gate + OCR 1.8.x multi-language rebuild (slice PRD-002)",
+        "kind": "sediment",
+        "description": "ESLint JS/TS Gate + OCR 1.8.x multi-language rebuild — slice sediment 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-10"
+      },
       {
         "name": "MEMORY.md ghost sediment drift — finding 2026-07-27",
         "kind": "sediment",

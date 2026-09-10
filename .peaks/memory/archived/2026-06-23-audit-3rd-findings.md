@@ -1,3 +1,10 @@
+---
+name: 2026-06-23-audit-3rd-findings
+description: 2026-06-23 3度审计 findings (post-fix 71bf964)
+metadata:
+  type: investigation
+---
+
 # 2026-06-23 3度审计 findings (post-fix 71bf964)
 archived: 2026-06-29
 reason: v2.16.0-alpha change-id axis scope reduction

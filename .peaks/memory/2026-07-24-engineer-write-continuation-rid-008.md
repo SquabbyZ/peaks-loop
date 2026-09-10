@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-engineer-write-continuation-rid-008
+description: Engineer-Write Continuation — RID-008 / session `2026-07-24-session-f13da7`
+metadata:
+  type: session-handoff
+---
+
 # Engineer-Write Continuation — RID-008 / session `2026-07-24-session-f13da7`
 
 **Date:** 2026-07-24

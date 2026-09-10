@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-l1-f-slice-check-rid-policy
+description: L1.F Policy — `peaks slice check --skip-tests` requires `--rid`
+metadata:
+  type: project-rule
+---
+
 # L1.F Policy — `peaks slice check --skip-tests` requires `--rid`
 
 **Date:** 2026-07-24

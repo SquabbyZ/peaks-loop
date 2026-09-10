@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-parked-tests-policy
+description: Parked Tests Policy — peaks-loop governance for slice-boundary prose-contract locks
+metadata:
+  type: project-rule
+---
+
 # Parked Tests Policy — peaks-loop governance for slice-boundary prose-contract locks
 
 **Date:** 2026-07-24

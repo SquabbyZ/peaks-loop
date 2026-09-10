@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-openspec-enforce-artifact-policy
+description: OpenSpec `enforce-artifact-boundary-and-coverage` Policy — peaks-loop governance
+metadata:
+  type: project-rule
+---
+
 # OpenSpec `enforce-artifact-boundary-and-coverage` Policy — peaks-loop governance
 
 **Date:** 2026-07-24

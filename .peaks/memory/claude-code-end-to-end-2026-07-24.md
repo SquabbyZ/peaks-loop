@@ -1,3 +1,10 @@
+---
+name: claude-code-end-to-end-2026-07-24
+description: B1 Closure — Claude Code End-to-End Adapter Verification
+metadata:
+  type: slice-closure
+---
+
 # B1 Closure — Claude Code End-to-End Adapter Verification
 
 **Date:** 2026-07-24

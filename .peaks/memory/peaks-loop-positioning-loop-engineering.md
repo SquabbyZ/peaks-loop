@@ -5,6 +5,8 @@ status: active
 applies_to: peaks-loop product narrative, peaks-* skill family, future desktop client, future cross-user share surface
 spec_ref: docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md
 supersedes: peaks-loop "workflow tool" framing (declarative, no migration needed)
+metadata:
+  type: reference
 ---
 
 # peaks-loop positioning — Loop Engineering crystallization

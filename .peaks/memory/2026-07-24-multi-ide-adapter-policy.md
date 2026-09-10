@@ -1,3 +1,10 @@
+---
+name: 2026-07-24-multi-ide-adapter-policy
+description: Multi-IDE Adapter Policy — peaks-loop governance for adapter field verification
+metadata:
+  type: project-rule
+---
+
 # Multi-IDE Adapter Policy — peaks-loop governance for adapter field verification
 
 **Date:** 2026-07-24

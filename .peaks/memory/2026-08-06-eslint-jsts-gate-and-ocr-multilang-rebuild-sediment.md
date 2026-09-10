@@ -4,6 +4,8 @@ rid: 2026-08-06-eslint-jsts-gate-and-ocr-multilang-rebuild
 session: 2026-08-06-session-cacde8
 shipped: 4.0.16
 status: sediment
+metadata:
+  type: sediment
 ---
 
 # ESLint JS/TS Gate + OCR 1.8.x multi-language rebuild — slice sediment

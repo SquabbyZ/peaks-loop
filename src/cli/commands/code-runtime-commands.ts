@@ -20,6 +20,7 @@ import {
 } from '../../services/code/post-compact-detector.js';
 import { runAutoCompact } from '../../services/code/auto-compact-orchestrator.js';
 import { auditContext } from '../../services/context/context-audit.js';
+import { buildContextAuditHint } from '../../services/context/context-audit-hint.js';
 import {
   evaluateStep08,
   STEP_08_BACKUP_REGEX
@@ -397,7 +398,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'fail-closed backup regex when missing. Exit 0 = allow, exit 2 = block. ' +
           'When the decision says isJob=true AND progress.json exists, the stdout ' +
           'also carries `Next: slice #N+1 of M (<currentSlice>)` so the LLM cannot ' +
-          'wake up cold.'
+          'wake up cold. When the context ratio is ≥ 0.70 the stdout gains ONE more ' +
+          'line naming the largest context consumer (audit cached ≥ 5 min; fail-soft).'
       )
       .requiredOption('--project <path>', 'target project root (the hook passes "." so resolveCanonicalProjectRoot promotes it to the git root)')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
@@ -420,6 +422,17 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           printResult(io, envelope, opts.json);
           return;
         }
+        // Slice 2026-09-10-three-fixes (Slice 2): proactive context-consumer
+        // hint. Runs ONLY when the window is ≥ 0.70 full, caches the audit
+        // result for ≥ 5 min so the transcript is scanned at most once per
+        // TTL window, and is fail-soft (null → no extra line). It never
+        // changes the exit code and never blocks.
+        const hintLine = buildContextAuditHint({
+          projectRoot: opts.project,
+          sessionId,
+          outerSessionId: resolveOuterSessionId(opts.project, sessionId)
+        });
+        const hintActions = hintLine === null ? [] : [hintLine];
         const evalInput: { projectRoot: string; sessionId: string; prompt?: string } = {
           projectRoot: opts.project,
           sessionId
@@ -434,7 +447,7 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             decision: verdict.decision,
             progress: verdict.progress,
             nextSlice: result.nextSliceLine
-          }, [], result.nextSliceLine !== null ? [result.nextSliceLine] : []);
+          }, [], [...(result.nextSliceLine !== null ? [result.nextSliceLine] : []), ...hintActions]);
           printResult(io, envelope, opts.json);
           return;
         }
@@ -445,7 +458,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             decision: null,
             nextSlice: null
           }, [], [
-            'job-shape.json says isJob=false; single-rid mode (gate allows).'
+            'job-shape.json says isJob=false; single-rid mode (gate allows).',
+            ...hintActions
           ]);
           printResult(io, envelope, opts.json);
           return;
@@ -460,7 +474,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             backupRegex: STEP_08_BACKUP_REGEX.toString()
           }, [
             'Run `peaks code detect-job --is-job true --rationale <text> --suggested-job-id <slug>` to record the Job-shape verdict.',
-            'Then re-run the Bash tool call.'
+            'Then re-run the Bash tool call.',
+            ...hintActions
           ]);
           io.stderr(`${blockMessage}\n`);
           printResult(io, envelope, opts.json);
@@ -475,7 +490,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           nextSlice: null,
           promptSource: verdict.promptSource
         }, [], [
-          'No job-shape.json AND no backup-regex match on prompt → allow (most prompts are not Job-shaped).'
+          'No job-shape.json AND no backup-regex match on prompt → allow (most prompts are not Job-shaped).',
+          ...hintActions
         ]);
         printResult(io, envelope, opts.json);
         return;
