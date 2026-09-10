@@ -286,7 +286,10 @@ describe('peaks job checkpoint (P2-B.3 orchestration e2e)', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('checkpoint');
     const data = envelope.data as { sliceId?: string; status?: string };
-    expect(data.sliceId).toBe(EXISTING_RID);
+    // D7: the job was seeded with `--slice-list <EXISTING_RID>`, so EXISTING_RID
+    // is the slice's LABEL. `--slice-id` accepts it as an alias for slice-001
+    // and the envelope reports the canonical id that was actually updated.
+    expect(data.sliceId).toBe('slice-001');
     expect(data.status).toBe('done');
   });
 });
@@ -339,7 +342,9 @@ describe('peaks job block (P2-B.3 orchestration e2e)', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('block');
     const data = envelope.data as { blocked?: string; reason?: string };
-    expect(data.blocked).toBe(EXISTING_RID);
+    // D7: EXISTING_RID is the slice's LABEL (see the checkpoint case above);
+    // the envelope reports the canonical sliceId that was actually blocked.
+    expect(data.blocked).toBe('slice-001');
     expect(data.reason).toBe('p2b3 block fixture');
   });
 });

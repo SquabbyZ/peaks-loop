@@ -64,9 +64,9 @@ type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
 
 /**
  * Stamp the canonical session binding that `peaks job checkpoint` reads
- * via `getCurrentSessionId(project)` — the checkpoint subcommand has no
- * `--session-id` option; it resolves the active session from
- * `.peaks/_runtime/session.json`.
+ * via `getCurrentSessionId(project)` — this file exercises the binding
+ * tier only; `--session-id` / `PEAKS_SESSION_ID` overrides are covered by
+ * tests/unit/cli/job-session-addressing.test.ts (D6).
  */
 function bindSession(wsPath: string): void {
   const runtimeDir = join(wsPath, '.peaks', '_runtime');
