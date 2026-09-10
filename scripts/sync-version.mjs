@@ -18,6 +18,26 @@ writeFileSync(
   `export const CLI_VERSION = ${JSON.stringify(version)};\n`,
 );
 
+// Slice 2026-09-11 (runtime-version-lockstep) — sync RUNTIME_VERSION.
+// `packages/peaks-loop-internal-runtime/src/index.ts` declares
+// `RUNTIME_VERSION` under a comment stating it tracks the peaks-loop root
+// version, but nothing wrote it: v4.0.37 was tagged with the constant still
+// at 4.0.36 and publish.yml's gate-cli-version step aborted before npm
+// publish. The literal is replaced in place, single-quoted — the exact
+// shape the gate greps — because the file also holds the package's public
+// exports and must never be regenerated wholesale. A literal we cannot
+// find throws instead of no-op'ing: that silence is how the drift reached CI.
+const runtimeIndexPath = resolve('packages/peaks-loop-internal-runtime/src/index.ts');
+const runtimeIndex = readFileSync(runtimeIndexPath, 'utf8');
+const runtimeDecl = /(export const RUNTIME_VERSION = ')[^']*(';)/;
+if (!runtimeDecl.test(runtimeIndex)) {
+  throw new Error(`${runtimeIndexPath}: could not find "export const RUNTIME_VERSION = '...';"`);
+}
+const syncedRuntimeIndex = runtimeIndex.replace(runtimeDecl, `$1${version}$2`);
+if (syncedRuntimeIndex !== runtimeIndex) {
+  writeFileSync(runtimeIndexPath, syncedRuntimeIndex);
+}
+
 // 2026-07-23 follow-up (peaks-publish-stale fix, AC6): the shared
 // bump used to live here, gated on `PEAKS_AUTO_BUMP_SHARED === '1'`.
 // That gate was the Layer 2 root cause: publish.yml set the env on
