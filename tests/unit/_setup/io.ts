@@ -9,7 +9,7 @@
 // that mutates `process.env.X` must restore the previous value, ideally via
 // this helper.
 
-import { afterEach } from 'vitest';
+import { afterEach, onTestFinished } from 'vitest';
 
 export interface CapturedIo {
   readonly stdout: string[];
@@ -40,29 +40,45 @@ export function makeCapturedIo(): {
   };
 }
 
-const SAVED_ENV: Record<string, string | undefined> = {};
-
 /**
  * Set `process.env[name] = value` for the duration of the current test and
- * restore the previous value (or delete it) on `afterEach`. Prevents
- * parallel test files from leaking env mutations.
+ * restore the previous value (or delete it) when that test ends.
+ *
+ * Each call captures its own `prev` in a closure, so stacking N calls for the
+ * same name unwinds LIFO: the last call restores to the second-to-last call's
+ * value, and the first restores the pre-test value. No shared save map.
+ *
+ * The restore is registered with `onTestFinished`, which binds to the test
+ * that made the call. `afterEach` cannot serve here: a hook registered from
+ * inside a test body is appended to the suite's hook list and never runs for
+ * the test that registered it, so the mutation used to outlive the test and
+ * leak into the next one in the file.
+ *
+ * `onTestFinished` is only valid inside a test lifecycle (a test body, or
+ * `beforeEach`/`afterEach`). The describe-body call sites that run at
+ * collection time — `cli/program.test.ts`, `services/dispatch/batch-counter.test.ts`,
+ * `services/karpathy-cost/karpathy-cost-check-service.test.ts` — would throw
+ * there, so they fall back to `afterEach`, which at collection time is
+ * correctly scoped to that describe's tests.
  */
 export function withEnv(name: string, value: string | undefined): void {
-  if (!(name in SAVED_ENV)) {
-    SAVED_ENV[name] = process.env[name];
-  }
+  const prev = process.env[name];
   if (value === undefined) {
     delete process.env[name];
   } else {
     process.env[name] = value;
   }
-  afterEach(() => {
-    const prev = SAVED_ENV[name];
+  const restore = (): void => {
     if (prev === undefined) {
       delete process.env[name];
     } else {
       process.env[name] = prev;
     }
-    delete SAVED_ENV[name];
-  });
+  };
+  try {
+    onTestFinished(restore);
+  } catch {
+    // Collection time: no current test to bind to, so scope to the describe.
+    afterEach(restore);
+  }
 }
