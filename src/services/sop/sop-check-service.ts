@@ -145,7 +145,18 @@ function evaluateCommand(projectRoot: string, run: string[], expectExitZero: boo
   }
   let exitCode: number;
   try {
-    execFileSync(bin, args, { cwd: resolve(projectRoot), timeout: timeoutMs, stdio: 'ignore' });
+    // Windows: this spawn is reachable from `peaks gate enforce` (the
+    // PreToolUse hook, which forces `allowCommands: true` below), so it runs
+    // on a per-Bash-call budget. Without `windowsHide` the child gets its own
+    // visible console window on Windows — one window per guarded Bash call.
+    // The option is inert on POSIX (libuv reads it only on Windows), which is
+    // why it is set unconditionally rather than platform-branched.
+    execFileSync(bin, args, {
+      cwd: resolve(projectRoot),
+      timeout: timeoutMs,
+      stdio: 'ignore',
+      windowsHide: true
+    });
     exitCode = 0;
   } catch (error) {
     const err = error as { status?: unknown; killed?: boolean; code?: unknown };

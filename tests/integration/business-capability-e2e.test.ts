@@ -64,23 +64,31 @@ describe('peaks hooks install --ide claude-code (P1-2 e2e)', () => {
     expect(installed.data.applied).toBe(true);
     expect(existsSync(installed.data.settingsPath as string)).toBe(true);
 
+    // The gate-enforce entry carries a machine-specific `shell` on Windows,
+    // so it is materialized into the machine-local, gitignored file rather
+    // than the committed one that macOS / Linux teammates also read.
     const settingsPath = join(project, '.claude', 'settings.json');
-    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
-      hooks?: { PreToolUse?: Array<{ hooks?: Array<{ command?: string }> }> };
+    const localSettingsPath = join(project, '.claude', 'settings.local.json');
+    expect(installed.data.localSettingsPath).toBe(localSettingsPath);
+    const readManaged = (file: string): unknown[] => {
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+        hooks?: { PreToolUse?: Array<{ hooks?: Array<{ command?: string }> }> };
+      };
+      return (parsed.hooks?.PreToolUse ?? []).filter((entry) =>
+        entry.hooks?.some((hook) => hook.command?.includes('peaks gate enforce'))
+      );
     };
-    const managed = settings.hooks?.PreToolUse?.filter((entry) =>
-      entry.hooks?.some((hook) => hook.command?.includes('peaks gate enforce'))
-    ) ?? [];
-    expect(managed).toHaveLength(1);
+    expect(readManaged(localSettingsPath)).toHaveLength(1);
+    expect(readFileSync(settingsPath, 'utf8')).not.toContain('peaks gate enforce');
 
     const reinstall = parseEnvelope(runCli(['hooks', 'install', '--project', project, '--ide', 'claude-code', '--json'], project));
     expect(reinstall.data.applied).toBe(false);
-    const afterReinstall = readFileSync(settingsPath, 'utf8');
+    const afterReinstall = readFileSync(localSettingsPath, 'utf8');
     expect((afterReinstall.match(/peaks gate enforce/g) ?? [])).toHaveLength(1);
 
     const uninstall = parseEnvelope(runCli(['hooks', 'uninstall', '--project', project, '--ide', 'claude-code', '--json'], project));
     expect(uninstall.data.removed).toBe(true);
-    expect(readFileSync(settingsPath, 'utf8')).not.toContain('peaks gate enforce');
+    expect(readFileSync(localSettingsPath, 'utf8')).not.toContain('peaks gate enforce');
     const secondUninstall = parseEnvelope(runCli(['hooks', 'uninstall', '--project', project, '--ide', 'claude-code', '--json'], project));
     expect(secondUninstall.data.removed).toBe(false);
   });

@@ -1,19 +1,30 @@
 /**
  * Slice 2026-08-05-hook-json-flag — drift guard.
  *
- * Regression: `.claude/settings.json` previously shipped with the hook command
- * `peaks gate enforce --project "${CLAUDE_PROJECT_DIR}"` (no `--json`). Without
- * `--json`, the hook's stdout is plain `{}` rather than a structured envelope,
- * which Claude Code's hook validator rejects with
+ * Regression: the gate-enforce hook command previously shipped without
+ * `--json`. Without it, the hook's stdout is plain `{}` rather than a
+ * structured envelope, which Claude Code's hook validator rejects with
  *   "Hook JSON output validation failed: <empty>"
  * See `.peaks/memory/bash-pretooluse-hook-json-error-fix.md` for the 2026-07-27
  * fix history.
  *
+ * Slice 2026-09-10-rd-win-hook-fix RESHAPED the entry: the gate-enforce Bash
+ * hook now carries a machine-specific `shell` on Windows (the default Git-Bash
+ * shell force-allocates a console window on every Bash tool call), so it moved
+ * out of the committed, shared `.claude/settings.json` and into the
+ * machine-local, gitignored `.claude/settings.local.json`.
+ *
+ * Because that file is gitignored it is absent from a fresh clone and from CI,
+ * so the shape assertions below are made against the canonical EMITTERS
+ * (`buildClaudeSettingsLocalJson()` and `resolveHookSpec`) rather than against
+ * the on-disk machine-local file. The only on-disk assertion is about the
+ * committed shared file, which is always present.
+ *
  * This test asserts that BOTH surfaces carry `--json`:
- *   1. `.claude/settings.json` — the current on-disk settings file.
+ *   1. `src/services/workspace/claude-settings-template.ts` — the pure template
+ *      that `peaks workspace init` materializes into `.claude/settings.local.json`.
  *   2. `src/services/skills/hooks-settings-service.ts` — the canonical
- *      `HOOK_ENFORCE_COMMAND` template literal that `peaks hooks install`
- *      uses to scaffold a fresh settings.json. (Note: the PRD originally
+ *      `HOOK_ENFORCE_COMMAND` template literal. (Note: the PRD originally
  *      cited `src/services/workspace/claude-settings-template.ts`, but that
  *      file only carries the `peaks code gate-step-08` literal for the
  *      `.claude/settings.local.json` Write|Edit|MultiEdit + Bash PreToolUse
@@ -24,44 +35,58 @@
  *
  * If either file ever drifts back to the `--json`-less form, this test fails,
  * the next `peaks hooks install` keeps the regression out of fresh installs,
- * and the on-disk settings.json stays consistent with the template.
+ * and the on-disk settings files stay consistent with the template.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { buildClaudeSettingsLocalJson } from '~/src/services/workspace/claude-settings-template';
+
 const ROOT = join(__dirname, '..', '..', '..');
 
-/**
- * Parse a settings.json-shaped file and return the PreToolUse Bash hook
- * command string. Tolerates either `\"...\"` (escaped JSON) or `"..."`
- * (unescaped) quoting around the project-dir placeholder.
- */
-function readBashPreToolUseCommand(settingsJsonPath: string): string {
-  const raw = readFileSync(settingsJsonPath, 'utf8');
-  const parsed = JSON.parse(raw) as {
-    hooks?: { PreToolUse?: Array<{ matcher?: string; hooks?: Array<{ type?: string; command?: string }> }> };
+type BashHandler = { type?: string; command?: string; shell?: string };
+
+/** Collect every handler on a `Bash` matcher group of a built template. */
+function bashHandlers(matcher: string): BashHandler[] {
+  const template = buildClaudeSettingsLocalJson() as unknown as {
+    hooks: { PreToolUse: Array<{ matcher: string; hooks: BashHandler[] }> };
   };
-  const entries = parsed.hooks?.PreToolUse ?? [];
-  for (const entry of entries) {
-    if (entry.matcher !== 'Bash') continue;
-    for (const h of entry.hooks ?? []) {
-      if (h.type === 'command' && typeof h.command === 'string') return h.command;
-    }
+  return template.hooks.PreToolUse.filter((entry) => entry.matcher === matcher).flatMap((entry) => entry.hooks);
+}
+
+/** Find the template handler whose command contains `needle`. */
+function handlerFor(needle: string): BashHandler {
+  const found = bashHandlers('Bash').find((h) => String(h.command).includes(needle));
+  if (found === undefined) {
+    throw new Error(`No Bash handler containing "${needle}" in the workspace-init template`);
   }
-  throw new Error(`No Bash PreToolUse command found in ${settingsJsonPath}`);
+  return found;
 }
 
 describe('slice 2026-08-05-hook-json-flag: gate-enforce hook must carry --json', () => {
-  it('.claude/settings.json Bash PreToolUse command ends with --json', () => {
-    const cmd = readBashPreToolUseCommand(join(ROOT, '.claude', 'settings.json'));
-    // The Bash matcher command must:
-    //   1. Invoke `peaks gate enforce`
-    //   2. Carry `--project "<dir>"` (or `${...}` placeholder)
-    //   3. End with `--json`
+  it('when the workspace-init template is built, should end the gate-enforce command with --json', () => {
+    // given: the pure template that `peaks workspace init` materializes into
+    //        the machine-local .claude/settings.local.json
+    // when: its Bash gate-enforce handler is read
+    const cmd = String(handlerFor('peaks gate enforce').command);
+    // then: the handler invokes `peaks gate enforce`, carries
+    //       `--project "<dir>"`, and ends with `--json`
     expect(cmd).toMatch(/^peaks gate enforce --project /);
     expect(cmd).toMatch(/--project .+\b/);
     expect(cmd.trimEnd().endsWith('--json')).toBe(true);
+  });
+
+  it('when the committed settings are read, should stay platform-neutral', () => {
+    // given: the committed, shared .claude/settings.json that every
+    //        teammate (macOS / Linux / Windows) reads
+    // when: its hooks tree is parsed
+    const parsed = JSON.parse(readFileSync(join(ROOT, '.claude', 'settings.json'), 'utf8')) as {
+      hooks?: { PreToolUse?: unknown };
+    };
+    // then: it carries no Bash PreToolUse handler at all — any `shell` value
+    //       here would be machine-specific and break the other platforms
+    expect(parsed.hooks?.PreToolUse).toBeUndefined();
   });
 
   it('HOOK_ENFORCE_COMMAND template literal in hooks-settings-service.ts ends with --json', () => {
@@ -77,22 +102,16 @@ describe('slice 2026-08-05-hook-json-flag: gate-enforce hook must carry --json',
     expect(src).toMatch(re);
   });
 
-  it('drift guard: HOOK_ENFORCE_COMMAND template ends with --json (template-side only)', () => {
-    // Drift guard: the canonical template literal in hooks-settings-service.ts
-    // must end with `--json` so that `peaks hooks install` writes a --json-bearing
-    // command into every fresh `.claude/settings.json`. The env-var placeholder
-    // ${CLAUDE_PROJECT_DIR} is left literal in the rendered settings file (Claude
-    // Code resolves it at hook execution time, not at install time), so we do
-    // NOT compare the rendered template byte-for-byte against the on-disk file.
-    const templateSrc = readFileSync(
-      join(ROOT, 'src', 'services', 'skills', 'hooks-settings-service.ts'),
+  it('when the canonical hook spec is resolved, should end the command with --json', () => {
+    // given: the per-IDE spec `peaks hooks install` actually renders the hook
+    //        from (a surface the old constant-only assertion never covered)
+    // when: the claude-code spec is resolved
+    const src = readFileSync(
+      join(ROOT, 'src', 'services', 'skills', 'hooks-codegate-superpowers.ts'),
       'utf8'
     );
-    const match = templateSrc.match(/HOOK_ENFORCE_COMMAND\s*=\s*`([^`]+)`/);
-    expect(match).not.toBeNull();
-    const templateLiteral = match![1]!;
-    expect(templateLiteral.startsWith('peaks gate enforce --project ')).toBe(true);
-    expect(templateLiteral.includes('${CLAUDE_PROJECT_DIR}')).toBe(true);
-    expect(templateLiteral.trimEnd().endsWith('--json')).toBe(true);
+    // then: the rendered command carries the `--json` flag the constant
+    //       documents, so install and template cannot drift apart
+    expect(src).toContain("const jsonFlag = isClaudeCode ? ' --json' : '';");
   });
 });

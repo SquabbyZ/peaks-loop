@@ -15,17 +15,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "peaks gate enforce --project \"${CLAUDE_PROJECT_DIR}\" --json"
-          }
-        ]
-      }
     ]
   }
 }

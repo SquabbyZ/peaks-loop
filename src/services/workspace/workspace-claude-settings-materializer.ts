@@ -108,7 +108,11 @@ export async function materializeClaudeSettingsLocal(
     try {
       const { readFile } = await import('node:fs/promises');
       const existing = await readFile(settingsPath, 'utf8');
-      if (existing === serialized) {
+      // Structural comparison (not a byte comparison): `peaks hooks
+      // install` also writes this file, through a different serializer, so
+      // an equal hooks tree must be recognized as current or every init
+      // would rewrite the file and drop the installer's entries.
+      if (templateContentMatches(serialized, existing)) {
         action = 'already-current';
       } else {
         action = 'refreshed';

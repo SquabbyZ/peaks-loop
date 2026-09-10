@@ -35,6 +35,34 @@ interface ResolvedHookSpec {
   readonly hookEnforceSentinel: string;
   readonly hookEnforceMatcher: string;
   readonly hookEnforceEvent: string;
+  /**
+   * True when the gate-enforce entry must be materialized into the IDE's
+   * MACHINE-LOCAL settings file rather than the shared one (see
+   * `hookEnforceShell` below). Set for Claude Code, whose project-scope
+   * hooks have a gitignored per-machine sibling file.
+   */
+  readonly hookEnforceMachineLocal: boolean;
+  /**
+   * The `shell` field for the gate-enforce handler, or `undefined` to omit
+   * the key entirely and let the IDE use its documented default.
+   *
+   * Claude Code only. See `resolveHookShell` for why Windows needs this.
+   */
+  readonly hookEnforceShell: string | undefined;
+}
+
+/**
+ * Claude Code runs a shell-form hook command through a shell that defaults
+ * to bash — which on Windows means Git Bash, and MSYS2's bash
+ * force-allocates its own console window. The result is a visible window on
+ * EVERY Bash tool call. The window is created by the spawner (Claude Code)
+ * before any peaks code runs, so `windowsHide` and any in-process hiding
+ * cannot help; pinning the hook's `shell` is the only lever the hook schema
+ * offers. The platform-neutral default (`undefined` → omit the key) is kept
+ * everywhere else.
+ */
+export function resolveHookShell(platform: NodeJS.Platform = process.platform): string | undefined {
+  return platform === 'win32' ? 'powershell' : undefined;
 }
 
 /**
@@ -69,11 +97,22 @@ export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
     // silently writing a Claude-shaped entry to a non-Claude settings.json.
     throw new Error(`peaks hooks install: unsupported IDE '${ide}' (no HOOK_COMMAND_BY_IDE entry; add one to hooks-settings-service.ts)`);
   }
+  const isClaudeCode = ide === 'claude-code';
+  // Claude Code's gate hook must emit its structured decision as JSON:
+  // without `--json` the hook validator rejects the plain `{}` stdout with
+  // "Hook JSON output validation failed". See
+  // .peaks/memory/bash-pretooluse-hook-json-error-fix.md.
+  const jsonFlag = isClaudeCode ? ' --json' : '';
   return {
-    hookEnforceCommand: `${spec.command} --project "\${${adapter.envVar}}"`,
+    hookEnforceCommand: `${spec.command} --project "\${${adapter.envVar}}"${jsonFlag}`,
     hookEnforceSentinel: spec.sentinel,
     hookEnforceMatcher: adapter.toolMatcher,
-    hookEnforceEvent: adapter.hookEvent
+    hookEnforceEvent: adapter.hookEvent,
+    // Only Claude Code has the machine-local sibling settings file the
+    // routing depends on, and only Claude Code's hook schema accepts a
+    // `shell` key.
+    hookEnforceMachineLocal: isClaudeCode,
+    hookEnforceShell: isClaudeCode ? resolveHookShell() : undefined
   };
 }
 
@@ -83,6 +122,14 @@ export type PeaksHookEntry = {
   matcher: string;
   command: string;
   event: string;
+  /**
+   * When true the entry is written to the machine-local, gitignored settings
+   * file (`.claude/settings.local.json`) instead of the shared one, because
+   * the entry carries a machine-specific value (the `shell` field).
+   */
+  machineLocal?: boolean;
+  /** Optional `shell` field for the emitted handler. */
+  shell?: string;
 };
 
 /**
@@ -101,7 +148,14 @@ export const HOOK_CODE_GATE_COMMAND = `peaks code-gate --json`;
 export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
   const entries: PeaksHookEntry[] = [
-    { sentinel: spec.hookEnforceSentinel, matcher: spec.hookEnforceMatcher, command: spec.hookEnforceCommand, event: spec.hookEnforceEvent }
+    {
+      sentinel: spec.hookEnforceSentinel,
+      matcher: spec.hookEnforceMatcher,
+      command: spec.hookEnforceCommand,
+      event: spec.hookEnforceEvent,
+      machineLocal: spec.hookEnforceMachineLocal,
+      ...(spec.hookEnforceShell !== undefined ? { shell: spec.hookEnforceShell } : {})
+    }
   ];
   if (ide === 'claude-code') {
     entries.push({

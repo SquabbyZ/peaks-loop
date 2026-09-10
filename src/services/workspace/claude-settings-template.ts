@@ -32,6 +32,8 @@
  * silently for any command not guarded by a registered SOP gate.
  */
 
+import { resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
+
 export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
 
 /**
@@ -57,8 +59,20 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           gate). The existing Write|Edit|MultiEdit matcher is
  *           preserved. The new matcher's exit code is the load-bearing
  *           signal: 0 = allow, 2 = block (with stderr BLOCKED reason).
+ *   1.4.0 — added the `peaks gate enforce` `Bash` PreToolUse entry. It
+ *           lives here (machine-local, gitignored file) rather than in
+ *           the committed `.claude/settings.json` because its `shell`
+ *           is machine-specific: on Windows the default Git-Bash shell
+ *           force-allocates a console window on every Bash tool call.
+ *           This template is the second writer of that file, so it must
+ *           emit the entry too — otherwise `peaks workspace init` would
+ *           overwrite whatever `peaks hooks install` put there.
+ *   1.5.0 — pinned the same platform `shell` on the `peaks code
+ *           gate-step-08` handler. It runs on the same `Bash` matcher,
+ *           so leaving it un-pinned left the console-window defect in
+ *           place for half of every Bash tool call.
  */
-export const TEMPLATE_VERSION = '1.3.0';
+export const TEMPLATE_VERSION = '1.5.0';
 
 /**
  * Compare two serialized template strings for semantic equivalence.
@@ -113,8 +127,10 @@ export function templateContentMatches(generated: string, onDisk: string): boole
   return true;
 }
 
+type TemplateHookCommand = { type: string; command: string; shell?: string };
+
 type TemplateShape = {
-  hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> };
+  hooks: { PreToolUse: Array<{ matcher: string; hooks: TemplateHookCommand[] }> };
 };
 
 function isTemplateShape(value: unknown): value is TemplateShape {
@@ -130,8 +146,8 @@ function isTemplateShape(value: unknown): value is TemplateShape {
 }
 
 function sameHooksArray(
-  a: ReadonlyArray<{ type: string; command: string }>,
-  b: ReadonlyArray<{ type: string; command: string }>
+  a: ReadonlyArray<TemplateHookCommand>,
+  b: ReadonlyArray<TemplateHookCommand>
 ): boolean {
   if (a.length !== b.length) {
     return false;
@@ -139,7 +155,10 @@ function sameHooksArray(
   for (let i = 0; i < a.length; i += 1) {
     const ha = a[i]!;
     const hb = b[i]!;
-    if (ha.type !== hb.type || ha.command !== hb.command) {
+    // `shell` participates in the comparison: it is machine-specific (see
+    // `resolveHookShell`), so a file written on one platform must be
+    // recognized as drifted on the other instead of silently kept.
+    if (ha.type !== hb.type || ha.command !== hb.command || ha.shell !== hb.shell) {
       return false;
     }
   }
@@ -208,7 +227,24 @@ function buildWriteHookCommand(): string {
   return wrapAsNodeOneLiner(js);
 }
 
-type ClaudeHookCommand = { type: 'command'; command: string };
+/**
+ * TEMPLATE_VERSION 1.4.0 — the SOP gate-enforce handler, read from the same
+ * canonical hook spec `peaks hooks install` uses. Deriving it here (rather
+ * than re-typing the literal) is what keeps the two writers of this file
+ * byte-compatible: `templateContentMatches` compares the `command` string,
+ * so any drift would make every `peaks workspace init` rewrite the file and
+ * drop whatever `peaks hooks install` had merged in.
+ */
+function buildGateEnforceHandler(): ClaudeHookCommand {
+  const spec = resolveHookSpec('claude-code');
+  return {
+    type: 'command',
+    command: spec.hookEnforceCommand,
+    ...(spec.hookEnforceShell !== undefined ? { shell: spec.hookEnforceShell } : {})
+  };
+}
+
+type ClaudeHookCommand = { type: 'command'; command: string; shell?: string };
 type ClaudePreToolUseEntry = { matcher: string; hooks: ClaudeHookCommand[] };
 type ClaudeSettingsLocal = { hooks: { PreToolUse: ClaudePreToolUseEntry[] } };
 
@@ -246,12 +282,22 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
           // 2 = block (stderr contains the BLOCKED: ... reason).
           // The existing Write|Edit|MultiEdit matcher is preserved.
           matcher: 'Bash',
-          hooks: [
-            {
-              type: 'command',
-              command: buildBashGateStep08Command()
-            }
-          ]
+          hooks: [buildBashGateStep08Handler()]
+        },
+        {
+          // TEMPLATE_VERSION 1.4.0 — SOP gate enforcement. Lives in this
+          // machine-local file (not the committed settings.json) because
+          // `shell` is machine-specific; see the version history above and
+          // `resolveHookShell`.
+          //
+          // It sits in its own matcher group on purpose: a group counts as
+          // peaks-managed only when EVERY handler in it carries a peaks
+          // sentinel, and the `peaks code gate-step-08` handler above does
+          // not. Sharing a group with it would make the whole group
+          // unmanaged, so `peaks hooks install` would append a second Bash
+          // group and the gate would run twice per Bash call.
+          matcher: 'Bash',
+          hooks: [buildGateEnforceHandler()]
         }
       ]
     }
@@ -268,11 +314,21 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
  * re-running `peaks workspace init` on a project that already has the
  * Bash hook is a no-op (already-current).
  */
-function buildBashGateStep08Command(): string {
+function buildBashGateStep08Handler(): ClaudeHookCommand {
   // The hook receives the tool call on stdin. We ignore stdin and
   // delegate entirely to `peaks code gate-step-08`, which reads
   // .peaks/_runtime/<sessionId>/job-shape.json and last-prompt.txt.
   // `${CLAUDE_PROJECT_DIR}` resolves to the consumer project's root
   // (Claude Code's standard convention).
-  return 'peaks code gate-step-08 --project "${CLAUDE_PROJECT_DIR}"';
+  //
+  // TEMPLATE_VERSION 1.5.0 — shell-pinned on Windows for the same reason
+  // as the gate-enforce handler below: this runs on the same `Bash`
+  // matcher, so a shell-form command is executed by Git Bash / MSYS2,
+  // which force-allocates a console window on every Bash tool call.
+  const shell = resolveHookShell();
+  return {
+    type: 'command',
+    command: 'peaks code gate-step-08 --project "${CLAUDE_PROJECT_DIR}"',
+    ...(shell !== undefined ? { shell } : {})
+  };
 }

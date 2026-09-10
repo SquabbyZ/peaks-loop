@@ -33,6 +33,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { resolveHookShell } from '../skills/hooks-codegate-superpowers.js';
 
 /**
  * Stable matcher for the auto-compact hook. Single source of truth
@@ -86,7 +87,7 @@ export type AutoCompactHookRemoveResult =
  * top-level keys (permissions, etc.) are passed through verbatim.
  */
 type ClaudeSettingsLocal = {
-  hooks?: { PreToolUse?: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> };
+  hooks?: { PreToolUse?: Array<{ matcher: string; hooks: Array<{ type: string; command: string; shell?: string }> }> };
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -139,6 +140,13 @@ export function installAutoCompactHook(input: {
     return { action: 'already-installed', settingsPath };
   }
 
+  // The matcher is `Bash|Task`, so on Windows this runs on the same
+  // Git-Bash / MSYS2 shell-form path as the other peaks Bash hooks, which
+  // force-allocates a console window on every matching tool call. The
+  // entry is written only into the machine-local, gitignored
+  // `.claude/settings.local.json`, so a machine-specific `shell` cannot
+  // leak into a shared file. `undefined` on POSIX omits the key entirely.
+  const shell = resolveHookShell();
   const nextPreToolUse = [
     ...preToolUse,
     {
@@ -146,7 +154,8 @@ export function installAutoCompactHook(input: {
       hooks: [
         {
           type: 'command',
-          command: AUTO_COMPACT_HOOK_COMMAND
+          command: AUTO_COMPACT_HOOK_COMMAND,
+          ...(shell !== undefined ? { shell } : {})
         }
       ]
     }

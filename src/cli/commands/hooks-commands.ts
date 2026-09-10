@@ -352,6 +352,13 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // install left behind.
       const settingsPath = status.settingsPath;
       const settings = existsSync(settingsPath) ? readJsonObjectFile(settingsPath) : {};
+      // The gate-enforce entry is materialized into the machine-local
+      // settings file (see `resolveHookTargets`), so the on-disk entry list
+      // must be read from both files or `status` would report it missing.
+      const localSettings =
+        status.localSettingsPath !== undefined && existsSync(status.localSettingsPath)
+          ? readJsonObjectFile(status.localSettingsPath)
+          : {};
       // Slice 2026-07-29-worktree-layer3-deny: report the Layer 3 deny
       // entries actually on disk. We read the existing settings.json
       // (above) and surface its `permissions.deny` block. Any entry
@@ -365,7 +372,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         ok('hooks.status', {
           ...status,
           ide,
-          entries: readInstalledEntriesFromSettings(settings, ide),
+          entries: [
+            ...readInstalledEntriesFromSettings(settings, ide),
+            ...readInstalledEntriesFromSettings(localSettings, ide)
+          ],
           permissionsDenyEntries: listSuperpowersDenyEntries(),
           permissionsDenyOnDisk: onDiskDeny
         }),
