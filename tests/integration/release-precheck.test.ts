@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +15,29 @@ import { runCli } from './_cli-helper.js';
 
 function makeProjectRoot(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-precheck-int-'));
+}
+
+/** A project root whose path contains a SPACE — the 2026-09-10 regression case. */
+function makeSpacedProjectRoot(): string {
+  return mkdtempSync(join(tmpdir(), 'peaks precheck int-'));
+}
+
+/**
+ * Turn `projectRoot` into a git repo carrying tag `v<version>`.
+ * Returns false when `git` is unavailable, so the caller can skip.
+ */
+function seedGitTag(projectRoot: string, version: string): boolean {
+  const run = (args: string[]): void => {
+    execFileSync('git', ['-C', projectRoot, ...args], { stdio: 'pipe' });
+  };
+  try {
+    execFileSync('git', ['init', '-q', '-b', 'main', projectRoot], { stdio: 'pipe' });
+    run(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init']);
+    run(['tag', `v${version}`]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 interface CliJsonResult {
@@ -146,6 +170,32 @@ describe('peaks release precheck — integration', () => {
     expect(yml).toContain('package/dist/version.js');
     // rid-010 reference comment
     expect(yml).toContain('version-precheck-service');
+  });
+
+  // AC-10 (2026-09-10 spawn-cluster fix): the tag-collision layer must survive a
+  // project path containing a space. It spawned git with
+  // `shell: process.platform === 'win32'`, and `projectRoot` is an ARGUMENT to
+  // git — the shell re-parsed the command line, split `-C <projectRoot>` at the
+  // space, and git exited 128 ("cannot change to …"). The layer then reported
+  // "git tag --list exited with code 128; layer skipped" (warning) for a tag
+  // that actually exists, so the blocker was silently downgraded.
+  it('AC-10 — a spaced project path still reports an existing tag as a blocker', async () => {
+    const spaced = makeSpacedProjectRoot();
+    try {
+      writePackageJson(spaced, { version: '9.9.9', sharedDep: 'workspace:*' });
+      writeSharedPackageJson(spaced, '9.9.9');
+      writeSharedDist(spaced, '9.9.9');
+      if (!seedGitTag(spaced, '9.9.9')) return; // no git on host → skip
+
+      const r = await runCli(['release', 'precheck', '--project', spaced, '--json'], spaced);
+
+      const json = parseCliJson(r.stdout);
+      const layers = json.data as { layers: { tagCollision: { status: string } } };
+      expect(layers.layers.tagCollision.status).toBe('blocker');
+      expect(r.code).toBe(1);
+    } finally {
+      if (existsSync(spaced)) rmSync(spaced, { recursive: true, force: true });
+    }
   });
 
   // AC-9: peaks audit red-lines still reports partial=0, proseOnly=0.

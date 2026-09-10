@@ -15,7 +15,9 @@ export interface PnpmRunOpts {
 }
 
 export function runPnpm(args: string[], opts: PnpmRunOpts): unknown;
-export function npmCmdBin(): string;
+
+export function resolveNpmInvocation(): { bin: string; prefixArgs: string[] };
+
 export function runNpm(args: string[], opts: PnpmRunOpts): unknown;
 export function toPosixPath(p: string): string;
 export function inspectTarball(tarball: string): unknown;

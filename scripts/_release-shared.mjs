@@ -12,7 +12,7 @@
  * Exports:
  *   - resolvePnpmInvocation(): { bin, prefixArgs } | undefined
  *   - runPnpm(args, opts)
- *   - npmCmdBin(): string
+ *   - resolveNpmInvocation(): { bin, prefixArgs }
  *   - runNpm(args, opts)
  *   - toPosixPath(p): string
  *   - inspectTarball(tarball): JSON manifest object
@@ -49,14 +49,41 @@ export function runPnpm(args, opts) {
     : execFileSync('pnpm', args, opts);
 }
 
-/** `npm.cmd` shim on Windows (else `npm`).
- *  `shell: true` is required on Windows because `npm.cmd` is
- *  interpreted by cmd.exe. We keep it off on POSIX. */
-export function npmCmdBin() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+/**
+ * Portable npm invocation — the same shim bypass as `runPnpm`, for `npm`.
+ *
+ * On Windows `npm` is an `npm.cmd` shim, and Node cannot spawn a `.cmd`
+ * without `shell: true`; `shell: true` concatenates argv unescaped, so any
+ * argument containing a space is split (a tarball path under a spaced project
+ * root is exactly that case) and every call emits DEP0190. Resolving npm's
+ * own JS entry and running it through `process.execPath` needs no shim and no
+ * shell. Returns `{ bin: 'npm', prefixArgs: [] }` when no bundled npm is
+ * found — correct on POSIX; `runNpm` refuses that on Windows rather than
+ * silently reaching for the shim.
+ */
+export function resolveNpmInvocation() {
+  if (process.platform === 'win32') {
+    const candidates = [
+      `${dirname(process.execPath)}\\node_modules\\npm\\bin\\npm-cli.js`,
+      'C:\\nvm4w\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
+      'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
+    ];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return { bin: process.execPath, prefixArgs: [candidate] };
+    }
+  }
+  return { bin: 'npm', prefixArgs: [] };
 }
+
 export function runNpm(args, opts) {
-  return execFileSync(npmCmdBin(), args, { ...opts, shell: process.platform === 'win32' });
+  const inv = resolveNpmInvocation();
+  if (inv.bin === 'npm' && process.platform === 'win32') {
+    throw new Error(
+      `NPM_CLI_UNRESOLVED: no bundled npm-cli.js next to ${process.execPath}; ` +
+        'refusing to spawn the npm.cmd shim through a shell.'
+    );
+  }
+  return execFileSync(inv.bin, [...inv.prefixArgs, ...args], opts);
 }
 
 /**

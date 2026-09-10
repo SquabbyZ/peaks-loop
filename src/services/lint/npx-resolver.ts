@@ -1,13 +1,14 @@
 /**
- * Cross-platform `npx` resolver.
+ * Cross-platform `npm` / `npx` resolver.
  *
- * On Windows, `npm` installs `npx` as a `.cmd` shim; Node 22's
- * `child_process.spawnSync` refuses to invoke it unless `shell: true`
- * is set, and `shell: true` corrupts quoted `--package` arguments.
- * Rather than depend on shell quoting, this helper resolves the
- * npx script bundled with the user's `npm` install and invokes it
- * via `node <npx-cli.js>` with the same argv. macOS / Linux continue
- * to use the regular `npx` binary.
+ * On Windows, `npm` installs `npx` and `npm` as `.cmd` shims; Node's
+ * `child_process.spawnSync` refuses to invoke a `.cmd` unless `shell: true`
+ * is set, and `shell: true` concatenates (does not escape) the argv — it
+ * corrupts quoted `--package` arguments, splits any argument containing a
+ * space, and emits DEP0190 on every call. Rather than depend on shell
+ * quoting, these helpers resolve the CLI script bundled with the user's
+ * `npm` install and invoke it via `node <npm|npx>-cli.js` with the same
+ * argv. macOS / Linux continue to use the regular binaries.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,15 +20,16 @@ export type NpxInvocation = {
   readonly baseEnv: NodeJS.ProcessEnv;
 };
 
-function locateNpxCliScript(): string | null {
+/** Locate `<npm install>/bin/<scriptFile>`, or `null` when not on disk. */
+function locateNpmCliScript(scriptFile: 'npm-cli.js' | 'npx-cli.js'): string | null {
   const candidates: ReadonlyArray<string> = process.platform === 'win32'
     ? [
-        join(process.execPath, '..', '..', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
-        'C:/nvm4w/nodejs/node_modules/npm/bin/npx-cli.js',
-        'C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js'
+        join(process.execPath, '..', '..', 'node_modules', 'npm', 'bin', scriptFile),
+        `C:/nvm4w/nodejs/node_modules/npm/bin/${scriptFile}`,
+        `C:/Program Files/nodejs/node_modules/npm/bin/${scriptFile}`
       ]
     : [
-        join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js')
+        join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', scriptFile)
       ];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
@@ -37,7 +39,7 @@ function locateNpxCliScript(): string | null {
 
 export function resolveNpxInvocation(npxArgs: readonly string[]): NpxInvocation {
   if (process.platform === 'win32') {
-    const cliScript = locateNpxCliScript();
+    const cliScript = locateNpmCliScript('npx-cli.js');
     if (cliScript !== null) {
       return {
         command: process.execPath,
@@ -49,6 +51,29 @@ export function resolveNpxInvocation(npxArgs: readonly string[]): NpxInvocation 
   return {
     command: 'npx',
     args: npxArgs,
+    baseEnv: process.env
+  };
+}
+
+/**
+ * `npm` sibling of `resolveNpxInvocation`, same shim bypass: `node
+ * <npm-cli.js> <args>`. A caller must NOT reach for bare `npm` + `shell: true`
+ * instead — the shim is the defect, not the justification.
+ */
+export function resolveNpmInvocation(npmArgs: readonly string[]): NpxInvocation {
+  if (process.platform === 'win32') {
+    const cliScript = locateNpmCliScript('npm-cli.js');
+    if (cliScript !== null) {
+      return {
+        command: process.execPath,
+        args: [cliScript, ...npmArgs],
+        baseEnv: process.env
+      };
+    }
+  }
+  return {
+    command: 'npm',
+    args: npmArgs,
     baseEnv: process.env
   };
 }

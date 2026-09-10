@@ -22,6 +22,20 @@ function expectPlatformNpxCommand(call: [string, string[], Record<string, unknow
   }
 }
 
+/**
+ * `resolveNpmInvocation` is the `npm` sibling of the npx resolver: bare `npm`
+ * on POSIX, and on win32 `node <npm-cli.js>` — the `.cmd` shim is never
+ * spawned, so no call may carry `shell`.
+ */
+function expectPlatformNpmCommand(call: [string, string[], Record<string, unknown>]): void {
+  if (process.platform === 'win32') {
+    expect(call[0]).toBe(process.execPath);
+    expect(call[1][0]).toContain('npm-cli.js');
+  } else {
+    expect(call[0]).toBe('npm');
+  }
+}
+
 describe('detectEslint', () => {
   beforeEach(() => {
     spawnSyncMock.mockReset();
@@ -59,7 +73,7 @@ describe('detectEslint', () => {
     expect(result.npxAvailable).toBe(false);
   });
 
-  it('when probing the npm registry, should invoke `npm view` through a Windows shell wrapper', () => {
+  it('when probing the npm registry, should invoke `npm view` with no shell and no .cmd shim', () => {
     // given: npx probe succeeds; each package probe returns status 0
     spawnSyncMock
       .mockReturnValueOnce({ status: 0, stdout: '10.9.4' } as ReturnType<typeof spawnSync>)
@@ -68,15 +82,40 @@ describe('detectEslint', () => {
     // when: ESLint availability is detected
     const result = detectEslint();
 
-    // then: every `npm view` call sets shell:true so the Windows .cmd shim resolves
+    // then: every `npm view` call goes through the resolver, and none carries a
+    // shell — the shim + shell flag was the defect (spaced args split, DEP0190).
     const packageCalls = spawnSyncMock.mock.calls.slice(1) as Array<[string, string[], Record<string, unknown>]>;
     expect(packageCalls.length).toBeGreaterThan(0);
     for (const call of packageCalls) {
-      expect(call[0]).toBe('npm');
-      expect(call[1][0]).toBe('view');
-      expect(call[2]).toMatchObject({ shell: true, encoding: 'utf8' });
+      expectPlatformNpmCommand(call);
+      expect(call[1]).toContain('view');
+      expect(call[1]).toContain('version');
+      expect(call[2]).toMatchObject({ encoding: 'utf8' });
+      expect(call[2].shell).toBeUndefined();
     }
     expect(result.state).toBe('ready');
     expect(result.warnings).toEqual([]);
+  });
+
+  it('when npm cannot be launched, should name the resolution failure instead of blaming the registry', () => {
+    // given: npx resolves, but the npm probe fails to spawn at all
+    spawnSyncMock
+      .mockReturnValueOnce({ status: 0, stdout: '10.9.4' } as ReturnType<typeof spawnSync>)
+      .mockReturnValue({
+        status: null,
+        error: new Error('spawn EINVAL'),
+        stdout: ''
+      } as unknown as ReturnType<typeof spawnSync>);
+
+    // when: ESLint availability is detected
+    const result = detectEslint();
+
+    // then: the warning names NPM_PROBE_UNRESOLVED rather than the registry
+    expect(result.state).toBe('ready');
+    expect(result.warnings.length).toBe(3);
+    for (const warning of result.warnings) {
+      expect(warning).toContain('NPM_PROBE_UNRESOLVED');
+      expect(warning).not.toContain('registry cannot resolve');
+    }
   });
 });

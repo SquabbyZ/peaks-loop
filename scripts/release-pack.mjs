@@ -29,6 +29,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import {
   runPnpm,
   runNpm,
+  resolveNpmInvocation,
   verifyTarball,
   toPosixPath,
 } from './_release-shared.mjs';
@@ -136,11 +137,11 @@ function isAlreadyPublished(name, version) {
   // the registry so the publish step can be skipped; otherwise
   // the npm CLI rejects `npm publish <same version>` with the
   // "cannot publish over the previously published versions" error.
-  const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const probe = spawnSync(npmBin, ['view', `${name}@${version}`, 'version', '--json'], {
+  // 2026-09-10: shell-free npm (see `resolveNpmInvocation` in _release-shared).
+  const { bin, prefixArgs } = resolveNpmInvocation();
+  const probe = spawnSync(bin, [...prefixArgs, 'view', `${name}@${version}`, 'version', '--json'], {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: process.platform === 'win32',
   });
   if (probe.status !== 0) return false;
   const stdout = probe.stdout?.toString?.() ?? '';
@@ -165,10 +166,9 @@ function isRegistryStale(name, version, localTarball) {
     // missing file instead of throwing.
     const localVer = readVersionJsFromTarballSilent(localTarball, `local ${name}@${version}`);
     if (localVer === null) return false;
-    const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    execFileSync(npmBin, ['pack', `${name}@${version}`, '--pack-destination', tmp], {
+    const { bin, prefixArgs } = resolveNpmInvocation();
+    execFileSync(bin, [...prefixArgs, 'pack', `${name}@${version}`, '--pack-destination', tmp], {
       cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     });
     const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
     if (!tgz) {

@@ -96,7 +96,17 @@ if (userFiles.length > 0) {
 // We also pass --exclude to skip the same files the project's existing
 // vitest coverage config excludes (commands, types, the shared package,
 // etc.) — those files are not exercised by unit tests by design.
-const c8Bin = localBin('c8');
+// c8 is launched as `node node_modules/c8/bin/c8.js` rather than through its
+// `.bin` shim. The shim is a `.cmd` on Windows, which Node >= 20 will not spawn
+// without `shell: true` — and `shell: true` concatenates the argv unescaped, so
+// `--temp-directory=<path>` / `--reports-dir=<path>` / `--src=<path>` were split
+// at the first space in a project path and every run emitted DEP0190. The JS
+// entry needs no shim and no shell.
+const c8Bin = resolve(projectRoot, 'node_modules', 'c8', 'bin', 'c8.js');
+if (!existsSync(c8Bin)) {
+  log(`ERROR: c8 entry not found at ${c8Bin}. Run \`pnpm install\` first.`);
+  process.exit(1);
+}
 const c8Args = [
   '--check-coverage',
   '--100',
@@ -140,10 +150,9 @@ log(`Running: c8 --check-coverage --100 ${vitestArgs.join(' ')}`);
 log(`V8 counters → ${v8CoverageDir}`);
 log(`Reports     → ${coverageOutDir}`);
 
-const c8Res = spawnSync(c8Bin, c8Args, {
+const c8Res = spawnSync(process.execPath, [c8Bin, ...c8Args], {
   cwd: projectRoot,
   stdio: 'inherit',
-  shell: isWin,
 });
 
 // Sanity: did V8 emit any counters? Even if c8 exited 0 (meaning the

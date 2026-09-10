@@ -20,6 +20,12 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
+import { resolveNpxInvocation } from '../lint/npx-resolver.js';
+// 2026-09-10: the D1 fix (`orchestrator-can-do.ts`) resolved this tree's own CLI
+// entry so a bare `peaks` never had to be resolved through a Windows `.cmd`
+// shim. `runCodegraph` below needs exactly that, so it reuses the same helper
+// rather than growing a second mechanism.
+import { cliEntryPath, interpreterArgs } from '../web/daemon-supervisor.js';
 import type {
   CodegraphAffectedResult,
   CodegraphQueryHit,
@@ -95,33 +101,34 @@ export function defaultCodegraphRunner(): CodegraphRunner {
 }
 
 function runCodegraph(args: string[], projectRoot: string): string {
+  const execOptions = {
+    cwd: projectRoot,
+    stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
+    timeout: 60_000,
+    maxBuffer: 32 * 1024 * 1024
+  };
   // Use `peaks codegraph` (the peaks wrapper), which adds --project support.
-  // Falls back to raw `codegraph` (no --project) if peaks is not on PATH.
-  const isWin = process.platform === 'win32';
-  // Try `peaks codegraph` first (the wrapper that understands --project).
+  // 2026-09-10: no shell. `peaks` on Windows is a `.cmd` shim, which Node >= 20
+  // refuses to spawn without `shell: true` — and `shell: true` concatenates the
+  // argv unescaped, so `--project <projectRoot>` was split at the first space in
+  // the project path (the same defect that made `peaks slice check` report a
+  // phantom failure on such a project). Resolving this tree's own CLI entry and
+  // running it through `process.execPath` needs no shim and no shell, so a
+  // spaced `projectRoot` is just an argument again.
   try {
-    return execFileSync('peaks', ['codegraph', ...args], {
-      cwd: projectRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: isWin,
-      timeout: 60_000,
-      maxBuffer: 32 * 1024 * 1024
-    }).toString('utf8');
+    return execFileSync(
+      process.execPath,
+      [...interpreterArgs(cliEntryPath()), 'codegraph', ...args],
+      execOptions
+    ).toString('utf8');
   } catch (error: unknown) {
     const err = error as { code?: string; status?: number };
     if (err.code === 'ENOENT') {
-      // Fallback: raw `codegraph` (won't accept --project, drop it)
+      // Fallback: raw `codegraph` (won't accept --project, drop it), reached
+      // through the npx resolver so the local `.bin` shim is never spawned.
       const fallbackArgs = args.filter((a) => a !== '--project' && !a.startsWith('--project='));
-      const localBin = join(projectRoot, 'node_modules', '.bin', 'codegraph');
-      const command = existsSync(localBin) ? localBin : 'npx';
-      const finalArgs = command === 'npx' ? ['codegraph', ...fallbackArgs] : fallbackArgs;
-      return execFileSync(command, finalArgs, {
-        cwd: projectRoot,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: isWin,
-        timeout: 60_000,
-        maxBuffer: 32 * 1024 * 1024
-      }).toString('utf8');
+      const { command, args: npxArgs, baseEnv } = resolveNpxInvocation(['codegraph', ...fallbackArgs]);
+      return execFileSync(command, npxArgs, { ...execOptions, env: baseEnv }).toString('utf8');
     }
     throw error;
   }

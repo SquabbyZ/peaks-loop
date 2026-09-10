@@ -41,6 +41,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { resolveNpmInvocation } from './_release-shared.mjs';
 
 const REQUIRED_PREFIX = 'dist/services/codegraph/';
 const REQUIRED_AT_LEAST_ONE = true;
@@ -62,14 +63,16 @@ function runNpmPackDryRun() {
   // declarative — the file list comes from package.json#files
   // + the on-disk tree, not from the prepack hook.
   //
-  // `shell: true` lets Windows resolve `npm.cmd` via PATHEXT
-  // (otherwise `spawnSync('npm', …)` raises ENOENT on Windows
-  // because there is no `npm.exe` — only `npm.cmd`).
-  const result = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+  // 2026-09-10: no shell. `shell: true` was here to let Windows resolve
+  // `npm.cmd` via PATHEXT, but a `.cmd` + shell is the defect: the argv is
+  // concatenated unescaped (DEP0190 on every run) and any argument containing
+  // a space is split. `resolveNpmInvocation` resolves npm's own JS entry and
+  // runs it through `process.execPath` instead.
+  const { bin, prefixArgs } = resolveNpmInvocation();
+  const result = spawnSync(bin, [...prefixArgs, 'pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: process.cwd(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
   });
 
   if (result.error) {

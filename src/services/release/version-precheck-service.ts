@@ -169,9 +169,16 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
 export function runTagCollision(opts: PrecheckOptions): LayerResult {
   const rootVersion = readRootVersion(opts.projectRoot);
   const tagName = `v${rootVersion}`;
-  // Windows shell wrapping convention: 5 prior occurrences in tests/unit/release/.
+  // 2026-09-10: no shell. `git` is `git.exe` on Windows, so the wrapper bought
+  // nothing — and it actively broke this layer, because `projectRoot` is an
+  // ARGUMENT to git and a shell wraps the command line unescaped. On a project
+  // whose path contains a space the shell split it, git exited 128
+  // ("cannot change to '…'"), and the layer fell through to its
+  // "git tag --list exited with code 128; layer skipped" WARNING — so a real
+  // tag collision was reported as merely deferred. Reproduced on
+  // `…\Temp\peaks space demo` with tag v9.9.9 present: warning (should be
+  // blocker). It also emitted DEP0190 on every run, on every layer.
   const res = spawnSync('git', ['-C', opts.projectRoot, 'tag', '--list', tagName], {
-    shell: process.platform === 'win32',
     encoding: 'utf8',
     timeout: 5_000
   });
