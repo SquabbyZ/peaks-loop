@@ -12,6 +12,14 @@
  * the orchestrator's source-priority logic is testable end-to-end.
  * Real MCP wiring is a future slice — the stubs are clearly marked.
  *
+ * Because a stub result is indistinguishable from a real one by shape,
+ * every result carries `synthetic`: true when the fragments came from a
+ * built-in stub rather than a caller-injected lookup (`context7Lookup` /
+ * `webSearchLookup`). Callers MUST NOT present a synthetic result as a
+ * scan result — `source` alone says which transport answered, not whether
+ * anything real was consulted. The stub seam stays injectable so the real
+ * wiring (and its tests) can replace it without touching this contract.
+ *
  * The orchestrator emits structured log lines via the injected `io`
  * (stdout for progress, stderr for warnings) so a CLI caller can see
  * which fallback path was taken.
@@ -31,6 +39,12 @@ export type ScanResult = {
   readonly fragments: readonly DocFragment[];
   readonly source: ScanSource;
   readonly elapsedMs: number;
+  /**
+   * `true` when the fragments came from the built-in stub lookups instead
+   * of a real documentation lookup. A synthetic result is not a scan
+   * result: it must never be rendered as one or gated on.
+   */
+  readonly synthetic: boolean;
 };
 
 export type ScanOptions = {
@@ -39,13 +53,17 @@ export type ScanOptions = {
   readonly projectRoot: string;
   readonly io: ProgramIO;
   readonly context7TimeoutMs?: number;
+  /** Test / real-wiring seam: replaces the priority-1 Context7 stub. */
+  readonly context7Lookup?: LookupFn;
+  /** Test / real-wiring seam: replaces the priority-2 WebSearch stub. */
+  readonly webSearchLookup?: LookupFn;
 };
 
 const DEFAULT_CONTEXT7_TIMEOUT_MS = 30_000;
 const DEFAULT_CONTEXT7_DELAY_MS = 100;
 const DEFAULT_WEBSEARCH_DELAY_MS = 200;
 
-type LookupFn = (intent: string, language: string) => Promise<{
+export type LookupFn = (intent: string, language: string) => Promise<{
   readonly ok: boolean;
   readonly results: readonly DocFragment[];
 }>;
@@ -86,12 +104,18 @@ const defaultWebSearchLookup: LookupFn = async (intent, language) => {
 export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
   const timeoutMs = opts.context7TimeoutMs ?? DEFAULT_CONTEXT7_TIMEOUT_MS;
   const startedAt = Date.now();
+  const context7Lookup = opts.context7Lookup ?? defaultContext7Lookup;
+  const webSearchLookup = opts.webSearchLookup ?? defaultWebSearchLookup;
+  // A branch is synthetic when the lookup that answered it is a stub. The
+  // fallback branch counts as synthetic if ANY stub took part in the chain.
+  const context7Stub = opts.context7Lookup === undefined;
+  const webSearchStub = opts.webSearchLookup === undefined;
 
   opts.io.stdout(`[scan-orchestrator] querying context7 for "${opts.intent}" (${opts.language})`);
   let context7Outcome: { ok: boolean; results: readonly DocFragment[] } | null = null;
   let context7Error: string | null = null;
   try {
-    const ctxPromise = defaultContext7Lookup(opts.intent, opts.language);
+    const ctxPromise = context7Lookup(opts.intent, opts.language);
     const ctxTimer = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`context7 timeout after ${timeoutMs}ms`)), timeoutMs).unref();
     });
@@ -106,7 +130,8 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
       results: context7Outcome.results,
       fragments: context7Outcome.results,
       source: 'context7',
-      elapsedMs: Date.now() - startedAt
+      elapsedMs: Date.now() - startedAt,
+      synthetic: context7Stub
     };
   }
 
@@ -114,7 +139,7 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
   let webOutcome: { ok: boolean; results: readonly DocFragment[] } | null = null;
   let webError: string | null = null;
   try {
-    webOutcome = await defaultWebSearchLookup(opts.intent, opts.language);
+    webOutcome = await webSearchLookup(opts.intent, opts.language);
   } catch (err) {
     webError = err instanceof Error ? err.message : String(err);
     opts.io.stderr(`[scan-orchestrator] websearch failed: ${webError}`);
@@ -125,7 +150,8 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
       results: webOutcome.results,
       fragments: webOutcome.results,
       source: 'websearch',
-      elapsedMs: Date.now() - startedAt
+      elapsedMs: Date.now() - startedAt,
+      synthetic: webSearchStub
     };
   }
 
@@ -134,6 +160,7 @@ export async function scanBestPractice(opts: ScanOptions): Promise<ScanResult> {
     results: [],
     fragments: [],
     source: 'fallback',
-    elapsedMs: Date.now() - startedAt
+    elapsedMs: Date.now() - startedAt,
+    synthetic: context7Stub || webSearchStub
   };
 }

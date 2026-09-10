@@ -235,6 +235,16 @@ triggered for this intent.
 5. LLM picks one recommendation (★ marker) with reasoning block.
 6. **Mandatory ⚠️ catch gate** — user explicitly acks / picks alt / rejects + reason.
 
+**When the scan cannot be performed, the sub-step is SKIPPED — never fabricated.** The lookups behind
+this scan are stubs in the current build: they return synthetic fragments marked internally as
+synthetic. When the scan runs on a synthetic result it **refuses** — `ok:false`,
+`BEST_PRACTICE_SCAN_SYNTHETIC_LOOKUP`, exit 1 — and prints no recommendation, no comparison table and
+no ⚠️ catch gate, because there is nothing real for the user to judge. Record the sub-step as
+**skipped with reason `synthetic-lookup`** and carry on; do not synthesise a recommendation to satisfy
+the gate. `--intent <text>` is required (the business goal, not the project path) — omitting it is
+`BEST_PRACTICE_SCAN_INTENT_REQUIRED`, also exit 1. A real scan renders the full table and the gate
+normally; wiring the real Context7 / WebSearch lookup is a future slice.
+
 **Out of scope for this sub-step:**
 - ❌ No changes to RD dispatch Karpathy prose (Step 3 unchanged)
 - ❌ No changes to QA / SC / TXT skills

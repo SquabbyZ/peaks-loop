@@ -50,3 +50,6 @@ tmp-shared-channel-*/
 **/.tmp-shared-channel-*/
 # BDD reporter test fixtures — ephemeral, generated under tests/unit/ at runtime.
 tests/unit/_bdd-reporter-tmp/
+# best-practice-scan artifacts — ephemeral, written to <project>/best-practice/<date>-<intent>.md.
+# The CLI's own help says "(gitignored)"; this is the rule that makes that true.
+best-practice/

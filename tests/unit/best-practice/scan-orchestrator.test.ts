@@ -121,3 +121,86 @@ describe('scanBestPractice', () => {
     expect(out).toContain('context7');
   });
 });
+
+describe('scanBestPractice synthetic flag (honesty seam)', () => {
+  let io: ReturnType<typeof makeCapturedIo>['io'];
+
+  beforeEach(() => {
+    io = makeCapturedIo().io;
+  });
+
+  const REAL_FRAGMENT = {
+    title: 'Real doc',
+    url: 'https://docs.example.com/real',
+    snippet: 'real documentation fragment'
+  };
+
+  it('when no lookup is injected, should flag the stub answer as synthetic', async () => {
+    // given: the built-in stub chain (no injected lookups)
+    // when: the orchestrator scans
+    const result = await scanBestPractice({
+      intent: 'add a caching layer',
+      language: 'typescript',
+      projectRoot: '/tmp/proj',
+      io
+    });
+
+    // then: the answer is marked synthetic and the fragment self-identifies as a stub
+    expect(result.synthetic).toBe(true);
+    expect(result.source).toBe('context7');
+    expect(result.results[0]?.snippet).toContain('stub');
+  });
+
+  it('when a real context7 lookup is injected, should report synthetic=false and return its fragments', async () => {
+    // given: a caller-injected lookup that answers with a real doc fragment
+    // when: the orchestrator scans
+    const result = await scanBestPractice({
+      intent: 'add a caching layer',
+      language: 'typescript',
+      projectRoot: '/tmp/proj',
+      io,
+      context7Lookup: async () => ({ ok: true, results: [REAL_FRAGMENT] })
+    });
+
+    // then: nothing about the result is synthetic — it is a real scan result
+    expect(result.synthetic).toBe(false);
+    expect(result.source).toBe('context7');
+    expect(result.results).toEqual([REAL_FRAGMENT]);
+  });
+
+  it('when a real websearch lookup is injected and context7 times out, should report synthetic=false', async () => {
+    // given: context7 short-circuited by a 1 ms timeout + a real websearch lookup
+    // when: the orchestrator falls back
+    const result = await scanBestPractice({
+      intent: 'add a caching layer',
+      language: 'go',
+      projectRoot: '/tmp/proj',
+      io,
+      context7TimeoutMs: 1,
+      webSearchLookup: async () => ({ ok: true, results: [REAL_FRAGMENT] })
+    });
+
+    // then: the websearch branch is real, even though the context7 stub was consulted first
+    expect(result.source).toBe('websearch');
+    expect(result.synthetic).toBe(false);
+    expect(result.results).toEqual([REAL_FRAGMENT]);
+  });
+
+  it('when a real websearch lookup returns nothing and both lookups are real, should not call the result synthetic', async () => {
+    // given: real (injected) lookups on both priorities, neither one answering
+    // when: the orchestrator exhausts the chain with no stub involved
+    const result = await scanBestPractice({
+      intent: 'add a caching layer',
+      language: 'java',
+      projectRoot: '/tmp/proj',
+      io,
+      context7Lookup: async () => ({ ok: false, results: [] }),
+      webSearchLookup: async () => ({ ok: false, results: [] })
+    });
+
+    // then: an empty real scan is empty, not synthetic (there is no stub in the chain)
+    expect(result.source).toBe('fallback');
+    expect(result.synthetic).toBe(false);
+    expect(result.results).toEqual([]);
+  });
+});
