@@ -616,3 +616,90 @@ describe('a11y — the PEAKS_WEB_DISABLED gate', () => {
     expect(stop.data['stopped']).toBe(0);
   });
 });
+
+describe('behavior — the open --profile option', () => {
+  it('when open names a profile, should send it to the daemon with the op', async () => {
+    // given: a running stub daemon and a saved profile name
+    // when:  open runs with --profile
+    const captured = await runWeb(['open', 'https://example.test/', '--profile', 'work', '--json']);
+    // then:  the payload carries the profile beside this op's url
+    expect(asEnvelope(captured).ok).toBe(true);
+    expect(daemon.requests).toHaveLength(1);
+    expect(daemon.requests[0]?.op).toBe('open');
+    expect(daemon.requests[0]?.args['profile']).toBe('work');
+    expect(daemon.requests[0]?.args['url']).toBe('https://example.test/');
+  });
+
+  it('when open names no profile, should send no profile key at all', async () => {
+    // given: the same daemon
+    // when:  open runs without --profile
+    await runWeb(['open', 'https://example.test/', '--json']);
+    // then:  the payload is exactly what it was before the option existed
+    expect(Object.hasOwn(daemon.requests[0]?.args ?? {}, 'profile')).toBe(false);
+  });
+
+  it('when an upper-case profile is typed, should send the canonical name and report the fold', async () => {
+    // given: a name the filesystem would store lower-cased
+    // when:  open runs with --profile Work
+    const captured = await runWeb(['open', 'https://example.test/', '--profile', 'Work', '--json']);
+    // then:  the daemon is asked for "work", and the fold is never silent
+    expect(daemon.requests[0]?.args['profile']).toBe('work');
+    expect(asEnvelope(captured).warnings.join('\n')).toContain('resolved to the profile "work"');
+  });
+
+  it('when an invalid profile is typed, should refuse it before the daemon is called', async () => {
+    // given: a traversing name
+    // when:  open runs with it
+    const captured = await runWeb(['open', 'https://example.test/', '--profile', '../escape', '--json']);
+    // then:  the CLI's own check refuses it and nothing left this process (the
+    //        daemon runs the same resolver again — a name off the wire is not
+    //        trusted just because the CLI claims to have checked it)
+    const parsed = asEnvelope(captured);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('WEB_PROFILE_NAME_INVALID');
+    expect(process.exitCode).toBe(1);
+    expect(daemon.requests).toHaveLength(0);
+  });
+
+  it('when the disabled gate is on, should cap the profile it echoes into the fallback envelope', async () => {
+    // given: the gate set and a profile far past any sane length
+    const saved = process.env['PEAKS_WEB_DISABLED'];
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    try {
+      // when:  open runs with it
+      const captured = await runWeb([
+        'open', 'https://example.test/', '--profile', 'a'.repeat(100_000), '--json',
+      ]);
+      // then:  the tier-3 envelope is produced, and the caller text inside it is
+      //        bounded — the gate runs BEFORE the resolver, so nothing else
+      //        would have capped it
+      const parsed = asEnvelope(captured);
+      const echoed = String((parsed.data['args'] as Record<string, string>)['profile'] ?? '');
+      expect(parsed.ok).toBe(false);
+      expect(echoed.length).toBeLessThanOrEqual(65);
+      expect(echoed.endsWith('…')).toBe(true);
+    } finally {
+      if (saved === undefined) {
+        delete process.env['PEAKS_WEB_DISABLED'];
+      } else {
+        process.env['PEAKS_WEB_DISABLED'] = saved;
+      }
+    }
+  });
+
+  it('when the command tree is inspected, should declare --profile on open and no other verb', () => {
+    // given: the registered web command tree
+    const program = new Command();
+    registerWebCommands(program, makeCapturedIo().io);
+    const web = program.commands.find((command) => command.name() === 'web');
+    // when:  each verb's declared options are inspected
+    const withProfile = (web?.commands ?? [])
+      .filter((command) => command.options.some((option) => option.long === '--profile'))
+      .map((command) => command.name())
+      .sort();
+    // then:  `open` is the only CONSUMER of a profile. `login` declares one too
+    //        — it is S4's writing half, where the profile is required — and no
+    //        other verb gains it: design §2 shows it on `open` alone.
+    expect(withProfile).toEqual(['login', 'open']);
+  });
+});

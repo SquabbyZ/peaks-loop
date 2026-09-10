@@ -279,7 +279,14 @@ export async function routeOp(
     switch (op) {
       case 'open': {
         const manager = await managerFor();
-        return succeeded(await manager.open(dispatchId, stringArg(args['url'])));
+        // The ONLY verb that accepts a profile (design §2). The name is passed
+        // down raw and validated again in the manager: it arrives off the wire,
+        // so the CLI's own check is not evidence here (same rule as S1's
+        // `assertUnder` / sid-slug pair). A mistyped optional arg means "not
+        // provided", never `[object Object]` — like every other optional arg.
+        return succeeded(
+          await manager.open(dispatchId, stringArg(args['url']), optionalArg(args['profile']))
+        );
       }
       case 'text': {
         const manager = await managerFor();

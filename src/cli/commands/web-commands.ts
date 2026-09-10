@@ -21,6 +21,7 @@ import { wrapUntrusted, WRAPPED_OPS } from '../../services/web/untrusted-envelop
 import { WebDaemonClient } from '../../services/web/web-client.js';
 import { degradedEnvelope } from '../../services/web/web-fallback.js';
 import { isWebDisabled } from '../../services/web/web-install-service.js';
+import { cappedEcho, resolveProfileName } from '../../services/web/web-login-profile.js';
 import type { WebOp } from '../../services/web/web-protocol.js';
 import {
   addJsonOption,
@@ -38,16 +39,40 @@ interface VerbSpec {
   readonly op: WebOp;
   readonly description: string;
   readonly argument: { readonly name: string; readonly description: string } | null;
-  readonly toArgs: (positional: readonly (string | undefined)[]) => Record<string, unknown>;
+  /**
+   * `--profile <name>` — declared on `open` and nowhere else (design §2 lists it
+   * only there). Any other verb taking a profile would invent behaviour nobody
+   * asked for and multiply the isolation questions for no requested benefit.
+   */
+  readonly takesProfile?: true;
+  readonly toArgs: (
+    positional: readonly (string | undefined)[],
+    profile: string | undefined
+  ) => Record<string, unknown>;
 }
+
+/**
+ * The option text names the read-only half out loud: a caller who browses with a
+ * profile must not assume the profile was refreshed by it.
+ */
+const PROFILE_OPTION_DESCRIPTION =
+  'navigate with a saved login profile (`peaks web login --profile <name>`): [a-z0-9._-], ' +
+  '1-64 chars, upper case folds to lower. The profile is READ-ONLY here — this run loads it ' +
+  'and never writes it back, so browser activity is not saved into it.';
 
 const WEB_VERBS: readonly VerbSpec[] = [
   {
     name: 'open',
     op: 'open',
-    description: 'Navigate the dispatch browser context to <url>.',
+    description:
+      'Navigate the dispatch browser context to <url>. With --profile, the page loads that ' +
+      'saved login.',
     argument: { name: '<url>', description: 'absolute URL to load' },
-    toArgs: (positional) => ({ url: positional[0] ?? '' })
+    takesProfile: true,
+    toArgs: (positional, profile) => ({
+      url: positional[0] ?? '',
+      ...(profile === undefined ? {} : { profile })
+    })
   },
   {
     name: 'text',
@@ -101,16 +126,21 @@ export function registerWebCommands(program: Command, io: ProgramIO): void {
     if (verb.argument !== null) {
       command = command.argument(verb.argument.name, verb.argument.description);
     }
+    if (verb.takesProfile === true) {
+      command = command.option('--profile <name>', PROFILE_OPTION_DESCRIPTION);
+    }
     command = addJsonOption(command);
     // Commander calls the handler as (…declaredArgs, options, command), so the
     // options object sits at the declared-argument count — not at the end.
     command.action(async (...actionArgs: unknown[]) => {
-      const options = actionArgs[takesArgument ? 1 : 0] as { json?: boolean } | undefined;
+      const options = actionArgs[takesArgument ? 1 : 0] as
+        | { json?: boolean; profile?: string }
+        | undefined;
       const rawArgument = actionArgs[0];
       const positional = takesArgument
         ? [typeof rawArgument === 'string' ? rawArgument : undefined]
         : [];
-      await runWebOp(io, verb.op, verb.toArgs(positional), options?.json === true);
+      await runWebOp(io, verb.op, verb.toArgs(positional, options?.profile), options?.json === true);
     });
   }
 
@@ -135,21 +165,65 @@ export async function runWebOp(
   asJson: boolean
 ): Promise<void> {
   const command = `peaks.web.${op}`;
+  // Declared outside the try so the CATCH reports the fold too (S4's F5/S5 rule
+  // for `login`, applied here): a run that dies after the name was resolved
+  // knows the canonical name just as well as a successful one.
+  let foldWarnings: readonly string[] = [];
   try {
     if (isWebDisabled(process.env)) {
-      printResult(io, degradedEnvelope(op, 'PEAKS_WEB_DISABLED=1', 3, args), asJson);
+      // The gate is statement #1, so a `--profile` has NOT been through the
+      // resolver yet and is still unbounded caller text. `degradedEnvelope`
+      // carries every string arg into the payload, so it is capped here — the
+      // same cap the `login` gate applies, for the same reason (S1's bounded
+      // output is a property of the envelope, not only of stdout).
+      const gateArgs =
+        typeof args['profile'] === 'string'
+          ? { ...args, profile: cappedEcho(args['profile']) }
+          : args;
+      printResult(io, degradedEnvelope(op, 'PEAKS_WEB_DISABLED=1', 3, gateArgs), asJson);
       process.exitCode = 1;
       return;
     }
+
+    // A caller-supplied `--profile` is validated HERE, before anything is sent,
+    // and the daemon runs the SAME resolver again on the payload it receives (a
+    // value off the wire is not trusted). `resolveProfileName` folds to lower
+    // case, so the canonical name is what travels, and the fold is reported
+    // rather than silent — the contract `login` honours.
+    let profile: string | undefined;
+    if (typeof args['profile'] === 'string') {
+      const typed = args['profile'];
+      try {
+        profile = resolveProfileName(typed);
+      } catch (error) {
+        printResult(
+          io,
+          fail(command, 'WEB_PROFILE_NAME_INVALID', profileRefusal(error), {}, PROFILE_NEXT_ACTIONS),
+          asJson
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (profile !== typed) {
+        foldWarnings = [
+          `--profile ${JSON.stringify(cappedEcho(typed))} resolved to the profile "${profile}"`
+        ];
+      }
+    }
+    const opArgs: Record<string, unknown> =
+      profile === undefined ? args : { ...args, profile };
 
     const projectRoot = resolveCanonicalProjectRoot(process.cwd());
     const sessionId = getCurrentSessionId(projectRoot);
     if (sessionId === null) {
       printResult(
         io,
-        fail(command, 'NO_SESSION', 'No peaks session is bound to this project root', {}, [
-          'Bind a session first (the LLM runs `peaks workspace init` on your behalf)'
-        ]),
+        withFold(
+          fail(command, 'NO_SESSION', 'No peaks session is bound to this project root', {}, [
+            'Bind a session first (the LLM runs `peaks workspace init` on your behalf)'
+          ]),
+          foldWarnings
+        ),
         asJson
       );
       process.exitCode = 1;
@@ -159,7 +233,7 @@ export async function runWebOp(
     const info = await ensureDaemon(projectRoot, sessionId);
     const response = await new WebDaemonClient(info).call<Record<string, unknown>>(
       op,
-      { ...args, dispatchId: dispatchId(), projectRoot, sessionId },
+      { ...opArgs, dispatchId: dispatchId(), projectRoot, sessionId },
       OP_TIMEOUT_MS
     );
 
@@ -172,8 +246,14 @@ export async function runWebOp(
       printResult(
         io,
         code === 'WEB_INSTALL_REQUIRED'
-          ? degradedEnvelope(op, `WEB_INSTALL_REQUIRED: ${response.message ?? ''}`, 3, args)
-          : fail(command, code, failureMessage(op, response.message, response.nextActions), {}, []),
+          ? withFold(
+              degradedEnvelope(op, `WEB_INSTALL_REQUIRED: ${response.message ?? ''}`, 3, opArgs),
+              foldWarnings
+            )
+          : withFold(
+              fail(command, code, failureMessage(op, response.message, response.nextActions), {}, []),
+              foldWarnings
+            ),
         asJson
       );
       process.exitCode = 1;
@@ -181,21 +261,53 @@ export async function runWebOp(
     }
 
     const wrapped = wrapPageData(op, response.data);
-    emit(io, ok(command, wrapped.data, wrapDiagnostics(response.warnings)), asJson, wrapped.human);
+    emit(
+      io,
+      ok(command, wrapped.data, [...foldWarnings, ...wrapDiagnostics(response.warnings)]),
+      asJson,
+      wrapped.human
+    );
   } catch (error) {
     printResult(
       io,
-      fail(
-        command,
-        'WEB_OP_FAILED',
-        failureMessage(op, redactSensitiveErrorMessage(getErrorMessage(error)), []),
-        {},
-        []
+      withFold(
+        fail(
+          command,
+          'WEB_OP_FAILED',
+          failureMessage(op, redactSensitiveErrorMessage(getErrorMessage(error)), []),
+          {},
+          []
+        ),
+        foldWarnings
       ),
       asJson
     );
     process.exitCode = 1;
   }
+}
+
+/**
+ * What a caller can do after a refused `--profile` — the same sentence `login`
+ * gives, because it is the same mistake and the same verb fixes it.
+ */
+const PROFILE_NEXT_ACTIONS = [
+  'Re-run with a name matching [a-z0-9._-], 1-64 chars',
+  'Or run `peaks web login --profile <name>` to create that profile'
+];
+
+/**
+ * The resolver's own message begins with the code, and `fail()` puts the code in
+ * front of the message again — strip it, so human output does not read
+ * `WEB_PROFILE_NAME_INVALID: WEB_PROFILE_NAME_INVALID: …` (the `login` verb does
+ * the same).
+ */
+function profileRefusal(error: unknown): string {
+  return getErrorMessage(error).replace(/^WEB_PROFILE_NAME_INVALID:\s*/, '');
+}
+
+/** Prepend the fold notice to an envelope's warnings; never rewrite them away. */
+function withFold<T>(envelope: ResultEnvelope<T>, warnings: readonly string[]): ResultEnvelope<T> {
+  return warnings.length === 0 ? envelope : { ...envelope, warnings: [...warnings, ...envelope.warnings] };
 }
 
 /**

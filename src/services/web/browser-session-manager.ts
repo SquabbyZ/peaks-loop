@@ -10,6 +10,13 @@
  *
  * Every write target is passed through `assertUnder` and every screenshot uses
  * an explicit absolute `path`, so nothing can land in the project root (AC1).
+ *
+ * `open` may additionally name a user-level LOGIN PROFILE (design §2:
+ * `peaks web open <url> [--profile <name>]`, the only verb that takes one). That
+ * profile is **READ-ONLY here**: it is loaded into the dispatch's context and is
+ * never written back. Whether an automated browse should refresh a user-level
+ * credential file is an undecided design question, so this module does not
+ * decide it — see `contextFor`.
  */
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -20,11 +27,13 @@ import type { PwBrowser, PwContext, PwPage } from './playwright-loader.js';
 import { pruneAriaSnapshot, renderSnapshot, type AriaNode } from './snapshot-pruner.js';
 import {
   assertUnder,
+  userWebProfilesDir,
   webContextStatePath,
   webDir,
   webProfilesDir,
   webShotPath
 } from './web-artifact-paths.js';
+import { loginStorageStatePath, resolveProfileName } from './web-login-profile.js';
 
 /**
  * Core Web Vitals need observers registered BEFORE the page loads
@@ -167,6 +176,13 @@ export interface CloseAllResult {
 
 interface DispatchSession {
   readonly context: PwContext;
+  /**
+   * The login profile this context was built from, or `null` for the
+   * per-dispatch state. Kept so a SECOND, different profile on one dispatch is
+   * refused by name instead of silently reusing a browser that is logged in as
+   * somebody else (see `contextFor`).
+   */
+  readonly profile: string | null;
   page: PwPage | null;
 }
 
@@ -182,10 +198,48 @@ export class BrowserSessionManager {
     this.sessionId = options.sessionId;
   }
 
-  /** The context for a dispatch, created on first use and reused afterwards. */
-  async contextFor(dispatchId: string): Promise<PwContext> {
+  /**
+   * The context for a dispatch, created on first use and reused afterwards.
+   *
+   * `profile` names a user-level login profile (`peaks web login --profile`) to
+   * build the context from. When given it REPLACES the dispatch's own state: a
+   * context holds one storage state, so "start from the profile" and "start from
+   * the per-dispatch state" are alternatives, not layers.
+   *
+   * The profile is **READ-ONLY**. This module reads it into the context and
+   * never writes, refreshes or trims it — write-back is an undecided design
+   * question (it would keep a login fresh without re-running `login`, and it
+   * would also let an automated browse silently rewrite a user-level credential
+   * file), so this slice does not decide it. `closeAll` still persists the
+   * dispatch's OWN `pw-profiles/<dispatchId>/storageState.json`; nothing under
+   * `~/.peaks/web-profiles/` is ever created or modified from here.
+   *
+   * The name is validated HERE and not only in the CLI, because it arrives off
+   * the wire: `resolveProfileName` is the SAME resolver `login` uses (folds to
+   * lower case, refuses a traversing name, a leading dot, a device name), and
+   * the read is anchored with `assertUnder`. A profile that does not exist is a
+   * NAMED failure — falling through to an unauthenticated context would answer
+   * "open this with my profile" with a logged-out browser and no signal.
+   */
+  async contextFor(dispatchId: string, rawProfile?: string): Promise<PwContext> {
+    // Resolved before the dedup check, so the value compared below is the
+    // canonical, ≤64-char name and never the raw text off the wire.
+    const profile = rawProfile === undefined ? null : resolveProfileName(rawProfile);
     const existing = this.sessions.get(dispatchId);
     if (existing !== undefined) {
+      if (profile !== null && profile !== existing.profile) {
+        // Not a silent wrong answer: this dispatch already has a context and it
+        // was NOT built from the profile just asked for, so reusing it would
+        // serve a request for one profile with a browser logged in as another
+        // (or as nobody).
+        throw new Error(
+          `WEB_PROFILE_CONFLICT: dispatch ${dispatchId} already has a browser context ` +
+            (existing.profile === null
+              ? 'that was not created from a profile'
+              : `created from profile "${existing.profile}"`) +
+            `; it cannot be reopened as "${profile}" — use a fresh dispatch id or stop the daemon`
+        );
+      }
       return existing.context;
     }
     if (this.sessions.size >= MAX_DISPATCH_CONTEXTS) {
@@ -198,18 +252,23 @@ export class BrowserSessionManager {
     // The state file lives under `pw-profiles/`, a SIBLING of `web/` — guarding
     // it with `webDir` rejects every dispatch.
     assertUnder(statePath, webProfilesDir(this.projectRoot, this.sessionId));
+    const profileStatePath = profile === null ? null : existingProfileStatePath(profile);
     const context = await this.browser.newContext({
       acceptDownloads: false,
-      ...(existsSync(statePath) ? { storageState: statePath } : {})
+      ...(profileStatePath !== null
+        ? { storageState: profileStatePath }
+        : existsSync(statePath)
+          ? { storageState: statePath }
+          : {})
     });
     await context.addInitScript(VITALS_INIT_SCRIPT);
-    this.sessions.set(dispatchId, { context, page: null });
+    this.sessions.set(dispatchId, { context, profile, page: null });
     return context;
   }
 
-  async open(dispatchId: string, url: string): Promise<{ url: string; title: string }> {
+  async open(dispatchId: string, url: string, profile?: string): Promise<{ url: string; title: string }> {
     assertNavigableUrl(url);
-    const page = await this.pageFor(dispatchId);
+    const page = await this.pageFor(dispatchId, profile);
     await page.goto(url, { waitUntil: 'load' });
     // `url()` after redirects and `title()` are both page-controlled.
     return {
@@ -339,11 +398,11 @@ export class BrowserSessionManager {
     return { closedContexts, stateWriteFailures };
   }
 
-  private async pageFor(dispatchId: string): Promise<PwPage> {
-    const session = this.sessions.get(dispatchId);
-    if (session === undefined) {
-      await this.contextFor(dispatchId);
-    }
+  private async pageFor(dispatchId: string, profile?: string): Promise<PwPage> {
+    // Called on EVERY path, not only when the dispatch has no session yet:
+    // `contextFor` is already the dedup lookup (it returns the existing
+    // context), and reuse is where a profile mismatch has to be caught.
+    await this.contextFor(dispatchId, profile);
     const active = this.sessions.get(dispatchId);
     if (active === undefined) {
       throw new Error(`WEB_CONTEXT_MISSING: no browser context for dispatch ${dispatchId}`);
@@ -353,6 +412,35 @@ export class BrowserSessionManager {
     }
     return active.page;
   }
+}
+
+/**
+ * The storage state a named profile loads: `~/.peaks/web-profiles/<name>/storageState.json`.
+ *
+ * READ-ONLY by construction: this function only ever READS the path it returns,
+ * and the module never writes one.
+ *
+ * `name` is already canonical (the caller ran `resolveProfileName`); the
+ * resolver inside `loginStorageStatePath` is idempotent on a canonical name, so
+ * the path literal stays in one place. The read is anchored with `assertUnder`
+ * the same way the write site is, and `resolveProfileName`'s own `assertUnder`
+ * has already rejected a name that climbs out of the profile root.
+ *
+ * A missing profile is a NAMED failure. The `existsSync`-guarded spread in
+ * `contextFor` is what it must never become: that pattern silently yields an
+ * unauthenticated context, which is the one answer a caller who asked for a
+ * profile must not be given.
+ */
+function existingProfileStatePath(name: string): string {
+  const statePath = loginStorageStatePath(name);
+  assertUnder(statePath, userWebProfilesDir());
+  if (!existsSync(statePath)) {
+    throw new Error(
+      `WEB_PROFILE_NOT_FOUND: there is no login profile "${name}" at ${statePath} — create it ` +
+        `with \`peaks web login --profile ${name}\``
+    );
+  }
+  return statePath;
 }
 
 /** `YYYYMMDDTHHMMSSmmmZ` — no colons, so the file name is Windows-safe (§7.1). */
