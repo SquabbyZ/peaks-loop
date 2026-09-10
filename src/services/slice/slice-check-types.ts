@@ -6,10 +6,15 @@
  * 4 self-checks that must pass at slice end before the slice is handed
  * off to peaks-qa:
  *
- *   1. typecheck (`npx tsc --noEmit`)
+ *   1. typecheck — the project-local TypeScript entry
+ *      (`node_modules/typescript/bin/tsc`) run as `node <entry>`: no
+ *      `npx`, no shell. Gates on `-p tsconfig.build.json --noEmit`; the
+ *      wider `-p tsconfig.json --noEmit` count is reported against
+ *      `TYPECHECK_PREEXISTING_BASELINE` and gates only if it grows.
  *   2. unit tests — by default the **changed-only** suite
- *      (`npx vitest run --changed`). Pass `--run-tests` to opt in to the
- *      full suite (`npx vitest run`); pass `--skip-tests` to skip
+ *      (`vitest run --changed`, same `node <entry>` shape via
+ *      `node_modules/vitest/vitest.mjs`). Pass `--run-tests` to opt in to
+ *      the full suite (`vitest run`); pass `--skip-tests` to skip
  *      entirely (e.g. docs-only or config-only slices).
  *   3. 3-way review fan-out (code-review + security-review + perf-baseline)
  *   4. gate machinery (`peaks workflow verify-pipeline --rid <rid>`)
@@ -51,8 +56,8 @@ export type SliceCheckResult = {
   stages: SliceCheckStage[];
   /**
    * Which unit-test mode actually ran. One of:
-   * - `"changed"` — default: `npx vitest run --changed` (tests for git-changed files only)
-   * - `"full"` — opt-in via `--run-tests`: `npx vitest run` (full suite)
+   * - `"changed"` — default: `vitest run --changed` (tests for git-changed files only)
+   * - `"full"` — opt-in via `--run-tests`: `vitest run` (full suite)
    * - `"skipped"` — opt-in via `--skip-tests` (stage not executed)
    * - `"overridden"` — full mode + `--allow-pre-existing-failures` and the run failed;
    *   stage downgraded to `skipped` with the pre-existing-failure reason
@@ -77,9 +82,9 @@ export type SliceCheckOptions = {
    */
   refreshFanout: boolean;
   /**
-   * When true, run the **full** `npx vitest run` suite at the boundary.
+   * When true, run the **full** `vitest run` suite at the boundary.
    * When false (the default), run the **changed-only** suite
-   * (`npx vitest run --changed`) which only exercises tests related to
+   * (`vitest run --changed`) which only exercises tests related to
    * git-changed files. The changed-only mode is the new default as of
    * run 017 — full suite costs 30s+ on this repo; the changed-only
    * mode costs ~1-3s in steady state and is what catches the

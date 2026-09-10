@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
+import { isDirectory } from 'peaks-loop-shared/fs';
 
 // Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
 // removed with the change-id axis. Slice check resolves the rid from

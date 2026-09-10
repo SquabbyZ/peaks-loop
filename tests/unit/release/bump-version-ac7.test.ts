@@ -29,10 +29,10 @@
 //   - a11y:      human-readable no-op / bump messages are surfaced on stdout
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, delimiter, isAbsolute } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 
 declareDimensions(
@@ -48,6 +48,12 @@ interface Harness {
 }
 
 let active: Harness | null = null;
+
+// Every temp dir this file creates. `afterEach` removes them; this list lets
+// `afterAll` prove it, so a regression to "null `active` and leave the dir on
+// disk" fails here instead of silently piling up `peaks-bump-ac7-*` dirs in the
+// OS temp dir on every run.
+const createdDirs: string[] = [];
 
 function writeFakeNpm(binDir: string, fakeLatest: string): void {
   // The bump-version script runs `npm view peaks-loop dist-tags.latest --json`
@@ -80,6 +86,7 @@ function writeFakePackage(cwd: string, version: string): void {
 
 function setupHarness(version: string, registryLatest: string): Harness {
   const cwd = mkdtempSync(join(tmpdir(), 'peaks-bump-ac7-'));
+  createdDirs.push(cwd);
   const fakeBinDir = join(cwd, 'fake-bin');
   mkdirSync(fakeBinDir, { recursive: true });
   writeFakeNpm(fakeBinDir, registryLatest);
@@ -119,7 +126,18 @@ function runBumpVersion(args: string[]): { status: number | null; stdout: string
 }
 
 afterEach(() => {
+  // `afterEach` runs on the failure path too, so one removal site covers both.
+  if (active !== null) {
+    rmSync(active.cwd, { recursive: true, force: true });
+  }
   active = null;
+});
+
+// Leak guard: runs after every test (pass or fail) has had its `afterEach`.
+// Fails if any dir this file created still exists — which is exactly what the
+// pre-fix afterEach did.
+afterAll(() => {
+  expect(createdDirs.filter((dir) => existsSync(dir))).toEqual([]);
 });
 
 // ---- render dimension ------------------------------------------------------
