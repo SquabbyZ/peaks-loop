@@ -3,9 +3,17 @@
  * write-gate.js — peaks Write|Edit|MultiEdit PreToolUse path gate.
  *
  * Slice c5-write-hook-exec-form (session 2026-09-10-session-528a63).
- * VERBATIM RELOCATION: the predicate chain below is character-for-character
+ * VERBATIM RELOCATION: the predicate chain below was character-for-character
  * the chain that used to be inlined into `claude-settings-template.ts` as a
- * `node -e "<js>"` one-liner. Nothing about the allow/deny decision changed.
+ * `node -e "<js>"` one-liner.
+ *
+ * Slice c5b-write-gate-polarity (same session) NARROWED the decision to match
+ * the contract `.claude/HOOKS.md` documents for this handler. The relocated
+ * chain read its eight directory names as an EXCLUSION list, so `_runtime`
+ * AND every other `.peaks/<slug>/` were allowed; it now allows only paths
+ * under `.peaks/_runtime/` and falls through on everything else. That earlier
+ * polarity also permitted a top-level `.peaks/<change-id>/` write, which
+ * `CLAUDE.md`'s hard ban forbids outright.
  *
  * Why it moved into a file: the inlined form was shell-dialect-coupled. Its
  * escaping contract was defined in terms of bash reducing `\\` to `\` inside a
@@ -23,9 +31,10 @@
  *     `scripts/copy-templates.mjs`), which lets one emitted path string be
  *     valid for both the repo and an installed consumer.
  *
- * Contract: exit 0 = allow, exit 1 = deny. Both are NON-BLOCKING in Claude
- * Code's PreToolUse contract — only exit 2 blocks a tool call. This handler's
- * job is to stay silent on the paths the gate is meant to skip.
+ * Contract (`.claude/HOOKS.md`): exit 0 = allow, exit 1 = fall through to the
+ * gate — NOT a deny. Only exit 2 blocks a tool call, and this handler never
+ * returns it. This handler's job is to stay silent on the paths the gate is
+ * meant to skip.
  *
  * Path source: the hook payload arrives as JSON on STDIN (Claude Code's
  * documented channel; it appends no argv). `process.argv[2]` is honoured as a
@@ -47,12 +56,12 @@ function candidatePath(payload) {
   return pathFrom(payload.tool_input) || pathFrom(payload);
 }
 
-/** The gate decision, relocated verbatim from the `node -e` one-liner. */
+/**
+ * The gate decision: allow (0) only for paths under `.peaks/_runtime/`;
+ * everything else falls through to the gate (1).
+ */
 function decide(p) {
-  if (p.includes('.peaks/_runtime/')) return 0;
-  const m = p.match(/\.peaks\/([a-z0-9][a-z0-9.-]*)\//);
-  if (m && m[1] && m[1] !== '_runtime' && m[1] !== '_dogfood' && m[1] !== '_sub_agents' && m[1] !== 'memory' && m[1] !== 'sops' && m[1] !== 'retrospective' && m[1] !== 'project-scan' && m[1] !== 'perf-baseline') return 0;
-  return 1;
+  return p.includes('.peaks/_runtime/') ? 0 : 1;
 }
 
 const ARGV_PATH = typeof process.argv[2] === 'string' ? process.argv[2] : '';

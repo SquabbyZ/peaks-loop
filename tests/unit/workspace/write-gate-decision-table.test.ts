@@ -9,30 +9,32 @@
  * `src/services/hooks/write-gate.js`, invoked as `node "<path>"` — no inline
  * payload, therefore no shell dialect to couple to.
  *
+ * Slice c5b-write-gate-polarity NARROWED the decision. The relocated chain read
+ * its eight directory names as an EXCLUSION list, so `_runtime` AND every other
+ * `.peaks/<slug>/` were allowed. `.claude/HOOKS.md` documents the opposite
+ * contract for this handler (a write "targeting `.peaks/_runtime/`"), and
+ * `CLAUDE.md` bans a top-level `.peaks/<change-id>/` outright. The table below
+ * was rewritten to that documented contract, which the user chose:
+ *
+ *   - allow (0): only paths under `.peaks/_runtime/`
+ *   - fall through (1): everything else — including every name that used to sit
+ *     in the exclusion list and, as the flip, a bare `.peaks/<slug>/`
+ *
+ * ROWS THAT FLIPPED (both 0 → 1): `.peaks/2026-09-10-thing/x.md` and
+ * `.peaks/something-else/x.md` — the deleted `.peaks/<slug>/` allow branch. The
+ * other rows are unchanged: they already fell through before too, because the
+ * exclusion list named the directories to REJECT.
+ *
  * What this file asserts, and why both halves matter:
  *
- *   1. THE DECISION IS UNCHANGED. Every row below was measured against the OLD
- *      inline form before the reshape (path appended as a positional arg — the
- *      only way the old form could receive a path, and how the repo's existing
- *      round-trip test invoked it) and re-measured against the new form. All 12
- *      rows are identical in both channels.
+ *   1. THE DECISION IS THE DOCUMENTED ONE. Each row is executed through the
+ *      real emitted command on both channels: stdin (how Claude Code really
+ *      delivers the payload) and the legacy positional arg.
  *
  *   2. THE COMMAND IS SHELL-AGNOSTIC. It carries no inline JavaScript, no
  *      backslash, and yields identical exit codes under two different shells.
- *      That is the whole point of the slice, so it is asserted by execution
- *      rather than by string inspection alone.
- *
- * ⚠️ CONFLICT — reported, not silently decided. The dispatch brief for this
- * slice enumerated a decision table that is the INVERSE of the code's actual
- * behaviour on 7 of its 12 rows. The brief says `.peaks/memory/`, `.peaks/sops/`
- * etc. → allow and a bare `.peaks/<something-else>/` → deny; the shipped
- * predicate chain does the opposite, because it reads that directory list as an
- * EXCLUSION list (`m[1] !== 'memory' && …` → exit 0) rather than as the
- * allow-list it appears to have been written as. The rows below therefore
- * record the code's REAL behaviour, so this file stays a faithful regression
- * guard on what actually ships. The polarity was deliberately left untouched:
- * the brief forbids changing any case's behaviour to make the reshape easier.
- * See the RD slice report for the full before/after table and the evidence.
+ *      That is what the reshape bought, so it is asserted by execution rather
+ *      than by string inspection alone.
  *
  * The `argv[2]` fallback is asserted too, because it is what keeps the existing
  * positional-arg invocation (and the rid-010 integration test) working.
@@ -64,13 +66,12 @@ function writeHandler(): Handler {
 }
 
 /**
- * The measured decision table. `stdin` is how Claude Code really delivers the
- * payload; `argv` is the legacy positional-arg channel. Both must agree.
- *
- * These exit codes are IDENTICAL to the pre-reshape measurements.
+ * The decision table. `stdin` is how Claude Code really delivers the payload;
+ * `argv` is the legacy positional-arg channel. Both must agree.
  */
 const DECISION_TABLE: ReadonlyArray<{ path: string; code: number }> = [
   { path: '.peaks/_runtime/2026-09-10-x/rd/a.md', code: 0 },
+  { path: 'D:/proj/.peaks/_runtime/2026-09-10-x/rd/a.md', code: 0 },
   { path: '.peaks/memory/foo.md', code: 1 },
   { path: '.peaks/sops/x.md', code: 1 },
   { path: '.peaks/retrospective/x.md', code: 1 },
@@ -78,8 +79,8 @@ const DECISION_TABLE: ReadonlyArray<{ path: string; code: number }> = [
   { path: '.peaks/perf-baseline/x.md', code: 1 },
   { path: '.peaks/_sub_agents/x.md', code: 1 },
   { path: '.peaks/_dogfood/x.md', code: 1 },
-  { path: '.peaks/2026-09-10-thing/x.md', code: 0 },
-  { path: '.peaks/something-else/x.md', code: 0 },
+  { path: '.peaks/2026-09-10-thing/x.md', code: 1 },
+  { path: '.peaks/something-else/x.md', code: 1 },
   { path: '.peaks/', code: 1 },
   { path: '', code: 1 }
 ];
@@ -102,14 +103,14 @@ function runViaArgv(command: string, candidate: string): number | null {
   return result.status;
 }
 
-describe('slice c5-write-hook-exec-form: the write gate keeps its decision', () => {
+describe('slice c5b-write-gate-polarity: the write gate allows only .peaks/_runtime/', () => {
   for (const { path, code } of DECISION_TABLE) {
     const label = path === '' ? '(empty path)' : path;
     it(`given stdin payload for "${label}", when the emitted command runs, then exit ${code}`, () => {
       // given: the handler peaks workspace init writes into settings.local.json
       // when: it is executed exactly as Claude Code would (payload on stdin)
       const status = runViaStdin(writeHandler().command, path);
-      // then: the decision is the pre-reshape one
+      // then: the documented decision — 0 only under .peaks/_runtime/
       expect(status).toBe(code);
     });
 
