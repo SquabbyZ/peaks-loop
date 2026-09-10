@@ -55,54 +55,78 @@ interface RunResult {
 interface ResolvedCommand {
   readonly command: string;
   readonly args: readonly string[];
-  readonly shell: boolean;
+}
+
+/** The CLIs `slice check` spawns. */
+type LocalCliName = 'tsc' | 'vitest';
+
+/**
+ * 2026-09-10 D1-follow-up (C6): each name resolves to the JS entry its package
+ * declares, as a path relative to `node_modules/` — the same files
+ * `node_modules/.bin/<name>` shims point at.
+ *
+ * The `.bin` shim these used to spawn is a `.cmd` on Windows, and a `.cmd`
+ * cannot be spawned without `shell: true` (EINVAL, Node >= 20). `shell: true`
+ * re-parses the command line, so a project path containing a space was split
+ * at the space and the stage reported a phantom typecheck/test failure.
+ * Running the JS entry through `process.execPath` needs no shell — a spaced
+ * path is just an argument — and is the shape the D1 fix uses for `peaks`
+ * itself (`orchestrator-can-do.ts`).
+ */
+const LOCAL_CLI_ENTRIES: Readonly<Record<LocalCliName, readonly string[]>> = {
+  tsc: ['typescript', 'bin', 'tsc'],
+  vitest: ['vitest', 'vitest.mjs']
+};
+
+/** Named code for "the CLI this stage needs is not installed". */
+export const BINARY_UNRESOLVED_CODE = 'SLICE_CHECK_BINARY_UNRESOLVED';
+
+function localCliPath(projectRoot: string, name: LocalCliName): string {
+  return join(projectRoot, 'node_modules', ...LOCAL_CLI_ENTRIES[name]);
 }
 
 /**
- * Resolve a CLI binary to a project-local path, falling back to
- * the system `npx`. pnpm (and npm/yarn) all create
- * `node_modules/.bin/<name>`:
- *
- *   - On Unix, this is a symlink to the package's executable.
- *   - On Windows, this is a `.cmd` shim; `execFileSync` only
- *     resolves `.cmd` through the shell (PATHEXT), so we pass
- *     `shell: true` when invoking one. Without this, the
- *     Windows `npx ENOENT` false-positive from
- *     observations 2317 + 2792 reproduces for every local
- *     binary.
- *
- * Returns the command + args + a `shell` flag that the
- * `runCommand` helper threads into `execFileSync`.
+ * Resolve a CLI to the interpreter + JS entry `runCommand` needs, or `null`
+ * when that entry is not on disk. Never returns a shell: the returned command
+ * is always `process.execPath`.
  */
-function resolveLocalBinary(projectRoot: string, name: string): ResolvedCommand {
-  // pnpm creates `node_modules/.bin/<name>` (symlink on Unix,
-  // `.cmd` shim on Windows). We probe both shapes; the
-  // `process.platform === 'win32'` extension probe is the most
-  // portable approach.
-  const isWin = process.platform === 'win32';
-  const candidateNames = isWin ? [`${name}.cmd`, `${name}.ps1`, `${name}`] : [name];
-  for (const candidate of candidateNames) {
-    const cmdPath = join(projectRoot, 'node_modules', '.bin', candidate);
-    if (existsSync(cmdPath)) {
-      return { command: cmdPath, args: [], shell: isWin };
-    }
-  }
-  // Fallback: system npx. On Windows this still has the ENOENT
-  // issue, but the fallback is at least informative when it
-  // fires (the user can see "npx not found" instead of a
-  // silent exit 1).
-  return { command: 'npx', args: [name], shell: false };
+function resolveLocalBinary(projectRoot: string, name: LocalCliName): ResolvedCommand | null {
+  const entry = localCliPath(projectRoot, name);
+  if (!existsSync(entry)) return null;
+  return { command: process.execPath, args: [entry] };
 }
 
-function runCommand(command: string, args: string[], cwd: string, timeoutMs: number, shell: boolean = false): RunResult {
+/**
+ * Failed stage for an unresolvable CLI. The previous fallback spawned `npx`
+ * and reported whatever came back — an ENOENT-shaped "exited 1" that reads
+ * exactly like a genuine typecheck/test failure. This names the code and the
+ * path that was searched instead.
+ */
+function unresolvedBinaryStage(
+  stage: SliceCheckStage['name'],
+  cli: LocalCliName,
+  projectRoot: string,
+  durationMs: number
+): SliceCheckStage {
+  const expected = localCliPath(projectRoot, cli);
+  return {
+    name: stage,
+    description: `${cli}: binary unresolved (${BINARY_UNRESOLVED_CODE})`,
+    status: 'fail',
+    durationMs,
+    detail: `${BINARY_UNRESOLVED_CODE}: ${cli} not found at ${expected}. Install dependencies (pnpm install) so that entry exists.`,
+    data: { code: BINARY_UNRESOLVED_CODE, cli, expected }
+  };
+}
+
+function runCommand(command: string, args: string[], cwd: string, timeoutMs: number): RunResult {
   const start = Date.now();
   try {
     const stdout = execFileSync(command, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: EXEC_MAX_BUFFER_BYTES,
-      shell
+      maxBuffer: EXEC_MAX_BUFFER_BYTES
     }).toString('utf8');
     return {
       status: 'pass',
@@ -137,11 +161,14 @@ function tailLines(text: string, max: number): string {
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
   // Per Windows npx ENOENT (observations 2317+2792 from
-  // 2026-06-09), prefer the project-local `node_modules/.bin/tsc`
-  // (symlink on Unix, .cmd on Windows). The local binary is
-  // installed by pnpm at workspace-install time and avoids the
-  // npx PATH-lookup issue.
+  // 2026-06-09), prefer the project-local tsc; it is installed by
+  // pnpm at workspace-install time and avoids the npx PATH-lookup
+  // issue. 2026-09-10 C6: that local binary is now the package's
+  // JS entry run through `process.execPath`, not the `.bin` shim.
   const tsc = resolveLocalBinary(projectRoot, 'tsc');
+  if (tsc === null) {
+    return unresolvedBinaryStage('typecheck', 'tsc', projectRoot, Date.now() - start);
+  }
 
   // 2026-09-10 G5: this stage used to run a bare `tsc --noEmit`, which picked
   // up the DEFAULT tsconfig.json (src/** + tests/**) and its 142 pre-existing
@@ -154,15 +181,14 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
     tsc.command,
     [...tsc.args, '-p', hasBuildConfig ? buildConfig : 'tsconfig.json', '--noEmit'],
     projectRoot,
-    TYPECHECK_TIMEOUT_MS,
-    tsc.shell
+    TYPECHECK_TIMEOUT_MS
   );
 
   // Measure the wider count so the residue is surfaced rather than hidden.
   // The baseline comparison only applies when a clean build tsconfig gives it
   // a meaning; without one the gate above already IS this run.
   const wide = hasBuildConfig
-    ? runCommand(tsc.command, [...tsc.args, '-p', 'tsconfig.json', '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS, tsc.shell)
+    ? runCommand(tsc.command, [...tsc.args, '-p', 'tsconfig.json', '--noEmit'], projectRoot, TYPECHECK_TIMEOUT_MS)
     : gate;
   const wideErrors = (wide.stdout + wide.stderr).match(/error TS\d+/g)?.length ?? 0;
   const wideLabel = hasBuildConfig ? 'tsconfig.json (src/** + tests/**)' : 'tsconfig.json';
@@ -177,8 +203,8 @@ async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   return {
     name: 'typecheck',
     description: hasBuildConfig
-      ? `${tsc.command} -p ${buildConfig} --noEmit (gate) + -p tsconfig.json (baseline report)`
-      : `${tsc.command} --noEmit (no JS emit, type-only check)`,
+      ? `tsc -p ${buildConfig} --noEmit (gate) + -p tsconfig.json (baseline report)`
+      : `tsc --noEmit (no JS emit, type-only check)`,
     status: reason.length === 0 ? 'pass' : 'fail',
     durationMs: Date.now() - start,
     detail: reason.length === 0
@@ -227,15 +253,19 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   // `tests/unit/slice-check-service.test.ts` for the regression net.
   // Per Windows npx ENOENT (observations 2317+2792), resolve
   // the project-local vitest binary instead of shelling out
-  // through npx.
+  // through npx. 2026-09-10 C6: that binary is the package's JS
+  // entry run through `process.execPath`, not the `.bin` shim.
   const vitest = resolveLocalBinary(projectRoot, 'vitest');
+  if (vitest === null) {
+    return unresolvedBinaryStage('unit-tests', 'vitest', projectRoot, Date.now() - start);
+  }
   const vitestArgs: string[] = runTests
     ? ['run', '--reporter=default', '--coverage=false']
     : ['run', '--changed', '--reporter=default', '--coverage=false'];
   const description = runTests
-    ? `${vitest.command} run (full test suite, coverage off)`
-    : `${vitest.command} run --changed (tests for git-changed files only, coverage off)`;
-  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, UNIT_TESTS_TIMEOUT_MS, vitest.shell);
+    ? `vitest run (full test suite, coverage off)`
+    : `vitest run --changed (tests for git-changed files only, coverage off)`;
+  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, UNIT_TESTS_TIMEOUT_MS);
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.

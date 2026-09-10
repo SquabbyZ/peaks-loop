@@ -21,13 +21,20 @@
 //                  tsconfigs (spawns the project-local tsc)
 //   - a11y:        the human-readable `detail` names the pre-existing count
 //                  rather than hiding it
+//
+// 2026-09-10 C6 — the stage now spawns the package's JS entry through
+// `process.execPath` instead of the `node_modules/.bin` `.cmd` shim, which no
+// Node >= 20 can spawn without `shell: true`. `shell: true` split any project
+// path containing a space, so a clean project reported a phantom typecheck
+// failure. The `behavior` dimension covers that path.
 
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
 import {
+  BINARY_UNRESOLVED_CODE,
   sliceCheck,
   TYPECHECK_PREEXISTING_BASELINE,
 } from '~/src/services/slice/slice-check-service';
@@ -64,22 +71,34 @@ function repoTypecheckStage(): Promise<SliceCheckStage> {
 }
 
 /**
- * A `node_modules/.bin/tsc` shim in the tmp project, forwarding to this repo's
+ * The project-local `tsc` entry in the tmp project, forwarding to this repo's
  * installed TypeScript through an absolute path. Written as a real file rather
  * than a symlink so the tmp-workspace cleanup can never reach the real
  * `node_modules`.
+ *
+ * 2026-09-10 C6: `slice check` spawns this through `process.execPath`, so the
+ * shim is a plain JS file at the package's declared bin path — no `.cmd`, no
+ * shell, and therefore no platform branch.
  */
 function writeTscShim(ws: TmpWorkspace): void {
+  const binDir = join(ws.path, 'node_modules', 'typescript', 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const tscJs = join(REPO_ROOT, 'node_modules', 'typescript', 'lib', 'tsc.js');
+  writeFileSync(join(binDir, 'tsc'), `require(${JSON.stringify(tscJs)});\n`);
+}
+
+/**
+ * The `node_modules/.bin/tsc.cmd` shim the pre-C6 resolver spawned with
+ * `shell: true`. Only the spaced-path test writes one: it keeps the shape that
+ * broke demonstrably present on disk while the JS entry is the one that runs.
+ * With the old resolver this file is what gets spawned, and the shell splits
+ * its path at the space.
+ */
+function writeLegacyTscCmdShim(ws: TmpWorkspace): void {
   const binDir = join(ws.path, 'node_modules', '.bin');
   mkdirSync(binDir, { recursive: true });
   const tscJs = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
-  if (process.platform === 'win32') {
-    writeFileSync(join(binDir, 'tsc.cmd'), `@echo off\r\n"${process.execPath}" "${tscJs}" %*\r\n`);
-    return;
-  }
-  const shim = join(binDir, 'tsc');
-  writeFileSync(shim, `#!/bin/sh\nexec "${process.execPath}" "${tscJs}" "$@"\n`);
-  chmodSync(shim, 0o755);
+  writeFileSync(join(binDir, 'tsc.cmd'), `@echo off\r\n"${process.execPath}" "${tscJs}" %*\r\n`);
 }
 
 /**
@@ -138,7 +157,7 @@ describe('Scenario: render — typecheck stage envelope', () => {
     expect(stage.data?.wideTsconfigErrors).toBeTypeOf('number');
     expect(stage.data?.preExistingBaseline).toBe(TYPECHECK_PREEXISTING_BASELINE);
     expect(stage.data?.exitCode).toBe(0);
-  });
+  }, 120_000);
 });
 
 describe('Scenario: behavior — typecheck stage decisions on synthetic projects', () => {
@@ -186,6 +205,35 @@ describe('Scenario: behavior — typecheck stage decisions on synthetic projects
   }, 120_000);
 });
 
+describe('Scenario: behavior — a project path containing a space', () => {
+  let ws: TmpWorkspace;
+  beforeEach(() => {
+    // The prefix carries the space (mkdtemp appends its own suffix), so the
+    // project root — and therefore the resolved tsc entry — contains one. A
+    // path without a space is the case that already worked, so it proves
+    // nothing about this defect.
+    ws = useTmpWorkspace('peaks slice check-');
+  });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
+
+  it('when the project path contains a space, should still run the typecheck stage', async () => {
+    // given: a clean project whose path contains a space, with BOTH shapes of
+    //        local tsc on disk — the `.bin/tsc.cmd` shim the old resolver
+    //        spawned with `shell: true`, and the package's JS entry
+    writeSyntheticProject(ws, { wideErrors: 0 });
+    writeLegacyTscCmdShim(ws);
+    expect(ws.path).toContain(' ');
+    // when: slice check runs
+    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    // then: the gate passes — a spaced path is an argument, not a shell word
+    const stage = typecheckStageOf(result.stages);
+    expect(stage.status).toBe('pass');
+    expect(stage.data?.exitCode).toBe(0);
+  }, 120_000);
+});
+
 describe('Scenario: integration — typecheck stage against this repository', () => {
   it('when slice check runs on this repo, should pass on the clean build tsconfig instead of being permanently red', async () => {
     // given: this repository, whose tsconfig.build.json is clean but whose
@@ -198,6 +246,30 @@ describe('Scenario: integration — typecheck stage against this repository', ()
   }, 120_000);
 });
 
+describe('Scenario: a11y — an unresolvable CLI is named, not an ENOENT', () => {
+  let ws: TmpWorkspace;
+  beforeEach(() => {
+    ws = useTmpWorkspace();
+  });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
+
+  it('when the project has no installed tsc, should name the missing binary and the path searched', async () => {
+    // given: a project whose dependencies were never installed
+    mkdirSync(ws.peaksDir, { recursive: true });
+    // when: slice check runs
+    const result = await sliceCheck({ projectRoot: ws.path, rid: RID, refreshFanout: false, skipTests: true });
+    // then: a named code and the searched path — not an ENOENT-shaped exit 1
+    //       that reads like a genuine typecheck failure
+    const stage = typecheckStageOf(result.stages);
+    expect(stage.status).toBe('fail');
+    expect(stage.data?.code).toBe(BINARY_UNRESOLVED_CODE);
+    expect(stage.detail).toContain(BINARY_UNRESOLVED_CODE);
+    expect(stage.detail).toContain(join('node_modules', 'typescript', 'bin', 'tsc'));
+  });
+});
+
 describe('Scenario: a11y — the pre-existing count is surfaced, not hidden', () => {
   it('when slice check runs, should name the pre-existing error count and its baseline in the stage detail', async () => {
     // given: the typecheck stage output a human reads
@@ -207,5 +279,5 @@ describe('Scenario: a11y — the pre-existing count is surfaced, not hidden', ()
     expect(stage.detail).toContain('tsconfig.json');
     expect(stage.detail).toContain(String(stage.data?.wideTsconfigErrors));
     expect(stage.detail).toContain('baseline');
-  });
+  }, 120_000);
 });
