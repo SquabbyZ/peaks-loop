@@ -26,6 +26,7 @@ import {
   redactSensitiveErrorMessage,
   type ProgramIO
 } from '../cli-helpers.js';
+import { registerWebLifecycleCommands } from './web-lifecycle-commands.js';
 
 /** A browser op is user-visible latency; 30 s is generous but bounded. */
 const OP_TIMEOUT_MS = 30_000;
@@ -110,6 +111,8 @@ export function registerWebCommands(program: Command, io: ProgramIO): void {
       await runWebOp(io, verb.op, verb.toArgs(positional), options?.json === true);
     });
   }
+
+  registerWebLifecycleCommands(web, io);
 }
 
 /**

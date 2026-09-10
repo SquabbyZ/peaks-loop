@@ -13,7 +13,7 @@
 //   - render:      not applicable (returns objects/booleans, no text surface)
 //   - a11y:        not applicable (no user-visible text or exit code)
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -200,4 +200,27 @@ describe('integration — the cold-start lock against a real file', () => {
     releaseSpawnLock(root, SESSION_ID);
     expect(acquireSpawnLock(root, SESSION_ID)).toBe(true);
   });
+});
+
+/**
+ * `daemon.json` carries the 64-hex bearer token, and 127.0.0.1 is reachable by
+ * every local user, so the file mode is the only thing standing between another
+ * account on the machine and the browser. Skipped on Windows, where the POSIX
+ * mode bits are not the access-control mechanism.
+ */
+describe('integration — the credential file mode', () => {
+  it.skipIf(process.platform === 'win32')(
+    'when daemon.json is written, should be readable only by its owner',
+    () => {
+      // given: a session with no daemon record
+      const root = ws().path;
+      // when: the record is written
+      writeDaemonInfo(root, SESSION_ID, daemonInfo(root));
+      // then: the file is 0600 and its directory 0700, not the 0644/0755 default
+      const fileMode = statSync(webDaemonInfoPath(root, SESSION_ID)).mode & 0o777;
+      const dirMode = statSync(dirname(webDaemonInfoPath(root, SESSION_ID))).mode & 0o777;
+      expect(fileMode).toBe(0o600);
+      expect(dirMode).toBe(0o700);
+    }
+  );
 });

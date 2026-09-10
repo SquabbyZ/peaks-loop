@@ -72,6 +72,8 @@ interface FakeContextRecord {
   closeCalls: number;
   closeThrows: boolean;
   storageStateThrows: boolean;
+  /** A Playwright call that never comes back — the wedged-teardown case. */
+  closeHangs: boolean;
 }
 
 interface FakeBrowser {
@@ -154,6 +156,7 @@ function makeFakeBrowser(pageDefaults: Partial<FakePageRecord> = {}): FakeBrowse
         closeCalls: 0,
         closeThrows: false,
         storageStateThrows: false,
+        closeHangs: false,
       };
       const context: PwContext = {
         newPage: async () => {
@@ -186,6 +189,9 @@ function makeFakeBrowser(pageDefaults: Partial<FakePageRecord> = {}): FakeBrowse
         },
         close: async () => {
           contextRecord.closeCalls += 1;
+          if (contextRecord.closeHangs) {
+            await new Promise<never>(() => undefined);
+          }
           if (contextRecord.closeThrows) {
             throw new Error('context already closed');
           }
@@ -246,6 +252,20 @@ describe('behavior — context per dispatch', () => {
     const second = await manager.contextFor('dispatch-2');
     expect(second).not.toBe(first);
     expect(fake.contexts).toHaveLength(2);
+  });
+
+  it('when a dispatch id arrives past the context cap, should refuse it by name', async () => {
+    // given: a manager already holding the maximum number of dispatch contexts
+    const fake = makeFakeBrowser();
+    const manager = managerFor(fake, ws().path);
+    const cap = 32;
+    for (let index = 0; index < cap; index += 1) {
+      await manager.contextFor(`dispatch-${String(index)}`);
+    }
+    // when:  one more distinct dispatch id asks for a context
+    // then:  it is refused with a code, instead of growing the daemon forever
+    await expect(manager.contextFor('dispatch-overflow')).rejects.toThrow(/WEB_DISPATCH_LIMIT/);
+    expect(fake.contexts).toHaveLength(cap);
   });
 });
 
@@ -419,6 +439,27 @@ describe('integration — teardown and screenshots on a real tmp workspace', () 
     await manager.closeAll();
     expect(fake.contexts.map((entry) => entry.closeCalls)).toEqual([1, 1]);
   });
+
+  it('when one context close never returns, should finish the teardown anyway', async () => {
+    // given: a wedged context ahead of a healthy one — a hung Playwright call,
+    // which is what makes the caller fall back to SIGTERM (= `TerminateProcess`
+    // on Windows) and orphan the browser it was mid-way through closing
+    const fake = makeFakeBrowser();
+    const manager = managerFor(fake, ws().path);
+    await manager.contextFor('dispatch-1');
+    await manager.contextFor('dispatch-2');
+    const wedged = fake.contexts[0];
+    if (wedged === undefined) {
+      throw new Error('no fake context');
+    }
+    wedged.closeHangs = true;
+    // when:  closeAll runs
+    const result = await manager.closeAll();
+    // then:  the wedged step is bounded and abandoned, the next context is
+    //        still closed, and it is reported as not closed rather than counted
+    expect(result.closedContexts).toBe(1);
+    expect(fake.contexts.map((entry) => entry.closeCalls)).toEqual([1, 1]);
+  }, 20_000);
 
   it('when shot runs, should write only to the path it is given, under web/', async () => {
     // given: a page with a live context in a tmp project root

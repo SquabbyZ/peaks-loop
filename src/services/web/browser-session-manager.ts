@@ -81,10 +81,61 @@ export interface WebMetricsResult {
   readonly values: Readonly<Record<string, unknown>> | null;
 }
 
+/**
+ * Total budget for one teardown, and the budget for any single step inside it.
+ *
+ * `stopDaemon` waits `STOP_EXIT_TIMEOUT_MS = 10 s` for the daemon to leave and
+ * then falls back to `SIGTERM`, which on Windows is `TerminateProcess`: it kills
+ * the daemon mid-teardown and orphans its chromium. An unbounded `closeAll` /
+ * `browser.close` therefore converts a SLOW teardown into a LEAKED browser — so
+ * every step is bounded, and the whole thing finishes well inside the waiter.
+ * In the normal case each step is milliseconds; these deadlines only exist for
+ * the pathological one.
+ */
+const TEARDOWN_BUDGET_MS = 3_000;
+const TEARDOWN_STEP_TIMEOUT_MS = 1_500;
+
+/**
+ * The most distinct dispatch contexts one daemon will hold open.
+ *
+ * A `dispatchId` comes off the wire and there is deliberately no idle-exit
+ * (Q7), so an unbounded map would let a token-holder grow the daemon's memory
+ * one context at a time for its whole life. Past the cap the op is refused by
+ * name rather than silently evicting a context a live dispatch is still using.
+ */
+const MAX_DISPATCH_CONTEXTS = 32;
+
 /** One dispatch whose storage state could not be persisted at teardown. */
 export interface StateWriteFailure {
   readonly dispatchId: string;
   readonly reason: string;
+}
+
+/**
+ * Resolve with `work`, or reject once the step has taken longer than the step
+ * budget. The late settlement of `work` is consumed here, so a step that
+ * finishes after its deadline cannot become an unhandled rejection.
+ */
+export function boundedTeardownStep<T>(work: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((settle, reject) => {
+    const timer = setTimeout(() => {
+      reject(
+        new Error(
+          `WEB_TEARDOWN_TIMEOUT: ${label} did not finish within ${String(TEARDOWN_STEP_TIMEOUT_MS)} ms`
+        )
+      );
+    }, TEARDOWN_STEP_TIMEOUT_MS);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        settle(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
 export interface CloseAllResult {
@@ -116,6 +167,12 @@ export class BrowserSessionManager {
     const existing = this.sessions.get(dispatchId);
     if (existing !== undefined) {
       return existing.context;
+    }
+    if (this.sessions.size >= MAX_DISPATCH_CONTEXTS) {
+      throw new Error(
+        `WEB_DISPATCH_LIMIT: this daemon already holds ${String(MAX_DISPATCH_CONTEXTS)} dispatch contexts; ` +
+          'stop the daemon to release them'
+      );
     }
     const statePath = webContextStatePath(this.projectRoot, this.sessionId, dispatchId);
     // The state file lives under `pw-profiles/`, a SIBLING of `web/` — guarding
@@ -231,20 +288,31 @@ export class BrowserSessionManager {
   async closeAll(): Promise<CloseAllResult> {
     let closedContexts = 0;
     const stateWriteFailures: StateWriteFailure[] = [];
+    const deadline = Date.now() + TEARDOWN_BUDGET_MS;
     for (const [dispatchId, session] of this.sessions) {
+      if (Date.now() >= deadline) {
+        // Out of budget: `browser.close()` below is what reaps the remaining
+        // contexts, and it must still get its turn before the caller's
+        // SIGTERM. `closedContexts` keeps counting only what really closed.
+        break;
+      }
       const statePath = webContextStatePath(this.projectRoot, this.sessionId, dispatchId);
       try {
         assertUnder(statePath, webProfilesDir(this.projectRoot, this.sessionId));
         mkdirSync(dirname(statePath), { recursive: true });
-        await session.context.storageState({ path: statePath });
+        await boundedTeardownStep(
+          session.context.storageState({ path: statePath }),
+          `storageState for dispatch ${dispatchId}`
+        );
       } catch (error) {
         stateWriteFailures.push({ dispatchId, reason: getErrorMessage(error) });
       }
       try {
-        await session.context.close();
+        await boundedTeardownStep(session.context.close(), `context close for dispatch ${dispatchId}`);
         closedContexts += 1;
       } catch {
-        // Already closed: teardown must still reach the remaining dispatches.
+        // Already closed, or wedged past its budget: teardown must still reach
+        // the remaining dispatches and the final `browser.close()`.
       }
     }
     this.sessions.clear();

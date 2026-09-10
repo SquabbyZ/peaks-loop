@@ -19,6 +19,19 @@ import { parseDaemonInfo, type WebDaemonInfo } from './web-protocol.js';
 /** A spawn lock older than this is reclaimed even if its owner pid is alive. */
 const SPAWN_LOCK_STALE_MS = 120_000;
 
+/**
+ * `daemon.json` holds the 64-hex bearer token that is the ONLY lock on the
+ * loopback port — 127.0.0.1 is reachable by every local user, so the file mode
+ * is the boundary. 0644 would let any local account read the token and drive
+ * the browser (`open`/`text`/`snap`/`shot`) with it. The repo's other
+ * secret-bearing writers already use `0o600`
+ * (`src/services/ide/shared/atomic-json.ts`, `logger.ts`, `config-safety.ts`).
+ */
+const DAEMON_FILE_MODE = 0o600;
+
+/** The token's directory: readable only by its owner, same reasoning as above. */
+export const DAEMON_DIR_MODE = 0o700;
+
 interface SpawnLockBody {
   readonly pid: number;
   readonly startedAt: string;
@@ -27,8 +40,8 @@ interface SpawnLockBody {
 export function writeDaemonInfo(projectRoot: string, sessionId: string, info: WebDaemonInfo): void {
   const target = webDaemonInfoPath(projectRoot, sessionId);
   assertUnder(target, webDaemonDir(projectRoot, sessionId));
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, JSON.stringify(info, null, 2), 'utf8');
+  mkdirSync(dirname(target), { recursive: true, mode: DAEMON_DIR_MODE });
+  writeFileSync(target, JSON.stringify(info, null, 2), { encoding: 'utf8', mode: DAEMON_FILE_MODE });
 }
 
 /**
@@ -99,7 +112,7 @@ export function isProcessAlive(pid: number): boolean {
 export function acquireSpawnLock(projectRoot: string, sessionId: string): boolean {
   const target = webSpawnLockPath(projectRoot, sessionId);
   assertUnder(target, webDaemonDir(projectRoot, sessionId));
-  mkdirSync(dirname(target), { recursive: true });
+  mkdirSync(dirname(target), { recursive: true, mode: DAEMON_DIR_MODE });
   if (tryCreateSpawnLock(target)) {
     return true;
   }

@@ -10,7 +10,13 @@
 /** Bumped whenever `WebOpRequest` / `WebOpResponse` / `WebDaemonInfo` change shape. */
 export const PROTOCOL_VERSION = 1;
 
-/** The full `peaks web` verb surface. S1 implements the first six. */
+/**
+ * The full `peaks web` verb surface. S1 implements the first six.
+ *
+ * `whoami` is the CLI's ownership proof: it answers with the daemon's OWN
+ * identity, behind the bearer check, so `peaks web stop` can tell "the daemon
+ * this record describes" from "some local listener that happens to answer 2xx".
+ */
 export type WebOp =
   | 'open'
   | 'text'
@@ -21,7 +27,8 @@ export type WebOp =
   | 'login'
   | 'install'
   | 'status'
-  | 'stop';
+  | 'stop'
+  | 'whoami';
 
 /** Contents of `web/daemon/daemon.json` — the only way to reach a live daemon. */
 export interface WebDaemonInfo {

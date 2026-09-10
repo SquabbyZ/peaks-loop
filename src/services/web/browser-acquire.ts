@@ -55,7 +55,11 @@ function runChromiumInstall(): void {
     'install',
     'chromium'
   ]);
-  const result = spawnSync(invocation.command, [...invocation.args], { stdio: 'ignore' });
+  const result = spawnSync(invocation.command, [...invocation.args], {
+    stdio: 'ignore',
+    // The one-time chromium download must not pop a console window at the user.
+    windowsHide: true
+  });
   if (result.status !== 0) {
     throw new Error(
       `WEB_INSTALL_FAILED: \`playwright install chromium\` exited with status ${String(result.status)}`
