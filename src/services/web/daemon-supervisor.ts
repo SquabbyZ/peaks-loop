@@ -37,9 +37,18 @@ const READY_POLL_MS = 250;
  */
 const MAX_LOG_BYTES = 1_048_576;
 
-/** How long the daemon gets to answer the stop op / leave the process table. */
+/**
+ * How long the daemon gets to answer the stop op / leave the process table.
+ *
+ * `STOP_EXIT_TIMEOUT_MS` must outlast the daemon's own bounded teardown, or the
+ * fallback `SIGTERM` (= `TerminateProcess` on Windows) lands mid-teardown and
+ * orphans the browser it was closing (AC6). That teardown is
+ * `TEARDOWN_BUDGET_MS + 4 x TEARDOWN_STEP_TIMEOUT_MS = 11 000 ms` after the S3
+ * repair raised the per-step budget; 15 s is that with margin. The wait POLLS,
+ * so a normal stop returns as soon as the process is gone and pays nothing.
+ */
 const STOP_REQUEST_TIMEOUT_MS = 5_000;
-const STOP_EXIT_TIMEOUT_MS = 10_000;
+const STOP_EXIT_TIMEOUT_MS = 15_000;
 const STOP_POLL_MS = 100;
 
 export interface StopDaemonResult {
@@ -204,8 +213,11 @@ export function spawnDaemon(projectRoot: string, sessionId: string): { pid: numb
  *
  * `npx` used to be what made `playwright` resolvable inside the daemon; the
  * daemon is now a direct child, so this process resolves the pinned package
- * itself and puts its `node_modules/.bin` first on the child's `PATH`, which is
- * exactly what `playwright-loader.ts`'s PATH scan looks for. Unresolvable here
+ * itself and puts its `node_modules/.bin` first on the child's `PATH`. The
+ * daemon's own resolution no longer reads `PATH` at all (`playwright-loader.ts`
+ * scans only the module path and the npm exec cache — a PATH entry is an
+ * attacker-influenceable root), so this prepend is what keeps the bare `npx`
+ * that POSIX reaches for pointing at the pinned package. Unresolvable here
  * means the daemon answers its first browser op with `PLAYWRIGHT_NOT_RESOLVABLE`
  * rather than silently reaching for a shell.
  */

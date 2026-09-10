@@ -14,10 +14,12 @@
  * the components BELOW the session dir. The sid slug check is what closes the
  * sid itself.
  *
- * Every path is derived from `getSessionDir(projectRoot, sessionId)` — with one
- * declared exception, `webContextStatePath`, which is built on the pre-existing
+ * Every path is derived from `getSessionDir(projectRoot, sessionId)` — with two
+ * declared exceptions. `webContextStatePath` is built on the pre-existing
  * `pw-profiles/<dispatchId>` convention (`playwright-profile.ts`) and therefore
- * lands beside `web/`, not inside it.
+ * lands beside `web/`, not inside it. `webInstallLockPath` is not under the
+ * session at all: it guards Playwright's machine-global browser cache, so its
+ * scope is the user, not the session (see its docstring).
  *
  * This is the ONLY module under `src/services/web/` that may name `.peaks`;
  * every other writer in the slice imports a resolver from here (tech-doc §7.2
@@ -31,6 +33,7 @@
  */
 import { resolve } from 'node:path';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 import { isInsidePath } from '../../shared/path-utils.js';
 import { getSessionDir } from '../session/getSessionDir.js';
@@ -104,9 +107,22 @@ export function webSpawnLockPath(projectRoot: string, sessionId: string): string
   return join(webDaemonDir(projectRoot, sessionId), 'daemon.lock');
 }
 
-/** `<root>/.peaks/_runtime/<sid>/web/install.lock` — the chromium install lock. */
-export function webInstallLockPath(projectRoot: string, sessionId: string): string {
-  return join(webDir(projectRoot, sessionId), 'install.lock');
+/**
+ * `<homedir>/.peaks/web/install.lock` — the chromium install lock.
+ *
+ * MACHINE-GLOBAL, deliberately not per session (S3 repair, R4). The resource it
+ * guards is Playwright's own browser cache (`%LOCALAPPDATA%\ms-playwright`,
+ * `~/.cache/ms-playwright`), which every session, every project and every
+ * daemon of this user shares. A lock under `<root>/.peaks/_runtime/<sid>/web/`
+ * serialized nothing across sessions: N sessions could run N concurrent
+ * installers into that one cache, and `install --force` in one session could
+ * delete a browser another session's daemon has open. `~/.peaks` is the
+ * existing per-user peaks location (`config.json`, `logs/`), so this adds no
+ * new convention, and it stays outside the project root — AC1's "no root
+ * pollution" is untouched.
+ */
+export function webInstallLockPath(): string {
+  return join(homedir(), '.peaks', 'web', 'install.lock');
 }
 
 /** `<root>/.peaks/_runtime/<sid>/web/daemon/daemon.log` — daemon stdout/stderr. */

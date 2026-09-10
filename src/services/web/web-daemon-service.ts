@@ -10,7 +10,7 @@
  *
  *   - **Chromium is acquired lazily**, on the first op that needs a page. A
  *     daemon that launched a browser at boot would make `peaks web status` and
- *     a cold `stop` pay ~150–300 MB and a process per session for a session
+ *     a cold `stop` pay ~700 MB and a process per session for a session
  *     that may never touch a page — and would make AC6's "no browser survives
  *     the session" unverifiable, because booting would already have started
  *     one.
@@ -78,14 +78,22 @@ export async function startWebDaemon(config: WebDaemonConfig): Promise<RunningWe
   /** Set synchronously by `close()` before it awaits anything. */
   let shuttingDown = false;
   /**
-   * The first acquisition failure, remembered for the daemon's whole lifetime.
+   * The first PERMANENT acquisition failure, remembered for the daemon's whole
+   * lifetime.
    *
    * `managerFor` used to retry on every op, and the `MISSING_EXECUTABLE` branch
-   * of `acquireChromium` re-runs `playwright install chromium` — a blocking,
-   * network-touching `spawnSync`. A token-holder looping `open` against a host
-   * whose cache never satisfies `launch()` therefore got unbounded npx fan-out
-   * on the daemon's event loop, which is also what starves `/health` into the
-   * false negative of R1. One attempt per daemon lifetime, then fail fast.
+   * of `acquireChromium` re-ran `playwright install chromium` — a blocking,
+   * network-touching `spawnSync`. One attempt per daemon lifetime, then fail
+   * fast, is still right for a failure that cannot heal (`PLAYWRIGHT_NOT_
+   * RESOLVABLE`: nothing on this machine holds the pin).
+   *
+   * It is NOT right for a failure the next minute can fix (R5). `WEB_INSTALL_
+   * BUSY` is "someone else is downloading right now"; `WEB_INSTALL_REQUIRED` is
+   * "the user has not run `peaks web install` yet". Latching either poisoned the
+   * daemon for its whole life: after the CLI's install finished successfully,
+   * every browser op still failed until the daemon was stopped. Those codes are
+   * re-attempted instead — and re-attempting is now cheap, because acquisition
+   * spawns nothing (R3).
    */
   let acquireFailure: unknown = null;
   /**
@@ -107,7 +115,11 @@ export async function startWebDaemon(config: WebDaemonConfig): Promise<RunningWe
         try {
           acquired = await acquireChromium();
         } catch (error) {
-          acquireFailure = error;
+          // Only a failure that cannot heal is latched; a transient one is
+          // re-attempted on the next op (R5, see the field's docstring).
+          if (!isTransientAcquireFailure(error)) {
+            acquireFailure = error;
+          }
           throw error;
         }
         if (shuttingDown) {
@@ -122,8 +134,16 @@ export async function startWebDaemon(config: WebDaemonConfig): Promise<RunningWe
         }
         return acquired;
       })();
-      const acquired = await acquiring;
-      acquiring = null;
+      let acquired: AcquiredChromium;
+      try {
+        acquired = await acquiring;
+      } finally {
+        // Released on FAILURE too. Leaving a rejected promise in place meant
+        // every later op awaited it and re-threw the same error without ever
+        // retrying, so a transient failure was permanent in practice whatever
+        // the latch did (R5).
+        acquiring = null;
+      }
       browser = acquired.browser;
       manager = new BrowserSessionManager(acquired.browser, { projectRoot, sessionId });
     }
@@ -293,6 +313,21 @@ export async function routeOp(
     // a resolvable-but-broken playwright).
     return failureResponse(error);
   }
+}
+
+/**
+ * The failure codes that mean "try again later", not "this can never work".
+ *
+ * `acquireChromium` raises the first when the browser simply is not installed
+ * yet and the second when another process holds the install lock — both are
+ * facts about this minute, not about this machine (R5). Everything else
+ * (`PLAYWRIGHT_NOT_RESOLVABLE`, a broken package) is permanent for the daemon's
+ * lifetime and is latched.
+ */
+const TRANSIENT_ACQUIRE_FAILURE_RE = /^(WEB_INSTALL_REQUIRED|WEB_INSTALL_BUSY|WEB_INSTALL_TIMEOUT)\b/;
+
+function isTransientAcquireFailure(error: unknown): boolean {
+  return TRANSIENT_ACQUIRE_FAILURE_RE.test(getErrorMessage(error));
 }
 
 /**

@@ -155,6 +155,28 @@ describe('behavior — the browser teardown', () => {
     expect(attempts).toBe(1);
   });
 
+  it('when acquisition failed transiently, should attempt it again on the next op', async () => {
+    // given: a daemon whose browser is simply not installed YET — the state the
+    //        user's very next `peaks web install` fixes
+    let attempts = 0;
+    recorder.acquire = async () => {
+      attempts += 1;
+      throw new Error('WEB_INSTALL_REQUIRED: run `peaks web install`');
+    };
+    const daemon = await startDaemon();
+    // when: two ops that both need a page are posted
+    const first = await postOp(daemon, 'open', { url: 'https://example.test/' });
+    const second = await postOp(daemon, 'open', { url: 'https://example.test/' });
+    // then: both report it AND the second re-attempts, because this latch is for
+    // "this can never work". Latching a transient failure is what left a daemon
+    // failing every browser op until it was stopped, even after the install it
+    // was waiting for had succeeded (R5). Re-attempting is cheap now: the
+    // acquisition spawns nothing (R3).
+    expect(first?.code).toBe('WEB_INSTALL_REQUIRED');
+    expect(second?.code).toBe('WEB_INSTALL_REQUIRED');
+    expect(attempts).toBe(2);
+  });
+
   it('when the daemon closes while a browser is still launching, should still close it', async () => {
     // given: an acquisition held open inside `acquireChromium`
     const browser = closingBrowser();

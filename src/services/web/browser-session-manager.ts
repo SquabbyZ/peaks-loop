@@ -88,12 +88,32 @@ export interface WebMetricsResult {
  * then falls back to `SIGTERM`, which on Windows is `TerminateProcess`: it kills
  * the daemon mid-teardown and orphans its chromium. An unbounded `closeAll` /
  * `browser.close` therefore converts a SLOW teardown into a LEAKED browser — so
- * every step is bounded, and the whole thing finishes well inside the waiter.
- * In the normal case each step is milliseconds; these deadlines only exist for
- * the pathological one.
+ * every step is bounded, and the whole thing finishes inside the waiter.
+ *
+ * Retuned after the S3 acceptance run recorded
+ * `teardown step failed: WEB_TEARDOWN_TIMEOUT: browser.close did not finish
+ * within 1500 ms` on a loaded machine. Measured here: an idle `browser.close()`
+ * on the headless shell takes **102 ms**, so the old step budget left only ~15×
+ * on a quiet box and ran out when the machine was busy. The step budget is now
+ * 2 000 ms.
+ *
+ * The loop budget stays ABOVE the step budget — that ordering is a separate
+ * guarantee, tested by its own case: after ONE wedged step is abandoned, the
+ * loop must still reach the remaining contexts. So the constant that moved to
+ * pay for the larger step is the waiter, not the loop:
+ *
+ *     loop 3 000 + 4 x step 2 000 = 11 000 ms  <  STOP_EXIT_TIMEOUT_MS = 15 000 ms
+ *
+ * (worst case: the loop's last iteration starts just under its deadline and
+ * runs two steps, then `browser.close`, then `stopListening`). The waiter polls,
+ * so a normal teardown returns as soon as the process exits and pays nothing for
+ * the larger ceiling; what it buys is that a slow-but-bounded teardown is no
+ * longer SIGTERM'd mid-way, which is what orphans a chromium (AC6). The failure
+ * stays visible either way: `reportTeardownFailure` writes every overrun to
+ * `daemon.log`, which is how this one was found.
  */
 const TEARDOWN_BUDGET_MS = 3_000;
-const TEARDOWN_STEP_TIMEOUT_MS = 1_500;
+const TEARDOWN_STEP_TIMEOUT_MS = 2_000;
 
 /**
  * The most distinct dispatch contexts one daemon will hold open.

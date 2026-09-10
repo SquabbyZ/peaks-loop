@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { Command } from 'commander';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo } from '../../_setup/io.js';
@@ -33,11 +33,50 @@ declareDimensions('tests/unit/cli/commands/web-lifecycle-commands.test.ts', [
 ]);
 
 import { registerWebCommands } from '../../../../src/cli/commands/web-commands.js';
-import { webDaemonInfoPath } from '../../../../src/services/web/web-artifact-paths.js';
+import { webDaemonInfoPath, webInstallLockPath } from '../../../../src/services/web/web-artifact-paths.js';
 import {
   PROTOCOL_VERSION,
   type WebOpResponse
 } from '../../../../src/services/web/web-protocol.js';
+
+/**
+ * The install seam, replaced at the module boundary: the real `installChromium`
+ * spawns `npx … playwright install chromium`, which is a ~700 MB download and
+ * has no business running inside a test. What is under test is whether the verb
+ * reaches that seam at all under the gate, and what it does with each outcome.
+ */
+const installSeam = vi.hoisted(() => ({
+  /** What the cache probe answers before any install ran, and after one did. */
+  installedBefore: false,
+  installedAfter: true,
+  probes: 0,
+  calls: [] as Array<Record<string, unknown>>,
+  outcome: { ok: true, code: '', message: '', warnings: ['INSTALL_SIZE_WARNING_PLACEHOLDER'] },
+}));
+
+vi.mock('../../../../src/services/web/web-install-service.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../../src/services/web/web-install-service.js')>();
+  return {
+    ...actual,
+    // `isWebDisabled` and the constants stay REAL: the gate under test is the
+    // production one, not a stub that would pass by construction.
+    probeBrowserInstalled: () => {
+      installSeam.probes += 1;
+      return Promise.resolve({
+        installed: installSeam.calls.length > 0 ? installSeam.installedAfter : installSeam.installedBefore,
+        version: '1.63.0',
+        executablePath: join(process.cwd(), 'fake-chrome')
+      });
+    },
+    installChromium: (options: Record<string, unknown>) => {
+      installSeam.calls.push(options);
+      return Promise.resolve(installSeam.outcome);
+    }
+  };
+});
+
+import { INSTALL_SIZE_WARNING } from '../../../../src/services/web/web-install-service.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
 const ws = withTmpWorkspacePerTest('peaks-web-lifecycle-');
@@ -319,5 +358,187 @@ describe('behavior — stop', () => {
     expect(result.data['orphanedPids']).toEqual([unrelated.pid]);
     expect(unrelated.isGone()).toBe(false);
     expect(existsSync(webDaemonInfoPath(ws().path, SESSION_ID))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC5 — `peaks web install` under the gate (slice S3, file 13)
+//
+// The matrix gives this verb its own branch (C2): it does not degrade to MCP, it
+// REFUSES — and the gate is step 1 of the ordered gate, so the refusal happens
+// before the session lookup, before the cache probe and before any lock. The
+// install seam is spied on rather than reached, because reaching it downloads
+// ~700 MB (R2).
+// ---------------------------------------------------------------------------
+
+interface InstallEnvelope {
+  readonly ok: boolean;
+  readonly code?: string;
+  readonly data: Record<string, unknown>;
+  readonly warnings: string[];
+  readonly nextActions: string[];
+}
+
+/** The same runner, with extra argv (`--force`) in front of `--json`. */
+async function runWebArgv(argv: readonly string[]): Promise<ReturnType<typeof makeCapturedIo>> {
+  const captured = makeCapturedIo();
+  const program = new Command();
+  program.exitOverride();
+  registerWebCommands(program, captured.io);
+  await program.parseAsync(['web', ...argv, '--json'], { from: 'user' });
+  return captured;
+}
+
+function installEnvelope(captured: { text: () => string }): InstallEnvelope {
+  return JSON.parse(captured.text()) as InstallEnvelope;
+}
+
+describe('behavior — `peaks web install`', () => {
+  // The env is saved and cleared around each test rather than with the shared
+  // `withEnv` helper: that helper registers its restore hook from inside the
+  // test body, which does not take effect until the file's hooks run — a value
+  // set in one test would still be readable by the next.
+  const ENV_KEYS = ['PEAKS_WEB_DISABLED', 'PLAYWRIGHT_BROWSERS_PATH'] as const;
+  /** The per-user roots the machine-global install lock is derived from. */
+  const HOME_KEYS = ['HOME', 'USERPROFILE'] as const;
+  const savedEnv = new Map<string, string | undefined>();
+
+  beforeEach(() => {
+    for (const key of [...ENV_KEYS, ...HOME_KEYS]) {
+      savedEnv.set(key, process.env[key]);
+    }
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+    for (const key of HOME_KEYS) {
+      process.env[key] = ws().path;
+    }
+    installSeam.probes = 0;
+    installSeam.calls = [];
+    installSeam.installedBefore = false;
+    installSeam.installedAfter = true;
+    installSeam.outcome = { ok: true, code: '', message: '', warnings: [INSTALL_SIZE_WARNING] };
+  });
+
+  afterEach(() => {
+    for (const key of [...ENV_KEYS, ...HOME_KEYS]) {
+      const previous = savedEnv.get(key);
+      if (previous === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous;
+      }
+    }
+    savedEnv.clear();
+  });
+
+  it('when the gate is on, should refuse without probing, locking or installing', async () => {
+    // given: the flag set, an empty browser cache and a bound session
+    bindSession();
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    process.env['PLAYWRIGHT_BROWSERS_PATH'] = join(ws().path, 'empty-pw-cache');
+    // when: install runs
+    const captured = await runWebArgv(['install']);
+    // then: it refuses with the code the matrix names, and nothing was downloaded
+    const parsed = installEnvelope(captured.captured);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('WEB_DISABLED');
+    expect(parsed.nextActions.length).toBeGreaterThan(0);
+    expect(process.exitCode).toBe(1);
+    expect(installSeam.calls).toEqual([]);
+    expect(installSeam.probes).toBe(0);
+    expect(existsSync(webInstallLockPath())).toBe(false);
+    expect(existsSync(join(ws().path, 'empty-pw-cache'))).toBe(false);
+  });
+
+  it('when the gate is on and no session is bound, should still refuse with WEB_DISABLED', async () => {
+    // given: no session.json at all — the case that exposes a late gate
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    // when: install runs
+    // then: the gate wins over NO_SESSION, and the installer is never reached
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    expect(parsed.code).toBe('WEB_DISABLED');
+    expect(installSeam.calls).toEqual([]);
+  });
+
+  it('when the browser is already present, should report it and install nothing', async () => {
+    // given: a probe that finds the browser, and no --force
+    bindSession();
+    installSeam.installedBefore = true;
+    // when: install runs
+    // then: it is a no-op that says so
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data['installed']).toBe(true);
+    expect(parsed.data['downloaded']).toBe(false);
+    expect(installSeam.calls).toEqual([]);
+  });
+
+  it('when the download succeeds, should report it and warn about the size', async () => {
+    // given: a successful install outcome
+    bindSession();
+    // when: install runs
+    // then: the envelope says it downloaded, and the size warning is carried
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data['downloaded']).toBe(true);
+    expect(parsed.warnings).toContain(INSTALL_SIZE_WARNING);
+    expect(installSeam.calls.length).toBe(1);
+  });
+
+  it('when --force is given, should pass it to the installer', async () => {
+    // given: R6's recovery flag
+    bindSession();
+    installSeam.installedBefore = true;
+    // when: install --force runs, despite the probe reporting it installed
+    const captured = await runWebArgv(['install', '--force']);
+    // then: the installer was reached, and it was told to force
+    expect(installEnvelope(captured.captured).ok).toBe(true);
+    expect(installSeam.calls).toEqual([{ force: true }]);
+  });
+
+  it('when the installer exits 0 without landing the browser, should fail and name --force', async () => {
+    // given: an installer that reports success, and a probe that still cannot
+    //        find the browser launch() needs — a filtered CDN, a pinned npx
+    //        resolving into another cache root, a partial install (R7)
+    bindSession();
+    installSeam.installedAfter = false;
+    // when: install runs
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    // then: it is a FAILURE with a way out, not `ok: true, downloaded: true,
+    //       installed: false` and exit 0
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('WEB_INSTALL_INCOMPLETE');
+    expect(parsed.nextActions.join('\n')).toContain('--force');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('when the browser is already present, should still name --force as the escape', async () => {
+    // given: the short-circuit path — the only one a user reaches when browser
+    //        ops keep failing against a probe that says installed
+    bindSession();
+    installSeam.installedBefore = true;
+    // when: install runs
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    // then: the no-op success carries the recovery flag, so the loop has an exit
+    expect(parsed.ok).toBe(true);
+    expect(parsed.nextActions.join('\n')).toContain('--force');
+  });
+
+  it('when the download fails, should degrade to tier 3 rather than throw', async () => {
+    // given: an installer that reports a failure (R2: never an exception)
+    bindSession();
+    installSeam.outcome = { ok: false, code: 'WEB_INSTALL_FAILED', message: 'exited with status 1', warnings: [] };
+    // when: install runs
+    // then: the envelope is the tier-3 degradation with a way forward
+    const parsed = installEnvelope((await runWebArgv(['install'])).captured);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('WEB_INSTALL_FAILED');
+    expect(parsed.data['tier']).toBe(3);
+    expect(parsed.data['mcpTool']).toBe('mcp__playwright__browser_install');
+    // The failed-download envelope must offer `--force` too: it is the only
+    // recovery for a partial download (R7).
+    expect(parsed.nextActions.join('\n')).toContain('--force');
+    expect(existsSync(webInstallLockPath())).toBe(false);
   });
 });

@@ -10,13 +10,16 @@
  * This is a diagnosis path and nothing else: it opens no browser, downloads
  * nothing, and never spawns. `peaks web stop` and `peaks web status` are the
  * two verbs that keep working under S3's disable gate for exactly that reason
- * (decision C2) — the gate is consulted nowhere in this module.
+ * (decision C2) — the gate is READ here (to report the flag) but never applied,
+ * and the browser probe it triggers is spawn- and download-free (R6).
  *
- * S3 extends the report with the browser-cache probe (`probeBrowserInstalled`)
- * and the `disabled` flag; the `instances` half here is S2's AC3/AC6 surface.
+ * S3 extends the report with the browser-cache probe (`probeBrowserInstalled`),
+ * the `disabled` flag and the single `instance` view; the `instances` half here
+ * is S2's AC3/AC6 surface.
  */
 import { isProcessAlive, listSessionDaemons } from './daemon-registry.js';
 import { WebDaemonClient } from './web-client.js';
+import { isWebDisabled, probeBrowserInstalled, type BrowserProbe } from './web-install-service.js';
 
 /**
  * `live` = reachable, `orphaned` = alive but not answering, `stale` = the pid
@@ -40,6 +43,15 @@ export interface WebStatusReport {
    * can coexist until the record is reaped.
    */
   readonly instances: readonly WebStatusInstance[];
+  /**
+   * The same thing, unsugared: `instances[0]` or `null`. AC5's matrix reads
+   * `data.instance === null` for a session with no daemon, and `instances: []`
+   * is the list — one of the two has to be the caller-visible answer.
+   */
+  readonly instance: WebStatusInstance | null;
+  /** S3: the diagnosis path must be able to say WHY nothing will run. */
+  readonly disabled: boolean;
+  readonly browser: BrowserProbe;
 }
 
 /** Probe this session's daemon records. Never throws: a probe failure is a state, not an error. */
@@ -61,5 +73,12 @@ export async function buildStatusReport(
       state: !alive ? 'stale' : healthy ? 'live' : 'orphaned'
     });
   }
-  return { projectRoot, sessionId, instances };
+  return {
+    projectRoot,
+    sessionId,
+    instances,
+    instance: instances[0] ?? null,
+    disabled: isWebDisabled(process.env),
+    browser: await probeBrowserInstalled()
+  };
 }

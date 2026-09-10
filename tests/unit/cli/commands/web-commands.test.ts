@@ -16,7 +16,8 @@
 //   - integration: the loopback HTTP request the CLI actually sends
 
 import { createServer, type Server } from 'node:http';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -35,6 +36,7 @@ declareDimensions('tests/unit/cli/commands/web-commands.test.ts', [
 import { registerWebCommands } from '../../../../src/cli/commands/web-commands.js';
 import { MAX_TEXT_BYTES } from '../../../../src/services/web/bounded-output.js';
 import { writeDaemonInfo } from '../../../../src/services/web/daemon-registry.js';
+import { webInstallLockPath } from '../../../../src/services/web/web-artifact-paths.js';
 import { PROTOCOL_VERSION } from '../../../../src/services/web/web-protocol.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
@@ -420,5 +422,197 @@ describe('integration — the loopback request', () => {
     expect(parsed.data.path).toBe(shotFile());
     expect(parsed.data.bytes).toBe(2048);
     expect(captured.text().includes(UNTRUSTED_BEGIN)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC5 — the `PEAKS_WEB_DISABLED=1` gate (slice S3)
+//
+// Two properties are asserted per verb, and they are the whole of what AC5 can
+// mean for a CLI (C2's reading): (a) nothing fails silently — every verb emits a
+// structured, actionable envelope; (b) the Playwright browser cache is
+// byte/mtime unchanged, which proves no download was triggered.
+//
+// The cache half is otherwise VACUOUS: on a machine with chromium already
+// installed no implementation downloads anything, so the assertion would hold
+// for a broken gate too. `PLAYWRIGHT_BROWSERS_PATH` is therefore pinned to an
+// empty directory — a download has nowhere to hide — AND the real default cache
+// is fingerprinted, in case an implementation ignores the variable. Both
+// fingerprints are RECURSIVE: a download that lands inside an existing
+// `chromium-<ver>/` does not move the top-level directory's mtime.
+// ---------------------------------------------------------------------------
+
+/** `rel|size|mtimeMs` for every entry under `root`, hashed; `MISSING` when absent. */
+function cacheFingerprint(root: string): string {
+  if (!existsSync(root)) {
+    return 'MISSING';
+  }
+  const rows: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      const stat = statSync(full);
+      rows.push(`${full.slice(root.length)}|${String(stat.size)}|${String(stat.mtimeMs)}`);
+      if (entry.isDirectory()) {
+        walk(full);
+      }
+    }
+  };
+  walk(root);
+  rows.sort();
+  return createHash('sha256').update(rows.join('\n')).digest('hex');
+}
+
+/**
+ * `<absent>` or the lock file's bytes. The install lock is machine-global (it
+ * guards Playwright's shared browser cache), so the invariant to assert is
+ * "this test did not touch it", not "it does not exist on this machine".
+ */
+function lockSnapshot(): string {
+  const path = webInstallLockPath();
+  return existsSync(path) ? readFileSync(path, 'utf8') : '<absent>';
+}
+
+/** Where Playwright would download to if `PLAYWRIGHT_BROWSERS_PATH` were ignored. */
+function defaultBrowsersPath(): string {
+  if (process.platform === 'win32') {
+    return join(process.env['LOCALAPPDATA'] ?? '', 'ms-playwright');
+  }
+  return join(process.env['HOME'] ?? '', '.cache', 'ms-playwright');
+}
+
+interface ParsedEnvelope {
+  readonly ok: boolean;
+  readonly code?: string;
+  readonly data: Record<string, unknown>;
+  readonly warnings: string[];
+  readonly nextActions: string[];
+}
+
+function asEnvelope(captured: { text: () => string }): ParsedEnvelope {
+  return JSON.parse(captured.text()) as ParsedEnvelope;
+}
+
+const GATED_VERBS: ReadonlyArray<{ argv: string[]; op: string }> = [
+  { argv: ['open', 'https://example.test/'], op: 'open' },
+  { argv: ['text'], op: 'text' },
+  { argv: ['snap'], op: 'snap' },
+  { argv: ['click', '#submit'], op: 'click' },
+  { argv: ['shot'], op: 'shot' },
+  { argv: ['metrics'], op: 'metrics' },
+];
+
+describe('a11y — the PEAKS_WEB_DISABLED gate', () => {
+  // The env is saved and cleared AROUND each test rather than with the shared
+  // `withEnv` helper: that helper registers its restore hook from inside the
+  // test body, which does not take effect until the file's hooks run — so a
+  // value set in one test is still readable by the next one, and a test can
+  // pass on a neighbour's leak.
+  const ENV_KEYS = ['PEAKS_WEB_DISABLED', 'PLAYWRIGHT_BROWSERS_PATH'] as const;
+  const saved = new Map<string, string | undefined>();
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) {
+      saved.set(key, process.env[key]);
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      const previous = saved.get(key);
+      if (previous === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous;
+      }
+    }
+    saved.clear();
+  });
+
+  it('when the gate is on, should degrade every browser verb and never reach the daemon', async () => {
+    // given: the flag set, and a daemon that would answer if it were called
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    // when:  each browser-touching verb runs with --json
+    // then:  each one is a tier-3 envelope naming the fallback, and none is a silent failure
+    for (const verb of GATED_VERBS) {
+      const parsed = asEnvelope(await runWeb([...verb.argv, '--json']));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.code).toBe('WEB_DISABLED');
+      expect(parsed.data['tier']).toBe(3);
+      expect(parsed.data['mcpTool']).toBeTruthy();
+      expect(String(parsed.data['installHint'])).toContain('playwright install chromium');
+      expect(parsed.warnings.join('\n')).toContain('截图会落项目根目录');
+      expect(parsed.nextActions.length).toBeGreaterThan(0);
+      expect(process.exitCode).toBe(1);
+    }
+    // The gate refuses BEFORE the daemon: no spawn, no lock, no reuse probe.
+    expect(daemon.requests).toHaveLength(0);
+  });
+
+  it('when the gate is on and no session is bound, should answer WEB_DISABLED rather than NO_SESSION', async () => {
+    // given: a project root with no session.json — the case that hides a gate
+    //        evaluated after the session lookup
+    rmSync(join(workspace.path, '.peaks', '_runtime', 'session.json'));
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    // when:  open runs
+    // then:  the gate wins: WEB_DISABLED, not NO_SESSION
+    const parsed = asEnvelope(await runWeb(['open', 'https://example.test/', '--json']));
+    expect(parsed.code).toBe('WEB_DISABLED');
+    expect(daemon.requests).toHaveLength(0);
+  });
+
+  it('when the gate is on, should leave the browser cache byte-identical', async () => {
+    // given: an empty override cache (so a download would be visible) and the real default cache
+    const override = join(workspace.path, 'empty-pw-cache');
+    process.env['PLAYWRIGHT_BROWSERS_PATH'] = override;
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    const beforeOverride = cacheFingerprint(override);
+    const beforeDefault = cacheFingerprint(defaultBrowsersPath());
+    const beforeLock = lockSnapshot();
+
+    // when:  every browser verb runs
+    for (const verb of GATED_VERBS) {
+      await runWeb(verb.argv);
+    }
+
+    // then:  neither cache moved, and no install lock was ever taken
+    expect(cacheFingerprint(override)).toBe(beforeOverride);
+    expect(cacheFingerprint(defaultBrowsersPath())).toBe(beforeDefault);
+    expect(readdirSync(workspace.path).includes('empty-pw-cache')).toBe(false);
+    // The fingerprint assertions alone are VACUOUS: on a box with no resolvable
+    // Playwright the verb fails before it could touch any cache, so they hold
+    // with the gate deleted too (R12). Reachability is what makes this
+    // non-vacuous — `daemon.requests` is where an ungated verb would show up,
+    // because the stub daemon above is already healthy and would be reused.
+    expect(daemon.requests).toHaveLength(0);
+    expect(lockSnapshot()).toBe(beforeLock);
+  });
+
+  it('when the flag is 0, should not be disabled and should still reach the daemon', async () => {
+    // given: the near-miss a caller could plausibly set
+    process.env['PEAKS_WEB_DISABLED'] = '0';
+    // when:  status runs
+    // then:  the report says not disabled, and the verb behaved normally
+    const parsed = asEnvelope(await runWeb(['status', '--json']));
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data['disabled']).toBe(false);
+  });
+
+  it('when the gate is on, should still answer status and stop', async () => {
+    // given: the flag set and no daemon record (nothing to stop, nothing live)
+    rmSync(join(workspace.path, '.peaks', '_runtime', SESSION_ID, 'web', 'daemon', 'daemon.json'));
+    process.env['PEAKS_WEB_DISABLED'] = '1';
+    // when:  the two non-browser verbs run
+    // then:  both work, and status reports the flag — this is the diagnosis path
+    const status = asEnvelope(await runWeb(['status', '--json']));
+    expect(status.ok).toBe(true);
+    expect(status.data['disabled']).toBe(true);
+    expect(status.data['instance']).toBeNull();
+    expect(status.data['browser']).toBeDefined();
+
+    const stop = asEnvelope(await runWeb(['stop', '--json']));
+    expect(stop.ok).toBe(true);
+    expect(stop.data['stopped']).toBe(0);
   });
 });

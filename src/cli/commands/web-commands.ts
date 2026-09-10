@@ -19,6 +19,8 @@ import { capText, MAX_TEXT_BYTES } from '../../services/web/bounded-output.js';
 import { ensureDaemon } from '../../services/web/daemon-supervisor.js';
 import { wrapUntrusted, WRAPPED_OPS } from '../../services/web/untrusted-envelope.js';
 import { WebDaemonClient } from '../../services/web/web-client.js';
+import { degradedEnvelope } from '../../services/web/web-fallback.js';
+import { isWebDisabled } from '../../services/web/web-install-service.js';
 import type { WebOp } from '../../services/web/web-protocol.js';
 import {
   addJsonOption,
@@ -119,6 +121,12 @@ export function registerWebCommands(program: Command, io: ProgramIO): void {
  * Resolve the session, ensure a daemon, invoke one op, and emit exactly one
  * envelope. `WRAPPED_OPS` is applied here, after the byte caps the daemon
  * already imposed, so the UNTRUSTED markers are never themselves truncated.
+ *
+ * The `PEAKS_WEB_DISABLED` gate is the FIRST thing that happens (tech-doc §5.1
+ * step 1, AC5). Before the session lookup, so a project with no binding still
+ * gets `WEB_DISABLED` rather than `NO_SESSION`; before `ensureDaemon`, so
+ * nothing is spawned and no lock is taken; and therefore before anything that
+ * could touch the browser cache.
  */
 export async function runWebOp(
   io: ProgramIO,
@@ -128,6 +136,12 @@ export async function runWebOp(
 ): Promise<void> {
   const command = `peaks.web.${op}`;
   try {
+    if (isWebDisabled(process.env)) {
+      printResult(io, degradedEnvelope(op, 'PEAKS_WEB_DISABLED=1', 3, args), asJson);
+      process.exitCode = 1;
+      return;
+    }
+
     const projectRoot = resolveCanonicalProjectRoot(process.cwd());
     const sessionId = getCurrentSessionId(projectRoot);
     if (sessionId === null) {
@@ -150,15 +164,16 @@ export async function runWebOp(
     );
 
     if (!response.ok || response.data === null) {
+      const code = safeDaemonCode(response.code);
+      // The daemon no longer downloads (R3), so "the browser is not installed"
+      // arrives as a refusal. It is AC5's tier-3 branch, not an opaque op
+      // failure: the caller must be handed the same envelope — MCP tool,
+      // install command, screenshot consequence — that the gate produces.
       printResult(
         io,
-        fail(
-          command,
-          safeDaemonCode(response.code),
-          failureMessage(op, response.message, response.nextActions),
-          {},
-          []
-        ),
+        code === 'WEB_INSTALL_REQUIRED'
+          ? degradedEnvelope(op, `WEB_INSTALL_REQUIRED: ${response.message ?? ''}`, 3, args)
+          : fail(command, code, failureMessage(op, response.message, response.nextActions), {}, []),
         asJson
       );
       process.exitCode = 1;

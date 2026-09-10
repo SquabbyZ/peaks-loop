@@ -63,12 +63,20 @@ describe('behavior — web artifact resolvers', () => {
       webShotPath(root, SESSION_ID, '20260910T090312345Z'),
       webDaemonInfoPath(root, SESSION_ID),
       webSpawnLockPath(root, SESSION_ID),
-      webInstallLockPath(root, SESSION_ID),
       webLogPath(root, SESSION_ID),
     ];
     for (const path of paths) {
       expect(normalizePath(path)).toContain(expected);
     }
+  });
+
+  it('when webInstallLockPath is called, should scope the lock to the user, not the session', () => {
+    // given: the resource it guards is Playwright's machine-global browser cache
+    // when:  the lock path is resolved
+    // then:  it sits under the per-user peaks home — ONE lock for every session
+    //        and project on this machine, which is the contention that exists
+    expect(normalizePath(webInstallLockPath())).toMatch(/\/\.peaks\/web\/install\.lock$/);
+    expect(normalizePath(webInstallLockPath())).not.toContain('/_runtime/');
   });
 
   it('when webShotPath is called, should build a colon-free timestamped png name', () => {
