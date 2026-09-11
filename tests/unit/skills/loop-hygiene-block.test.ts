@@ -74,4 +74,18 @@ describe('loop-hygiene block in every SKILL.md', () => {
     // The header must be every-turn, not first-turn-only.
     expect(block).toContain('Peaks-Loop Skill');
   });
+
+  it('tells the MAIN session that a gate denial is not a broken tool', () => {
+    // Fact-Forcing-Gate guidance previously reached only sub-agents, via
+    // `buildDispatchSystemPrompt`. The interactive main session — where the
+    // user actually hits the denial — never received it, and read the denial
+    // as "the edit tool is broken" rather than "read the file first".
+    const block = extractBlock(readFileSync(files[0]!, 'utf8')) ?? '';
+    expect(block).toContain('Read before you edit');
+    expect(block).toContain('.peaks/**');
+    // The three claims that stop the misread.
+    expect(block).toMatch(/denial is not a failure/i);
+    expect(block).toMatch(/was not applied/i);
+    expect(block).toMatch(/retry the same operation/i);
+  });
 });

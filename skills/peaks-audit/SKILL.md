@@ -17,6 +17,14 @@ run `peaks code auto-compact --project .` **yourself**, then continue. Tell the 
 ratio in one line if it helps, but never hand them the compaction step: asking the user to
 run `/compact` is the regression the zero-pause contract forbids. This holds in **every
 mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+
+**Read before you edit.** Read a file BEFORE your first `Edit` / `Write` / `MultiEdit` on
+it — for every path outside `.peaks/**` (source, tests, docs, config); `.peaks/**` writes
+are exempt. Skipping that read trips a `PreToolUse` gate (ECC's "Fact-Forcing Gate"),
+which denies the edit. **A denial is not a failure and the tool is not broken — your edit
+was not applied.** Read the file, state the facts the gate asks for (importers, affected
+API, data schemas if any, the user's verbatim instruction), then retry the same operation.
+Do not switch tools, do not give up, do not retry blindly.
 <!-- /peaks:loop-hygiene -->
 
 ## Single-scope-axis naming convention
