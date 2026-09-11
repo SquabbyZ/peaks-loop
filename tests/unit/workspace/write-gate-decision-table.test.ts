@@ -66,23 +66,37 @@ function writeHandler(): Handler {
 }
 
 /**
- * The decision table. `stdin` is how Claude Code really delivers the payload;
- * `argv` is the legacy positional-arg channel. Both must agree.
+ * Every path this handler can be handed. The list is kept because it documents
+ * what actually reaches a `Write|Edit|MultiEdit` hook in a peaks workspace —
+ * but the decision is now UNIFORM, so it is one property rather than a table:
+ *
+ *   abstain — exit 0, no stdout, no stderr, on every path.
+ *
+ * The previous table pinned exit 1 for everything outside `.peaks/_runtime/`,
+ * documented as "fall through to the gate". No such protocol exists. Exit 2 is
+ * the only blocking code, so exit 1 was a NON-BLOCKING ERROR: the tool ran, and
+ * the transcript showed `<hook> hook error` / `Failed with non-blocking status
+ * code: No stderr output` — once per edit, on essentially every file a
+ * developer touches. The "silent fall-through" was the loudest outcome
+ * available.
+ *
+ * `stdin` is how Claude Code really delivers the payload; `argv` is the legacy
+ * positional-arg channel. Both must agree.
  */
-const DECISION_TABLE: ReadonlyArray<{ path: string; code: number }> = [
-  { path: '.peaks/_runtime/2026-09-10-x/rd/a.md', code: 0 },
-  { path: 'D:/proj/.peaks/_runtime/2026-09-10-x/rd/a.md', code: 0 },
-  { path: '.peaks/memory/foo.md', code: 1 },
-  { path: '.peaks/sops/x.md', code: 1 },
-  { path: '.peaks/retrospective/x.md', code: 1 },
-  { path: '.peaks/project-scan/x.md', code: 1 },
-  { path: '.peaks/perf-baseline/x.md', code: 1 },
-  { path: '.peaks/_sub_agents/x.md', code: 1 },
-  { path: '.peaks/_dogfood/x.md', code: 1 },
-  { path: '.peaks/2026-09-10-thing/x.md', code: 1 },
-  { path: '.peaks/something-else/x.md', code: 1 },
-  { path: '.peaks/', code: 1 },
-  { path: '', code: 1 }
+const WRITE_PATHS: readonly string[] = [
+  '.peaks/_runtime/2026-09-10-x/rd/a.md',
+  'D:/proj/.peaks/_runtime/2026-09-10-x/rd/a.md',
+  '.peaks/memory/foo.md',
+  '.peaks/sops/x.md',
+  '.peaks/retrospective/x.md',
+  '.peaks/project-scan/x.md',
+  '.peaks/perf-baseline/x.md',
+  '.peaks/_sub_agents/x.md',
+  '.peaks/_dogfood/x.md',
+  '.peaks/2026-09-10-thing/x.md',
+  '.peaks/something-else/x.md',
+  '.peaks/',
+  ''
 ];
 
 function payloadFor(candidate: string): string {
@@ -101,33 +115,36 @@ function payloadFor(candidate: string): string {
  */
 
 /** Run the real emitted command, payload on stdin (Claude Code's channel). */
-function runViaStdin(command: string, candidate: string): number | null {
-  const result = spawnSync(command, { shell: true, windowsHide: true, input: payloadFor(candidate), encoding: 'utf8' });
-  return result.status;
+function runViaStdin(command: string, candidate: string) {
+  return spawnSync(command, { shell: true, windowsHide: true, input: payloadFor(candidate), encoding: 'utf8' });
 }
 
 /** Run the real emitted command, candidate appended as a positional arg. */
-function runViaArgv(command: string, candidate: string): number | null {
-  const result = spawnSync(`${command} "${candidate}"`, { shell: true, windowsHide: true, input: '', encoding: 'utf8' });
-  return result.status;
+function runViaArgv(command: string, candidate: string) {
+  return spawnSync(`${command} "${candidate}"`, { shell: true, windowsHide: true, input: '', encoding: 'utf8' });
 }
 
-describe('slice c5b-write-gate-polarity: the write gate allows only .peaks/_runtime/', () => {
-  for (const { path, code } of DECISION_TABLE) {
+describe('the write gate abstains on every path: exit 0, no output', () => {
+  for (const path of WRITE_PATHS) {
     const label = path === '' ? '(empty path)' : path;
-    it(`given stdin payload for "${label}", when the emitted command runs, then exit ${code}`, () => {
+    it(`given stdin payload for "${label}", when the emitted command runs, then it abstains`, () => {
       // given: the handler peaks workspace init writes into settings.local.json
       // when: it is executed exactly as Claude Code would (payload on stdin)
-      const status = runViaStdin(writeHandler().command, path);
-      // then: the documented decision — 0 only under .peaks/_runtime/
-      expect(status).toBe(code);
+      const result = runViaStdin(writeHandler().command, path);
+      // then: exit 0 and NOTHING on either stream. Any other exit is either a
+      // block (2) or a non-blocking error the transcript will report.
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toBe('');
     });
 
-    it(`given positional arg "${label}", when the emitted command runs, then exit ${code}`, () => {
+    it(`given positional arg "${label}", when the emitted command runs, then it abstains`, () => {
       // The legacy channel: the old form read argv[1] and could only ever
-      // receive a path this way. New form: argv[2]. Same table, by design.
-      const status = runViaArgv(writeHandler().command, path);
-      expect(status).toBe(code);
+      // receive a path this way. New form: argv[2]. Same paths, by design.
+      const result = runViaArgv(writeHandler().command, path);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toBe('');
     });
   }
 });
@@ -193,18 +210,22 @@ describe('slice c5-write-hook-exec-form: two shells agree on the same command', 
       // given: an interpreter running the emitted command string verbatim
       const { command } = writeHandler();
       const mismatches: string[] = [];
-      // when: every row of the table is executed through that shell
-      for (const { path, code } of DECISION_TABLE) {
+      // when: every path is executed through that shell
+      for (const path of WRITE_PATHS) {
         const result = spawnSync(shell.name, shell.run(command), {
           input: payloadFor(path),
           encoding: 'utf8',
           windowsHide: true
         });
-        if (result.status !== code) {
-          mismatches.push(`${path || '(empty)'} → ${result.status}, expected ${code}`);
+        // Abstention is the decision for every path, so the shells must agree
+        // on 0 — and on producing nothing.
+        if (result.status !== 0 || result.stdout !== '' || result.stderr !== '') {
+          mismatches.push(
+            `${path || '(empty)'} → status ${result.status}, stdout ${JSON.stringify(result.stdout)}, stderr ${JSON.stringify(result.stderr)}`
+          );
         }
       }
-      // then: ${shell.name} produced the same decision as the native run
+      // then: ${shell.name} abstained exactly as the native run did
       expect(mismatches).toEqual([]);
     });
   }
