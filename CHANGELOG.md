@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.0.39 — 2026-09-11 (四条"死机制" + 可见的 OCR 获取)
+
+**Highlights**:
+
+1. **本轮查出的东西有一个共同形状:机制写好了、但从没执行过。** 四条各自独立,每一条都能通过全部现有测试,因为**测试断言的是"声明存在",不是"它真的跑"**:
+
+   - **`24h` 模式从没选过 `partial`。** `--mode` 声明里带了 commander 默认值 `'standard'`,于是 `opts.mode` **永远有值**,orchestrator 里 `input.mode ?? resolveAutoCompactMode(projectRoot)` 的右边**永远不执行**。每个 24h 会话都在按 standard 的 0.80/0.85 跑,而 help 文本写着 0.65/0.70。症状看起来是"两个命令报的 mode 不一致",根因是**默认值顶掉了一条分支**。修的时候要动两处:只删默认值不够,handler 仍会把 `'standard'` 显式传下去。
+   - **auto-compact 的 hook 一次都没触发过。** 安装进 `settings.local.json` 的命令是 `peaks code auto-compact`,而 `--project` 是 `.requiredOption` —— 于是它挂在 `Bash|Task` 上,**每次工具调用都以"缺 --project"失败**。非阻塞错误,桌面上什么都看不到。更要紧的是:光改常量**到不了任何已有安装**,因为安装器只比对 matcher、从不比对命令,一看到 `Bash|Task` 条目就返回"已安装"。现在它是一起迁移。
+   - **那条"忽略离线模板"的 managed 规则,在任何项目里都没生效过。** 模式是按**项目根**写的,却被写进 `.peaks/.gitignore` —— 带 `/` 的 gitignore 模式锚定到所在目录,于是解析成 `.peaks/.peaks/...`,匹配不到任何东西;而根级的 `.claude/settings.local.json` 更是**根本无法**从 `.peaks/` 内部表达(gitignore 没有 `..`)。后果在本仓库可见:模板文件因为这条规则never生效而一直被跟踪,每次发版都显示 modified,被当"机器路径泄漏"**回滚了三次**——它从来不是泄漏。snippet 已改写到根,并加了**行为式**守卫(逐条模式用 `git check-ignore --no-index` 验证生效;已实测对旧行为失败)。顺带:搬家会留下僵尸块,`workspace init` 现在把它剥掉(保留用户写的每一行,畸形块不动)。
+   - **`--graph-node` 的强制只由 `.requiredOption` 支撑。** 传一个**根本不存在的**节点,dispatch 照样成功 —— 下游从不校验,`PEAKS_GRAPH_NODE_NOT_PREPARED` 只被 import、从未抛出;而且 `graphNodeId`/`workflowId`/`graphRef` **从未传给记录写入器**,记录上恒为 null,那条 transition 永远不触发。**这个特性整条链是死的,唯一真实的是它的前置条件** —— 而那个前置条件正好把每个没有图基础设施的项目(即:除了 peaks-loop 自己以外的所有项目)全打断。那句"友好提示"指向的路径本身也走不通:`workflow node prepare` **从不落盘**(打印一个节点就丢),而它要求的图没有任何命令会创建。现在可选 + 按需 provision,三步压成一步,并把三个字段真正写进记录。
+
+2. **契约与指导,现在能到达它们该到的地方。** 零暂停契约(「compaction 是技能自己的动作,不是用户的」)早就写在 `peaks-code/SKILL.md` 里,`:180` 甚至点名禁止"prompt the user to run `/compact`" —— **而它依然被违反了,因为 SKILL.md 正文只加载一次、随后会被 compact 掉,规则恰好在上下文压力大到需要它的那一刻失效**;而且 22 个技能里只有 1 个有这段。现在它挂在**每轮必调的 tool 输出**上(`peaks skill presence --json` 的返回值里带 `context: { ratioPct, action, mode }`),compact 不掉,且技能无关。同样地,read-first 指导此前只注入了**子代理**的 system prompt,真正被闸门拒的**主会话**从没收到 —— 现在两者都在 22 个技能共享的、有**漂移守卫**的块里。
+
+3. **OCR 获取变成显式、可见的一步。** dogfood 时桌面上弹出了一个标题为 `npm i @alibaba-group/open-code-review@1.11.9` 的窗口,而它来自一个自称 **"Read-only probe"** 的命令 —— `npx --package …` 在包未缓存时会**安装**。因果值得记下:**是今天的 unblock 让它暴露的** —— 修好之前,探针在启动步就死了,根本走不到安装。现在探针**只看不取**,获取成为独立动词,带安装锁与下载前告警,输出走 `inherit` 让 npm 自己的进度到达用户终端。Shell 偏好 **Git Bash → PowerShell**,且**每次都上报用了哪个** —— 静默换壳正是这场混乱的起点。
+
+4. **本轮的一条自查:我写的守卫,自己犯了它要防的病。** 漂移守卫用 `execSync('find skills -name SKILL.md')` 找文件。`execSync` 走平台 shell,CI 的 Windows 上是 `cmd.exe`,那里的 `find` 是 `System32\find.exe`(另一个程序,不认 `-name`)。**本地能过,只因为 Git Bash 的 `find` 在 PATH 上胜出** —— 典型的"测试断言的是这台笔记本"。CI 第一次推就抓到。已改成 `fs` 遍历,无 shell 参与。
+
+**验证**:三个版本常量一致(4.0.39);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **188 files / 1793 passed / 3 skipped / 0 failed**;CI 在 ubuntu + windows(Node 22)双平台绿。本轮新增的守卫**每一条都实测过"对旧行为会失败"**。
+
 ## 4.0.38 — 2026-09-11 (适配外部闸门 + 多语言评审复活 + 测试不再弹窗)
 
 **Highlights**:
