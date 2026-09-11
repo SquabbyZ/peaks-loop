@@ -182,6 +182,49 @@ Your FINAL report to the parent MUST be ≤ 40 lines and ≤ 2 KB. Write any lon
 `;
 
 /**
+ * Slice 2026-09-10-fact-force-gate-adaptation: stand IN FRONT of an external
+ * `PreToolUse` gate instead of explaining its denial after the fact.
+ *
+ * ECC (a third-party plugin under `~/.claude/plugins/`) registers
+ * `gateguard-fact-force.js` on `Edit|Write|MultiEdit`. It denies the first
+ * edit of a file whose facts the agent has not established, and its four-item
+ * message never says two things the agent needs: that the file must be READ
+ * first, and that the edit was NOT applied. Measured failure mode
+ * (session 2026-09-10-session-528a63): the sub-agent reads the denial as
+ * "the tool is broken" and abandons the edit.
+ *
+ * So the block below leads with the STANDING RULE (read before you edit) and
+ * names the paths it covers, and mentions the denial only as the consequence
+ * of skipping that rule. A sub-agent that has never seen the gate can read
+ * this once and never trip it.
+ *
+ * The gate itself is untouched: peaks-loop adapts to it, and does NOT disable,
+ * bypass, or re-implement it. Nor is `ECC_GATEGUARD=off` part of this.
+ *
+ * Always rendered — no opt-out flag and no role split. Every role edits files
+ * outside `.peaks/**`, and only sub-agent #1 of a session sees a denial (the
+ * gate fires once per file), so a role-scoped or opt-in block would leave the
+ * rest of the fleet untold. It joins the stable boilerplate prefix: constant
+ * bytes for every dispatch, prompt-cache friendly.
+ *
+ * The `.peaks/**` exemption is real and pre-dates this slice — peaks-loop
+ * materialises `.claude/settings.local.json` so the gate skips `.peaks/**`
+ * (slice 2.0.1-bug3-fact-forcing-bypass; see
+ * `src/cli/commands/workspace/init-command.ts`).
+ */
+export const FACT_FORCE_GATE_BLOCK = `## Read before you edit (Fact-Forcing Gate)
+
+Read a file BEFORE your first \`Edit\` / \`Write\` / \`MultiEdit\` on it — the normal way to work here, not an optional step. It applies to every path OUTSIDE \`.peaks/**\` (source, tests, docs, config); \`.peaks/**\` writes are exempt.
+
+Skipping that read trips a \`PreToolUse\` plugin gate (ECC's "Fact-Forcing Gate"), which denies the edit. A denial is NOT a failure and the tool is NOT broken — your edit was NOT applied. Read the file, state the four facts the gate asks for (importers, affected API, data schemas if any, the user's verbatim instruction), then retry the same operation. Do not switch tools, do not give up, do not re-attempt blindly.
+`;
+
+/** Always-on renderer for {@link FACT_FORCE_GATE_BLOCK}. */
+export function renderFactForceGateBlock(): string {
+  return `${FACT_FORCE_GATE_BLOCK}\n`;
+}
+
+/**
  * Compose the system-prompt body for a sub-agent dispatch.
  *
  * 2026-09-10-dispatch-block-d (Option D): the composer owns the Test Tool
@@ -192,7 +235,7 @@ Your FINAL report to the parent MUST be ≤ 40 lines and ≤ 2 KB. Write any lon
  * Byte-identical degradation contract (slice 2026-07-22-orchestrator-memory-preflight
  * controller brief): when the memory block is unavailable, the composed body is
  * exactly `formatTestToolDetection() + "\n\n" + L1 + "\n" + LIFECYCLE +
- * "\n" + REPORT_CAP + "\n" + contextBlock + taskBody`, so the unavailable
+ * "\n" + REPORT_CAP + "\n" + FACT_FORCE_GATE + "\n" + contextBlock + taskBody`, so the unavailable
  * branch MUST return `taskBody` unwrapped (NOT a `# title\n\n` wrap).
  * (REPORT_CAP joined the stable prefix in slice
  * 2026-09-10-context-audit-and-discipline, Slice C.)
@@ -224,15 +267,17 @@ export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
   // for every role — the composer owns the injection so callers MUST NOT
   // prepend `formatTestToolDetection()` themselves (double injection).
   const testToolText = `${formatTestToolDetection()}\n\n`;
+  // 2026-09-10-fact-force-gate-adaptation: always-on, both branches.
+  const factForceGateText = renderFactForceGateBlock();
   const contextBlock = renderContextBlock(contextProbe ?? null);
   const codegraphText = renderCodegraphBlock(codegraphBlock);
   const projectStackText = renderProjectStackBlock(projectStackBlock);
   const freshContextText = renderFreshContextBlock(freshContextBlock);
   const capsuleText = renderCapsulePointer(capsule);
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${memoryBlock.block}\n## Task\n${taskBody}`;
+    return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${factForceGateText}${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${memoryBlock.block}\n## Task\n${taskBody}`;
   }
-  return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${taskBody}`;
+  return `${testToolText}${L1_WORKTREE_GOVERNANCE_BLOCK}\n${LIFECYCLE_RULES}\n${REPORT_CAP_BLOCK}\n${factForceGateText}${contextBlock}${codegraphText}${projectStackText}${freshContextText}${capsuleText}${taskBody}`;
 }
 
 /**
@@ -397,6 +442,15 @@ export const BINDING_RULE_TOKENS: readonly string[] = [
   'changed files (one line each)',
   'pass/fail counts',
   'tsc status',
+  // fact-forcing gate (slice 2026-09-10-fact-force-gate-adaptation)
+  '## Read before you edit (Fact-Forcing Gate)',
+  'Read a file BEFORE your first `Edit` / `Write` / `MultiEdit` on it',
+  'every path OUTSIDE `.peaks/**`',
+  '`PreToolUse` plugin gate',
+  'A denial is NOT a failure and the tool is NOT broken',
+  'your edit was NOT applied',
+  'retry the same operation',
+  'do not re-attempt blindly',
   // test scope — ONE unified block, byte-identical for EVERY role
   '## Test Tool Detection (mandatory)',
   '`package.json#scripts.test`',

@@ -6,7 +6,9 @@
 // Compression may shorten prose; it may NOT delete a binding rule, and it
 // may NOT re-introduce a role split. Four assertions carry that contract:
 //   (a) BYTES DROP per block (measured against the pre-slice block sizes),
-//   (b) the RULE-PRESENCE SET is 21/21 for every role,
+//   (b) the RULE-PRESENCE SET is 35/35 for every role — the 27 tokens that
+//       shipped with Option D plus the 8 added by
+//       2026-09-10-fact-force-gate-adaptation (retuned, not loosened),
 //   (c) the runner-direct-path set is IDENTICAL across roles (PB-5 for all),
 //   (d) no contract-pointer line is emitted (§2 was reverted).
 //
@@ -149,20 +151,26 @@ describe('Scenario: behavior — rule-presence set is unchanged for every role (
 });
 
 describe('Scenario: render — section order stays stable', () => {
-  it('when a prompt is composed, should order test-tool → L1 → lifecycle → context → task', () => {
+  it('when a prompt is composed, should order test-tool → L1 → lifecycle → report-cap → fact-gate → context → task', () => {
     // given: a dispatch with a probe and no memory
     const out = promptFor('rd');
     // when:  section offsets are compared
     const testIdx = out.indexOf('## Test Tool Detection');
     const l1Idx = out.indexOf('## Superpowers chain refusal');
     const lifecycleIdx = out.indexOf('## Sub-agent lifecycle rules');
+    const capIdx = out.indexOf('## Final report cap (mandatory)');
+    const gateIdx = out.indexOf('## Read before you edit (Fact-Forcing Gate)');
     const contextIdx = out.indexOf('## Context window');
     const taskIdx = out.indexOf('TASK_BODY_SENTINEL');
-    // then:  every section is present and strictly ordered
+    // then:  every section is present and strictly ordered. The fact-forcing
+    //        gate joins the stable boilerplate prefix after the report cap and
+    //        before the per-dispatch context/task content.
     expect(testIdx).toBe(0);
     expect(l1Idx).toBeGreaterThan(testIdx);
     expect(lifecycleIdx).toBeGreaterThan(l1Idx);
-    expect(contextIdx).toBeGreaterThan(lifecycleIdx);
+    expect(capIdx).toBeGreaterThan(lifecycleIdx);
+    expect(gateIdx).toBeGreaterThan(capIdx);
+    expect(contextIdx).toBeGreaterThan(gateIdx);
     expect(taskIdx).toBeGreaterThan(contextIdx);
   });
 });
