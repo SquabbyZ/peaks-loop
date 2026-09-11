@@ -103,12 +103,15 @@ describe('loop-hygiene block in every SKILL.md', () => {
     for (const f of files) {
       const src = readFileSync(f, 'utf8');
       const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src);
-      if (m === null) {
+      // `noUncheckedIndexedAccess` makes `m[1]` `string | undefined`; the
+      // capture group is non-optional in the pattern but not in the type.
+      const frontmatter = m?.[1];
+      if (frontmatter === undefined) {
         broken.push(`${f} (no frontmatter)`);
         continue;
       }
       try {
-        const parsed = parseYaml(m[1]) as { name?: unknown; description?: unknown } | null;
+        const parsed = parseYaml(frontmatter) as { name?: unknown; description?: unknown } | null;
         if (typeof parsed?.description !== 'string' || parsed.description.length === 0) {
           broken.push(`${f} (no usable description)`);
         }
