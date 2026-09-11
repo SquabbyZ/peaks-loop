@@ -83,7 +83,8 @@ export const AUTO_COMPACT_HOOK_SETTINGS_PATH = '.claude/settings.local.json';
  */
 export type AutoCompactHookInstallResult =
   | { readonly action: 'installed'; readonly settingsPath: string }
-  | { readonly action: 'already-installed'; readonly settingsPath: string };
+  | { readonly action: 'already-installed'; readonly settingsPath: string }
+  | { readonly action: 'updated'; readonly settingsPath: string };
 
 /**
  * Result envelope for `removeAutoCompactHook`.
@@ -145,11 +146,6 @@ export function installAutoCompactHook(input: {
   const hooks = settings.hooks ?? {};
   const preToolUse = hooks.PreToolUse ?? [];
 
-  const alreadyInstalled = preToolUse.some(isAutoCompactEntry);
-  if (alreadyInstalled) {
-    return { action: 'already-installed', settingsPath };
-  }
-
   // The matcher is `Bash|Task`, so on Windows this runs on the same
   // Git-Bash / MSYS2 shell-form path as the other peaks Bash hooks, which
   // force-allocates a console window on every matching tool call. The
@@ -157,18 +153,41 @@ export function installAutoCompactHook(input: {
   // `.claude/settings.local.json`, so a machine-specific `shell` cannot
   // leak into a shared file. `undefined` on POSIX omits the key entirely.
   const shell = resolveHookShell();
+  const desiredHook = {
+    type: 'command',
+    command: AUTO_COMPACT_HOOK_COMMAND,
+    ...(shell !== undefined ? { shell } : {})
+  };
+
+  const existing = preToolUse.find(isAutoCompactEntry);
+
+  // "Already installed" must mean installed CORRECTLY.
+  //
+  // Keying only off the matcher is how a corrected command never reaches
+  // an existing install: the entry is present, so the installer returns
+  // early and the stale string stays in the settings file forever. That
+  // is not hypothetical — it is exactly how the missing `--project`
+  // survived on every machine that had already installed the hook, and
+  // re-running the installer could not repair any of them.
+  if (existing !== undefined) {
+    if (existing.hooks?.[0]?.command === AUTO_COMPACT_HOOK_COMMAND) {
+      return { action: 'already-installed', settingsPath };
+    }
+    const migrated = preToolUse.map((entry) =>
+      isAutoCompactEntry(entry)
+        ? { ...entry, matcher: AUTO_COMPACT_HOOK_MATCHER, hooks: [desiredHook] }
+        : entry
+    );
+    writeSettings(settingsPath, {
+      ...settings,
+      hooks: { ...hooks, PreToolUse: migrated }
+    });
+    return { action: 'updated', settingsPath };
+  }
+
   const nextPreToolUse = [
     ...preToolUse,
-    {
-      matcher: AUTO_COMPACT_HOOK_MATCHER,
-      hooks: [
-        {
-          type: 'command',
-          command: AUTO_COMPACT_HOOK_COMMAND,
-          ...(shell !== undefined ? { shell } : {})
-        }
-      ]
-    }
+    { matcher: AUTO_COMPACT_HOOK_MATCHER, hooks: [desiredHook] }
   ];
 
   writeSettings(settingsPath, {

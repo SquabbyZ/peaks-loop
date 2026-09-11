@@ -245,6 +245,8 @@ async function dispatchIdeNativeHook(input: {
     pathway: 'ide-native',
     message: result.action === 'installed'
       ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read CLAUDE_CONTEXT_USAGE_PERCENT and compact in-band at ratio ≥ 95%.`
-      : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`
+      : result.action === 'updated'
+        ? `Auto-compact PreToolUse hook REPAIRED at ${result.settingsPath} — the installed entry carried a stale command and was rewritten.`
+        : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`
   };
 }
