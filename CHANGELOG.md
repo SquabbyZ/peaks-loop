@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.42 — 2026-09-12 (peaks 自己的钩子在每次编辑时报错)
+
+**Highlights**:
+
+1. **`write-gate.js` 每次编辑都向模型报一次"钩子错误" —— 已修。** 这个钩子挂在 `Write|Edit|MultiEdit` 上,判定是 `p.includes('.peaks/_runtime/') ? 0 : 1`。**而开发者真正编辑的每一个文件都不在 `.peaks/_runtime/` 下**,所以它**每次编辑都返回退出码 1**。
+
+   Claude Code 的协议里,**只有 exit 2 会阻断**;任何其他非零退出码都是**非阻断错误** —— 工具照跑,但 transcript 里出现 `<hook> hook error` 加 `Failed with non-blocking status code:` 和 stderr 首行;stderr 为空时显示 `No stderr output`。**这正是用户 Mac 日志里那行。**
+
+   - 更糟的是**文档把它写成了契约**。`HOOKS.md` 与文件头都写着 *"exit 1 = fall through to the gate"* —— **没有 fall-through 这个概念**:所有匹配的 PreToolUse 钩子**并行运行**,结果按 `deny > defer > ask > allow` 合并,不存在"交给下一个"。正确的弃权是 **exit 0 + 无输出**,文档定义为 *"no decision"*。
+   - 所以"静默的 fall-through"实际上是**当时可用的最响的结果**。**行为对所有路径完全不变**(它从不阻断),变的只是它不再一边弃权一边报错。
+   - **同行早就做对了**:`pre-tool-code-gate.sh` 用 exit 0 弃权、只在拒绝路径用 exit 2;`pre-tool-superpowers-bridge.sh` 全路径 exit 0。`write-gate.js` 是唯一的异类 —— 这是收敛一个文件的偏差,不是重新设计。
+   - 三处一起改:代码、`.claude/HOOKS.md` 契约行、以及**钉着 exit-1 映射的 32 用例判定表**(已实测对旧 `decide` 会失败)。判定表现在是"路径清单 + 一条真属性":每条路径都弃权,且两个流都为空。
+
+2. **一个必须说明的保留。** 已知有**独立**报告称钩子 exit 0 时标签仍显示 `hook error`。所以**修完不等于那行必然消失** —— 需要实测;若仍在,用 `claude --debug-file` 查看每个钩子的真实退出码。
+
+**验证**:三个版本常量一致(4.0.42);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **188 files / 1794 passed / 3 skipped / 0 failed**。
+
 ## 4.0.41 — 2026-09-11 (闸门指导不再鼓励"每次编辑前念一遍")
 
 **Highlights**:

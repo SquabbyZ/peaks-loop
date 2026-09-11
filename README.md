@@ -140,7 +140,7 @@ npm i -g peaks-loop
 
 | | |
 | --- | --- |
-| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.41(2026-09-11) |
+| **最新版本** | [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop) — 4.0.42(2026-09-12) |
 | **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测 / `peaks-slice-decompose` 切片) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
 | **测试套件** | 1096 cases · 4 packages (peaks-loop 1015 / runtime 39 / mut 22 / shared-channel 20) · **CI 首次全绿**(ubuntu + windows) · 14 BDD caller-binding coverage |
