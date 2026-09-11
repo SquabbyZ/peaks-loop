@@ -43,6 +43,9 @@ function runBridge(payload: string): { status: number | null; stdout: string; st
   const result = spawnSync('bash', [HOOK], {
     input: payload,
     encoding: 'utf8',
+    // Git Bash (MSYS2) is a console app: without this, Windows allocates a
+    // console window for each of the four cases below.
+    windowsHide: true,
   });
   return {
     status: result.status,

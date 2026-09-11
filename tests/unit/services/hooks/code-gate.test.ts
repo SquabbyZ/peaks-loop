@@ -235,7 +235,7 @@ interface SpawnResult {
 
 async function runHook(input: GateInput): Promise<SpawnResult> {
   return new Promise<SpawnResult>((resolveFn, reject) => {
-    const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
@@ -293,7 +293,7 @@ describe('Scenario: integration — shell hook smoke (real child_process)', () =
 
   it('given empty stdin, when hook runs, then exit=0 (tolerate empty payload)', async () => {
     const result = await new Promise<SpawnResult>((resolveFn, reject) => {
-      const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = spawn('bash', [HOOK_SCRIPT], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
       let stdout = '';
       let stderr = '';
       child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });

@@ -91,15 +91,24 @@ function payloadFor(candidate: string): string {
     : JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: candidate } });
 }
 
+/**
+ * Both helpers spawn a shell (`shell: true` routes through `cmd.exe` on
+ * Windows). EVERY spawn in this file sets `windowsHide: true`: without it each
+ * one allocates a console window on Windows, and this file spawns once per
+ * decision-table row. That flag works here because the spawner is the test;
+ * it cannot help for the hook itself, where Claude Code owns the spawn — see
+ * the header of tests/unit/hooks/gate-enforce-machine-local-shell.test.ts.
+ */
+
 /** Run the real emitted command, payload on stdin (Claude Code's channel). */
 function runViaStdin(command: string, candidate: string): number | null {
-  const result = spawnSync(command, { shell: true, input: payloadFor(candidate), encoding: 'utf8' });
+  const result = spawnSync(command, { shell: true, windowsHide: true, input: payloadFor(candidate), encoding: 'utf8' });
   return result.status;
 }
 
 /** Run the real emitted command, candidate appended as a positional arg. */
 function runViaArgv(command: string, candidate: string): number | null {
-  const result = spawnSync(`${command} "${candidate}"`, { shell: true, input: '', encoding: 'utf8' });
+  const result = spawnSync(`${command} "${candidate}"`, { shell: true, windowsHide: true, input: '', encoding: 'utf8' });
   return result.status;
 }
 
@@ -177,7 +186,9 @@ const SHELLS: ReadonlyArray<{ name: string; probe: string[]; run: (command: stri
 
 describe('slice c5-write-hook-exec-form: two shells agree on the same command', () => {
   for (const shell of SHELLS) {
-    const available = spawnSync(shell.name, shell.probe, { encoding: 'utf8' }).status === 0;
+    // The probe is a spawn too, and it fires at collection time — before any
+    // case runs — so it carries the same option.
+    const available = spawnSync(shell.name, shell.probe, { encoding: 'utf8', windowsHide: true }).status === 0;
     it.skipIf(!available)(`given ${shell.name}, when the emitted command runs, then the table matches`, () => {
       // given: an interpreter running the emitted command string verbatim
       const { command } = writeHandler();
@@ -186,7 +197,8 @@ describe('slice c5-write-hook-exec-form: two shells agree on the same command', 
       for (const { path, code } of DECISION_TABLE) {
         const result = spawnSync(shell.name, shell.run(command), {
           input: payloadFor(path),
-          encoding: 'utf8'
+          encoding: 'utf8',
+          windowsHide: true
         });
         if (result.status !== code) {
           mismatches.push(`${path || '(empty)'} → ${result.status}, expected ${code}`);
