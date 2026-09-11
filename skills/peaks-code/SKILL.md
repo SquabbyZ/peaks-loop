@@ -18,13 +18,17 @@ ratio in one line if it helps, but never hand them the compaction step: asking t
 run `/compact` is the regression the zero-pause contract forbids. This holds in **every
 mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
 
-**Read before you edit.** Read a file BEFORE your first `Edit` / `Write` / `MultiEdit` on
-it — for every path outside `.peaks/**` (source, tests, docs, config); `.peaks/**` writes
-are exempt. Skipping that read trips a `PreToolUse` gate (ECC's "Fact-Forcing Gate"),
-which denies the edit. **A denial is not a failure and the tool is not broken — your edit
-was not applied.** Read the file, state the facts the gate asks for (importers, affected
-API, data schemas if any, the user's verbatim instruction), then retry the same operation.
-Do not switch tools, do not give up, do not retry blindly.
+**Read before you edit.** Read a file before your first `Edit` / `Write` / `MultiEdit` on
+it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
+config); `.peaks/**` writes are exempt.
+
+**Expect one denial per file regardless.** A `PreToolUse` gate (ECC's "Fact-Forcing Gate")
+denies the FIRST edit a session makes to any given path, once, by design. Reading does NOT
+prevent it — the gate keys on the path's first touch, not on whether you read it. **A denial
+is not a failure and the tool is not broken — your edit was NOT applied.** State the facts it
+asks for (importers, affected API, data schemas if any, the user's verbatim instruction) and
+retry the SAME operation; the retry is allowed. Do not switch tools, do not give up, do not
+retry blindly.
 <!-- /peaks:loop-hygiene -->
 
 > **Detached sub-agent mode (Phase A, slice 2026-08-10).** When the orchestrator requires true parallelism with isolated context windows and survives orchestrator session exit, dispatch sub-agents with `--mode detached --vendor <claude|codex|copilot>`. The CLI spawns a real OS process via `ProcessSupervisor` (Windows `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`, POSIX `setsid` + `nohup`); the child vendor LLM receives a 5–8KB minimum prompt slice (no orchestrator session history) and self-compacts at 0.85 / 0.95 against the vendor window via the `<peaks-auto-compact>` marker (G8 — unlimited spend authorized). Orchestrator MUST emit one line of prose before every detached dispatch: `⏳ Spawning detached sub-agent via <vendor>: rid=<rid> (ETA ~60s)`. Status is read from `.peaks/_runtime/<sid>/detached/<rid>/status.json`; `LifecycleOwner` enforces 100% cleanup of `pid` / `log.txt` / `status.json` / `owner-session` on every exit path. `--no-throttle --max-concurrent <N>` bypasses `ResourceBudgetGuard` (user accepts risk; default max=8). See `references/sub-agent-dispatch.md` §"Detached Mode" for the full contract. Default mode remains `in-process` for backward compat (existing 106+ dispatch tests untouched).

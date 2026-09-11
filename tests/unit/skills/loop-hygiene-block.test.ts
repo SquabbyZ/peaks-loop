@@ -123,13 +123,25 @@ describe('loop-hygiene block in every SKILL.md', () => {
     // Fact-Forcing-Gate guidance previously reached only sub-agents, via
     // `buildDispatchSystemPrompt`. The interactive main session — where the
     // user actually hits the denial — never received it, and read the denial
-    // as "the edit tool is broken" rather than "read the file first".
+    // as "the edit tool is broken" rather than as a routine speed bump.
     const block = extractBlock(readFileSync(files[0]!, 'utf8')) ?? '';
-    expect(block).toContain('Read before you edit');
-    expect(block).toContain('.peaks/**');
+    // Line wrapping is a formatting detail; assert across it.
+    const flat = block.replace(/\s+/g, ' ');
+
+    expect(flat).toContain('Read before you edit');
+    expect(flat).toContain('.peaks/**');
+
+    // The mechanism, stated correctly. The gate denies the FIRST touch of a
+    // path and marks it; reading does NOT prevent the denial. An earlier
+    // revision of this block claimed "skipping that read trips the gate",
+    // which is false — the gate never looks at whether anything was read.
+    expect(flat).toMatch(/denies the FIRST edit/i);
+    expect(flat).toMatch(/reading does NOT prevent it/i);
+
     // The three claims that stop the misread.
-    expect(block).toMatch(/denial is not a failure/i);
-    expect(block).toMatch(/was not applied/i);
-    expect(block).toMatch(/retry the same operation/i);
+    expect(flat).toMatch(/denial is not a failure/i);
+    expect(flat).toMatch(/was NOT applied/i);
+    expect(flat).toMatch(/retry the SAME operation/i);
+    expect(flat).toMatch(/the retry is allowed/i);
   });
 });

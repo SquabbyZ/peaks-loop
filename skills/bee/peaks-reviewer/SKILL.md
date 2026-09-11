@@ -19,13 +19,17 @@ ratio in one line if it helps, but never hand them the compaction step: asking t
 run `/compact` is the regression the zero-pause contract forbids. This holds in **every
 mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
 
-**Read before you edit.** Read a file BEFORE your first `Edit` / `Write` / `MultiEdit` on
-it — for every path outside `.peaks/**` (source, tests, docs, config); `.peaks/**` writes
-are exempt. Skipping that read trips a `PreToolUse` gate (ECC's "Fact-Forcing Gate"),
-which denies the edit. **A denial is not a failure and the tool is not broken — your edit
-was not applied.** Read the file, state the facts the gate asks for (importers, affected
-API, data schemas if any, the user's verbatim instruction), then retry the same operation.
-Do not switch tools, do not give up, do not retry blindly.
+**Read before you edit.** Read a file before your first `Edit` / `Write` / `MultiEdit` on
+it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
+config); `.peaks/**` writes are exempt.
+
+**Expect one denial per file regardless.** A `PreToolUse` gate (ECC's "Fact-Forcing Gate")
+denies the FIRST edit a session makes to any given path, once, by design. Reading does NOT
+prevent it — the gate keys on the path's first touch, not on whether you read it. **A denial
+is not a failure and the tool is not broken — your edit was NOT applied.** State the facts it
+asks for (importers, affected API, data schemas if any, the user's verbatim instruction) and
+retry the SAME operation; the retry is allowed. Do not switch tools, do not give up, do not
+retry blindly.
 <!-- /peaks:loop-hygiene -->
 
 ## Single-scope-axis naming convention
