@@ -30,10 +30,10 @@
  */
 import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { npmExecCacheRoots } from '../../shared/npm-cache.js';
 import { isInsidePath } from '../../shared/path-utils.js';
 
 /**
@@ -159,7 +159,10 @@ export function resolvePlaywrightModule(): string {
  * exact pin exists to prevent.
  */
 function resolveFromNpxCache(): string | null {
-  for (const cacheRoot of npxCacheRoots()) {
+  // The roots themselves live in `shared/npm-cache.ts` — the exec cache has
+  // exactly one definition, shared with the OCR probe, so the two cannot
+  // disagree about what "already installed" means.
+  for (const cacheRoot of npmExecCacheRoots()) {
     for (const entry of safeReaddir(cacheRoot)) {
       const resolved = tryResolveFrom(join(cacheRoot, entry, 'node_modules'));
       if (resolved !== null) {
@@ -168,29 +171,6 @@ function resolveFromNpxCache(): string | null {
     }
   }
   return null;
-}
-
-/**
- * `<npm cache>/_npx` candidates: the per-user defaults, and nothing else.
- *
- * `npm_config_cache` / `NPM_CONFIG_CACHE` used to be taken first "when
- * configured". They are not configuration this module may trust: under
- * `npm run`, npm exports the value a repo's own `.npmrc` chose, so a committed
- * `.npmrc` plus a committed `_npx`-shaped tree selected the package that
- * `import()` then executed (security review S2, reproduced). The default roots
- * below are where npm actually puts an `npx` cache.
- */
-function npxCacheRoots(): string[] {
-  const roots: string[] = [join(homedir(), '.npm', '_npx')];
-  if (process.platform === 'win32') {
-    for (const key of ['LOCALAPPDATA', 'APPDATA']) {
-      const base = process.env[key];
-      if (base !== undefined && base.length > 0) {
-        roots.push(join(base, 'npm-cache', '_npx'));
-      }
-    }
-  }
-  return roots;
 }
 
 /**

@@ -117,6 +117,9 @@ export function runOcr18(options: Ocr18RunOptions): Ocr18RunResult {
   const spawnOptions: SpawnSyncOptions = {
     cwd: options.cwd,
     encoding: 'utf8',
+    // Repo convention: without this the child pops a console window on the
+    // user's desktop — and this child can run for the length of a full review.
+    windowsHide: true,
     timeout: options.timeoutMs ?? 60_000,
     maxBuffer: 32 * 1024 * 1024
   };

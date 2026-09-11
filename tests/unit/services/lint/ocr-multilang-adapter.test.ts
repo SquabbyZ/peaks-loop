@@ -98,7 +98,8 @@ describe('runOcr18', () => {
     expect(call[0]).not.toBe('npx');
     expect(call[1].slice(0, SENTINEL_PREFIX.length)).toEqual(SENTINEL_PREFIX);
     expect(call[1]).toEqual(expect.arrayContaining(['--package', OCR_18_PACKAGE, '--', 'ocr', 'review']));
-    expect(call[2]).toMatchObject({ encoding: 'utf8' });
+    // then: the console window is hidden — an `ocr review` can run for minutes
+    expect(call[2]).toMatchObject({ encoding: 'utf8', windowsHide: true });
   });
 
   it('when language is unsupported (e.g. cobol), should return language-unsupported', () => {
