@@ -110,6 +110,17 @@ function resolveSkipProgress(options: HookInstallOptions | undefined): boolean {
   return options?.skipProgress === true;
 }
 
+/**
+ * One peaks-managed entry paired with the settings file it is (or will be)
+ * written to.
+ *
+ * `entries` is a flat list of the same matcher/sentinel pairs, which reads as
+ * "written to `settingsPath`" even when the entry is routed to the other file
+ * (see `resolveHookTargets`). This carries the routing explicitly so the
+ * dry-run can name the real target without a real run.
+ */
+export type HookEntryTarget = { matcher: string; sentinel: string; settingsPath: string };
+
 export type HookInstallPlan = {
   scope: HookScope;
   settingsPath: string;
@@ -125,6 +136,8 @@ export type HookInstallPlan = {
    * machine-local). See `resolveHookTargets`.
    */
   localSettingsPath?: string;
+  /** Every entry the install writes, paired with its target file. */
+  entryTargets: ReadonlyArray<HookEntryTarget>;
 };
 
 export type HookInstallResult = HookInstallPlan & { applied: boolean };
@@ -219,6 +232,13 @@ function resolveHookTargets(scope: HookScope, ide: IdeId, projectRoot: string | 
     (entry.machineLocal === true ? local : shared).entries.push(entry);
   }
   return [shared, local];
+}
+
+/** Flatten the resolved targets into one `{ matcher, sentinel, settingsPath }` row per entry. */
+function describeEntryTargets(targets: ReadonlyArray<HookTarget>): HookEntryTarget[] {
+  return targets.flatMap((target) =>
+    target.entries.map((entry) => ({ matcher: entry.matcher, sentinel: entry.sentinel, settingsPath: target.settingsPath }))
+  );
 }
 
 /** Read a settings file as an object, or `{}` when it does not exist yet. */
@@ -471,7 +491,8 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
     matcher: spec.hookEnforceMatcher,
-    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {})
+    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {}),
+    entryTargets: describeEntryTargets(targets)
   };
 }
 
@@ -559,7 +580,8 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
     matcher: spec.hookEnforceMatcher,
-    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {})
+    ...(localTarget !== undefined ? { localSettingsPath: localTarget.settingsPath } : {}),
+    entryTargets: describeEntryTargets(targets)
   };
   if (baseResult.alreadyInstalled) {
     return { ...baseResult, applied: false };

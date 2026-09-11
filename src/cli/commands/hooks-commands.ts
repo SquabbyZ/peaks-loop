@@ -1,5 +1,6 @@
 import { existsSync, copyFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -20,6 +21,17 @@ import { getAdapter } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
 type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
+
+/**
+ * This module's own directory — `<root>/src/cli/commands` in the source tree,
+ * `<root>/dist/cli/commands` in a build. Same reason as
+ * `claude-settings-template.ts`: `package.json#type` is `module`, so the CJS
+ * module-directory global does not exist here (it is a ReferenceError under
+ * both tsx and the shipped `dist` build — see the guard in
+ * `tests/unit/hooks/gate-enforce-machine-local-shell.test.ts`), and
+ * `process.argv[1]` names a different file per entry point.
+ */
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 
 function resolveScope(options: { global?: boolean }): HookScope {
   return options.global ? 'global' : 'project';
@@ -114,11 +126,14 @@ function readOnDiskDenyEntries(settings: Record<string, unknown>): ReadonlyArray
   return deny.filter((d): d is string => typeof d === 'string');
 }
 
-function copyBridgeHookIfPresent(userHome: string): { copied: boolean; source: string; target: string } {
-  const source = resolve(__dirname, '..', '..', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh');
+function copyBridgeHookIfPresent(userHome: string, dryRun = false): { copied: boolean; source: string; target: string } {
+  const source = resolve(MODULE_DIR, '..', '..', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh');
   const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-superpowers-bridge.sh');
   if (!existsSync(source)) {
     return { copied: false, source, target };
+  }
+  if (dryRun) {
+    return { copied: true, source, target };
   }
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
@@ -135,11 +150,14 @@ function copyBridgeHookIfPresent(userHome: string): { copied: boolean; source: s
  * runtime entry; the shell script is the canonical artifact distributed
  * alongside the bridge hook.
  */
-function copyCodeGateHookIfPresent(userHome: string): { copied: boolean; source: string; target: string } {
-  const source = resolve(__dirname, '..', '..', 'services', 'hooks', 'pre-tool-code-gate.sh');
+function copyCodeGateHookIfPresent(userHome: string, dryRun = false): { copied: boolean; source: string; target: string } {
+  const source = resolve(MODULE_DIR, '..', '..', 'services', 'hooks', 'pre-tool-code-gate.sh');
   const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-code-gate.sh');
   if (!existsSync(source)) {
     return { copied: false, source, target };
+  }
+  if (dryRun) {
+    return { copied: true, source, target };
   }
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
@@ -173,8 +191,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot, { ide, skipProgress });
         const dryRunEntries = listExpectedEntriesForIde(ide, skipProgress);
+        // `dryRun: true` — a --dry-run must not write anything, and these
+        // helpers' target is the user's home directory.
         const bridgeCopy = scope === 'global'
-          ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
           : { copied: false, source: '', target: '' };
         // Slice 2026-08-06-codegate-vendor-neutral: also copy the
         // code-gate hook script. The runtime gate lives at
@@ -182,7 +202,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         // in the install output); the script is the build artifact
         // distributed alongside the bridge hook.
         const codeGateCopy = scope === 'global'
-          ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          ? copyCodeGateHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '', true)
           : { copied: false, source: '', target: '' };
         printResult(
           io,
@@ -208,6 +228,14 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             [],
             [
               `would install ${dryRunEntries.length} peaks-managed hook entries`,
+              // Name the target file of every entry: the gate-enforce entry is
+              // routed to the machine-local settings file (see
+              // `resolveHookTargets`), so a summary that only listed
+              // `settingsPath` + the entry names read as if it landed in the
+              // committed, shared file.
+              ...plan.entryTargets.map(
+                (entry) => `would write ${entry.matcher || '(no matcher)'} → ${entry.sentinel} to ${entry.settingsPath}`
+              ),
               `would write ${listSuperpowersDenyEntries().length} permissions.deny entries (Layer 3 worktree governance)`,
               bridgeCopy.copied
                 ? `would copy bridge hook from ${bridgeCopy.source} to ${bridgeCopy.target}`

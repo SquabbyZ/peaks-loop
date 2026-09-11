@@ -16,10 +16,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Command } from 'commander';
 
+import { registerHooksCommands } from '~/src/cli/commands/hooks-commands';
+import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import { resolveHookEntries, resolveHookShell, resolveHookSpec } from '~/src/services/skills/hooks-codegate-superpowers';
 import { installAutoCompactHook } from '~/src/services/hooks/auto-compact-hook-install';
-import { applyHookInstall } from '~/src/services/skills/hooks-settings-service';
+import { applyHookInstall, planHookInstall } from '~/src/services/skills/hooks-settings-service';
 import { buildClaudeSettingsLocalJson, TEMPLATE_VERSION, templateContentMatches } from '~/src/services/workspace/claude-settings-template';
 
 /** Force `process.platform` for the duration of a case. */
@@ -28,6 +31,9 @@ function stubPlatform(platform: NodeJS.Platform): void {
 }
 
 const realPlatform = process.platform;
+
+/** Repo root — this file lives at `<root>/tests/unit/hooks/`. */
+const ROOT = join(__dirname, '..', '..', '..');
 
 type PreToolUseEntry = { matcher?: string; hooks?: Array<{ command?: string; shell?: string }> };
 
@@ -124,6 +130,22 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     expect(localHandler?.shell).toBe('powershell');
     expect(localHandler?.command).toMatch(/--json$/);
     expect(findGateEnforceHandler(existsSync(shared) ? readPreToolUseEntries(shared) : [])).toBeUndefined();
+  });
+
+  it('when the install plan is built, should attribute every entry to the settings file it lands in', () => {
+    // given: a project on Windows, before anything is written
+    stubPlatform('win32');
+    const tmpRoot = makeTempProjectRoot();
+    // when: the plan is built (this is what `hooks install --dry-run` reports)
+    const plan = planHookInstall('project', tmpRoot, { ide: 'claude-code' });
+    const targetOf = (sentinel: string): string | undefined =>
+      plan.entryTargets.find((entry) => entry.sentinel === sentinel)?.settingsPath;
+    // then: the shell-pinned entry names the machine-local file and the
+    //       platform-neutral one names the shared file — `settingsPath` alone
+    //       does not say where the gate-enforce entry goes
+    expect(targetOf('peaks gate enforce')).toBe(join(tmpRoot, '.claude', 'settings.local.json'));
+    expect(targetOf('peaks code-gate')).toBe(join(tmpRoot, '.claude', 'settings.json'));
+    expect(plan.localSettingsPath).toBe(join(tmpRoot, '.claude', 'settings.local.json'));
   });
 
   it('when hooks install runs on POSIX, should still route the entry to the machine-local file', () => {
@@ -265,6 +287,73 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     expect(second.alreadyInstalled).toBe(true);
     const local = readFileSync(join(tmpRoot, '.claude', 'settings.local.json'), 'utf8');
     expect((local.match(/peaks gate enforce/g) ?? [])).toHaveLength(1);
+  });
+
+  /** Drive `peaks hooks install` in-process against a throwaway HOME. */
+  function runHooksInstall(args: ReadonlyArray<string>): { ok?: boolean; data?: Record<string, unknown>; text: string } {
+    const { io, captured } = makeCapturedIo();
+    const program = new Command();
+    registerHooksCommands(program, io);
+    program.parse(['hooks', 'install', ...args], { from: 'user' });
+    const text = captured.text();
+    try {
+      return { ...(JSON.parse(text) as { ok?: boolean; data?: Record<string, unknown> }), text };
+    } catch {
+      return { text };
+    }
+  }
+
+  it('when the global install runs, should write the user-level settings.json once', () => {
+    // given: a throwaway HOME on Windows (global scope is machine-local by
+    //        nature: the user-level file is never committed, so the
+    //        machine-specific `shell` belongs there)
+    stubPlatform('win32');
+    const home = makeTempProjectRoot();
+    withEnv('USERPROFILE', home);
+    withEnv('HOME', home);
+    // when: the install runs twice
+    const first = runHooksInstall(['--global', '--ide', 'claude-code', '--json']);
+    const second = runHooksInstall(['--global', '--ide', 'claude-code', '--json']);
+    // then: the first run installs into the user-level file with the pinned
+    //       shell, there is no machine-local sibling in global scope, and the
+    //       second run is a no-op
+    expect(first.ok).toBe(true);
+    expect(first.data?.applied).toBe(true);
+    expect(first.data?.localSettingsPath).toBeUndefined();
+    const homeSettings = join(home, '.claude', 'settings.json');
+    expect(findGateEnforceHandler(readPreToolUseEntries(homeSettings))?.shell).toBe('powershell');
+    expect(second.ok).toBe(true);
+    expect(second.data?.applied).toBe(false);
+  });
+
+  it('when the install command resolves its hook sources, should not use __dirname', () => {
+    // `package.json#type` is `module`: bare `__dirname` is a ReferenceError
+    // both under `tsx src/cli/index.ts` and in the shipped `dist` build, and
+    // it took the WHOLE `--global` path down (the two hook-script copies it
+    // guards threw before the envelope was printed, so a completed install
+    // was reported as HOOKS_INSTALL_FAILED with `applied: false`).
+    //
+    // This assertion is a source scan on purpose: vitest defines `__dirname`,
+    // so no test body in this suite — including the CLI-driven ones above —
+    // can fail when the source regresses. The module is run for real only by
+    // tsx / node, where `__dirname` does not exist.
+    const src = readFileSync(join(ROOT, 'src', 'cli', 'commands', 'hooks-commands.ts'), 'utf8');
+    expect(src).not.toMatch(/\b__dirname\b/);
+  });
+
+  it('when the global dry-run runs, should name the user-level file and write nothing', () => {
+    // given: a throwaway HOME and a project that does not exist
+    stubPlatform('win32');
+    const home = makeTempProjectRoot();
+    withEnv('USERPROFILE', home);
+    withEnv('HOME', home);
+    // when: the dry-run runs
+    const result = runHooksInstall(['--global', '--dry-run', '--ide', 'claude-code', '--json']);
+    // then: it reports the user-level path it would write, and the
+    //       `--dry-run` copied no hook script into HOME either
+    expect(result.ok).toBe(true);
+    expect(result.data?.settingsPath).toBe(join(home, '.claude', 'settings.json'));
+    expect(existsSync(join(home, '.claude'))).toBe(false);
   });
 
   it('when workspace-init runs before hooks install, should not let the next init clobber the entry', () => {
