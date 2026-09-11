@@ -110,7 +110,12 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       .option('--in-flight-batch', 'defer if a sub-agent batch is in flight (D6.e)')
       .option('--force', 'force compact at any ratio (test seam)')
       .option('--bypass-red-line', 'skip the 95% red-line gate (test seam; never true in production)')
-      .option('--mode <mode>', 'auto-compact mode (standard | partial). Default: standard. 24h mode auto-selects partial.', 'standard')
+      // No commander default here, deliberately. A declared default makes
+      // `opts.mode` permanently defined, which defeats the orchestrator's
+      // `input.mode ?? resolveAutoCompactMode(projectRoot)` fallback and
+      // silently disables "24h mode auto-selects partial" — the help text
+      // below promises it. Absence must stay absent.
+      .option('--mode <mode>', 'auto-compact mode (standard | partial). Default: standard. 24h mode auto-selects partial.')
   ).action(
     async (opts: {
       project: string;
@@ -167,7 +172,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             : {}),
           force: opts.force === true,
           bypassRedLine: opts.bypassRedLine === true,
-          mode: modeName
+          // Forward the FLAG verbatim — `undefined` when the user named no
+          // mode — so the orchestrator's fallback to the presence-derived
+          // mode can actually run. Forwarding the validated `modeName` is
+          // what disabled 24h → partial.
+          mode: opts.mode === undefined ? undefined : modeName
         });
         const code = result.code;
         const exitOk = result.ok || code === 'AUTO_COMPACT_SKIP' || code === 'AUTO_COMPACT_WAIT';
