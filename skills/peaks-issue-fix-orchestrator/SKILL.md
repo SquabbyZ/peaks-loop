@@ -1,6 +1,6 @@
 ---
 name: peaks-issue-fix-orchestrator
-description: End-to-end orchestrator that surveys open issues in a target repo, classifies them by difficulty, mines reference merged-PRs, fixes each issue with real commits (with Repository + AI-modified declaration), writes normalized PR description files, and emits a one-line submit script. Use when the user wants to drive a "fix N open issues and prepare PRs" run on an upstream repo (any language; primarily Python + TypeScript). Reuses Loop Engineering primitives: 4-layer asset model, Darwin ratchet, karpathy-engineered red lines, Human-NL-Choice-Only. Triggers on `/peaks-issue-fix-orchestrator`, "fix 30 issues", "dogfood on <repo>", "open-issue sweep on <repo>".
+description: 'End-to-end orchestrator that surveys open issues in a target repo, classifies them by difficulty, mines reference merged-PRs, fixes each issue with real commits (with Repository + AI-modified declaration), writes normalized PR description files, and emits a one-line submit script. Use when the user wants to drive a "fix N open issues and prepare PRs" run on an upstream repo (any language; primarily Python + TypeScript). Reuses Loop Engineering primitives: 4-layer asset model, Darwin ratchet, karpathy-engineered red lines, Human-NL-Choice-Only. Triggers on `/peaks-issue-fix-orchestrator`, "fix 30 issues", "dogfood on <repo>", "open-issue sweep on <repo>".'
 ---
 
 <!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->

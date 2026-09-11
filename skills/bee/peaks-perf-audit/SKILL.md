@@ -6,9 +6,9 @@ metadata:
   appliesTo: peaks-loop v2.12.0+
   replaces: peaks-rd 5-way fan-out perf-baseline-reviewer slot (per AC-3.x)
   sources:
-    - handoff: .peaks/_runtime/<sessionId>/prd/handoff.md (sha256-locked, schemaVersion: 2)
-    - template: .peaks/project-scan/perf-template.md (git-tracked, schemaVersion: 1)
-    - output: .peaks/_runtime/<sessionId>/audit/perf-<rid>.md (frontmatter schemaVersion: 1)
+    - handoff: ".peaks/_runtime/<sessionId>/prd/handoff.md (sha256-locked, schemaVersion: 2)"
+    - template: ".peaks/project-scan/perf-template.md (git-tracked, schemaVersion: 1)"
+    - output: ".peaks/_runtime/<sessionId>/audit/perf-<rid>.md (frontmatter schemaVersion: 1)"
     - schema: .peaks/project-scan/audit-output-schema.md
 ---
 

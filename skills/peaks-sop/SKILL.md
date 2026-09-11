@@ -1,6 +1,6 @@
 ---
 name: peaks-sop
-description: Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow — ordered phases plus gates that block advancement until conditions are met — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands. DOMAIN-AGNOSTIC: not just software/release flows — equally for content publishing, compliance and approval checklists, data pipelines, onboarding, ops runbooks, or any personal repeatable procedure, wherever "don't enter the next stage until X is true" applies and X is checkable via a file, file content, or a command.
+description: 'Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow — ordered phases plus gates that block advancement until conditions are met — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands. DOMAIN-AGNOSTIC: not just software/release flows — equally for content publishing, compliance and approval checklists, data pipelines, onboarding, ops runbooks, or any personal repeatable procedure, wherever "don''t enter the next stage until X is true" applies and X is checkable via a file, file content, or a command.'
 ---
 
 <!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->

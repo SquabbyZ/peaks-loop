@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 
 const MARKER = '<!-- peaks:loop-hygiene';
@@ -88,6 +89,34 @@ describe('loop-hygiene block in every SKILL.md', () => {
     expect(block).toContain('every');
     // The header must be every-turn, not first-turn-only.
     expect(block).toContain('Peaks-Loop Skill');
+  });
+
+  it('every SKILL.md has frontmatter that parses as YAML', () => {
+    // Two skills shipped invalid frontmatter for several releases: an
+    // unquoted `schemaVersion: 2` inside a value made the document fail with
+    // "Nested mappings are not allowed in compact mappings". Claude Code
+    // falls back to the first line after the closing `---` when frontmatter
+    // will not parse, so their `description` was NEVER loaded and neither
+    // skill was discoverable by it. The fallback is what hid the defect: it
+    // rendered the next heading, which read as a title rather than as damage.
+    const broken: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8');
+      const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src);
+      if (m === null) {
+        broken.push(`${f} (no frontmatter)`);
+        continue;
+      }
+      try {
+        const parsed = parseYaml(m[1]) as { name?: unknown; description?: unknown } | null;
+        if (typeof parsed?.description !== 'string' || parsed.description.length === 0) {
+          broken.push(`${f} (no usable description)`);
+        }
+      } catch (err) {
+        broken.push(`${f} (${(err as Error).message.split('\n')[0]})`);
+      }
+    }
+    expect(broken).toEqual([]);
   });
 
   it('tells the MAIN session that a gate denial is not a broken tool', () => {
