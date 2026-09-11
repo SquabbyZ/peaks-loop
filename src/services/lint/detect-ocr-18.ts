@@ -156,7 +156,10 @@ export function detectOcr18(options: { readonly cwd?: string } = {}): Ocr18Detec
       npxAvailable: true,
       package: OCR_18_PACKAGE,
       warnings: [`could not resolve ${OCR_18_PACKAGE}`],
-      nextActions: ['Run `npm i @alibaba-group/open-code-review@1.8.9` to install the reviewer.']
+      // 2026-09-11: names the explicit acquisition verb rather than an `npm i`
+      // for a human to hand-type. Acquiring is its own VISIBLE step; this probe
+      // stays read-only and never performs it (see `ocr-18-acquire.ts`).
+      nextActions: ['Run `peaks code-review acquire-ocr-18` to fetch the reviewer.']
     };
   }
   return {
