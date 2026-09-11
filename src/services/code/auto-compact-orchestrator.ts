@@ -35,7 +35,6 @@ import { resolveOuterSessionId } from '../session/binding-status-service.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
-  AUTO_COMPACT_THRESHOLD_RATIO,
   type CompactDispatchResult,
   type CompactTrigger,
   type ConvergencePlan,
@@ -524,7 +523,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         ? decision.trigger.message
         : decision.reason === 'in-flight-batch'
           ? `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`
-          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below ${(AUTO_COMPACT_THRESHOLD_RATIO * 100).toFixed(0)}% threshold.`,
+          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below the ${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`,
       data: {
         sessionId,
         ratio: probe.ratio,

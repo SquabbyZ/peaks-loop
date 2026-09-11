@@ -97,8 +97,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'context-fill % via the active IDE adapter; ≥ 0.85 writes a pre-compact ' +
           'checkpoint + convergence plan + auto-decisions log; ≥ 0.95 forces ' +
           'synchronous IDE-side compact. The LLM / runner keeps working with ' +
-          'context < 95% without human intervention. pair with `peaks context ' +
-          'now` (AC-1) which feeds the ratio into this command. rid-027 ' +
+          'context < 95% without human intervention. Pair with `peaks code ' +
+          'context-now` (AC-1), the read-only probe that reports the ratio this ' +
+          'command acts on. This command is also fired by the installed ' +
+          'PreToolUse hook, which passes `--project .` — without that argument ' +
+          'the hook could never run at all. rid-027 ' +
           'adds `--mode <mode>`: `standard` (0.85/0.95) or `partial` (0.70/0.85 ' +
           'for 24h long-run mode).'
       )

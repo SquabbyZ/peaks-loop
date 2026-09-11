@@ -47,12 +47,22 @@ export const AUTO_COMPACT_HOOK_MATCHER = 'Bash|Task';
  * heavy lifting (ratio probe + in-band `claude --compact` spawn)
  * lives in the CLI surface, not inlined into the hook.
  *
+ * `--project .` is LOAD-BEARING, not decoration. `--project` is a
+ * `.requiredOption` on `peaks code auto-compact`, and a hook has no way
+ * to prompt for a missing required option. Without this argument the
+ * hook exited with `error: required option '--project <path>' not
+ * specified` on EVERY matching tool call — a non-blocking failure, so
+ * the hook looked installed while the zero-human-intervention
+ * auto-compact contract never once fired. `.` is promoted to the git
+ * root by `resolveCanonicalProjectRoot`, the same convention the
+ * `post-compact-detect` hook already documents in its own option help.
+ *
  * `npx peaks` is deliberately omitted: the project-local install
  * puts `peaks` on PATH inside the consumer repo (postinstall step),
  * so the unqualified command works in the same shell the runner
  * is using.
  */
-export const AUTO_COMPACT_HOOK_COMMAND = 'peaks code auto-compact';
+export const AUTO_COMPACT_HOOK_COMMAND = 'peaks code auto-compact --project .';
 
 /**
  * Magic comment marker that fences the auto-compatchook block.

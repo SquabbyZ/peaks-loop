@@ -3,6 +3,22 @@ name: peaks-audit
 description: Gate autonomous LLM work on a 6-dimension audit + user-accepted goal. Use IMMEDIATELY after a need is expressed, BEFORE any PRD/RD/QA work starts.
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 ## Single-scope-axis naming convention
 
 > **Read once at the top of this file; the rest of the skill is written against it.**

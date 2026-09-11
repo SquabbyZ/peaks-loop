@@ -3,6 +3,22 @@ name: peaks-resume
 description: Universal resume primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Detects the current session's deepest completed gate and surfaces a resume option via AskUserQuestion. Use when ANY bee (peaks-code, future peaks-research, future peaks-content, …) needs to recover from /compact or session interruption. Triggers on "/peaks-resume", "continue the unfinished work", "继续完成", "把刚才没做完的收尾". (Replaces peaks-resume as a top-level primitive.)
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # Peaks-Loop Code Resume (wrapper)
 
 Peaks-Loop Code Resume is a thin wrapper that handles the **most common high-frequency request shape**: "I was in the middle of something, continue it." It detects the current session's deepest completed gate, surfaces a resume option, then yields to the main `peaks-code` skill (which runs the actual workflow from the matching gate onwards).

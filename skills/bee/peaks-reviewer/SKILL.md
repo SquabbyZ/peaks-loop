@@ -4,6 +4,22 @@ visibility: internal
 description: Third-party independent code-review skill for Peaks. Use as a parallel reviewer to karpathy-reviewer when a workflow needs an out-of-band (non-RD-model) review pass to mitigate single-LLM self-dogfood blind spots. Emits a schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 G4.
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 ## Single-scope-axis naming convention
 
 > **Read once at the top of this file; the rest of the skill is written against it.**

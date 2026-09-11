@@ -3,6 +3,22 @@ name: peaks-issue-fix-orchestrator
 description: End-to-end orchestrator that surveys open issues in a target repo, classifies them by difficulty, mines reference merged-PRs, fixes each issue with real commits (with Repository + AI-modified declaration), writes normalized PR description files, and emits a one-line submit script. Use when the user wants to drive a "fix N open issues and prepare PRs" run on an upstream repo (any language; primarily Python + TypeScript). Reuses Loop Engineering primitives: 4-layer asset model, Darwin ratchet, karpathy-engineered red lines, Human-NL-Choice-Only. Triggers on `/peaks-issue-fix-orchestrator`, "fix 30 issues", "dogfood on <repo>", "open-issue sweep on <repo>".
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # peaks-issue-fix-orchestrator
 
 peaks-issue-fix-orchestrator is the **user-facing skill** that turns a natural-language "dogfood on this repo, fix 30 open issues" request into a reproducible batch fix run. The LLM orchestrates the survey, classification, reference-PR mining, per-batch fix+commit, per-branch relocation, normalized PR body authoring, and submit-script emission. The user only describes a target and picks among a few multi-choice options.

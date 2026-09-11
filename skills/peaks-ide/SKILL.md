@@ -3,6 +3,22 @@ name: peaks-ide
 description: Orchestrate peaks-loop's IDE-aware behavior (hooks + statusline + handle) for a user's specific IDE. Detects the current state (which IDE the user is on, what peaks has already installed), plans the install / switch / status / uninstall actions, and invokes the existing peaks CLI primitives. Triggers on `/peaks-ide`, "set up peaks for my IDE", "switch peaks to Trae", "what did peaks install", "uninstall peaks hooks". Sits between the user and `peaks hooks install` / `peaks statusline install` / `peaks hook handle` — those are the CLI primitives; this skill is the user-facing surface.
 visibility: internal
 ---
+
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
 ---
 
 # Peaks-Loop IDE Setup (peaks-ide)

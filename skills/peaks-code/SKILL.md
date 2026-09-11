@@ -3,6 +3,22 @@ name: peaks-code
 description: Code-domain loop engineering orchestrator for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a code-repo workflow end-to-end (端到端/全流程/需求开发), especially from a product document (PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-code`, "peaks code", "全流程开发", "端到端迭代". General primitives (peaks-resume / peaks-status / peaks-test) are sibling skills, not children.
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 > **Detached sub-agent mode (Phase A, slice 2026-08-10).** When the orchestrator requires true parallelism with isolated context windows and survives orchestrator session exit, dispatch sub-agents with `--mode detached --vendor <claude|codex|copilot>`. The CLI spawns a real OS process via `ProcessSupervisor` (Windows `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`, POSIX `setsid` + `nohup`); the child vendor LLM receives a 5–8KB minimum prompt slice (no orchestrator session history) and self-compacts at 0.85 / 0.95 against the vendor window via the `<peaks-auto-compact>` marker (G8 — unlimited spend authorized). Orchestrator MUST emit one line of prose before every detached dispatch: `⏳ Spawning detached sub-agent via <vendor>: rid=<rid> (ETA ~60s)`. Status is read from `.peaks/_runtime/<sid>/detached/<rid>/status.json`; `LifecycleOwner` enforces 100% cleanup of `pid` / `log.txt` / `status.json` / `owner-session` on every exit path. `--no-throttle --max-concurrent <N>` bypasses `ResourceBudgetGuard` (user accepts risk; default max=8). See `references/sub-agent-dispatch.md` §"Detached Mode" for the full contract. Default mode remains `in-process` for backward compat (existing 106+ dispatch tests untouched).
 ---
 

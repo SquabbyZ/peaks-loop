@@ -258,7 +258,12 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
       hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command?: string; shell?: string }> }> };
     };
     const handler = parsed.hooks.PreToolUse.find((e) => e.matcher === 'Bash|Task')?.hooks[0];
-    expect(handler?.command).toBe('peaks code auto-compact');
+    // `--project .` is required for the hook to RUN at all: the command
+    // declares `--project` as a `.requiredOption`, and a hook cannot
+    // prompt for it. Pinning the bare string here is what let the hook
+    // ship broken — it asserted the literal, never that the command
+    // could execute.
+    expect(handler?.command).toBe('peaks code auto-compact --project .');
     expect(handler?.shell).toBe('powershell');
   });
 

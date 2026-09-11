@@ -3,6 +3,22 @@ name: peaks-test
 description: Universal test-runner primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Runs the project's test suite on the current repo and reports results. Use when the user asks "run the tests", "跑一下 test", "跑测试" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-test", "跑一下 test", "跑测试", "run the tests", "test now". (Replaces peaks-test as a top-level primitive.)
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # Peaks-Loop Code Test (wrapper)
 
 Peaks-Loop Code Test is a thin wrapper that runs the project's test suite on the current repo and reports results. It is the answer to "I just want to see if the tests pass" — no PRD, no RD, no QA, no full peaks-code orchestration. Just `pnpm vitest run` and a compact summary.

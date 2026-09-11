@@ -3,6 +3,22 @@ name: peaks-status
 description: Universal status primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Reads the existing CLI primitives (peaks skill presence, peaks session list, peaks project dashboard, peaks request show) and renders a 1-screen status table. Use when the user asks "where are we", "现在到哪了", "what's the current state" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-status", "现在到哪了", "what is the current state", "show me the dashboard". (Replaces peaks-status as a top-level primitive.)
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # Peaks-Loop Code Status (wrapper)
 
 Peaks-Loop Code Status is a thin wrapper that renders a compact status table for the current peaks-code orchestrator state. It is the answer to "I just want to know where we are" — no PRD, no RD, no QA, no full peaks-code orchestration. Just read the existing CLI state and render a 1-screen summary.

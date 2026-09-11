@@ -3,6 +3,22 @@ name: peaks-content
 description: Non-code orchestrator for content workflows (draft / edit / publish / archive). Use when a user wants to drive an end-to-end content-production loop (blog post, newsletter, marketing copy, social thread, doc page) where the LLM must coordinate draft / edit / tone / publish / archive stages with explicit gates between them, and where the user only wants to speak natural language and pick options. NOT for free-form chatting; NOT for code review. Reuses the peaks-loop Loop Engineering primitives (Loop Engineering Asset, Bee Asset, Workflow Trace, Evolution Evaluation) but does NOT import peaks-code internals. Triggers on `/peaks-content`, "peaks content", "content workflow", "publish this to <channel>", "edit the draft", "archive the previous version".
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # peaks-content
 
 `peaks-content` is the **content-domain** orchestrator for peaks-loop. It drives an end-to-end content-production loop — draft, edit, publish, archive — through LLM-mediated sub-agents (the "bees") so a non-technical user can produce a polished, channel-ready piece of writing by speaking natural language and picking from multi-choice options. The user never types a CLI verb; the user never hand-authors markdown or JSON; the LLM runs every structured operation on the user's behalf.

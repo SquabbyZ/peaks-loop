@@ -14,6 +14,22 @@ metadata:
   red_lines: [RL-1, RL-8, HC-7, HC-8, HC-9, HC-10, HC-11]
 ---
 
+<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+
+## Loop hygiene (every turn — MANDATORY)
+
+**Skill header.** While this skill is active, open every turn with
+`Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`.
+Every turn, not only the first — it is how the user knows which skill is driving.
+
+**Context is this skill's own business.** Run `peaks skill presence --json` every turn and
+read its `context` block. When `action` is `auto-fire`, `pre-compact`, or `red-line`,
+run `peaks code auto-compact --project .` **yourself**, then continue. Tell the user the
+ratio in one line if it helps, but never hand them the compaction step: asking the user to
+run `/compact` is the regression the zero-pause contract forbids. This holds in **every
+mode** — standard *and* 24h. The mode moves the threshold, never the obligation.
+<!-- /peaks:loop-hygiene -->
+
 # peaks-solo — Dispatcher (分诊员)
 
 > peaks-solo 是 Peaks-Loop 的 dispatcher,不是 orchestrator。读取技能池 → 分诊 → 转交 leaf 或自规划 → 回头问沉淀。**不持有 implementation surface**。
