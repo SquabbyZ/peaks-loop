@@ -37,7 +37,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
+import { EXTERNAL_GATE_EXEMPT_ENV, hasExternalGateExemptions, resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
 
 export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
 
@@ -82,15 +82,24 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           string carries no shell-escaped payload at all and the handler
  *           can take the same platform `shell` pin as its siblings. The
  *           decision itself is a verbatim relocation — see that file.
+ *   1.7.0 — added the `env` block declaring Peaks' workspace tree exempt
+ *           from a THIRD-PARTY PreToolUse fact-forcing gate
+ *           (`EXTERNAL_GATE_EXEMPT_ENV`). The comparator now requires the
+ *           on-disk file to declare those exemptions too, so a project
+ *           installed by an earlier release refreshes once and converges.
  */
-export const TEMPLATE_VERSION = '1.6.0';
+export const TEMPLATE_VERSION = '1.7.0';
 
 /**
- * Compare two serialized template strings for semantic equivalence.
+ * Compare two serialized template strings for semantic equivalence: does the
+ * on-disk file already declare everything the generated template declares?
  *
  * Returns `true` iff both strings parse to objects whose
  * `hooks.PreToolUse` arrays are structurally identical (same length;
- * each entry's `matcher`, `hooks[].type`, `hooks[].command` match).
+ * each entry's `matcher`, `hooks[].type`, `hooks[].command` match) AND the
+ * on-disk `env` already carries every exemption the template declares (extra
+ * on-disk keys and extra globs are allowed — a user may exempt other trees,
+ * and a requirement the file already exceeds must not re-trigger a write).
  *
  * Returns `false` on any `JSON.parse` error, shape mismatch, or
  * missing `hooks.PreToolUse`. Whitespace and key order do NOT affect
@@ -135,7 +144,12 @@ export function templateContentMatches(generated: string, onDisk: string): boole
     }
   }
 
-  return true;
+  // A project installed by a release that predates a template-declared
+  // exemption still needs the refresh this comparator gates — otherwise the
+  // entry would only ever appear on a machine that re-ran `peaks hooks
+  // install`. `hasExternalGateExemptions` is the same predicate the installer
+  // uses, so the two writers cannot drift apart.
+  return hasExternalGateExemptions({ env: (parsedOnDisk as { env?: unknown }).env });
 }
 
 type TemplateHookCommand = { type: string; command: string; shell?: string };
@@ -238,7 +252,16 @@ function buildGateEnforceHandler(): ClaudeHookCommand {
 
 type ClaudeHookCommand = { type: 'command'; command: string; shell?: string };
 type ClaudePreToolUseEntry = { matcher: string; hooks: ClaudeHookCommand[] };
-type ClaudeSettingsLocal = { hooks: { PreToolUse: ClaudePreToolUseEntry[] } };
+type ClaudeSettingsLocal = {
+  hooks: { PreToolUse: ClaudePreToolUseEntry[] };
+  /**
+   * Exemptions declared to the third-party PreToolUse gate peaks does not own
+   * (`EXTERNAL_GATE_EXEMPT_ENV`). They belong in THIS file because it is
+   * machine-local and gitignored: a third-party variable name in the committed
+   * shared `settings.json` would be pushed to every consumer of the project.
+   */
+  env: Record<string, string>;
+};
 
 /**
  * Build the full template object. The shape is the subset of Claude
@@ -262,6 +285,12 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
   // the key entirely.
   const writeShell = resolveHookShell();
   return {
+    // Slice emit-gateguard-exemption — the third-party gate exemption. Peaks
+    // already bypasses its OWN fact-forcing gate for `.peaks/**` (the
+    // Write|Edit|MultiEdit handler below); this is the same intent declared in
+    // the currency an external PreToolUse gate reads. `peaks hooks install`
+    // merges the same row into this file, so the two writers agree.
+    env: { ...EXTERNAL_GATE_EXEMPT_ENV },
     hooks: {
       PreToolUse: [
         {

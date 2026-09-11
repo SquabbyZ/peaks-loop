@@ -238,7 +238,9 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     //       that omitted the entry would erase it on the next init
     // 1.6.0 = slice c5-write-hook-exec-form: the Write|Edit|MultiEdit handler
     // moved from an inlined `node -e "<js>"` payload to `node <script>`.
-    expect(TEMPLATE_VERSION).toBe('1.6.0');
+    // 1.7.0 = slice emit-gateguard-exemption: the template gained the `env`
+    // block exempting the peaks workspace from a third-party fact-forcing gate.
+    expect(TEMPLATE_VERSION).toBe('1.7.0');
     expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe('powershell');
   });
 

@@ -10,14 +10,40 @@
  * and behaviour are unchanged (verbatim move).
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { withExternalGateExemptions } from '../skills/hooks-codegate-superpowers.js';
 import {
   buildClaudeSettingsLocalJson,
   CLAUDE_SETTINGS_LOCAL_FILENAME,
   templateContentMatches
 } from './claude-settings-template.js';
+
+/** Read a file as text, or `undefined` when it cannot be read. */
+function readTextIfPresent(filePath: string): string | undefined {
+  try {
+    return readFileSync(filePath, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The `env` object of a serialized settings file, or `undefined` when the file
+ * is malformed or has no `env` object. Tolerant on purpose: a bad on-disk file
+ * must not stop the materialization.
+ */
+function readEnvObject(serialized: string): Record<string, unknown> | undefined {
+  try {
+    const parsed: unknown = JSON.parse(serialized);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+    const env = (parsed as { env?: unknown }).env;
+    return typeof env === 'object' && env !== null && !Array.isArray(env) ? (env as Record<string, unknown>) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * The peaks-managed snippet appended to the consumer project's
@@ -81,7 +107,21 @@ export async function materializeClaudeSettingsLocal(
   const settingsRel = CLAUDE_SETTINGS_LOCAL_FILENAME;
   const settingsPath = join(projectRoot, settingsRel);
   const template = buildClaudeSettingsLocalJson();
-  const serialized = JSON.stringify(template, null, 2) + '\n';
+  const fileExists = existsSync(settingsPath);
+  const existing = fileExists ? readTextIfPresent(settingsPath) : undefined;
+
+  // `.claude/settings.local.json` has a second writer: `peaks hooks install`
+  // unions the user's own exemption globs into `env`. Carry that value across
+  // the rewrite this function is about to do, or a refresh would silently
+  // drop someone else's exemptions. The template's own row is added on top, so
+  // the result is a union either way.
+  const onDiskEnv = existing === undefined ? undefined : readEnvObject(existing);
+  const serialized =
+    JSON.stringify(
+      withExternalGateExemptions(onDiskEnv === undefined ? template : { ...template, env: onDiskEnv }),
+      null,
+      2
+    ) + '\n';
 
   // Always drop (or self-heal) a copy of the template under .peaks/
   // so the --no-claude-hooks recovery flow has a known source-of-truth
@@ -103,25 +143,15 @@ export async function materializeClaudeSettingsLocal(
   // gate-enforce path).
   await mkdir(join(projectRoot, '.claude'), { recursive: true });
 
-  let action: 'written' | 'refreshed' | 'already-current' = 'written';
-  if (existsSync(settingsPath)) {
-    try {
-      const { readFile } = await import('node:fs/promises');
-      const existing = await readFile(settingsPath, 'utf8');
-      // Structural comparison (not a byte comparison): `peaks hooks
-      // install` also writes this file, through a different serializer, so
-      // an equal hooks tree must be recognized as current or every init
-      // would rewrite the file and drop the installer's entries.
-      if (templateContentMatches(serialized, existing)) {
-        action = 'already-current';
-      } else {
-        action = 'refreshed';
-      }
-    } catch {
-      // Treat any read failure as "needs refresh" so the consumer
-      // always ends up with a valid template on disk.
-      action = 'refreshed';
-    }
+  // An existing-but-unreadable file is treated as drifted, so the consumer
+  // always ends up with a valid template on disk.
+  let action: 'written' | 'refreshed' | 'already-current' = fileExists ? 'refreshed' : 'written';
+  // Structural comparison (not a byte comparison): `peaks hooks install` also
+  // writes this file, through a different serializer, so an equal hooks tree
+  // must be recognized as current or every init would rewrite the file and
+  // drop the installer's entries.
+  if (existing !== undefined && templateContentMatches(serialized, existing)) {
+    action = 'already-current';
   }
   if (action !== 'already-current') {
     await writeFile(settingsPath, serialized, 'utf8');

@@ -13,6 +13,9 @@ import {
   SUPERPOWERS_DENIED_SKILLS,
   formatSuperpowersDenyEntry,
   SUPERPOWERS_DENY_SENTINELS,
+  hasExternalGateExemptions,
+  withExternalGateExemptions,
+  withoutExternalGateExemptions,
   type PeaksHookEntry
 } from './hooks-codegate-superpowers.js';
 
@@ -218,20 +221,40 @@ function resolveLocalSettingsPath(scope: HookScope, ide: IdeId, projectRoot: str
  * `machineLocal` flag, not off `process.platform`) so the shared file's
  * content does not depend on which OS ran the install.
  */
-type HookTarget = { settingsPath: string; entries: PeaksHookEntry[] };
+type HookTarget = {
+  settingsPath: string;
+  entries: PeaksHookEntry[];
+  /**
+   * When true this file also receives the third-party PreToolUse gate
+   * exemptions (`EXTERNAL_GATE_EXEMPT_ENV`). Claude Code only — `env` is a
+   * Claude Code settings key — and only ever on a machine-local file, never
+   * on the committed shared one.
+   */
+  envExemptions?: boolean;
+};
 
 function resolveHookTargets(scope: HookScope, ide: IdeId, projectRoot: string | undefined): HookTarget[] {
   const sharedPath = resolveSettingsPath(scope, ide, projectRoot);
   const localPath = resolveLocalSettingsPath(scope, ide, projectRoot);
-  const shared: HookTarget = { settingsPath: sharedPath, entries: [] };
+  const wantsEnvExemptions = ide === 'claude-code';
   if (localPath === undefined || localPath === sharedPath) {
-    return [{ settingsPath: sharedPath, entries: [...resolveHookEntries(ide)] }];
+    // Global scope lands here: the user-level file is already machine-local,
+    // so it is the safe target (there is no sibling to prefer).
+    return [{ settingsPath: sharedPath, entries: [...resolveHookEntries(ide)], envExemptions: wantsEnvExemptions }];
   }
-  const local: HookTarget = { settingsPath: localPath, entries: [] };
+  const shared: HookTarget = { settingsPath: sharedPath, entries: [] };
+  const local: HookTarget = { settingsPath: localPath, entries: [], envExemptions: wantsEnvExemptions };
   for (const entry of resolveHookEntries(ide)) {
     (entry.machineLocal === true ? local : shared).entries.push(entry);
   }
   return [shared, local];
+}
+
+/** True when `target` already holds everything the install would write to it. */
+function targetIsSatisfied(target: HookTarget, allSentinels: ReadonlyArray<string>): boolean {
+  const settings = readSettingsFile(target.settingsPath);
+  if (!shapeMatchesDesired(settings, target.entries, allSentinels)) return false;
+  return target.envExemptions !== true || hasExternalGateExemptions(settings);
 }
 
 /** Flatten the resolved targets into one `{ matcher, sentinel, settingsPath }` row per entry. */
@@ -487,7 +510,12 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
     scope,
     settingsPath,
     exists,
-    alreadyInstalled: targets.every((t) => isInstalledForEntries(readSettingsFile(t.settingsPath), t.entries)),
+    // The env clause mirrors `applyHookInstall`'s: without it the dry-run would
+    // claim "nothing to do" about a file the install is going to write.
+    alreadyInstalled: targets.every((t) => {
+      const settings = readSettingsFile(t.settingsPath);
+      return isInstalledForEntries(settings, t.entries) && (t.envExemptions !== true || hasExternalGateExemptions(settings));
+    }),
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
     matcher: spec.hookEnforceMatcher,
@@ -569,9 +597,10 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   // as not-yet-installed, so the merge strips the stale entry on the
   // next install call. This is the only path that converges the file
   // on the new shape; pure presence-checks are insufficient.
-  const alreadyInstalled = targets.every((t) =>
-    shapeMatchesDesired(readSettingsFile(t.settingsPath), t.entries, allSentinels)
-  );
+  //
+  // The external-gate exemption is part of the desired shape too, so a project
+  // installed by a release that predates it still converges on upgrade.
+  const alreadyInstalled = targets.every((t) => targetIsSatisfied(t, allSentinels));
   const baseResult: HookInstallPlan = {
     scope,
     settingsPath,
@@ -602,9 +631,14 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   //
   // The `permissions.deny` block lives in the adapter's settings file
   // only (as it always has) — it is committed, so the deny list is
-  // shared; the machine-local file carries hook entries only.
+  // shared; the machine-local file carries hook entries plus, for Claude
+  // Code, the third-party gate exemptions (machine-local by the same
+  // argument as the hook `shell` pin).
   for (const target of targets) {
-    const next = withHooksInstalled(readSettingsFile(target.settingsPath), target.entries, allSentinels);
+    let next = withHooksInstalled(readSettingsFile(target.settingsPath), target.entries, allSentinels);
+    if (target.envExemptions === true) {
+      next = withExternalGateExemptions(next);
+    }
     const merged = target.settingsPath === settingsPath
       ? withTriggeredDenyList(withSuperpowersSkillDenylist(next))
       : next;
@@ -671,10 +705,13 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
     // trigger-style deny entries via withoutTriggeredDenyList. The
     // chain of helpers is order-independent (each is idempotent and
     // additive over the same set of peaks-managed entries).
-    const finalSettings =
-      target.settingsPath === settingsPath
-        ? withoutTriggeredDenyList(withoutSuperpowersSkillDenylist(nextSettings))
-        : nextSettings;
+    let finalSettings = nextSettings;
+    if (target.envExemptions === true) {
+      finalSettings = withoutExternalGateExemptions(finalSettings);
+    }
+    if (target.settingsPath === settingsPath) {
+      finalSettings = withoutTriggeredDenyList(withoutSuperpowersSkillDenylist(finalSettings));
+    }
     atomicWriteJson(target.settingsPath, finalSettings);
   }
   return {

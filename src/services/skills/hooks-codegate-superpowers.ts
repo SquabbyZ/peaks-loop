@@ -301,3 +301,100 @@ export function formatSuperpowersDenyEntry(skillId: string): string {
 export const SUPERPOWERS_DENY_SENTINELS: ReadonlySet<string> = new Set(
   SUPERPOWERS_DENIED_SKILLS.map(formatSuperpowersDenyEntry)
 );
+
+// --- External (third-party) PreToolUse gate exemptions ---------------------
+
+/**
+ * Adapter table: a Peaks *concept* → the settings value an EXTERNAL,
+ * non-Peaks PreToolUse gate must read to honour it.
+ *
+ * The concept Peaks holds is "the `.peaks/**` workspace tree is not project
+ * source, so 'who imports this / what schema' carries no signal there".
+ * Peaks already enforces it for its own hooks: slice 2.0.1-bug3 materializes
+ * a `Write|Edit|MultiEdit` bypass in `.claude/settings.local.json` precisely
+ * so the first workspace write is never fact-gated. This table is that same
+ * intent declared to a gate Peaks does not own.
+ *
+ * The mapped key is read by the ECC plugin's `gateguard-fact-force` hook: a
+ * comma-separated glob list matched against the normalized (forward-slash,
+ * lowercased) path, where a match skips first-touch fact-forcing. The row is
+ * INERT when that plugin is absent — an env var nothing reads.
+ *
+ * The key below is the ONLY occurrence of that third-party name in the source
+ * tree (a test pins the count). Vendor-specific translation belongs in the
+ * adapter layer, next to `HOOK_COMMAND_BY_IDE` and `resolveHookShell` — never
+ * scattered through the installer. And it is emitted into a MACHINE-LOCAL
+ * settings file only (see `resolveHookTargets`): a third-party variable name in
+ * the COMMITTED shared settings would be pushed to every consumer of this repo.
+ */
+export const EXTERNAL_GATE_EXEMPT_ENV: Readonly<Record<string, string>> = Object.freeze({
+  // peaks' `.peaks/**` workspace tree is not project source → skip fact-forcing
+  GATEGUARD_EXEMPT_GLOBS: '.peaks/**'
+});
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Split a comma-separated glob list, dropping blanks and surrounding space. */
+function splitGlobList(value: string): string[] {
+  return value.split(',').map((glob) => glob.trim()).filter((glob) => glob.length > 0);
+}
+
+/** True when every `EXTERNAL_GATE_EXEMPT_ENV` glob is already declared in `settings.env`. */
+export function hasExternalGateExemptions(settings: Record<string, unknown>): boolean {
+  const env = isPlainObject(settings.env) ? settings.env : {};
+  return Object.entries(EXTERNAL_GATE_EXEMPT_ENV).every(([key, glob]) => {
+    const current = env[key];
+    return typeof current === 'string' && splitGlobList(current).includes(glob);
+  });
+}
+
+/**
+ * Union every `EXTERNAL_GATE_EXEMPT_ENV` row into `settings.env`. An existing
+ * value is EXTENDED, never replaced, so a user who exempted other trees keeps
+ * them; unrelated `env` keys are untouched. Rows already carrying our glob are
+ * left byte-identical (so a re-run cannot churn the file), and the input object
+ * is returned unchanged when there is nothing to add. Pure.
+ */
+export function withExternalGateExemptions(settings: Record<string, unknown>): Record<string, unknown> {
+  const env: Record<string, unknown> = isPlainObject(settings.env) ? { ...settings.env } : {};
+  let changed = false;
+  for (const [key, glob] of Object.entries(EXTERNAL_GATE_EXEMPT_ENV)) {
+    const current = typeof env[key] === 'string' ? (env[key] as string) : '';
+    const existing = splitGlobList(current);
+    if (existing.includes(glob)) continue;
+    env[key] = [...existing, glob].join(',');
+    changed = true;
+  }
+  return changed ? { ...settings, env } : settings;
+}
+
+/**
+ * Inverse of `withExternalGateExemptions`: remove exactly the globs this repo
+ * added, keeping any the user wrote. The key is deleted once it holds nothing
+ * of ours, and `env` itself is dropped when it becomes empty — so uninstall
+ * leaves no orphan field behind. Pure.
+ */
+export function withoutExternalGateExemptions(settings: Record<string, unknown>): Record<string, unknown> {
+  if (!isPlainObject(settings.env)) return settings;
+  const env: Record<string, unknown> = { ...settings.env };
+  let changed = false;
+  for (const [key, glob] of Object.entries(EXTERNAL_GATE_EXEMPT_ENV)) {
+    const current = env[key];
+    if (typeof current !== 'string') continue;
+    const kept = splitGlobList(current).filter((entry) => entry !== glob);
+    changed = true;
+    if (kept.length > 0) {
+      env[key] = kept.join(',');
+    } else {
+      delete env[key];
+    }
+  }
+  if (!changed) return settings;
+  if (Object.keys(env).length === 0) {
+    const { env: _omit, ...rest } = settings;
+    return rest;
+  }
+  return { ...settings, env };
+}
