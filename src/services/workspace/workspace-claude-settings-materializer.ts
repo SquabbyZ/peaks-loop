@@ -65,6 +65,8 @@ const PEAKS_GITIGNORE_SNIPPET = [
   '# Gitignored so the init flow\'s drift-driven refresh does not show up as',
   '# "modified" in `git status` on every release bump. Recovery path: re-run',
   '# `peaks workspace init` to regenerate; or copy from peaks-loop source.',
+  '# Both patterns below are PROJECT-ROOT-relative, so this snippet must land',
+  '# in the root .gitignore — see `upsertPeaksGitignoreSnippet`.',
   '.peaks/.claude-settings-template.json',
   PEAKS_GITIGNORE_FOOTER,
   ''
@@ -224,13 +226,21 @@ async function writeOfflineTemplateCopy(
 }
 
 /**
- * Append the peaks-managed `.claude/settings.local.json` snippet to
- * the consumer project's `.peaks/.gitignore`. Preserves any user-
- * managed entries above the snippet. Idempotent: re-running on a
- * project that already has the snippet is a no-op.
+ * Append the peaks-managed snippet to the consumer project's ROOT
+ * `.gitignore`. Preserves any user-managed entries above the snippet.
+ * Idempotent: re-running on a project that already has the snippet is a
+ * no-op.
+ *
+ * Root, not `.peaks/.gitignore`. A gitignore pattern containing a slash is
+ * anchored to the directory of the .gitignore that holds it, and both
+ * patterns here are project-root-relative. Written into `.peaks/.gitignore`
+ * they resolved to `.peaks/.claude/settings.local.json` and
+ * `.peaks/.peaks/.claude-settings-template.json` — matching nothing, in
+ * every project. The root-level `settings.local.json` entry could not be
+ * expressed from inside `.peaks/` at all, since gitignore has no `..`.
  */
 async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
-  const gitignorePath = join(projectRoot, '.peaks', '.gitignore');
+  const gitignorePath = join(projectRoot, '.gitignore');
   await mkdir(join(projectRoot, '.peaks'), { recursive: true });
 
   let existing = '';
