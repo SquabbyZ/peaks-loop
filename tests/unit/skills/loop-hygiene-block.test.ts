@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const MARKER = '<!-- peaks:loop-hygiene';
@@ -19,11 +19,26 @@ const END_MARKER = '<!-- /peaks:loop-hygiene -->';
  * skill fell behind. Edit one, edit all 22; this test is what makes that
  * non-optional.
  */
+/**
+ * Walk with `fs`, never `execSync('find …')`.
+ *
+ * `execSync` runs through the platform shell: on Windows that is `cmd.exe`,
+ * where `find` resolves to `System32\find.exe` — a completely different
+ * program, which rejects `-name` outright (`FIND: Parameter format not
+ * correct`). It passed on the developer's machine only because Git Bash's
+ * `find` happened to win on PATH there. CI caught it on the first push.
+ */
 function skillFiles(): string[] {
-  return execSync('find skills -name SKILL.md', { encoding: 'utf8' })
-    .trim()
-    .split('\n')
-    .filter((l) => l.length > 0);
+  const found: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name === 'SKILL.md') found.push(full);
+    }
+  };
+  walk('skills');
+  return found.sort();
 }
 
 /**
