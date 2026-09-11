@@ -33,6 +33,7 @@ import {
 } from '../../services/observability/observability-service.js';
 import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { writeInitialDispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
+import { provisionDispatchNode } from '../../services/workflow/provision-dispatch-node.js';
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
@@ -97,9 +98,13 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
       .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
       .option('--isolation <mode>', 'slice 2026-07-29-worktree-l2-extended Part 2.C: isolation mode for the sub-agent. Accepts "worktree" (Part 2.C + Part 12 L2 surface), "container" (Part 8 contract + Part 12 L4 docker runtime), or "vm" (Part 25 contract; the VM runtime is a follow-up rid and fail-fasts with ISOLATION_VM_NOT_YET_IMPLEMENTED). Auto-spawns a lease + injects PEAKS_<MODE>_LEASE_ID into the dispatch envelope so the sub-agent can write to the isolated surface without a separate auth grant.')
-      // Slice 4.0.8 RD §4: required --graph-node binding. Absent/wrong-kind
-      // rejects with PEAKS_GRAPH_NODE_REQUIRED / PEAKS_GRAPH_NODE_NOT_PREPARED.
-      .requiredOption('--graph-node <id>', 'graph node id this dispatch binds to (RD §4 D4c)')
+      // Slice 4.0.8 RD §4 made this a `.requiredOption`. It is optional now:
+      // the requirement was enforced but never validated — nothing downstream
+      // reads the node, and the record writer's graph transition is
+      // best-effort — so its only observable effect was to block dispatch in
+      // every project without graph infrastructure. See
+      // `provisionDispatchNode`.
+      .option('--graph-node <id>', 'graph node id this dispatch binds to (default: a node is provisioned on demand)')
       .option('--workflow-id <id>', 'workflow id the graph node belongs to (defaults to derived from session)')
       .option('--graph-ref <ref>', 'graphRef (defaults to graphs/<workflow-id>.json)')
       // rid-001 detached sub-agent dispatch: 4 new options. Default
@@ -206,19 +211,9 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       return;
     }
 
-    // Slice 4.0.8 RD §4 D4c: --graph-node is REQUIRED for single dispatch.
-    // commander.js `.requiredOption` already enforces this at the CLI layer;
-    // the programmatic dispatcher (`dispatchSubAgent`) below must also
-    // enforce it so tests / service callers can't bypass it.
-    if (typeof options.graphNode !== 'string' || options.graphNode.length === 0) {
-      printResult(io, fail('sub-agent.dispatch', 'PEAKS_GRAPH_NODE_REQUIRED',
-        '--graph-node is required (RD §4 D4c)', { role, toolCall: null, dispatchRecordPath: null } as never,
-        ['Prepare a graph node via `peaks workflow node prepare` and re-run dispatch with --graph-node <id>.']),
-        asJson);
-      process.exitCode = 1;
-      return;
-    }
-
+    // Slice 4.0.8 RD §4 D4c required `--graph-node` here, before the session
+    // id existed, so the only recovery it could offer was prose. The node is
+    // now provisioned inside the try block below, once `sid` is known.
     // DOGFOOD ONLY: --prompt-length overrides the actual prompt content with
     // a synthetic prompt of the given size in bytes. The original --prompt
     // is still required (commander needs it). This avoids ARG_MAX limits
@@ -661,12 +656,44 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         }
       }
 
+      // Slice 4.0.8 RD §4 D4c: bind this dispatch to a graph node. When the
+      // caller names none, provision one — that is what collapses the
+      // documented three-step ritual (create graph -> `peaks workflow node
+      // prepare` -> dispatch) into a single call. Those three fields were
+      // also never passed to the writer, so the record's graph binding was
+      // always null and the writer's transition never fired: the feature was
+      // inert, and only its precondition (the required flag) was real.
+      const graphBinding = (() => {
+        if (typeof options.graphNode === 'string' && options.graphNode.length > 0) {
+          return {
+            nodeId: options.graphNode,
+            workflowId: options.workflowId ?? null,
+            graphRef: options.graphRef ?? null
+          };
+        }
+        const provisioned = provisionDispatchNode({
+          projectRoot,
+          sessionId: sid,
+          role,
+          workflowId: options.workflowId,
+          graphRef: options.graphRef
+        });
+        return {
+          nodeId: provisioned.nodeId,
+          workflowId: provisioned.workflowId,
+          graphRef: provisioned.graphRef
+        };
+      })();
+
       const { path: dispatchRecordPath } = writeInitialDispatchRecord({
         projectRoot,
         sessionId: sid,
         requestId: rid,
         role,
         prompt: effectivePrompt,
+        workflowId: graphBinding.workflowId,
+        graphNodeId: graphBinding.nodeId,
+        graphRef: graphBinding.graphRef,
         toolCall,
         batchId,
         // Slice 2026-07-29-worktree-l2-extended Part 3.A: persist the
