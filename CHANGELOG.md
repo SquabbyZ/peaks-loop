@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.0.38 — 2026-09-11 (适配外部闸门 + 多语言评审复活 + 测试不再弹窗)
+
+**Highlights**:
+
+1. **子代理被事先告知"先读再改",闸门不再被误判** — 外部插件（ECC）注册了一个 `PreToolUse` 闸门，会在编辑一个文件时要求 LLM 先建立事实，否则**拒绝**。问题不在闸门本身，而在它的提示词**读起来像工具坏了**——它从不说"你的编辑没有被应用"，也从不点名真正的前置动作是**先读文件**。现在每个派发出去的子代理的前缀里都有一段 ~693 B 的说明，**规矩在前、范围点名、失败声明在后**：先说"编辑前先读这个文件，这是这里的正常工作方式"，点名作用范围（`.peaks/**` 之外的所有路径），**最后**才说万一跳过会撞上什么、以及那不是失败、编辑未被应用。
+
+   - **代价如实记录**：这段是 7 个角色各加 694 B，大致**把 4.0.36 那一轮省下的 18% 还了回去**。这是用户明确要求的适配，它值这些字节（否则每次首次编辑都要多一轮往返），但提示词经济性的账今天倒退了，这件事应当被看见。
+
+2. **`.peaks/**` 豁免被自动声明** — peaks-loop **从 `2.0.1-bug3` 起就已经决定了** `.peaks/**` 不该被 fact-gate（那个切片就叫 *fact-forcing bypass*），只是外部闸门从没听说过。现在 `peaks hooks install` / `workspace init` 会把豁免写进**机器本地**的 `settings.local.json`。四条约束都做到了：**第三方变量名全仓库只出现一处**（adapter 单点映射）、**只进机器本地**（绝不进已提交的共享模板——一个第三方变量名不该推给每个消费者）、**合并而非覆盖**（用户已有的豁免取并集，无关 `env` 键保留）、范围用 **`.peaks/**` 而非 `_runtime/`**。15 个用例覆盖，含 uninstall（只剥自己的 glob）与非 Claude Code IDE（不写）。
+
+3. **测试套件不再往桌面弹 PowerShell 窗口** — `write-gate-decision-table.test.ts` 是全仓库唯一 spawn `powershell` 的测试，**没设 `windowsHide`**，且**对决策表每一行都 spawn 一次**。决定性的证据是它的隔壁文件：`gate-enforce-machine-local-shell.test.ts` 的开头就写明了"执行 hook 就是弹窗的原因"，因此**刻意不执行**——一个文件知道并回避，另一个照做。修法是**加 `windowsHide` 但保留执行**（真的把命令跑过每个 shell 正是当初抓出 C5 `argv` 反转的原因）。6 处已修，并确认仍在真实执行（`✓ given bash … 1583ms`、`✓ given powershell … 3755ms`）。
+
+4. **多语言评审在 Windows 上复活** — `peaks code-review detect-ocr-18` 在一台 `npx --version` 正常返回 `11.9.0` 的机器上报 `npxAvailable: false`，于是**八种语言**（python/go/java/rust/cpp/csharp/ruby/php，经 `@alibaba-group/open-code-review`）的评审路径**在这个平台上从未可达**。三处仍在 spawn 裸 `npx`（Windows 上是 `.cmd`，无法这样启动）——而**同一个目录里 `detect-eslint.ts` 早就改成正确形式了**。现在三处都走既有的 `resolveNpxInvocation`，并且**"npx 不存在"与"启动不了"分开报**（正是这个混淆让一台正常的机器报成缺工具）。修前 `ocr18-missing / npxAvailable:false` → 修后 **`ready / npxAvailable:true`**。
+
+5. **`peaks hooks install --global` 此前从未成功过** — ESM 包里用了裸 `__dirname`，抛 `__dirname is not defined`，于是**每一次** `--global` 都返回失败——而且是**在 settings 已经写完之后**才失败，把半成品报成失败。同时 `--dry-run --global` **真的会往 `~/.claude/` 拷文件**。两者都已修。
+
+**验证**：build clean、`tsc -p tsconfig.build.json` exit 0、宽口径 `tsconfig.json` 维持既有 142；全量 **179 files / 1736 passed（3 skipped）**；版本三处常量（`package.json` / `CLI_VERSION` / `RUNTIME_VERSION`）一致——4.0.37 补上的那条 sync 与那个"能真失败"的守卫当场兑现。
+
 ## 4.0.37 — 2026-09-10 (Windows spawn 根因 + 会话解析 + 诚实性修复)
 
 **Highlights**:
