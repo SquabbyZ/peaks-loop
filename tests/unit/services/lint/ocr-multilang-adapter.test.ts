@@ -9,6 +9,29 @@ vi.mock('node:child_process', () => ({
   spawnSync: vi.fn()
 }));
 
+/**
+ * The npx resolver is mocked to a sentinel so the regression this guards —
+ * spawning the bare `npx` PATH shim instead of the resolved invocation — is
+ * observable on every platform, not only on Windows.
+ */
+const { SENTINEL_COMMAND, SENTINEL_PREFIX } = vi.hoisted(() => ({
+  SENTINEL_COMMAND: '/sentinel/node',
+  SENTINEL_PREFIX: ['/sentinel/npx-cli.js']
+}));
+
+vi.mock('../../../../src/services/lint/npx-resolver.js', () => ({
+  resolveNpxInvocation: (npxArgs: readonly string[]) => ({
+    command: SENTINEL_COMMAND,
+    args: [...SENTINEL_PREFIX, ...npxArgs],
+    baseEnv: {}
+  }),
+  resolveNpmInvocation: (npmArgs: readonly string[]) => ({
+    command: SENTINEL_COMMAND,
+    args: [...SENTINEL_PREFIX, ...npmArgs],
+    baseEnv: {}
+  })
+}));
+
 const { spawnSync } = await import('node:child_process');
 const childMock = { spawnSync } as unknown as ChildProcessMock;
 
@@ -51,6 +74,33 @@ describe('runOcr18', () => {
     expect(result.findings).toEqual([]);
   });
 
+  it('when the spawn itself fails, should keep the launch error in rawOutput', () => {
+    // given: the launch fails before ocr produces any output at all
+    queueSpawnSequence([{ status: null, stdout: '', stderr: '', error: Object.assign(new Error('spawn EINVAL'), { code: 'EINVAL' } as NodeJS.ErrnoException) }]);
+
+    // when: runOcr18 is invoked
+    const result = runOcr18({ cwd: process.cwd(), language: 'ruby' });
+
+    // then: the reason is never silently dropped (stdout/stderr are both empty)
+    expect(result.rawOutput).toContain('spawn EINVAL');
+  });
+
+  it('when runOcr18 spawns ocr, should go through the npx resolver (never the bare shim)', () => {
+    // given: a successful review call
+    queueSpawnSequence([{ status: 0, stdout: '{"findings":[]}' }]);
+
+    // when: runOcr18 is invoked
+    runOcr18({ cwd: process.cwd(), language: 'go' });
+
+    // then: the resolved invocation is used, with the ocr argv appended to it
+    const call = childMock.spawnSync.mock.calls[0] as [string, string[], Record<string, unknown>];
+    expect(call[0]).toBe(SENTINEL_COMMAND);
+    expect(call[0]).not.toBe('npx');
+    expect(call[1].slice(0, SENTINEL_PREFIX.length)).toEqual(SENTINEL_PREFIX);
+    expect(call[1]).toEqual(expect.arrayContaining(['--package', OCR_18_PACKAGE, '--', 'ocr', 'review']));
+    expect(call[2]).toMatchObject({ encoding: 'utf8' });
+  });
+
   it('when language is unsupported (e.g. cobol), should return language-unsupported', () => {
     // given: an unsupported language
 
@@ -71,7 +121,7 @@ describe('runOcr18', () => {
 
     // then: the args include delegate preview
     const call = childMock.spawnSync.mock.calls[0] as [string, string[]];
-    expect(call[0]).toBe('npx');
+    expect(call[0]).not.toBe('npx');
     expect(call[1]).toContain('delegate');
     expect(call[1]).toContain('preview');
   });

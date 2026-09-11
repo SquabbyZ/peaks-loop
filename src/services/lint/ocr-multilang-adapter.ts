@@ -3,6 +3,7 @@
  * 8 supported languages to the corresponding `ocr review` filter.
  */
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
+import { resolveNpxInvocation } from './npx-resolver.js';
 
 export const OCR_18_PACKAGE = '@alibaba-group/open-code-review@1.8.9';
 
@@ -120,7 +121,12 @@ export function runOcr18(options: Ocr18RunOptions): Ocr18RunResult {
     maxBuffer: 32 * 1024 * 1024
   };
 
-  const result = spawnSync('npx', args, spawnOptions);
+  // 2026-09-10: bare `spawnSync('npx', …)` cannot launch the Windows `npx.cmd`
+  // shim (ENOENT, no shell) — same fix and same helper as `detect-ocr-18.ts` /
+  // `detect-eslint.ts`. `shell: true` is NOT an option: it would concatenate the
+  // argv unescaped and split the `--package` flag.
+  const { command, args: npxArgs, baseEnv } = resolveNpxInvocation(args);
+  const result = spawnSync(command, npxArgs, { ...spawnOptions, env: baseEnv });
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
   const stderr = typeof result.stderr === 'string' ? result.stderr : '';
 
@@ -130,7 +136,8 @@ export function runOcr18(options: Ocr18RunOptions): Ocr18RunResult {
       findings: [],
       summary: null,
       durationMs: Date.now() - start,
-      rawOutput: stderr || stdout
+      // Never discard WHY the launch failed — stdout/stderr are both empty here.
+      rawOutput: stderr || stdout || result.error.message
     };
   }
 
