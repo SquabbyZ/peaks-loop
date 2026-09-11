@@ -19,7 +19,7 @@
 //
 // Run with: pnpm vitest run tests/unit/workspace/gitignore-snippet-matches.test.ts
 
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -80,5 +80,60 @@ describe('the managed gitignore snippet ignores the paths it names', () => {
     // as a leak on every release bump.
     const result = git(['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'], root);
     expect(result.status).toBe(0);
+  });
+});
+
+const LEGACY_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
+const LEGACY_FOOTER = '# <<< peaks-loop managed snippet';
+const LEGACY_BLOCK = [
+  LEGACY_HEADER,
+  '# Consumer-project .claude/settings.local.json: written by `peaks workspace init`',
+  '.claude/settings.local.json',
+  '.peaks/.claude-settings-template.json',
+  LEGACY_FOOTER,
+].join('\n');
+
+/**
+ * The snippet's patterns were written project-root-relative but appended to
+ * `.peaks/.gitignore`, where they matched nothing. Existing projects therefore
+ * carry a managed block that is inert AND unmaintained, while still claiming
+ * "do not edit by hand" — a reader would take it for live configuration.
+ * `workspace init` now strips it.
+ */
+describe('the legacy .peaks/.gitignore snippet is migrated away', () => {
+  async function projectWithLegacy(content: string): Promise<string> {
+    const root = mkdtempSync(join(tmpdir(), 'peaks-legacy-gi-'));
+    mkdirSync(join(root, '.peaks'), { recursive: true });
+    writeFileSync(join(root, '.peaks', '.gitignore'), content, 'utf8');
+    await materializeClaudeSettingsLocal(root, false);
+    return root;
+  }
+
+  it('removes the block and deletes the file when nothing else was in it', async () => {
+    const root = await projectWithLegacy(`${LEGACY_BLOCK}\n`);
+    expect(existsSync(join(root, '.peaks', '.gitignore'))).toBe(false);
+  });
+
+  it('preserves every line the user wrote', async () => {
+    const root = await projectWithLegacy(`node_modules/\n*.local\n\n${LEGACY_BLOCK}\n`);
+    const remaining = readFileSync(join(root, '.peaks', '.gitignore'), 'utf8');
+    expect(remaining).toContain('node_modules/');
+    expect(remaining).toContain('*.local');
+    expect(remaining).not.toContain(LEGACY_HEADER);
+  });
+
+  it('leaves a malformed block alone rather than guessing', async () => {
+    // Header without footer: deleting someone's file to tidy our own mess is
+    // not a trade worth making.
+    const malformed = `${LEGACY_HEADER}\nnode_modules/\n`;
+    const root = await projectWithLegacy(malformed);
+    expect(readFileSync(join(root, '.peaks', '.gitignore'), 'utf8')).toBe(malformed);
+  });
+
+  it('is idempotent', async () => {
+    const root = await projectWithLegacy(`${LEGACY_BLOCK}\n`);
+    await materializeClaudeSettingsLocal(root, false);
+    await materializeClaudeSettingsLocal(root, false);
+    expect(existsSync(join(root, '.peaks', '.gitignore'))).toBe(false);
   });
 });

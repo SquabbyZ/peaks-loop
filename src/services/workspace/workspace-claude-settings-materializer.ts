@@ -11,7 +11,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withExternalGateExemptions } from '../skills/hooks-codegate-superpowers.js';
 import {
@@ -239,7 +239,59 @@ async function writeOfflineTemplateCopy(
  * every project. The root-level `settings.local.json` entry could not be
  * expressed from inside `.peaks/` at all, since gitignore has no `..`.
  */
+/**
+ * The snippet's former home. Projects initialized before the move carry a
+ * managed block there that now matches nothing and is maintained by nobody —
+ * yet still announces itself as "do not edit by hand", which is worse than
+ * absent: a reader takes it for live configuration.
+ */
+const LEGACY_PEAKS_GITIGNORE_PATH = ['.peaks', '.gitignore'] as const;
+
+/**
+ * Strip the managed block from its legacy home, preserving every line the
+ * user wrote. Idempotent; a no-op on projects that never had one.
+ *
+ * The file is deleted only when nothing remains. An empty `.peaks/.gitignore`
+ * left behind reads as "peaks put something here and stopped", which invites
+ * the next reader to guess.
+ *
+ * A malformed block (header without footer) is left untouched rather than
+ * guessed at — deleting a user's file to tidy our own mess is not a trade
+ * worth making.
+ */
+async function stripLegacyPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
+  const legacyPath = join(projectRoot, ...LEGACY_PEAKS_GITIGNORE_PATH);
+  if (!existsSync(legacyPath)) return;
+
+  let existing: string;
+  try {
+    existing = await readFile(legacyPath, 'utf8');
+  } catch {
+    return;
+  }
+
+  const start = existing.indexOf(PEAKS_GITIGNORE_HEADER);
+  if (start === -1) return;
+  const footerAt = existing.indexOf(PEAKS_GITIGNORE_FOOTER, start);
+  if (footerAt === -1) return;
+
+  const remainder = (existing.slice(0, start) + existing.slice(footerAt + PEAKS_GITIGNORE_FOOTER.length))
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (remainder.length === 0) {
+    await rm(legacyPath, { force: true });
+    return;
+  }
+  await writeFile(legacyPath, `${remainder}\n`, 'utf8');
+}
+
 async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
+  // Migration first: the snippet used to live in `.peaks/.gitignore`, where
+  // its patterns silently matched nothing. Strip that copy before writing the
+  // one that works.
+  await stripLegacyPeaksGitignoreSnippet(projectRoot);
+
   const gitignorePath = join(projectRoot, '.gitignore');
   await mkdir(join(projectRoot, '.peaks'), { recursive: true });
 
