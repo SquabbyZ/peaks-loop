@@ -1,5 +1,33 @@
 # Changelog
 
+## 4.0.40 — 2026-09-11 (两条被 4.0.39 暴露出来的既有缺陷)
+
+**Highlights**:
+
+1. **4.0.39 的闸门指导写了一个错误的因果 —— 已更正。** 那段文字告诉每个技能:"编辑前先读这个文件,**跳过这一步会撞上闸门**"。**这是假的。** 用户在 Mac 上装完 4.0.39 后拿实际日志打回来,促使我们去读 ECC 闸门的源码(`gateguard-fact-force.js`)：
+
+   ```js
+   if (!isChecked(filePath)) {
+     markCheckedAndCountDenial(filePath);   // 同一个调用里:先标记,再拒绝
+     return denyResult(...);
+   }
+   return rawInput;                          // 第二次直接放行
+   ```
+
+   **它是"每个路径首次接触拒绝一次"的减速带,不是"你有没有读过"的检查。** 先读**并不能**避免拒绝;拒绝由"编辑"触发,与是否读过无关。而给一个错的因果**比不给更糟** —— 模型照做了、仍被拦时,会得出"我哪里做错了",这正是这段指导本来要防的误读。现在它陈述真实机制与真实对策:每个文件预期被拦一次,**那不是失败、编辑未被应用、重试即放行**。
+
+   - 顺带记录边界:子代理豁免(父会话已过闸);`.peaks/**` 经 `GATEGUARD_EXEMPT_GLOBS` 豁免;**重试是否放行与"有没有列出那四条事实"无关** —— 闸门不校验事实。
+   - **闸门本身以后仍会拦**,那是它被设计成这样的;peaks 不该也无法替非 `.peaks/**` 路径压制它。能改的只是让模型别误读。
+
+2. **四个 `SKILL.md` 的 frontmatter 是无效 YAML,其中两个的 `description` 从未被加载过。** `peaks-perf-audit` 与 `peaks-security-audit` 的 `sources:` 里有未加引号的 `schemaVersion: 2`,YAML 把其中的冒号+空格读成嵌套映射的开头,整个 frontmatter 解析失败 —— 而 Claude Code 在解析失败时会**回退到闭合 `---` 之后的第一行**,于是它们的 description 从未生效,**两个技能都无法按自己的描述被发现**。
+
+   - **这个缺陷为何一直看不见:** 回退渲染出来的是紧跟其后的标题(`# peaks-perf-audit`),**读起来像标题而不像损坏**。只有当 4.0.39 把 loop-hygiene 块放进那个位置后,技能列表开始显示块里的 HTML 注释,它才显形。
+   - `peaks-issue-fix-orchestrator` 与 `peaks-sop` 带同样的病(值里未加引号的 `: `)。Claude Code 自己的解析器足够宽松能读它们,所以看着正常,但它们不是合法 YAML,任何更严格的读取方都会拒绝。
+   - 四处均已加引号,**逐字验证无损**(重写的两条描述 662 / 654 字符前后完全一致)。
+   - 新增守卫:每个 `SKILL.md` 的 frontmatter 必须能解析为 YAML 且产出可用的 `description`。
+
+**验证**:三个版本常量一致(4.0.40);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **188 files / 1794 passed / 3 skipped / 0 failed**。
+
 ## 4.0.39 — 2026-09-11 (四条"死机制" + 可见的 OCR 获取)
 
 **Highlights**:
