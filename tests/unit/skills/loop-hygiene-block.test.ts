@@ -146,5 +146,15 @@ describe('loop-hygiene block in every SKILL.md', () => {
     expect(flat).toMatch(/was NOT applied/i);
     expect(flat).toMatch(/retry the SAME operation/i);
     expect(flat).toMatch(/the retry is allowed/i);
+
+    // And the one that stops the ritual. A model told to "expect one denial
+    // per file" reasonably pre-empts by reciting the four facts before every
+    // edit — which is what the user actually saw, and what cost the time. The
+    // denial is a speed bump, not a pre-flight checklist.
+    expect(flat).toMatch(/do NOT pre-empt it/i);
+    expect(flat).toMatch(/Do not recite its four questions/i);
+    // A long idle pause clears the gate's cleared-path list; without this the
+    // model reads a re-denial as its own regression.
+    expect(flat).toMatch(/30 minutes clears the gate/i);
   });
 });

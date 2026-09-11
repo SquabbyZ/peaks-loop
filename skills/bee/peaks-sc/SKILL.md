@@ -27,13 +27,19 @@ mode** — standard *and* 24h. The mode moves the threshold, never the obligatio
 it — the normal way to work here — for every path outside `.peaks/**` (source, tests, docs,
 config); `.peaks/**` writes are exempt.
 
-**Expect one denial per file regardless.** A `PreToolUse` gate (ECC's "Fact-Forcing Gate")
-denies the FIRST edit a session makes to any given path, once, by design. Reading does NOT
-prevent it — the gate keys on the path's first touch, not on whether you read it. **A denial
-is not a failure and the tool is not broken — your edit was NOT applied.** State the facts it
-asks for (importers, affected API, data schemas if any, the user's verbatim instruction) and
-retry the SAME operation; the retry is allowed. Do not switch tools, do not give up, do not
-retry blindly.
+**Expect one denial per file anyway — and do NOT pre-empt it.** A `PreToolUse` gate (ECC's
+"Fact-Forcing Gate") denies the FIRST edit a session makes to any given path, once, by
+design. Reading does NOT prevent it: the gate keys on the path's first touch, not on whether
+you read it. **Do not recite its four questions before every edit** — it asks when it wants
+them, and reciting unprompted burns a round-trip per file for nothing. Answer only when a
+denial actually arrives.
+
+**When one does arrive:** a denial is not a failure and the tool is not broken — your edit
+was NOT applied. State the facts it asks for (importers, affected API, data schemas if any,
+the user's verbatim instruction), then retry the SAME operation. The retry is allowed. Do not
+switch tools, do not give up, do not retry blindly. One more thing worth knowing: an idle gap
+of ~30 minutes clears the gate's "already passed" list, so a file you cleared earlier can be
+denied again after a long pause. That is the gate resetting, not you regressing.
 <!-- /peaks:loop-hygiene -->
 ---
 
