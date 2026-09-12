@@ -8,7 +8,7 @@
 
 ### Mode determination (deterministic — CLI is the source of truth)
 
-Read `.integrationMode` and `.integrationModeReason` from the `peaks scan archetype --json` output and copy both into `.peaks/project-scan/project-scan.md` under `## Project mode`. Copy `frontendOnly` / `frontendOnlyReason` above them under `## Archetype`, labelled back-compat. Do NOT re-derive the decision from user phrasing — the three values are already deterministic:
+Read `.integrationMode` and `.integrationModeReason` from the `peaks scan archetype --json` output and copy both into `.peaks/project-scan/project-scan.md` under `## Project mode`. Copy `frontendOnly` / `frontendOnlyReason` alongside them under `## Project mode`, labelled back-compat. Do NOT re-derive the decision from user phrasing — the three values are already deterministic:
 
 | `.integrationMode` | `.integrationModeReason` | What is physically present |
 |---|---|---|
@@ -123,7 +123,7 @@ Never silently fall back to unauthenticated `fetch` or `WebFetch` for authentica
 1. Read `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md` body.
 2. Lowercase + strip markdown; check regex `\b(页面|组件|表单|弹窗|表格|样式|布局|交互|UI|UX|page|component|form|modal|table|styling|layout|interaction|frontend|前端)\b`.
 3. If match count ≥ 1 → `frontendKeywordHit=true`.
-4. If `frontendOnly` (back-compat boolean from `## Archetype` in project-scan — the UI-inclusion signal only; it is not the integration-mode router) is `true` and no keyword hit → UI joins anyway (frontend-only project, even non-visual changes may need visual sanity for regressions).
+4. If `frontendOnly` (back-compat boolean from `## Project mode` in project-scan — the UI-inclusion signal only; it is not the integration-mode router) is `true` and no keyword hit → UI joins anyway (frontend-only project, even non-visual changes may need visual sanity for regressions).
 5. If `frontendOnly` is `false` and no keyword hit → UI skipped.
 
 Code records the pre-flight result in `sc/swarm-plan.json` so the audit trail shows why UI was or was not included.
