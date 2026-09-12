@@ -23,17 +23,28 @@
  *                        returns `ok: false` with `message: 'noop'`.
  *                        Used by legacy / unverified adapters.
  *
- * rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED. The
- * `case 'shell-exec':` branch remains reachable only to keep the
- * 2 currently-passing tests in `tests/unit/context/auto-compact-main-target.test.ts:58`
- * + `tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102`
- * passing (they assert `pathway: 'shell-exec'`). Real callers must
- * use `ide-native` (main session) or `llm-self-compress`. No host
- * CLI spawn occurs; the case logs a deprecation warning and returns
- * the same envelope shape.
+ * rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED. Real
+ * callers must use `ide-native` (main session) or
+ * `llm-self-compress`. No host CLI spawn occurs; the `case
+ * 'shell-exec':` branch logs a deprecation warning and returns the
+ * same envelope shape.
+ *
+ * Slice 2026-09-12-auto-compact-vendor-neutrality (defect #2 of the QA
+ * pass): the paragraph above used to justify keeping that branch with
+ * "the 2 currently-passing tests" it named by path and line (`:58` of
+ * one file, `:102` of another, asserting `pathway: 'shell-exec'`).
+ * That justification ROTTED and is false as of today: both files were
+ * deleted by `f17aa377 test(rebuild): delete 559 legacy unit tests and
+ * reset vitest config`, and `grep -rn "shell-exec" tests/` now returns
+ * nothing — no test in this repo asserts `pathway: 'shell-exec'`. The
+ * branch is retained for the rid-031 ENVELOPE CONTRACT itself
+ * (`pathway` is part of `CompactDispatchResult` and is echoed to
+ * `peaks code auto-compact` callers), not for a test. Deleting it is a
+ * contract change, deliberately out of this slice.
  */
+import { join } from 'node:path';
 import type { CompactDispatchResult } from './auto-compact-types.js';
-import type { IdeCompactProfile, IdeId } from '../ide/ide-types.js';
+import type { IdeAdapter, IdeCompactProfile, IdeId } from '../ide/ide-types.js';
 
 type CompactPathway = IdeCompactProfile['compactPathway'];
 import { detectIdeFromEnv } from './ide-detect.js';
@@ -55,14 +66,18 @@ export interface DispatchIdeCompactInput {
    * shells that spawn their own `peaks code auto-compact` flow pass
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
    *
-   * Behaviour matrix (claude-code MVP):
+   * Behaviour matrix, keyed on the ADAPTER'S DECLARED pathway only
+   * — never on the adapter's name (slice
+   * 2026-09-12-auto-compact-vendor-neutrality):
    *   - target='main'     → llm-self-compress (write intent; main LLM
-   *                          fires `/compact` on its next turn).
+   *                          fires its compact command on its next turn).
    *   - target='sub-agent'→ shell-exec stub (DEPRECATED — no host
    *                          CLI spawn; returns envelope with
    *                          `pathway: 'shell-exec'` for legacy
    *                          contract only — see rid-031).
-   * Non-claude-code IDEs + target='main' return noop + warning.
+   * An adapter with no registered `compact` profile returns noop for
+   * BOTH targets; an adapter whose profile serves the main session is
+   * dispatched regardless of which IDE it is.
    */
   readonly target?: CompactTarget | undefined;
 }
@@ -89,21 +104,28 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   // explicitly when a sub-agent shell dispatches the call.
   const target: CompactTarget = input.target ?? 'main';
 
-  // Slice 2026-06-28: when targeting the MAIN session, refuse
-  // up-front for adapters we cannot dispatch a main-session compact
-  // against. We DO this before the `!adapter.compact` short-circuit
-  // so the test message reflects the operational cause (target vs
-  // adapter capability). Even non-claude-code adapters without a
-  // registered `compact` profile should report "main-session target
-  // unsupported" rather than the generic "no compact profile" line.
-  if (target === 'main' && ideId !== 'claude-code') {
-    return {
-      ok: false,
-      ide: ideId,
-      pathway: 'noop',
-      message: `main-session target unsupported on adapter '${ideId}'; only claude-code supports in-band main-session compact.`
-    };
-  }
+  // Slice 2026-09-12-auto-compact-vendor-neutrality — the up-front
+  // `target === 'main' && ideId !== 'claude-code'` refusal is GONE.
+  //
+  // It decided by adapter NAME what the adapter's own profile already
+  // declares, contradicting this file's contract ("No hard-coded IDE
+  // names", :5-8): any adapter that filled in `compact` was still
+  // rejected for not being called `claude-code`.
+  //
+  // It was also redundant. Every pathway below owns its own
+  // main-session semantics — `ide-native` installs the hook against the
+  // caller's own window; `shell-exec` is explicitly degraded to
+  // `llm-self-compress` for a main target; `llm-self-compress` and
+  // `noop` behave identically for both targets (so `noop` still returns
+  // `ok: false` on main); an UNKNOWN pathway falls through to the
+  // default noop. An adapter with no `compact` profile keeps its own
+  // explicit refusal immediately below. No remaining capability test
+  // would have been anything but a duplicate of one of those branches,
+  // so the check was deleted rather than re-keyed. The two candidate
+  // re-keyings were both rejected: `pathway !== 'ide-native'` would
+  // refuse `shell-exec` and `llm-self-compress` adapters that the
+  // switch already serves, and `pathway === 'noop'` IS the branch
+  // immediately below.
 
   // Adapters that don't declare `compact` (legacy / unverified) →
   // explicit noop so the caller can distinguish "IDE doesn't support
@@ -124,12 +146,13 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   switch (pathway) {
     case 'shell-exec':
       // rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED.
-      // No host CLI spawn occurs. The case marker is preserved so
-      // 2 currently-passing tests in
-      //   tests/unit/context/auto-compact-main-target.test.ts:58
-      //   tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102
-      // continue to assert `pathway: 'shell-exec'`. Real callers must
-      // use `ide-native` (main session) or `llm-self-compress`.
+      // No host CLI spawn occurs. The case marker is preserved for the
+      // rid-031 envelope contract (callers read `pathway`), NOT for a
+      // test — see this file's header, defect #2 of the 2026-09-12 QA
+      // pass: the tests the previous comment named were deleted by
+      // f17aa377 and no test asserts `pathway: 'shell-exec'` now.
+      // Real callers must use `ide-native` (main session) or
+      // `llm-self-compress`.
       console.warn(
         `compact: shell-exec pathway is deprecated on adapter '${ideId}' (target='${target}'); no host CLI spawn — use ide-native instead.`
       );
@@ -149,12 +172,14 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
       };
     case 'ide-native':
       // Slice 2026-07-02-auto-compact-zero-pause: write the auto-compact
-      // PreToolUse hook into `.claude/settings.local.json`. The hook
-      // command (`peaks code auto-compact`) reads
-      // `CLAUDE_CONTEXT_USAGE_PERCENT` on every subsequent Bash/Task
-      // tool call from the runner and, at ratio ≥ 0.95, in-band spawns
-      // `claude --compact` against the CURRENT runner (not a child
-      // process — the bug documented in
+      // PreToolUse hook into the IDE's MACHINE-LOCAL settings layer,
+      // resolved from the adapter (`settings.dirName` +
+      // `settings.localSettingsFileName`) — never from a path literal
+      // here. The hook command (`peaks code auto-compact`) reads the
+      // adapter-declared `envVarForContextPercent` on every subsequent
+      // Bash/Task tool call from the runner and, at ratio ≥ 0.95,
+      // in-band spawns the adapter-declared `compactCommand` against the
+      // CURRENT runner (not a child process — the bug documented in
       // `.peaks/memory/2026-06-27-auto-compact-design.md:139-152`).
       //
       // `ide-native` is ONLY for the main-session runner. When the
@@ -166,10 +191,11 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
       if (target === 'sub-agent') {
         // rid-031 (2026-07-28): legacy shell-spawn fallback is
         // DEPRECATED. No host CLI spawn occurs. The envelope is
-        // returned with `pathway: 'shell-exec'` to preserve the
-        // contract asserted by
-        //   tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102
-        // (sub-agent shells historically relied on this path).
+        // returned with `pathway: 'shell-exec'` to preserve the rid-031
+        // contract for callers that read `pathway` (sub-agent shells
+        // historically relied on this path). The test the previous
+        // comment named was deleted by f17aa377 — see this file's
+        // header, defect #2 of the 2026-09-12 QA pass.
         console.warn(
           `compact: sub-agent shell-exec fallback is deprecated on adapter '${ideId}'; no host CLI spawn for '${profile.compactCommand}'.`
         );
@@ -186,7 +212,9 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
       return await dispatchIdeNativeHook({
         projectRoot: input.projectRoot,
         sessionId: input.sessionId,
-        target
+        target,
+        adapter,
+        profile
       });
     case 'llm-self-compress':
       return {
@@ -217,11 +245,18 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
 /**
  * Slice 2026-07-02-auto-compact-zero-pause: implement the
  * `ide-native` pathway. Writes the auto-compact PreToolUse hook
- * into `.claude/settings.local.json` (idempotent; the install
- * service is a no-op if the hook is already present). On the next
- * Bash/Task tool call from the runner, the hook fires
- * `peaks code auto-compact` which in-band spawns
- * `claude --compact` against the CURRENT runner session.
+ * into the IDE's MACHINE-LOCAL settings file (idempotent; the
+ * install service is a no-op if the hook is already present). On
+ * the next Bash/Task tool call from the runner, the hook fires
+ * `peaks code auto-compact` which in-band spawns the adapter's
+ * declared compact command against the CURRENT runner session.
+ *
+ * Slice 2026-09-12-auto-compact-vendor-neutrality: the settings path
+ * AND the echoed `ide` are read off the adapter, so this function no
+ * longer names a vendor. An adapter that declares
+ * `compactPathway: 'ide-native'` and its own `settings` location gets
+ * its own hook file — the `.claude/settings.local.json` value survives
+ * only as the installer's default for callers with no adapter in hand.
  *
  * Returns `ok: true, pathway: 'ide-native'` regardless of install
  * action (`installed` vs `already-installed`) — both states
@@ -232,19 +267,29 @@ async function dispatchIdeNativeHook(input: {
   projectRoot: string;
   sessionId: string;
   target: CompactTarget;
+  adapter: IdeAdapter;
+  profile: IdeCompactProfile;
 }): Promise<CompactDispatchResult> {
   // Lazy dynamic import — matches the existing pattern in
   // `runAutoCompact` for `auto-compact-reader.ts` (line 311) and
   // avoids a static cycle if future slices add cross-imports
   // between dispatcher and hook-install.
   const { installAutoCompactHook } = await import('../hooks/auto-compact-hook-install.js');
-  const result = installAutoCompactHook({ projectRoot: input.projectRoot });
+  // Resolve the local settings file from the adapter's declared
+  // location. `undefined` means "this IDE declares no machine-local
+  // layer" → the installer's documented default applies.
+  const localFileName = input.adapter.settings.localSettingsFileName;
+  const settingsPath = localFileName === undefined
+    ? undefined
+    : join(input.projectRoot, input.adapter.settings.dirName, localFileName);
+  const result = installAutoCompactHook({ projectRoot: input.projectRoot, settingsPath });
+  const envVar = input.profile.envVarForContextPercent;
   return {
     ok: true,
-    ide: 'claude-code',
+    ide: input.adapter.id,
     pathway: 'ide-native',
     message: result.action === 'installed'
-      ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read CLAUDE_CONTEXT_USAGE_PERCENT and compact in-band at ratio ≥ 95%.`
+      ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read ${envVar} and compact in-band at ratio ≥ 95%.`
       : result.action === 'updated'
         ? `Auto-compact PreToolUse hook REPAIRED at ${result.settingsPath} — the installed entry carried a stale command and was rewritten.`
         : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`

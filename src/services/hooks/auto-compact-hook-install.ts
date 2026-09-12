@@ -75,6 +75,14 @@ export const AUTO_COMPACT_HOOK_MARKER = 'peaks:auto-compact-hook-do-not-edit';
  * Default on-disk location — kept here (not in claude-settings-template)
  * because the auto-compact hook is a separate install surface from
  * the fact-forcing gate bypass template.
+ *
+ * This is Claude Code's path, and it is a DEFAULT only. A caller that
+ * resolved an IDE adapter MUST pass the adapter-declared location as
+ * `settingsPath`:
+ * `join(projectRoot, adapter.settings.dirName, adapter.settings.localSettingsFileName)`.
+ * The default remains for callers with no adapter in hand (and keeps the
+ * claude-code byte-stability contract); it is not a claim that every IDE
+ * stores local settings at `.claude/settings.local.json`.
  */
 export const AUTO_COMPACT_HOOK_SETTINGS_PATH = '.claude/settings.local.json';
 
@@ -139,7 +147,7 @@ function isAutoCompactEntry(entry: { matcher: string }): boolean {
  */
 export function installAutoCompactHook(input: {
   readonly projectRoot: string;
-  readonly settingsPath?: string;
+  readonly settingsPath?: string | undefined;
 }): AutoCompactHookInstallResult {
   const settingsPath = input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
   const settings = readSettings(settingsPath);
@@ -211,7 +219,7 @@ export function installAutoCompactHook(input: {
  */
 export function removeAutoCompactHook(input: {
   readonly projectRoot: string;
-  readonly settingsPath?: string;
+  readonly settingsPath?: string | undefined;
 }): AutoCompactHookRemoveResult {
   const settingsPath = input.settingsPath ?? join(input.projectRoot, AUTO_COMPACT_HOOK_SETTINGS_PATH);
   if (!existsSync(settingsPath)) return { action: 'absent', settingsPath };

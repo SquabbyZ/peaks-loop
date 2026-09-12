@@ -43,6 +43,21 @@ export function getAdapter(ide: IdeId): IdeAdapter {
   return adapter;
 }
 
+/**
+ * Non-throwing twin of `getAdapter`. Returns `undefined` for an id with
+ * no registered adapter instead of raising.
+ *
+ * For callers that hold an IDE-shaped string which is NOT guaranteed to
+ * be an `IdeId`: `detectIdeFromEnv` returns `IdeKind` (`'claude-code' |
+ * 'trae' | 'opencode' | 'unknown'`), and `'opencode'` has no adapter
+ * registered. Casting to `IdeId` and calling `getAdapter` would throw
+ * inside a pure formatting/threshold path — the caller wants "no
+ * adapter → fall back", not an exception.
+ */
+export function tryGetAdapter(ide: string): IdeAdapter | undefined {
+  return ADAPTERS.get(ide as IdeId);
+}
+
 /** All registered adapter ids (insertion order). */
 export function listAdapterIds(): readonly IdeId[] {
   return Array.from(ADAPTERS.keys());

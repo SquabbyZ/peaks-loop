@@ -29,6 +29,7 @@ import {
   evaluateThresholdTier
 } from './threshold.js';
 import { detectIdeFromEnv, type IdeKind } from './ide-detect.js';
+import { tryGetAdapter } from '../ide/ide-registry.js';
 
 export type MainSessionTier = 'ok' | 'soft-warn' | 'near-limit' | 'emergency';
 
@@ -112,6 +113,37 @@ export interface InFlightBatchProbe {
   readonly sharedChannelEntries: number;
 }
 
+/**
+ * Which compact pathway serves this IDE, read from the ADAPTER'S OWN
+ * declaration (`IdeCompactProfile.compactPathway`) rather than from the
+ * IDE's name.
+ *
+ * Slice 2026-09-12-auto-compact-vendor-neutrality: this decision used to
+ * be the inline `ide === 'claude-code' ? 'ide-native' : 'llm-self-compress'`
+ * — an IDE identity branch in a module that is otherwise pure, reading the
+ * IDE's NAME where the adapter registry holds the CAPABILITY. An IDE that
+ * registered `compactPathway: 'ide-native'` was still told to
+ * self-compress.
+ *
+ * Pure + synchronous: `tryGetAdapter` is a Map lookup with no IO, so this
+ * module stays IO-free (same seam discipline as the `env?` parameter).
+ * `tryGetAdapter` (not `getAdapter`) because the input is an `IdeKind`,
+ * which includes ids — `opencode` — with no registered adapter; throwing
+ * from a suggestion-formatting path would be a regression.
+ *
+ * Only `'ide-native'` is in-band. Every other declared pathway
+ * (`shell-exec`, `llm-self-compress`, `noop`) reports the
+ * always-available `'llm-self-compress'` fallback, because the trigger
+ * union can only carry those two values. That under-reports a `noop`
+ * adapter — which the dispatcher would refuse outright — and callers
+ * therefore MUST NOT read this as a promise that a compact will happen;
+ * the dispatcher's `ok` remains the authority.
+ */
+export function compactPathwayForIde(ide: IdeKind): 'ide-native' | 'llm-self-compress' {
+  const declared = tryGetAdapter(ide)?.compact?.compactPathway;
+  return declared === 'ide-native' ? 'ide-native' : 'llm-self-compress';
+}
+
 export function pickMainSessionTrigger(opts: {
   promptSize: number;
   ide?: IdeKind | undefined;
@@ -145,7 +177,7 @@ export function pickMainSessionTrigger(opts: {
 
   const code: 'CONTEXT_NEAR_LIMIT' | 'PROMPT_EMERGENCY' =
     evaluation.tier === 'emergency' ? 'PROMPT_EMERGENCY' : 'CONTEXT_NEAR_LIMIT';
-  const path: 'ide-native' | 'llm-self-compress' = ide === 'claude-code' ? 'ide-native' : 'llm-self-compress';
+  const path: 'ide-native' | 'llm-self-compress' = compactPathwayForIde(ide);
 
   return {
     kind: 'compact',

@@ -471,6 +471,11 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   settings: {
     dirName: '.claude',
     settingsFileName: 'settings.json',
+    // The machine-local layer Claude Code merges on top of settings.json.
+    // Declared here so the auto-compact `ide-native` hook writer reads the
+    // path off the adapter instead of assuming a Claude-specific filename —
+    // see `IdeSettingsLocation.localSettingsFileName`.
+    localSettingsFileName: 'settings.local.json',
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.claude', 'settings.json');

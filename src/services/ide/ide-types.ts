@@ -37,6 +37,20 @@ export interface IdeSettingsLocation {
   readonly dirName: string;
   /** settings 文件名(部分 IDE 叫 settings.json / mcp.json) */
   readonly settingsFileName: string;
+  /**
+   * 该 IDE 的**机器本地** settings 层文件名(Claude Code = `settings.local.json`),
+   * 与 `settingsFileName` 同目录、通常被 gitignore,IDE 读取时叠加在其上。
+   * `undefined` = 该 IDE 没有这一层;调用方此时回落到自己的默认值。
+   *
+   * peaks-loop 只在"写进去的东西是机器相关"时用这一层 —— 例如 per-OS 的
+   * hook shell shim —— 绝不写进共享的 `settingsFileName`。写 hook 的调用方
+   * (auto-compact 的 `ide-native` 通路)因此不需要知道任何 IDE 的目录/文件名,
+   * 只读适配器声明的这两个字段。
+   *
+   * 可选:既有适配器无需改动;声明了 `compactPathway: 'ide-native'` 的适配器
+   * 应当一并声明此字段,否则会落到调用方的 claude-code 默认路径。
+   */
+  readonly localSettingsFileName?: string;
   /** 解析出 settings.json 绝对路径 */
   resolveSettingsFile(scope: 'project' | 'global', projectRoot: string | undefined): string;
   /** 该 IDE 是否支持此 scope(用于清晰报错) */
