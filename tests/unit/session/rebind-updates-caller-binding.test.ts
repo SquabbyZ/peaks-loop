@@ -14,6 +14,13 @@
 // A second caller that did not rebind keeps its own session — that is the
 // multi-caller isolation the per-caller design exists for.
 //
+// rid=caller-first-session-resolution (session 2026-09-12-session-86f23b):
+// `getCurrentSessionId` is now caller-first too, so the two resolvers cannot
+// disagree any more — `getCurrentSessionId` returns the per-caller binding
+// whenever one exists and falls back to `session.json` only when it does
+// not. AC1 / AC4 / AC5 below were updated from "the resolvers disagree" to
+// the single-answer contract this slice establishes.
+//
 // Dimensions covered:
 //   - behavior:    both resolvers agree after the rebind; second caller
 //                  isolation preserved; refused / no-op rebinds leave the
@@ -125,16 +132,23 @@ afterEach(() => {
 });
 
 describe('Scenario: behavior — an explicit rebind repoints the rebinding caller', () => {
-  it('AC1 (precondition): a stale per-caller binding shadows session.json — the resolvers disagree', () => {
-    // This is the defect's precondition, reproduced: the caller binding is
-    // stale relative to the project-global session.json.
-    expect(getSessionIdCanonical(workspace)).toBe(SID_BIND_A);
-    expect(getCurrentSessionId(workspace)).toBe(SID_FILE);
+  it('when a stale per-caller binding shadows session.json, should resolve the caller binding through both resolvers', () => {
+    // given: caller A is bound to SID_BIND_A while the project-global
+    //        session.json says SID_FILE (the rebind defect's precondition)
+    // when: the current session is read through both public resolvers
+    const canonical = getSessionIdCanonical(workspace);
+    const current = getCurrentSessionId(workspace);
+    // then: both report the caller-bound session — the two halves of the CLI
+    //       agree, so no command can be shadowed into the wrong tree
+    expect(canonical).toBe(SID_BIND_A);
+    expect(current).toBe(SID_BIND_A);
   });
 
-  it('AC2: after --allow-session-rebind, getSessionIdCanonical and getCurrentSessionId agree on the target', async () => {
+  it('when an explicit --allow-session-rebind runs, should resolve the target session through every resolver', async () => {
+    // given: caller A is bound to SID_BIND_A and session.json says SID_FILE
+    // when: the user explicitly rebinds to SID_TARGET
     const report = await rebind(SID_TARGET, true);
-
+    // then: the report and all three resolvers agree on the target
     expect(report.bound).toBe(true);
     expect(report.previousSessionId).toBe(SID_BIND_A);
     expect(getSessionIdCanonical(workspace)).toBe(SID_TARGET);
@@ -143,9 +157,11 @@ describe('Scenario: behavior — an explicit rebind repoints the rebinding calle
     expect(getCallerBinding(workspace, CALLER_A)?.peakSessionId).toBe(SID_TARGET);
   });
 
-  it('AC3: the repoint preserves the binding metadata (mode / gate / skill / createdAt)', async () => {
+  it('when the rebind repoints the caller, should preserve the binding metadata', async () => {
+    // given: caller A's binding carries mode / gate / skill / createdAt
+    // when: the user explicitly rebinds to SID_TARGET
     await rebind(SID_TARGET, true);
-
+    // then: only peakSessionId moved — the live presence state survives
     const binding = getCallerBinding(workspace, CALLER_A);
     expect(binding?.mode).toBe('full-auto');
     expect(binding?.gate).toBe('started');
@@ -155,69 +171,74 @@ describe('Scenario: behavior — an explicit rebind repoints the rebinding calle
 });
 
 describe('Scenario: behavior — a second caller that did not rebind keeps its own session', () => {
-  it('AC4: caller B is untouched and still resolves its own session (multi-caller isolation)', async () => {
+  it('when another caller rebinds, should leave caller B byte-identical and resolving its own session', async () => {
+    // given: caller B is bound to SID_BIND_B and caller A is bound to SID_BIND_A
     setCaller(CALLER_B);
     seedCallerBinding(CALLER_B, SID_BIND_B);
     const beforeB = rawCallerFile(CALLER_B);
-
+    // when: caller A rebinds the project to SID_TARGET
     setCaller(CALLER_A);
     await rebind(SID_TARGET, true);
-
-    // A's rebind repoints A only.
+    // then: A's binding moved, B's did not ...
     expect(getCallerBinding(workspace, CALLER_A)?.peakSessionId).toBe(SID_TARGET);
-    // B's file is byte-identical: not repointed, not cleared.
     expect(rawCallerFile(CALLER_B)).toBe(beforeB);
-    // B still resolves its own session, while the project-global view moved.
+    // ... and B still resolves its own session through BOTH resolvers, even
+    //     though the project-global view moved to SID_TARGET
     setCaller(CALLER_B);
     expect(getSessionIdCanonical(workspace)).toBe(SID_BIND_B);
-    expect(getCurrentSessionId(workspace)).toBe(SID_TARGET);
+    expect(getCurrentSessionId(workspace)).toBe(SID_BIND_B);
   });
 });
 
 describe('Scenario: behavior — refused / no-op rebinds leave the caller binding untouched', () => {
-  it('AC5: a refused rebind (no --allow-session-rebind) leaves both bindings untouched', async () => {
+  it('when a rebind is refused for a conflicting session dir, should leave both bindings untouched', async () => {
+    // given: SID_BIND_A already owns a session directory, so the rebind conflicts
     const runtimeDir = join(workspace, '.peaks', '_runtime');
     mkdirSync(join(runtimeDir, SID_BIND_A), { recursive: true });
     writeFileSync(join(runtimeDir, SID_BIND_A, 'session.json'), '{}', 'utf8');
     const BeforeA = rawCallerFile(CALLER_A);
-
+    // when: the rebind runs without --allow-session-rebind
     await expect(rebind(SID_TARGET, false)).rejects.toBeInstanceOf(ConflictingSessionError);
-
+    // then: nothing moved — A's file is byte-identical and A still resolves
+    //       its own session (both resolvers agree)
     expect(rawCallerFile(CALLER_A)).toBe(BeforeA);
     expect(getSessionIdCanonical(workspace)).toBe(SID_BIND_A);
-    expect(getCurrentSessionId(workspace)).toBe(SID_FILE);
+    expect(getCurrentSessionId(workspace)).toBe(SID_BIND_A);
   });
 
-  it('AC6: re-binding the id already bound is a no-op (caller file not rewritten)', async () => {
+  it('when the target session is already bound, should not rewrite the caller file', async () => {
+    // given: caller A is already bound to SID_TARGET and session.json agrees
     setCaller(CALLER_A);
     seedCallerBinding(CALLER_A, SID_TARGET);
     seedSessionJson(SID_TARGET);
     const BeforeA = rawCallerFile(CALLER_A);
-
+    // when: the same id is bound again without --allow-session-rebind
     const report = await rebind(SID_TARGET, false);
-
+    // then: it is a no-op — no previous session, no rewrite
     expect(report.previousSessionId).toBeNull();
     expect(rawCallerFile(CALLER_A)).toBe(BeforeA);
   });
 });
 
 describe('Scenario: behavior — a caller with no binding file', () => {
-  it('AC7: no per-caller file → rebind writes session.json only and the resolvers agree', async () => {
+  it('when the caller has no binding file, should write session.json only and keep the resolvers in agreement', async () => {
+    // given: no callers/ directory at all
     rmSync(join(workspace, '.peaks', '_runtime', 'callers'), { recursive: true, force: true });
-
+    // when: the user explicitly rebinds to SID_TARGET
     await rebind(SID_TARGET, true);
-
+    // then: the global file carries the rebind and no caller file is invented
     expect(getSessionIdCanonical(workspace)).toBe(SID_TARGET);
     expect(getCurrentSessionId(workspace)).toBe(SID_TARGET);
     expect(getCallerBinding(workspace, CALLER_A)).toBeNull();
   });
 
-  it('AC8: no callerId resolvable → rebind does not throw and the resolvers agree', async () => {
+  it('when no callerId is resolvable, should still rebind session.json without throwing', async () => {
+    // given: no callers/ directory and no resolvable caller id
     rmSync(join(workspace, '.peaks', '_runtime', 'callers'), { recursive: true, force: true });
     setCaller(undefined);
-
+    // when: the user explicitly rebinds to SID_TARGET
     const report = await rebind(SID_TARGET, true);
-
+    // then: the rebind succeeds and both resolvers read the global file
     expect(report.bound).toBe(true);
     expect(getSessionIdCanonical(workspace)).toBe(SID_TARGET);
     expect(getCurrentSessionId(workspace)).toBe(SID_TARGET);

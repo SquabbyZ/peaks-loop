@@ -132,9 +132,23 @@ function resolveProjectRoot(override?: string): string {
 }
 
 /**
- * Resolve the active peaks session id from
- * `.peaks/_runtime/session.json` (legacy: `.peaks/.session.json`).
- * Returns `null` when no session is bound.
+ * Resolve the active peaks session id.
+ *
+ * Resolution order (slice caller-first-session-resolution):
+ *   1. The per-caller binding (via `getSessionId`) — the SAME source
+ *      `peaks session info --active` resolves through.
+ *   2. The project-global `.peaks/_runtime/session.json` (legacy:
+ *      `.peaks/.session.json`) — unchanged back-compat fallback.
+ *   3. `null` when neither is present.
+ *
+ * The caller-first step is what keeps two IDE windows on one project
+ * apart. The project-global file is last-writer-wins, so the window
+ * that initialised most recently owned it for every reader; commands
+ * that resolved through this helper (job / dispatch / worktree /
+ * share / ...) then wrote into THAT window's session tree, silently
+ * cross-contaminating the two sessions.
+ *
+ * Returns `null` when no session is bound. Never throws.
  *
  * Public export: callers like `peaks sub-agent dispatch` use this
  * to auto-resolve `--session-id` when the LLM driver forgets to
@@ -144,6 +158,11 @@ function resolveProjectRoot(override?: string): string {
  */
 export function getCurrentSessionId(projectRootOverride?: string): string | null {
   const projectRoot = resolveProjectRoot(projectRootOverride);
+  // Caller-first: a binding for THIS caller outranks the project-global
+  // file. Delegated to `getSessionId` rather than re-implemented, so the
+  // two answers to "which session is current?" cannot drift again.
+  const callerBound = getSessionId(projectRoot);
+  if (callerBound !== null) return callerBound;
   const sessionPath = resolve(projectRoot, SESSION_FILE);
   const legacyPath = resolve(projectRoot, SESSION_FILE_LEGACY);
   // Back-compat window: prefer the new canonical path; fall back to the

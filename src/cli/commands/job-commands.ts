@@ -71,7 +71,8 @@ function findSessionHoldingJob(project: string, jobId: string): string | null {
  * `.peaks/_runtime/session.json` binding points at another session):
  * 1. `--session-id` flag (explicit override)
  * 2. `PEAKS_SESSION_ID` env var
- * 3. `getCurrentSessionId(project)` — reads `.peaks/_runtime/session.json`
+ * 3. `getCurrentSessionId(project)` — this caller's session binding, falling back
+ *    to `.peaks/_runtime/session.json` when no caller binding is resolvable
  * 4. Error (NO_ACTIVE_SESSION) — must never silently fall back to a random uuid
  *
  * When `jobId` is passed and it is absent from the resolved session, the thrown
@@ -133,7 +134,8 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--project <repo>')
     .action(async (opts) => {
       const project = projectRoot(opts);
-      // Resolve sessionId: explicit flag > PEAKS_SESSION_ID > canonical session binding > FAIL.
+      // Resolve sessionId: explicit flag > PEAKS_SESSION_ID > caller-first session binding
+      // (this caller's binding, else the project-global session.json) > FAIL.
       // Per spec §3.3, Job state lives at .peaks/_runtime/<sessionId>/job/<jobId>/state.json —
       // a random UUID would scatter state across dirs and break resume/auto-compact.
       let sessionId: string | null = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
