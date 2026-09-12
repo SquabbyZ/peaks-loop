@@ -6,14 +6,18 @@
  *
  *   1. Auto-detects the framework from package.json (devDependencies +
  *      dependencies) via detectTestFramework().
- *   2. Spawns the framework's CLI with --cache enabled (overriding any
+ *   2. Resolves the project-LOCAL runner binary (node_modules) and spawns
+ *      that, so the command works where the runner is not on PATH — notably
+ *      Windows, where node_modules/.bin/vitest.cmd is not spawnable without
+ *      a shell. PATH is a last resort and is reported, not silent.
+ *   3. Spawns the framework's CLI with --cache enabled (overriding any
  *      --no-cache in the consumer's `test` script). The user can
  *      opt back into no-cache via `peaks test --no-cache` or
  *      `peaks test --passthrough`.
- *   3. Skips tests where (fileMtime, fileSha256) is unchanged AND the
+ *   4. Skips tests where (fileMtime, fileSha256) is unchanged AND the
  *      previous run status was 'passed' (per-test fingerprint cache at
  *      `<projectRoot>/.peaks/_runtime/test-cache/<hash>.json`).
- *   4. Exits 0 on all-pass / all-skip; exits 1 on any failure.
+ *   5. Exits 0 on all-pass / all-skip; exits 1 on any failure.
  *
  * The CLI is invoked by USER (not just by skill) per slice 2.5.0
  * sub-fix B (G16) — a documented exception to the
@@ -31,6 +35,8 @@
  */
 
 import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
@@ -99,14 +105,177 @@ export function buildRunnerArgv(
   return [...patterns];
 }
 
-function runRunner(
+/** Successful resolution — everything `spawn` needs, plus provenance. */
+export type RunnerFound = {
+  ok: true;
+  /** Executable to spawn: node itself, a local shim, or a PATH hit. */
+  command: string;
+  /** argv for `command` (includes the JS entry when spawning node). */
+  args: string[];
+  /** How the runner was found — named in the PATH-fallback notice. */
+  via: string;
+  /** True only for the PATH fallback, which the caller surfaces visibly. */
+  fromPath: boolean;
+};
+
+export type RunnerResolution = RunnerFound | { ok: false; searched: string[] };
+
+/** Injection seams for tests — production passes nothing. */
+export type ResolveRunnerDeps = {
+  platform?: NodeJS.Platform;
+  existsSync?: (path: string) => boolean;
+  readFileSync?: (path: string) => string;
+  env?: NodeJS.ProcessEnv;
+  /** Node executable used to run the runner's JS entry. */
+  nodeExecPath?: string;
+};
+
+export type RunRunnerDeps = ResolveRunnerDeps & { spawnFn?: typeof spawn };
+
+/** `<pkg>/package.json#bin`, resolved to the absolute JS entry it points at. */
+function readBinEntry(
+  pkgJsonPath: string,
+  name: string,
+  read: (path: string) => string
+): string | null {
+  let pkg: { bin?: string | Record<string, string> } = {};
+  try {
+    pkg = JSON.parse(read(pkgJsonPath)) as typeof pkg;
+  } catch {
+    // Not fatal: fall through to the `.bin` shim below, and the not-found
+    // error still names this package.json in `searched`.
+    pkg = {};
+  }
+  const rel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.[name];
+  if (typeof rel !== 'string' || rel.length === 0) return null;
+  return resolve(dirname(pkgJsonPath), rel);
+}
+
+/**
+ * Convert a resolved executable + argv into a form `spawn` can launch with
+ * `shell: false`.
+ *
+ * A Windows `.cmd`/`.bat` shim cannot be spawned directly (spawn → EINVAL).
+ * The obvious fix, `spawn(shim, argv, { shell: true })`, re-splits argv inside
+ * cmd.exe: a pattern `tests/a b/x.test.ts` arrives as THREE args (measured).
+ * Invoking cmd.exe ourselves with `/d /s /c` keeps argv intact.
+ */
+function toSpawnable(
+  exe: string,
+  argv: string[],
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv
+): { command: string; args: string[] } {
+  if (platform === 'win32' && /\.(?:cmd|bat)$/i.test(exe)) {
+    return { command: env.ComSpec ?? 'cmd.exe', args: ['/d', '/s', '/c', exe, ...argv] };
+  }
+  return { command: exe, args: argv };
+}
+
+/** Spawnable PATH hits, in preference order (`where`/`which` avoided so this
+ * stays in-process and testable). */
+function resolveFromPath(
+  name: string,
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+  exists: (path: string) => boolean
+): string | null {
+  const dirs = (env.PATH ?? '').split(platform === 'win32' ? ';' : ':').filter((d) => d.length > 0);
+  const exts = platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = join(dir, name + ext);
+      if (exists(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve the consumer project's LOCAL runner, and the form of it that
+ * `spawn` can actually launch on this platform.
+ *
+ * Probed, in order (every probe is reported when nothing is found):
+ *   1. `<root>/node_modules/.bin/<runner>` (+ `.cmd`/`.exe` on Windows) —
+ *      the project-local runner the command documents.
+ *   2. `<root>/node_modules/<runner>/package.json` → its `bin` JS entry.
+ *   3. PATH — last resort only; the caller prints a visible notice.
+ *
+ * Between 1 and 2 the **JS entry** wins: `spawn` runs it as
+ * `node <entry> …`, which is identical on Windows and POSIX and never
+ * routes argv through a shell. The `.cmd` shim is only a fallback because
+ * it needs cmd.exe to launch it (see `toSpawnable`).
+ */
+export function resolveRunner(
   framework: TestFramework,
   argv: string[],
-  projectRoot: string
-): Promise<{ code: number; stdout: string; stderr: string }> {
+  projectRoot: string,
+  deps: ResolveRunnerDeps = {}
+): RunnerResolution {
+  const platform = deps.platform ?? process.platform;
+  const exists = deps.existsSync ?? existsSync;
+  const read = deps.readFileSync ?? ((path: string) => readFileSync(path, 'utf8'));
+  const env = deps.env ?? process.env;
+  const nodeExec = deps.nodeExecPath ?? process.execPath;
+  const searched: string[] = [];
+
+  // 1. Project-local `.bin` shim.
+  const binDir = join(projectRoot, 'node_modules', '.bin');
+  const shimExts = platform === 'win32' ? ['.cmd', '.exe'] : [''];
+  let shim: string | null = null;
+  for (const ext of shimExts) {
+    const candidate = join(binDir, framework + ext);
+    searched.push(candidate);
+    if (shim === null && exists(candidate)) shim = candidate;
+  }
+
+  // 2. Project-local package entry.
+  const pkgJsonPath = join(projectRoot, 'node_modules', framework, 'package.json');
+  searched.push(pkgJsonPath);
+  const entry = exists(pkgJsonPath) ? readBinEntry(pkgJsonPath, framework, read) : null;
+
+  if (entry !== null && exists(entry)) {
+    return { ok: true, command: nodeExec, args: [entry, ...argv], via: `local ${entry}`, fromPath: false };
+  }
+  if (shim !== null) {
+    return { ok: true, ...toSpawnable(shim, argv, platform, env), via: `local ${shim}`, fromPath: false };
+  }
+
+  // 3. PATH — last resort.
+  const onPath = resolveFromPath(framework, platform, env, exists);
+  searched.push(`PATH lookup for "${framework}"`);
+  if (onPath !== null) {
+    return { ok: true, ...toSpawnable(onPath, argv, platform, env), via: `PATH: ${onPath}`, fromPath: true };
+  }
+
+  return { ok: false, searched };
+}
+
+/** Actionable message for the no-runner case — never a raw ENOENT. */
+export function formatRunnerNotFound(framework: TestFramework, searched: string[]): string {
+  return [
+    `RUNNER_NOT_FOUND: no ${framework} runner found for this project. Looked for:`,
+    ...searched.map((p) => `  - ${p}`),
+    `Install it (e.g. \`npm i -D ${framework}\`) or pass --framework <name>.`
+  ].join('\n');
+}
+
+export function runRunner(
+  framework: TestFramework,
+  argv: string[],
+  projectRoot: string,
+  deps: RunRunnerDeps = {}
+): Promise<{ code: number; stdout: string; stderr: string; notice: string | null }> {
+  const resolution = resolveRunner(framework, argv, projectRoot, deps);
+  if (!resolution.ok) {
+    return Promise.reject(new Error(formatRunnerNotFound(framework, resolution.searched)));
+  }
+  const notice = resolution.fromPath
+    ? `[peaks test] no local ${framework} under ${join(projectRoot, 'node_modules')}; falling back to ${resolution.via}\n`
+    : null;
   return new Promise((resolveRun, reject) => {
-    const cmd = framework === 'vitest' ? 'vitest' : framework === 'jest' ? 'jest' : 'mocha';
-    const proc = spawn(cmd, argv, {
+    const spawnFn = deps.spawnFn ?? spawn;
+    const proc = spawnFn(resolution.command, resolution.args, {
       cwd: projectRoot,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe']
@@ -117,7 +286,7 @@ function runRunner(
     proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
     proc.on('error', (err: Error) => reject(err));
     proc.on('close', (code) => {
-      resolveRun({ code: code ?? 0, stdout, stderr });
+      resolveRun({ code: code ?? 0, stdout, stderr, notice });
     });
   });
 }
@@ -200,6 +369,7 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
 
         // Stream the runner's output to the user.
         const result = await runRunner(framework, argv, projectRoot);
+        if (result.notice !== null) process.stderr.write(result.notice);
         process.stdout.write(result.stdout);
         process.stderr.write(result.stderr);
 
