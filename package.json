@@ -142,6 +142,7 @@
     "peaks-loop-mut": "workspace:*",
     "peaks-loop-shared": "workspace:*",
     "peaks-loop-shared-channel": "workspace:*",
+    "picomatch": "4.0.4",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
@@ -153,6 +154,7 @@
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
+    "@types/picomatch": "4.0.3",
     "@typescript-eslint/eslint-plugin": "8.66.0",
     "@typescript-eslint/parser": "8.66.0",
     "@vitest/coverage-istanbul": "^4.1.10",

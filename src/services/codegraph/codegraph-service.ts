@@ -14,7 +14,11 @@ const NUMERIC_FLAG_NAMES = ['limit', 'maxDepth'] as const;
 const COMMON_OPTION_KEYS = ['subcommand', 'project'] as const;
 const ALLOWED_OPTIONS_BY_SUBCOMMAND = {
   status: [],
-  init: ['yes'],
+  // Upstream `init` takes NO flags. The `--yes` we used to whitelist
+  // here was passed straight through to `@colbymchenry/codegraph`, which
+  // rejects it with CODEGRAPH_COMMAND_FAILED — and upstream init never
+  // prompts, so there was nothing for it to answer.
+  init: [],
   index: ['force', 'quiet'],
   query: ['search', 'json', 'limit'],
   files: ['json', 'maxDepth'],
@@ -32,7 +36,6 @@ type BaseCodegraphInvocationOptions = {
   files?: string[];
   json?: boolean;
   quiet?: boolean;
-  yes?: boolean;
   force?: boolean;
   limit?: number;
   maxDepth?: number;
@@ -194,10 +197,6 @@ function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: stri
 
   if (options.subcommand === 'affected') {
     args.push(...buildAffectedFileArgs(projectRoot, options.files));
-  }
-
-  if (options.yes === true) {
-    args.push('--yes');
   }
 
   if (options.force === true) {

@@ -42,6 +42,7 @@ import {
   type CodegraphProcessRunner,
 } from './codegraph-service.js';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
+import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
 
 export type CodegraphPreflightResult =
   | { available: true; block: string; fileCount: number; truncated: boolean }
@@ -261,6 +262,17 @@ export async function buildCodegraphPreflightBlock(
       } catch {
         // Best-effort: a marker-write failure must not undo the init.
       }
+      // Upstream init just wrote its 99-rule default `exclude` template,
+      // some of which block tracked source files. Without this, a fresh
+      // clone is initialized HERE, by the first dispatch's preflight —
+      // marker stamped over an incomplete index — and every later
+      // `peaks codegraph init` hits `noop-already-peaks-loop`, so the
+      // CLI's own self-heal becomes unreachable. Same shared helper, so
+      // all three init landing sites behave identically.
+      //
+      // Never throws, and `reindex: false` because the index call below
+      // covers the recovered files anyway.
+      await repairCodegraphExcludeFromProject(projectRoot, processRunner, { reindex: false });
     } catch (error) {
       return { available: false, note: `codegraph init unavailable: ${errorMessage(error)}` };
     }

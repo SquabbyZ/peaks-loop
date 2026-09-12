@@ -46,6 +46,7 @@ import {
   isCodegraphInitialized,
   type CodegraphProcessRunner,
 } from './codegraph-service.js';
+import { repairCodegraphExcludeFromProject } from './codegraph-exclude-repair.js';
 
 export type CodegraphAutorefreshResult =
   | { refreshed: true }
@@ -129,6 +130,17 @@ export async function refreshCodegraphAfterSlice(
           note: `auto codegraph refresh self-heal init failed (exit ${String(initResult.exitCode)}): ${firstMeaningfulLine(initResult.stderr || initResult.stdout)}`,
         };
       }
+      // That init just wrote upstream's 99-rule default `exclude`
+      // template, some of which block tracked source files — the same
+      // self-heal the CLI's `peaks codegraph init` performs, via the
+      // same shared helper. Skipped, this path would stamp the
+      // peaks-loop marker over an incomplete index that no later
+      // `init` (it would no-op) could ever repair.
+      //
+      // Never throws (the helper catches everything), and
+      // `reindex: false` because the index call below covers the
+      // recovered files.
+      await repairCodegraphExcludeFromProject(projectRoot, runner, { reindex: false });
     }
 
     const invocation = createCodegraphInvocation({ subcommand: 'index', project: projectRoot, quiet: true });

@@ -23,7 +23,8 @@
 //
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-preflight.test.ts
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -69,6 +70,51 @@ function scriptedRunner(script: Partial<Record<CodegraphInvocation['subcommand']
     }
     return canned;
   });
+}
+
+/**
+ * A runner whose `init` also writes the config file the real upstream
+ * binary writes: a template whose `**` + `/vendor/**` entry collides
+ * with a real source directory, i.e. one that silently drops tracked
+ * files from the index.
+ */
+function upstreamInitRunner(project: string) {
+  return vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+    if (invocation.subcommand === 'init') {
+      mkdirSync(join(project, '.codegraph'), { recursive: true });
+      writeFileSync(
+        join(project, '.codegraph', 'config.json'),
+        `${JSON.stringify(
+          { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+    }
+
+    if (invocation.subcommand === 'index') {
+      return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+    }
+
+    return filesResult(['src/ok.ts', 'vendor/lib.ts']);
+  });
+}
+
+/** A real temp git work tree with one tracked file under `vendor/`. */
+function gitProjectWithTrackedVendorFile(prefix: string): string {
+  const project = mkdtempSync(join(tmpdir(), prefix));
+  mkdirSync(join(project, 'src'), { recursive: true });
+  mkdirSync(join(project, 'vendor'), { recursive: true });
+  writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
+  writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+  execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore' });
+  return project;
 }
 
 describe('Scenario: behavior — renderCodegraphStructureBlock bounded output', () => {
@@ -167,6 +213,43 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
       expect(result.available).toBe(true);
       if (!result.available) throw new Error('unreachable');
       const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      expect(subcommands).toEqual(['init', 'index', 'files']);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('when a fresh init writes upstream default exclude rules that block tracked source, should self-heal the config before indexing', async () => {
+    // Regression (repair round M4). The preflight is the FIRST thing a
+    // fresh clone runs — it init'd and stamped the peaks-loop marker over
+    // an index missing every tracked file behind an offending default
+    // rule, and from then on `peaks codegraph init` hit
+    // `noop-already-peaks-loop`, so the CLI's own self-heal was
+    // unreachable. The preflight must run the same exclude repair.
+    //
+    // given: a fresh git work tree with a tracked file under vendor/
+    const project = gitProjectWithTrackedVendorFile('peaks-cg-pre-i4-');
+    const runner = upstreamInitRunner(project);
+    try {
+      // when: the preflight is invoked
+      const result = await buildCodegraphPreflightBlock(project, runner);
+
+      // then: the preflight still succeeds …
+      expect(result.available).toBe(true);
+
+      // … the offending rule is gone from the config, with a backup …
+      const configPath = join(project, '.codegraph', 'config.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      expect(config.exclude).toEqual(['**/node_modules/**']);
+      expect(existsSync(`${configPath}.bak`)).toBe(true);
+
+      // … the marker is stamped …
+      expect(existsSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME))).toBe(true);
+
+      // … and the tree is indexed exactly ONCE: the repair does not add a
+      //    second (5-30 s) rebuild because the preflight's own index
+      //    already covers the recovered files.
+      const subcommands = runner.mock.calls.map((call) => (call[0] as CodegraphInvocation).subcommand);
       expect(subcommands).toEqual(['init', 'index', 'files']);
     } finally {
       rmSync(project, { recursive: true, force: true });

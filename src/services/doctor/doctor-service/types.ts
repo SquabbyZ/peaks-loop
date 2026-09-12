@@ -81,6 +81,23 @@ export type CodegraphCapabilityProbe = {
   managedPath: CodegraphManagedPathInfo | null;
 };
 
+/**
+ * Structural shape of the codegraph exclude-integrity report the
+ * `capability:codegraph-exclude-integrity` check gates on. Declared
+ * structurally (rather than imported from the codegraph service) to
+ * keep this type module dependency-free — the default probe returns a
+ * `CodegraphExcludeIntegrityReport`, which is assignable here.
+ */
+export type CodegraphExcludeIntegrityProbe = {
+  readonly configPath: string;
+  readonly gap: boolean;
+  readonly trackedSourceCount: number;
+  readonly excludedTrackedCount: number;
+  readonly rulesToRemove: readonly string[];
+  /** One entry per (file, rule) pair. */
+  readonly violations: readonly { readonly path: string; readonly matchedRule: string }[];
+};
+
 export type DistVersionComparison = {
   dist: string | null;
   source: string;
@@ -247,6 +264,14 @@ export type DoctorOptions = {
    * `process.cwd()`.
    */
   codegraphManagedPathProbe?: () => CodegraphManagedPathInfo | null;
+  /**
+   * Optional override for the `capability:codegraph-exclude-integrity`
+   * check. Returns the integrity report, or `null` when codegraph is
+   * not initialized in the inspected root (nothing to reconcile). When
+   * omitted, the check inspects `process.cwd()`. Throwing is allowed
+   * and reported as a non-blocking warning.
+   */
+  codegraphIntegrityProbe?: () => CodegraphExcludeIntegrityProbe | null;
   skillPresenceProbe?: () => DoctorSkillPresence | null;
   skillPresenceFreshnessThresholdMs?: number;
   statusLineInstalledProbe?: () => boolean;

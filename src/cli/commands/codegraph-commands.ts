@@ -10,6 +10,14 @@ import {
   CodegraphInitConflictError,
   type CodegraphInvocationOptions
 } from '../../services/codegraph/codegraph-service.js';
+import {
+  CODEGRAPH_INTEGRITY_EXIT_CODE,
+  inspectCodegraphExcludeIntegrity,
+  isCodegraphExcludeConfigPresent,
+  renderCodegraphExcludeIntegrityLines,
+  type CodegraphExcludeIntegrityReport
+} from '../../services/codegraph/codegraph-exclude-integrity.js';
+import { repairCodegraphExcludeFromProject } from '../../services/codegraph/codegraph-exclude-repair.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
@@ -17,10 +25,6 @@ import { getErrorMessage, printResult, redactSensitiveErrorMessage, type Program
 interface CommonCodegraphOptions {
   project: string;
   peaksJson?: boolean;
-}
-
-interface CodegraphInitOptions extends CommonCodegraphOptions {
-  yes?: boolean;
 }
 
 interface CodegraphIndexOptions extends CommonCodegraphOptions {
@@ -121,6 +125,190 @@ async function runCodegraphCommand(io: ProgramIO, command: string, options: Code
 }
 
 /**
+ * `--peaks-json` machine report for `status`. Carries the upstream
+ * result AND the peaks-loop integrity verdict as one JSON document so a
+ * CI job can gate on `data.integrity.gap` / `data.integrity.rulesToRemove`
+ * without scraping human text.
+ */
+async function runCodegraphStatusJson(
+  io: ProgramIO,
+  options: CommonCodegraphOptions,
+  integrity: CodegraphExcludeIntegrityReport | null,
+  integrityWarning: string | null
+): Promise<void> {
+  let result;
+  try {
+    result = await executeCodegraphInvocation(
+      createCodegraphInvocation({ subcommand: 'status', project: options.project })
+    );
+  } catch (error) {
+    printCodegraphFailure(io, 'codegraph.status', error, true);
+    return;
+  }
+
+  const upstream = {
+    exitCode: result.exitCode,
+    stdout: rewriteBareCodegraphHints(result.stdout).trimEnd(),
+    stderr: redactSensitiveErrorMessage(rewriteBareCodegraphHints(result.stderr)).trimEnd()
+  };
+  const upstreamFailed = result.exitCode !== null && result.exitCode !== 0;
+
+  if (integrity?.gap === true) {
+    printResult(
+      io,
+      fail(
+        'codegraph.status',
+        'CODEGRAPH_INDEX_INCOMPLETE',
+        `codegraph index is incomplete: ${integrity.excludedTrackedCount} of ${integrity.trackedSourceCount} tracked source files are excluded by ${integrity.rulesToRemove.length} rule(s).`,
+        { upstream, integrity, integrityWarning },
+        ['Run `peaks codegraph repair-exclude --project <root>` to drop the offending rules and rebuild the index.']
+      ),
+      true
+    );
+  } else if (upstreamFailed) {
+    printResult(
+      io,
+      fail(
+        'codegraph.status',
+        'CODEGRAPH_COMMAND_FAILED',
+        redactSensitiveErrorMessage(upstream.stderr || upstream.stdout || `codegraph exited with code ${String(result.exitCode)}`),
+        { upstream, integrity, integrityWarning },
+        ['Check the codegraph project path before retrying']
+      ),
+      true
+    );
+  } else {
+    printResult(io, ok('codegraph.status', { upstream, integrity, integrityWarning }), true);
+  }
+
+  if (upstreamFailed) {
+    process.exitCode = result.exitCode ?? 1;
+  }
+}
+
+/**
+ * `peaks codegraph status` with an integrity gate.
+ *
+ * The upstream status is still proxied verbatim (that is what the
+ * command has always done), but a clean upstream "index is up to date"
+ * is no longer sufficient: when git-tracked source files are being
+ * excluded by the config, the command says so, names the rules and
+ * files, and exits non-zero.
+ *
+ * Read-only by construction — it imports the integrity inspector, never
+ * the repair writer. Fixing the config is `peaks codegraph init`
+ * (fresh) or `peaks codegraph repair-exclude` (explicit).
+ */
+async function runCodegraphStatusCommand(
+  io: ProgramIO,
+  options: CommonCodegraphOptions,
+  asJson?: boolean
+): Promise<void> {
+  let integrity: CodegraphExcludeIntegrityReport | null = null;
+  let integrityWarning: string | null = null;
+  const projectRoot = resolve(options.project);
+  try {
+    // Never initialized here → no exclude list is in play, so there is
+    // nothing to report. Staying silent keeps `status` honest and
+    // unchanged for projects that do not use codegraph at all.
+    integrity = isCodegraphExcludeConfigPresent(projectRoot)
+      ? inspectCodegraphExcludeIntegrity(projectRoot)
+      : null;
+  } catch (error) {
+    // Not a git work tree, no config yet, malformed config — the
+    // upstream status is still worth printing, so degrade to a warning
+    // instead of failing the whole command.
+    integrityWarning = getErrorMessage(error);
+  }
+
+  if (asJson === true) {
+    await runCodegraphStatusJson(io, options, integrity, integrityWarning);
+  } else {
+    await runCodegraphCommand(io, 'codegraph.status', { subcommand: 'status', project: options.project });
+    if (integrityWarning !== null) {
+      io.stdout(`[WARN] codegraph exclude integrity not evaluated: ${integrityWarning}`);
+    } else if (integrity !== null) {
+      for (const line of renderCodegraphExcludeIntegrityLines(integrity)) {
+        io.stdout(line);
+      }
+    }
+  }
+
+  if (integrity?.gap === true) {
+    process.exitCode = CODEGRAPH_INTEGRITY_EXIT_CODE;
+  }
+}
+
+/**
+ * Explicit repair path: reconcile → drop offending rules → back up the
+ * config → rebuild the index. Mirrors the automatic step `init` runs
+ * after a fresh upstream init, for workspaces that were already
+ * initialized before the integrity gate existed.
+ */
+async function runCodegraphRepairExcludeCommand(
+  io: ProgramIO,
+  options: CommonCodegraphOptions,
+  asJson?: boolean
+): Promise<void> {
+  let projectRoot: string;
+  try {
+    const candidate = resolve(options.project);
+    if (!statSync(candidate).isDirectory()) {
+      throw new Error('Project path must exist and be a directory');
+    }
+    projectRoot = candidate;
+  } catch (error) {
+    printCodegraphFailure(io, 'codegraph.repair-exclude', error, asJson);
+    return;
+  }
+
+  const report = await repairCodegraphExcludeFromProject(projectRoot);
+
+  // Where the notes go matters: `printResult` renders every `warnings`
+  // entry to stderr with a `warning: ` prefix, so a confirmation parked
+  // in the third slot reads as a problem — and a real warning parked
+  // there double-prefixes. Confirmations go to `nextActions`; only a
+  // genuine `report.warning` reaches `warnings`, verbatim.
+  const confirmations: string[] = [];
+  if (report.applied) {
+    confirmations.push(
+      `Removed ${report.rulesRemoved.length} exclude rule(s), recovering ${report.filesRecovered} tracked source file(s). Config backed up to ${report.backupPath}.`
+    );
+  } else {
+    confirmations.push('No tracked source file is excluded by the codegraph config; nothing to repair.');
+  }
+  if (report.applied) {
+    confirmations.push('Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.');
+  }
+
+  printResult(
+    io,
+    ok(
+      'codegraph.repair-exclude',
+      {
+        applied: report.applied,
+        rulesRemoved: report.rulesRemoved,
+        filesRecovered: report.filesRecovered,
+        trackedSourceCount: report.trackedSourceCount,
+        configPath: report.configPath,
+        backupPath: report.backupPath,
+        reindexed: report.reindexed,
+        warning: report.warning
+      },
+      report.warning === null ? [] : [report.warning],
+      confirmations
+    ),
+    asJson
+  );
+
+  // A repair that could not run to completion (or could not reindex)
+  // must not report success to a shell.
+  if (report.warning !== null) {
+    process.exitCode = 1;
+  }
+}
+
+/**
  * rid-CG-006 — init conflict guard. Resolves the project root and
  * probes `.codegraph/` for the peaks-loop marker before invoking the
  * upstream binary.
@@ -132,7 +320,7 @@ async function runCodegraphCommand(io: ProgramIO, command: string, options: Code
  * On a successful upstream init, write the marker so the next run
  * hits the noop branch instead of the conflict branch.
  */
-async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOptions, asJson?: boolean): Promise<void> {
+async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOptions, asJson?: boolean): Promise<void> {
   let projectRoot: string;
   try {
     const candidate = resolve(options.project);
@@ -157,8 +345,14 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOpti
           codegraphDir: guardOutcome.codegraphDir,
           markerPresent: true
         },
-        [`.codegraph/ is already managed by peaks-loop; init is a no-op. Marker: ${guardOutcome.codegraphDir}/.peaks-loop-marker`],
-        ['Run `peaks codegraph index` to (re)build the index without touching the schema.']
+        // A no-op init is a SUCCESS. This message used to sit in the
+        // `warnings` slot and was therefore printed as
+        // `warning: .codegraph/ is already managed by peaks-loop...`.
+        [],
+        [
+          `.codegraph/ is already managed by peaks-loop; init is a no-op. Marker: ${guardOutcome.codegraphDir}/.peaks-loop-marker`,
+          'Run `peaks codegraph index` to (re)build the index without touching the schema.'
+        ]
       ),
       asJson
     );
@@ -188,8 +382,7 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOpti
   try {
     const invocation = createCodegraphInvocation({
       subcommand: 'init',
-      project: options.project,
-      ...(options.yes === true ? { yes: true } : {})
+      project: options.project
     });
     const result = await executeCodegraphInvocation(invocation);
     const didFail = result.exitCode !== null && result.exitCode !== 0;
@@ -223,13 +416,57 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CodegraphInitOpti
     } catch {
       // intentionally swallowed — surface as warning below
     }
+
+    // Upstream `init` writes its 99-rule default `exclude` template,
+    // some of which collide with real source directories in this
+    // project. Left alone, a fresh clone / new machine gets an index
+    // that silently omits tracked source files while `status` says it
+    // is up to date. Reconcile now, drop the offending rules, and
+    // rebuild the index — a fresh init is the one moment this is both
+    // safe (nothing has been indexed yet) and necessary (`.codegraph/`
+    // is gitignored, so every clone starts from the default template).
+    //
+    // Never throws: a failure here is reported as a warning, not a
+    // failed init (the init itself already succeeded).
+    const excludeRepair = await repairCodegraphExcludeFromProject(projectRoot);
+
+    // These are confirmations, not warnings: `printResult` renders every
+    // `warnings` entry to stderr behind a `warning: ` prefix, so a fully
+    // successful init used to print a wall of `warning:` lines for what
+    // were plain success messages.
+    const initNotes: string[] = [
+      `Stamped peaks-loop marker at ${guardOutcome.codegraphDir}/.peaks-loop-marker`
+    ];
+    if (excludeRepair.applied) {
+      initNotes.push(
+        `Removed ${excludeRepair.rulesRemoved.length} exclude rule(s) that blocked tracked source files, recovering ${excludeRepair.filesRecovered} file(s); config backed up to ${excludeRepair.backupPath}.`
+      );
+      if (excludeRepair.reindexed) {
+        initNotes.push('Rebuilt the codegraph index over the recovered files.');
+      }
+    }
+
     printResult(
       io,
       ok(
         'codegraph.init',
-        { guard: guardOutcome.status, codegraphDir: guardOutcome.codegraphDir, markerWritten: true },
-        [],
-        [`Stamped peaks-loop marker at ${guardOutcome.codegraphDir}/.peaks-loop-marker`]
+        {
+          guard: guardOutcome.status,
+          codegraphDir: guardOutcome.codegraphDir,
+          markerWritten: true,
+          excludeRepair: {
+            applied: excludeRepair.applied,
+            rulesRemoved: excludeRepair.rulesRemoved,
+            filesRecovered: excludeRepair.filesRecovered,
+            reindexed: excludeRepair.reindexed,
+            backupPath: excludeRepair.backupPath,
+            warning: excludeRepair.warning
+          }
+        },
+        // Verbatim: `printResult` supplies the `warning: ` prefix, so a
+        // prefix added here would render as `warning: warning: ...`.
+        excludeRepair.warning === null ? [] : [excludeRepair.warning],
+        initNotes
       ),
       asJson
     );
@@ -321,12 +558,22 @@ async function runCodegraphAffectedCommand(
 export function registerCodegraphCommands(program: Command, io: ProgramIO): void {
   const codegraph = program.command('codegraph').description('Run upstream codegraph commands through the Peaks launcher');
 
-  addProjectOption(codegraph.command('status').description('Show codegraph status')).action((options: CommonCodegraphOptions) =>
-    runCodegraphCommand(io, 'codegraph.status', { subcommand: 'status', project: options.project }, options.peaksJson)
+  addProjectOption(
+    codegraph.command('status').description('Show codegraph status, including the exclude integrity gate')
+  ).action((options: CommonCodegraphOptions) =>
+    runCodegraphStatusCommand(io, options, options.peaksJson)
   );
 
-  addProjectOption(codegraph.command('init').description('Initialize codegraph for a project').option('--yes', 'answer yes to upstream prompts')).action(
-    (options: CodegraphInitOptions) => runCodegraphInitCommand(io, options, options.peaksJson)
+  addProjectOption(
+    codegraph
+      .command('repair-exclude')
+      .description('Drop codegraph exclude rules that block tracked source files, then rebuild the index')
+  ).action((options: CommonCodegraphOptions) =>
+    runCodegraphRepairExcludeCommand(io, options, options.peaksJson)
+  );
+
+  addProjectOption(codegraph.command('init').description('Initialize codegraph for a project')).action(
+    (options: CommonCodegraphOptions) => runCodegraphInitCommand(io, options, options.peaksJson)
   );
 
   addProjectOption(

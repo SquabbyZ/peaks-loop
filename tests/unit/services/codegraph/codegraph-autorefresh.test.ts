@@ -23,7 +23,8 @@
 //
 // Run with: pnpm vitest run tests/unit/services/codegraph/codegraph-autorefresh.test.ts
 
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -198,6 +199,67 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
       const result = await refreshCodegraphAfterSlice(project, runner);
       // then: the refresh self-heals (init → index) and reports refreshed
       expect(result.refreshed).toBe(true);
+      const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
+      expect(subcommands).toEqual(['init', 'index']);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('when the self-heal init writes upstream default exclude rules that block tracked source, should repair the config', async () => {
+    // Regression (repair round M4). The dangling self-heal ran upstream
+    // `init` — which writes the default `exclude` template — and then
+    // `index`, without ever reconciling. The marker is already present
+    // on this path (that is what "dangling" means), so from then on
+    // `peaks codegraph init` no-ops and the gap is permanent. The
+    // autorefresh must run the same exclude repair the CLI does.
+    //
+    // given: a real git work tree with a tracked file under vendor/, and
+    //        a dangling peaks-loop `.codegraph/`
+    const project = realpathSync.native(mkdtempSync(join(tmpdir(), 'peaks-cg-auto-d1b-')));
+    mkdirSync(join(project, 'src'), { recursive: true });
+    mkdirSync(join(project, 'vendor'), { recursive: true });
+    writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
+    writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+    execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore' });
+    danglingCodegraph(project);
+
+    const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {
+      if (invocation.subcommand === 'init') {
+        writeFileSync(
+          join(project, '.codegraph', 'config.json'),
+          `${JSON.stringify(
+            { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/node_modules/**'] },
+            null,
+            2,
+          )}\n`,
+          'utf8',
+        );
+        return { exitCode: 0, stdout: 'initialized\n', stderr: '' };
+      }
+      if (invocation.subcommand === 'index') return { exitCode: 0, stdout: 'indexed\n', stderr: '' };
+      return { exitCode: 1, stdout: '', stderr: 'unexpected subcommand' };
+    });
+
+    try {
+      // when: refreshCodegraphAfterSlice is invoked
+      const result = await refreshCodegraphAfterSlice(project, runner);
+
+      // then: the refresh still succeeds …
+      expect(result.refreshed).toBe(true);
+
+      // … the offending rule is gone, with a rollback copy …
+      const configPath = join(project, '.codegraph', 'config.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      expect(config.exclude).toEqual(['**/node_modules/**']);
+      expect(existsSync(`${configPath}.bak`)).toBe(true);
+
+      // … and exactly one index ran (the repair does not add a second
+      //    rebuild when the caller indexes right after).
       const subcommands = runner.mock.calls.map((c) => (c[0] as CodegraphInvocation).subcommand);
       expect(subcommands).toEqual(['init', 'index']);
     } finally {
