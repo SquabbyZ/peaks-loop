@@ -1,14 +1,21 @@
 /**
- * W5 Fix M2 — `peaks prepare-final-review <rid>` CLI wrapper.
+ * `peaks prepare-final-review <rid>` CLI wrapper (W5 Fix M2; real provider
+ * binding added by the S3 defect-remediation slice).
  *
- * Exposes the `prepareFinalReview()` service (added in W2 T9 on
+ * Exposes the `prepareFinalReview()` service (W2 T9 on
  * `feature/slice-topology-multipass`) via the CLI surface. The service
- * depends on an injected `LlmRunner`; this slice wires the CLI route
- * with a `stub` provider that returns a structured "scaffold ready"
- * envelope so CI can verify the route without a real LLM. A follow-up
- * slice will bind a real provider. Until then, non-stub providers fail
- * loudly with `LLM_PROVIDER_NOT_IMPLEMENTED` so callers cannot silently
- * no-op.
+ * depends on an injected `LlmRunner`; this file owns the binding:
+ *   - `--llm-provider stub` (default) returns a structured "scaffold ready"
+ *     envelope WITHOUT calling the service, so CI can verify the route
+ *     offline. It performs no review, and says so in every hint it emits.
+ *   - `--llm-provider anthropic` binds the real Messages-API runner
+ *     (`resolveAnthropicConfig()` + `createAnthropicRunner()`) and runs the
+ *     service for real, carrying the 4-dim result back in the envelope.
+ *     An absent credential or model raises `LlmBindingError`, reported under
+ *     its own error code — never degraded into a scaffold a caller could
+ *     mistake for a review.
+ * Unknown provider names still fail loudly with
+ * `LLM_PROVIDER_NOT_IMPLEMENTED` rather than silently falling back to stub.
  *
  * Per the dev-preference "Default-no on new CLI commands" rule and the
  * W4 T14 spec, this is a NEW top-level command (`prepare-final-review`),
@@ -23,6 +30,18 @@ import { join, resolve } from 'node:path';
 import { Command } from 'commander';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
+import {
+  createAnthropicRunner,
+  LlmBindingError,
+  LlmRequestError,
+  resolveAnthropicConfig,
+} from '../../services/llm/anthropic-runner.js';
+import {
+  IncompleteFinalReviewError,
+  prepareFinalReview,
+  type LlmRunner,
+} from '../../services/final-review/final-review-service.js';
+import type { FinalReviewOutput } from '../../services/final-review/final-review-types.js';
 
 type PrepareFinalReviewOptions = {
   project: string;
@@ -32,14 +51,29 @@ type PrepareFinalReviewOptions = {
 };
 
 /** Whitelist of supported `--llm-provider` values for `peaks prepare-final-review`. */
-const SUPPORTED_LLM_PROVIDERS = ['stub'] as const;
+const SUPPORTED_LLM_PROVIDERS = ['anthropic', 'stub'] as const;
 type SupportedLlmProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number];
+
+/**
+ * Default stays `stub` (unlike `peaks audit goal`, whose default is the real
+ * provider): the scaffold route is what CI and the registered e2e contract
+ * exercise without credentials, and the stub envelope is labelled
+ * `status: 'scaffold-only'` / `providerBinding: 'stub'` so it can never be
+ * read as a review.
+ */
+const DEFAULT_LLM_PROVIDER: SupportedLlmProvider = 'stub';
 
 function isSupportedLlmProvider(value: string): value is SupportedLlmProvider {
   return (SUPPORTED_LLM_PROVIDERS as readonly string[]).includes(value);
 }
 
-export type FinalReviewStatus = 'scaffold-only' | 'not-applicable';
+export type FinalReviewStatus = 'scaffold-only' | 'review-complete' | 'not-applicable';
+
+/**
+ * Which LLM produced this envelope. `unknown` is reserved for failure
+ * envelopes, where no binding was ever established.
+ */
+export type FinalReviewProviderBinding = 'stub' | 'anthropic-messages-api' | 'unknown';
 
 export interface FinalReviewData {
   readonly status: FinalReviewStatus;
@@ -47,7 +81,18 @@ export interface FinalReviewData {
   readonly sessionId: string;
   readonly auditGoalPath: string;
   readonly serviceWired: boolean;
-  readonly providerBinding: 'pending-follow-up-slice' | 'unknown';
+  readonly providerBinding: FinalReviewProviderBinding;
+  /** Model id the bound provider answered with (real-provider runs only). */
+  readonly model?: string;
+  /** The 4-dim review the service produced (real-provider runs only). */
+  readonly review?: FinalReviewOutput;
+  /**
+   * Environment variables that were absent when binding failed. Surfaced on
+   * `data` because `fail()` redacts `message` through
+   * `redactSensitiveErrorMessage`, whose catch-all pattern matches the words
+   * `token` / `api_key` and would blank out the very names an operator needs.
+   */
+  readonly missingEnv?: readonly string[];
 }
 
 /**
@@ -59,7 +104,8 @@ export interface FinalReviewData {
 function emptyFinalReviewData(
   rid: string,
   sessionId: string,
-  auditGoalPath: string
+  auditGoalPath: string,
+  missingEnv?: readonly string[]
 ): FinalReviewData {
   return {
     status: 'not-applicable',
@@ -68,6 +114,7 @@ function emptyFinalReviewData(
     auditGoalPath,
     serviceWired: false,
     providerBinding: 'unknown',
+    ...(missingEnv === undefined ? {} : { missingEnv }),
   };
 }
 
@@ -133,7 +180,11 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
       )
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--session-id <sid>', 'session id whose .peaks/_runtime/<sid>/audit-goal/<rid>.json is the approved goal source')
-      .option('--llm-provider <name>', 'LLM provider name (default: stub)', 'stub')
+      .option(
+        '--llm-provider <name>',
+        `LLM provider name: ${SUPPORTED_LLM_PROVIDERS.join(' | ')} (default: ${DEFAULT_LLM_PROVIDER} — performs no review)`,
+        DEFAULT_LLM_PROVIDER
+      )
   ).action(async (rid: string, options: PrepareFinalReviewOptions) => {
     // 1. Project root must exist and be a directory.
     const projectValidation = validateProjectRoot(options.project);
@@ -208,19 +259,20 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
       return;
     }
 
-    // 5. Provider check: only `stub` is wired in this slice.
-    const provider = options.llmProvider ?? 'stub';
+    // 5. Provider check: unknown names fail loudly — a silent fallback to
+    //    `stub` would hand the caller a scaffold envelope that reads as a
+    //    review route, which is the defect class this gate exists to stop.
+    const provider = options.llmProvider ?? DEFAULT_LLM_PROVIDER;
     if (!isSupportedLlmProvider(provider)) {
       printResult(
         io,
         fail<FinalReviewData>(
           'final-review.prepare',
           'LLM_PROVIDER_NOT_IMPLEMENTED',
-          `Provider '${provider}' is not yet wired. The CLI surface is in place; real provider binding is a follow-up slice. Use --llm-provider stub to validate the route without invoking the LLM.`,
+          `LLM provider "${provider}" is not implemented. Supported providers: ${SUPPORTED_LLM_PROVIDERS.join(', ')}.`,
           emptyFinalReviewData(rid, sessionValidation.sessionId, auditGoalPath),
           [
-            'Re-run with `--llm-provider stub` (default) to validate the route.',
-            'Real provider binding is tracked as a follow-up slice.',
+            `Re-run with \`--llm-provider anthropic\` for a real 4-dim review, or \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for an offline scaffold.`,
           ]
         ),
         options.json
@@ -230,28 +282,129 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
     }
 
     // 6. Stub path: surface a structured "scaffold ready" envelope.
-    //    We DO NOT call the service in this slice — the service depends
-    //    on an injected `LlmRunner` interface, and no real provider is
-    //    bound yet. The envelope confirms the route is wired end-to-end
-    //    and reports the audit-goal path the service WOULD read.
-    const data: FinalReviewData = {
-      status: 'scaffold-only',
-      rid,
-      sessionId: sessionValidation.sessionId,
-      auditGoalPath,
-      serviceWired: true,
-      providerBinding: 'pending-follow-up-slice',
-    };
-    const envelope: ResultEnvelope<FinalReviewData> = ok(
-      'final-review.prepare',
-      data,
-      [],
-      [
-        'prepareFinalReview() service is wired and reachable. The stub provider returns a scaffold envelope so CI can verify the route without a real LLM.',
-        `Audit-goal file is present at: ${auditGoalPath}`,
-        'A follow-up slice will bind a real LLM provider; until then, non-stub providers fail loudly with `LLM_PROVIDER_NOT_IMPLEMENTED`.',
-      ]
-    );
-    printResult(io, envelope, options.json);
+    //    We DO NOT call the service here — the stub runner answers the
+    //    audit-goal shape, not the 4-dim review shape, so running it through
+    //    `prepareFinalReview()` would only manufacture a malformed review.
+    //    The envelope confirms the route is wired end-to-end and reports the
+    //    audit-goal path the service WOULD read.
+    if (provider === 'stub') {
+      const data: FinalReviewData = {
+        status: 'scaffold-only',
+        rid,
+        sessionId: sessionValidation.sessionId,
+        auditGoalPath,
+        serviceWired: true,
+        providerBinding: 'stub',
+      };
+      const envelope: ResultEnvelope<FinalReviewData> = ok(
+        'final-review.prepare',
+        data,
+        [],
+        [
+          'Stub provider: no 4-dim review was performed. This envelope only proves the route is wired and reachable.',
+          `Audit-goal file is present at: ${auditGoalPath}`,
+          'Re-run with `--llm-provider anthropic` to produce a real review.',
+        ]
+      );
+      printResult(io, envelope, options.json);
+      return;
+    }
+
+    // 7. Real provider path: bind a real `LlmRunner` and run the service.
+    //    Binding happens INSIDE the try so an absent credential surfaces as
+    //    `LlmBindingError`'s own code instead of escaping as a crash. No
+    //    envelope is emitted on that path — a "successful" empty review would
+    //    be worse than an error.
+    try {
+      const config = resolveAnthropicConfig();
+      const llmRunner: LlmRunner = createAnthropicRunner(config);
+      const review = await prepareFinalReview(rid, {
+        projectRoot: projectValidation.projectRoot,
+        sessionId: sessionValidation.sessionId,
+        llmRunner,
+      });
+      const data: FinalReviewData = {
+        status: 'review-complete',
+        rid,
+        sessionId: sessionValidation.sessionId,
+        auditGoalPath,
+        serviceWired: true,
+        providerBinding: 'anthropic-messages-api',
+        model: config.model,
+        review,
+      };
+      const envelope: ResultEnvelope<FinalReviewData> = ok(
+        'final-review.prepare',
+        data,
+        review.allPass ? [] : [
+          `Dimensions needing human attention: ${review.needsAttention.join(', ') || 'none flagged'}.`,
+        ],
+        [
+          `4-dim review produced by anthropic-messages-api (model: ${config.model}).`,
+          `allPass: ${String(review.allPass)}.`,
+        ]
+      );
+      printResult(io, envelope, options.json);
+    } catch (error) {
+      const code = finalReviewErrorCode(error);
+      printResult(
+        io,
+        fail<FinalReviewData>(
+          'final-review.prepare',
+          code,
+          getErrorMessage(error),
+          emptyFinalReviewData(
+            rid,
+            sessionValidation.sessionId,
+            auditGoalPath,
+            error instanceof LlmBindingError ? error.missingEnv : undefined
+          ),
+          finalReviewNextActions(code)
+        ),
+        options.json
+      );
+      process.exitCode = 1;
+    }
   });
+}
+
+/**
+ * Map a thrown error to the CLI's error code. The LLM-layer errors already
+ * carry codes precise enough to act on (`LLM_CREDENTIAL_MISSING`,
+ * `LLM_REQUEST_FAILED`, …), so they are passed through rather than flattened
+ * into one opaque failure.
+ */
+function finalReviewErrorCode(error: unknown): string {
+  if (
+    error instanceof LlmBindingError ||
+    error instanceof LlmRequestError ||
+    error instanceof IncompleteFinalReviewError
+  ) {
+    return error.code;
+  }
+  return 'FINAL_REVIEW_FAILED';
+}
+
+function finalReviewNextActions(code: string): string[] {
+  switch (code) {
+    case 'LLM_CREDENTIAL_MISSING':
+      return [
+        'Export ANTHROPIC_AUTH_TOKEN (or ANTHROPIC_API_KEY) in the environment that launches peaks, then re-run.',
+        'For an offline scaffold instead of a review, re-run with `--llm-provider stub` — it performs NO review.',
+      ];
+    case 'LLM_MODEL_MISSING':
+      return [
+        'Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.',
+      ];
+    case 'LLM_REQUEST_FAILED':
+      return [
+        'Check ANTHROPIC_BASE_URL and network reachability, then re-run — a transport failure produces no review.',
+      ];
+    case 'INCOMPLETE_FINAL_REVIEW':
+      return [
+        'The LLM reply was not valid JSON or omitted a required dimension; re-run so the gate is never read as complete.',
+      ];
+    default:
+      return ['Re-run with `--llm-provider stub` to validate the CLI route without a real LLM.'];
+  }
 }

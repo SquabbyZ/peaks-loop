@@ -62,7 +62,6 @@ export async function autoRegenPrdHandoff(opts: {
     '---',
     `requestId: ${opts.requestId}`,
     `sessionId: ${opts.sessionId}`,
-    `sessionId: ${opts.sessionId}`,
     'schemaVersion: 2',
     `sha256: ${sha256}`,
     `handoffHash: ${sha256}`,

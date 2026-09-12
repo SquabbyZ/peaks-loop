@@ -28,6 +28,80 @@ import {
   SharedReadOptions,
   summarizeBatchResults
 } from './sub-agent-shared.js';
+import type { DispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
+
+/**
+ * A `dispatch-*.json` candidate for `finalize --request-id`, as read off disk.
+ * The record's own `createdAt` is carried as the recency key — NOT the file's
+ * mtime, which any heartbeat or finalize rewrites, so a `done` record can look
+ * newer than the `queued` one that superseded it. Keeping the key on the
+ * candidate makes the selection rule a pure function of the records and
+ * testable without a filesystem.
+ */
+export interface FinalizeCandidate {
+  readonly recordPath: string;
+  readonly requestId: string;
+  readonly status: string;
+  readonly createdAt: string;
+}
+
+/**
+ * What `--request-id` actually did, reported in the envelope. N3: the branch
+ * used to resolve silently and could not say WHY a record was or was not the
+ * one finalized.
+ */
+export interface FinalizeSelection {
+  readonly requestId: string;
+  readonly rule: string;
+  readonly matched: number;
+  readonly chosen: string | null;
+  readonly rejected: readonly {
+    readonly recordPath: string;
+    readonly status: string;
+    readonly reason: string;
+  }[];
+}
+
+/** The one selection rule `--request-id` and `--batch` now share. */
+export const FINALIZE_SELECTION_RULE =
+  'prefer status=queued; among those, newest by record createdAt (then filename); ' +
+  'no queued match means nothing is finalized';
+
+/**
+ * N3 — pick the record `finalize --request-id` should act on.
+ *
+ * The branch this replaces `break`ed on the FIRST file whose record carried
+ * the requestId and never looked at `status`. With a re-dispatched request
+ * (this session holds six records for `2026-09-12-defect-remediation`) it
+ * always resolved to the OLDEST one — the already-`done` RD record — so
+ * finalizing reported success while the newer `queued` QA record stayed
+ * queued forever. `--batch` never had that bug: it filters on `queued`.
+ *
+ * Both branches are now the same rule. Return `null` when nothing is queued:
+ * a record that already left `queued` is precisely the one that must NOT be
+ * re-finalized, so the caller reports the survivors instead of touching one.
+ */
+export function selectFinalizeTarget(
+  candidates: readonly FinalizeCandidate[]
+): FinalizeCandidate | null {
+  const queued = candidates.filter(candidate => candidate.status === 'queued');
+  if (queued.length === 0) return null;
+  return [...queued].sort(
+    (a, b) =>
+      b.createdAt.localeCompare(a.createdAt) || b.recordPath.localeCompare(a.recordPath)
+  )[0]!;
+}
+
+/** Why a candidate was not the chosen one — reported, never guessed at. */
+export function describeFinalizeRejection(
+  candidate: FinalizeCandidate,
+  chosen: FinalizeCandidate | null
+): string {
+  if (candidate.status !== 'queued' || chosen === null) {
+    return 'status is ' + candidate.status;
+  }
+  return 'superseded by the newer queued record ' + chosen.recordPath;
+}
 
 export function registerShareCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -392,6 +466,30 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
         const finalized = [] as Array<{ recordPath: string; requestId: string; status: string }>;
         const skipped = [] as Array<{ recordPath: string; reason: string }>;
         const errors = [] as Array<{ recordPath: string; error: string }>;
+        let selection: FinalizeSelection | null = null;
+        /**
+         * N2 — one unreadable record must not abort the sweep.
+         *
+         * Skipping `active-dispatches.json` and `batch-*.counter.json` by
+         * FILENAME removed the two non-record files that happened to be in the
+         * directory, but a single stale or foreign `dispatch-*.json` (an old
+         * `version`, hand-edited JSON, a truncated write) still made
+         * `readRecord` throw from OUTSIDE any try/catch — and the throw
+         * escaped to the action's outer handler, so `--request-id` AND
+         * `--batch` both died with `FINALIZE_ERROR` and exit 1 without
+         * touching a single healthy record.
+         *
+         * A record that cannot be read is now reported in `errors[]` and
+         * skipped; every other record is processed as before.
+         */
+        const tryReadRecord = (recordPath: string): DispatchRecord | null => {
+          try {
+            return readRecord(recordPath);
+          } catch (e: unknown) {
+            errors.push({ recordPath, error: getErrorMessage(e) });
+            return null;
+          }
+        };
         const applyOutcome = (recordPath: string, rid: string): void => {
           markCompleted({ recordPath, now: () => new Date(), status: mapped.status, outcome: mapped.outcome, projectRoot });
           finalized.push({ recordPath, requestId: rid, status: mapped.status });
@@ -407,22 +505,54 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
           const fs2 = await import('node:fs');
           const path2 = await import('node:path');
           const dir = path2.resolve(projectRoot, '.peaks', '_sub_agents', sessionId);
-          let resolvedPath: string | null = null;
+          const candidates: FinalizeCandidate[] = [];
           if (fs2.existsSync(dir)) {
             for (const f of fs2.readdirSync(dir)) {
-              if (!f.endsWith('.json')) continue;
+              // Only dispatch records are readable records. The session
+              // directory also holds `active-dispatches.json` (an index)
+              // and `batch-<uuid>.counter.json` (batch counters); neither
+              // carries a `version` field, so `readRecord` on them throws
+              // `Dispatch record version mismatch ... got undefined`. The
+              // `--batch` branch below has always used this same filter.
+              if (!f.startsWith('dispatch-') || !f.endsWith('.json')) continue;
               const p = path2.join(dir, f);
-              const r = readRecord(p);
-              if (r.requestId === options.requestId) { resolvedPath = p; break; }
+              const r = tryReadRecord(p);
+              if (r === null || r.requestId !== options.requestId) continue;
+              candidates.push({
+                recordPath: p,
+                requestId: r.requestId,
+                status: r.status,
+                createdAt: r.createdAt
+              });
             }
           }
-          if (!resolvedPath) {
+          if (candidates.length === 0) {
             printResult(io, fail('sub-agent.finalize', 'RECORD_NOT_FOUND', 'No dispatch record for requestId=' + options.requestId, { ok: false } as never, ['Check --request-id matches the dispatch envelope.']), asJson);
             process.exitCode = 1;
             return;
           }
-          try { applyOutcome(resolvedPath, options.requestId); }
-          catch (e: unknown) { errors.push({ recordPath: resolvedPath, error: getErrorMessage(e) }); }
+          // N3: same rule as `--batch` — see `selectFinalizeTarget`.
+          const chosen = selectFinalizeTarget(candidates);
+          selection = {
+            requestId: options.requestId,
+            rule: FINALIZE_SELECTION_RULE,
+            matched: candidates.length,
+            chosen: chosen?.recordPath ?? null,
+            rejected: candidates
+              .filter(candidate => candidate !== chosen)
+              .map(candidate => ({
+                recordPath: candidate.recordPath,
+                status: candidate.status,
+                reason: describeFinalizeRejection(candidate, chosen)
+              }))
+          };
+          for (const rejected of selection.rejected) {
+            skipped.push({ recordPath: rejected.recordPath, reason: rejected.reason });
+          }
+          if (chosen !== null) {
+            try { applyOutcome(chosen.recordPath, chosen.requestId); }
+            catch (e: unknown) { errors.push({ recordPath: chosen.recordPath, error: getErrorMessage(e) }); }
+          }
         } else {
           const fs2 = await import('node:fs');
           const path2 = await import('node:path');
@@ -431,7 +561,8 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
             for (const f of fs2.readdirSync(dir)) {
               if (!f.startsWith('dispatch-') || !f.endsWith('.json')) continue;
               const p = path2.join(dir, f);
-              const r = readRecord(p);
+              const r = tryReadRecord(p);
+              if (r === null) continue;
               if (r.batchId !== options.batch) continue;
               if (r.status !== 'queued') { skipped.push({ recordPath: p, reason: 'status is ' + r.status }); continue; }
               try { applyOutcome(p, r.requestId); }
@@ -439,7 +570,18 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
             }
           }
         }
-        printResult(io, ok('sub-agent.finalize', { finalized, skipped, errors, sessionId, outcome }, errors.length > 0 ? [errors.length + ' failed'] : [], errors.length > 0 ? ['Re-run after fixing.'] : ['All targeted records transitioned out of queued.']), asJson);
+        const hints: string[] = [];
+        if (errors.length > 0) {
+          hints.push('Re-run after fixing; unreadable records are listed in errors[] and were skipped, not fatal.');
+        } else if (finalized.length === 0 && skipped.length > 0) {
+          hints.push('Nothing was finalized: every matching record had already left `queued`. See skipped[] for each record\'s status.');
+        } else {
+          hints.push('All targeted records transitioned out of queued.');
+        }
+        if (selection !== null) {
+          hints.push(`--request-id selection (${selection.rule}): chose ${selection.chosen ?? '(none)'} of ${selection.matched} matching record(s); ${selection.rejected.length} rejected.`);
+        }
+        printResult(io, ok('sub-agent.finalize', { finalized, skipped, errors, selection, sessionId, outcome }, errors.length > 0 ? [errors.length + ' failed'] : [], hints), asJson);
         if (errors.length > 0) process.exitCode = 1;
       } catch (error: unknown) {
         printResult(io, fail('sub-agent.finalize', 'FINALIZE_ERROR', getErrorMessage(error), { ok: false } as never, ['Inspect the error.']), asJson);

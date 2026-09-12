@@ -94,13 +94,27 @@ export async function readHandoff(filePath: string): Promise<Handoff> {
 }
 
 /** Verify a handoff by re-reading and re-hashing. Returns a probe
- *  (never throws on hash mismatch — that's the outcome). */
+ *  (never throws on hash mismatch — that's the outcome).
+ *
+ *  N1: the two failure classes are reported separately. The previous
+ *  single `catch` folded every read failure into `file-missing`, so a
+ *  handoff that WAS on disk but whose frontmatter the parser refused was
+ *  reported as absent — sending an operator to look for a missing file
+ *  that was right there. Only a genuine read failure (ENOENT, EACCES, …)
+ *  is `file-missing` now; anything the parser rejects is
+ *  `frontmatter-malformed`. */
 export async function verifyHandoff(filePath: string): Promise<HandoffProbe> {
-  let handoff: Handoff;
+  let content: string;
   try {
-    handoff = await readHandoff(filePath);
+    content = await readFile(filePath, 'utf8');
   } catch {
     return { ok: false, reason: 'file-missing' };
+  }
+  let handoff: Handoff;
+  try {
+    handoff = parseHandoffContent(content);
+  } catch {
+    return { ok: false, reason: 'frontmatter-malformed' };
   }
   if (handoff.frontmatter.schemaVersion !== HANDOFF_SCHEMA_VERSION) {
     return {
@@ -148,7 +162,16 @@ function parseHandoffContent(content: string): Handoff {
   if (!isHandoffFrontmatter(parsed)) {
     throw new Error('handoff: frontmatter shape validation failed');
   }
-  return { frontmatter: parsed, body };
+  // N1: normalize the version to its canonical string form. `schemaVersion: 2`
+  // (bare) is valid YAML that parses to the NUMBER 2; `schemaVersion: '2'` is
+  // what `stringifyYaml` writes. Both mean schema version 2, so the parsed
+  // frontmatter is returned with the canonical `'2'` rather than the raw scalar
+  // — otherwise every downstream `=== '2'` comparison would depend on which
+  // producer wrote the file.
+  return {
+    frontmatter: { ...parsed, schemaVersion: HANDOFF_SCHEMA_VERSION },
+    body
+  };
 }
 
 function serializeHandoff(handoff: Handoff): string {
@@ -158,14 +181,33 @@ function serializeHandoff(handoff: Handoff): string {
   return `---\n${yamlStr}\n---\n${handoff.body}`;
 }
 
+/**
+ * N1: accept BOTH shapes of `schemaVersion` — the string `'2'` and the bare
+ * YAML number `2` — and reject any other value.
+ *
+ * The reader used to require `typeof v.schemaVersion === 'string'`. That made
+ * `readHandoff` refuse `prd/handoff.md` written by `handoff-auto-regen.ts`,
+ * which emits the unquoted `schemaVersion: 2`, while the
+ * `AUDIT_REQUIRES_HANDOFF` prereq — a SUBSTRING check for `schemaVersion: 2` —
+ * happily passed the same bytes. So the gate that exists to guarantee a
+ * readable handoff was satisfied by a handoff the parser would not read, and
+ * `peaks prd handoff verify` exited 1 on a healthy file.
+ *
+ * Quoting the writer instead is NOT a fix: it would delete the very substring
+ * the prereq pins, turning a broken read into a broken gate. The tolerant read
+ * is the only change that satisfies both consumers.
+ */
+function isSchemaVersion2(value: unknown): boolean {
+  return value === HANDOFF_SCHEMA_VERSION || value === 2;
+}
+
 function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.requestId === 'string' &&
     typeof v.sessionId === 'string' &&
-    typeof v.sessionId === 'string' &&
-    typeof v.schemaVersion === 'string' &&
+    isSchemaVersion2(v.schemaVersion) &&
     typeof v.handoffHash === 'string' &&
     typeof v.writtenAt === 'string' &&
     Array.isArray(v.goals) &&
