@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-12T02:48:51.757Z",
+  "updatedAt": "2026-09-12T06:02:14.284Z",
   "hot": {
     "rule": [
       {
@@ -178,6 +178,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "substring-gate-passes-unparseable-artifact",
+        "kind": "rule",
+        "description": "写出的 handoff frontmatter 把  **写了两遍**（第 64–65 行连续两行 sessionId: ${opts.sessionId}）。而 （）对同一份文件只做**子串**检查：。两份重复键各自都是一行合法的 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\substring-gate-passes-unparseable-artifact.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "test-a-concurrency-fix-against-every-distinct-trigger-class-not-one",
@@ -612,6 +620,22 @@
     ],
     "module": [
       {
+        "name": "codegraph-status-ok",
+        "kind": "module",
+        "description": "的默认  含 5 条**按目录名**匹配的规则：、、、、。在本仓库它们挡掉了 **26 个 git-tracked 源文件**（真实源码目录恰好叫这些名字），而  仍报 。根因： 比较的是\"图 vs 上次扫描的输入\"，而  规则在**...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\codegraph-status-ok.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
+        "name": "finalize-request-id-broken-4-0-43",
+        "kind": "module",
+        "description": "的  分支（约第 413 行）用  遍历 ，于是会先读到同目录下的  和 （这两个文件**没有**  字段）→  抛 。同文件的  分支（约第 432 行）用的是  —— **那才是对的过滤器**。D21 当初就是为\"13 条陈旧记录...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\finalize-request-id-broken-4-0-43.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
         "name": "slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly",
         "kind": "module",
         "description": "Slice #2's perf baseline shows the cwd-fallback path in  scales linearly with adapter count: 1 adapter = ~17 µs, 2 ad...",
@@ -710,6 +734,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "ac-pass-list-is-not-a-completion-bar",
+        "kind": "lesson",
+        "description": "本切片 QA 报 **11/11 AC pass**，RD 自评审却找出 **4 条 MEDIUM**，全部落在 QA 那 11 条 AC 之外：(CR-1)  的成功提示被打成  输出到 stderr；(CR-2) 自实现 matc...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
         "name": "auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准",
         "kind": "lesson",
         "description": "auto-compact context probe 根因修复 > **优先级**：项目级 lesson。任何 context-probe / auto-compact 改动必须遵守本文三条约束：(1) fallback 必须 ada...",
@@ -756,6 +788,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-11-f2-detached-arch-closure-and-4-0-21-publish-sediment.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "library-delegation-swaps-failure-modes",
+        "kind": "lesson",
+        "description": "为修自实现 matcher 的两条缺陷（扩展 glob 语法漏报 + 灾难性回溯），改用 （与 codegraph 上游同引擎同版本）。副作用： **抛错**（）。于是一条垃圾配置（）让**整个对账**抛错，消费者把这个 throw ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\library-delegation-swaps-failure-modes.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "measure-the-alternatives-before-fixing-a-wrong-target-defect",
@@ -868,6 +908,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\polyrepo-root-child-peaks-lazy.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "preparefinalreview-is-evidence-less",
+        "kind": "lesson",
+        "description": "的  只做三件事：读  的 ，把这一串 JSON 拼成 userPrompt（），然后用  问一次 LLM。**没有工具、没有 diff、没有测试结果、没有 artifact 内容、没有任何  注入** ——  接口本身也只有 。sy...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\preparefinalreview-is-evidence-less.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "project-memory",

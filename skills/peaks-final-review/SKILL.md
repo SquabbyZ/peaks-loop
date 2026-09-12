@@ -69,7 +69,9 @@ interface PrepareFinalReviewOptions {
 }
 ```
 
-The service is the **gate primitive** that closes the 10% human / 90% LLM loop. It reads the approved audit-goal JSON from `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`, calls an injected `LlmRunner` exactly once with a 4-dim review prompt, parses the response, and validates that all four required dimensions are present. It throws `IncompleteFinalReviewError` on malformed JSON or missing dimensions — callers MUST treat that as a gate failure (return to human for re-prompting) and never let autonomous work proceed on a partial review.
+The service is the **gate primitive** that closes the 10% human / 90% LLM loop. It reads the approved audit-goal JSON from `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`, **collects real evidence from disk** (`qa/test-reports`, `qa/test-cases`, `qa/security-findings`, `qa/performance-findings`, `rd/{tech-doc,bug-analysis,code-review,security-review}.md`, `prd/handoff.md`), inlines it into the 4-dim review prompt under byte bounds, calls an injected `LlmRunner` exactly once, parses the response, and validates that all four required dimensions are present. It throws `IncompleteFinalReviewError` on malformed JSON or missing dimensions — callers MUST treat that as a gate failure (return to human for re-prompting) and never let autonomous work proceed on a partial review.
+
+> **Evidence-backed verdicts (added 2026-09-12).** The service previously sent the model only `successCriteria` and no evidence at all, so it could not honestly grade anything — a real run returned 4/4 `inconclusive`, and a model willing to confabulate could have returned `pass`. Verdicts are now gated **structurally**, not by prompt wording: any `pass` whose supporting sources were all missing/empty is rewritten to `inconclusive` + `confidence: low` (`fail` is never softened), and `allPass` is derived from the gated verdicts so it can only narrow. Every non-`found` evidence source renders an explicit `STATUS: MISSING (<why>)` in the prompt, so the model always knows what it does not know.
 
 > The `LlmRunner` interface is intentionally minimal so this service reuses the same provider injection seam as `audit-goal-service` and the slice LLMArbitrator (`src/services/audit/audit-goal-service.ts:16`). No provider implementation is baked in at this layer.
 
@@ -85,41 +87,32 @@ All of the following MUST be true before invoking this skill:
 
 If any precondition is missing, **STOP** and route back to the responsible skill. Do not paper over a missing artifact with a hand-written successCriteria — the review must reflect what the human originally approved.
 
-## Invocation (CLI wrapper status — READ FIRST)
+## Invocation
 
-> **Pre-flight finding (HARD):** The plan prose at `docs/superpowers/plans/2026-06-25-slice-topology-multipass-phase-4.md:146` documents the invocation as:
->
-> ```bash
-> peaks prepare-final-review --rid <rid> --json
-> ```
->
-> **This CLI command does NOT yet exist.** `prepareFinalReview()` is implemented as a service in `src/services/final-review/final-review-service.ts` and is unit-tested in `tests/unit/final-review/final-review-service.test.ts`, but it is **not wired to a CLI subcommand**. A `peaks prepare-final-review` subcommand is the planned forward-looking surface; the integration sits at the service layer, not the CLI layer, today.
->
-> **Pick for the future CLI wrapper file (audit recommendation):** create a new `src/cli/commands/final-review-commands.ts` matching the `peaks-<group>-commands.ts` naming convention (`qa-commands.ts`, `code-review-commands.ts`, `audit-commands.ts`). A grep of `src/cli/commands/` confirms NO `final-review-commands.ts` and NO `prepareFinalReview` import in any CLI file. Rationale: the 4-dim business review is conceptually distinct from `peaks qa *` (which is autonomous gate verification) — it is the human-acceptance terminator, not an internal gate. A separate command group preserves that boundary.
-
-### Current call path (today, until a CLI wrapper is built)
-
-```ts
-// peaks-code end-of-workflow, peaks-txt, or any other hand-rolled caller
-import { prepareFinalReview } from './src/services/final-review/final-review-service.js';
-import { auditGoalLlmRunner } from './src/services/audit/llm-runner.js'; // or your provider
-
-const out = await prepareFinalReview('<rid>', {
-  projectRoot: '<absolute path>',
-  sessionId: '<sessionId>',
-  llmRunner: auditGoalLlmRunner
-});
-```
-
-### Planned call path (after the CLI wrapper lands)
+> **Correction (2026-09-12).** An earlier revision of this file claimed `peaks prepare-final-review`
+> "does NOT yet exist" and told callers to hand-roll a `prepareFinalReview()` caller instead.
+> **That was wrong.** The CLI wrapper exists and is registered —
+> `src/cli/commands/final-review-commands.ts` (`W5 Fix M2`), command registered at its line ~130.
+> The hand-rolled snippet that used to sit here also had the wrong flag shape (`--rid <rid>`);
+> **the rid is positional**. Use the CLI.
 
 ```bash
-# Forward-looking — does not work yet. Track under
-#   src/cli/commands/final-review-commands.ts
-peaks prepare-final-review --rid <rid> [--session-id <sid>] --json
+peaks prepare-final-review <rid> [--session-id <sid>] [--project <path>] [--llm-provider <name>] [--json]
 ```
 
-`--rid` is required and resolves to `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. `--json` is required for machine consumption (peaks-code, peaks-txt, downstream CI). The wrapper will resolve `--session-id` from `.peaks/_runtime/current-change` when omitted, matching the workspace binding pattern used by `peaks request *`.
+- `<rid>` is **positional** (not `--rid`). It resolves to `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`.
+- `--session-id` defaults to the active workspace binding when omitted.
+- **`--llm-provider` defaults to `stub`, and `stub` is the only provider that works today.**
+  `stub` runs no real review — it returns a scaffold envelope so CI can prove the route is reachable.
+  Verified 2026-09-12: passing a real provider (`--llm-provider anthropic`) returns
+  `status: not-applicable` / `serviceWired: false` / `providerBinding: unknown` and tells you to re-run
+  with `stub`; the CLI's own nextAction calls real-provider binding "a follow-up slice". So there is
+  currently **no reachable path to a real 4-dim review** — confirming the route works is all `stub`
+  can do.
+- `--json` is required for machine consumption (peaks-code, peaks-txt, downstream CI).
+
+Calling the service directly (`prepareFinalReview(rid, { projectRoot, sessionId, llmRunner })`) remains
+valid for callers that need a custom `LlmRunner` injection seam, but it is no longer the only path.
 
 ## Output
 
@@ -155,6 +148,24 @@ Full evidence contract per dimension: `references/4-dimensions.md`.
 3. **no-new-bugs** — the regression suite is green AND the LLM surfaces 0 net-new failures (`evidence.kind === 'regression-suite'` + `manual-spot-check`).
 4. **existing-functionality-intact** — a pre/post baseline diff (test count, public API surface, key behavior) shows no unintended drift (`evidence.kind === 'pre-post-diff'`).
 
+> **⚠️ This dimension currently cannot pass — read before acting on it (verified 2026-09-12).**
+> `pre-post-diff` is a declared `EvidenceKind`, but **nothing in peaks-loop produces that artifact**.
+> The evidence actually mapped to this dimension is `rd/tech-doc.md` (design intent) and
+> `prd/handoff.md` (scope / non-goals) — neither is a baseline diff, and the model correctly
+> reports that ("the only FOUND source… is a design-intent document, not a regression assessment").
+> `peaks scan api-diff <doc>` is *not* a producer: it diffs an API **document**, not the code surface.
+>
+> **Consequences:** `allPass === true` is **unreachable by construction**, for every workflow.
+> This dimension will return `inconclusive` with an empty `evidence[]` even when the work is
+> perfect. Treat that as a **tooling** state, not as evidence of a regression — and do **not**
+> "fix" it by re-mapping `qa/test-reports` into this dimension's `supports`, which would turn the
+> gate green without producing the baseline diff the definition above requires.
+>
+> **Real fix (unbuilt):** a producer for the pre/post baseline diff (test-count delta, public-API
+> surface snapshot) written to `.peaks/_runtime/<sessionId>/final-review/api-diff.txt`, then mapped
+> into this dimension's `supports`. Until that ships, `needsAttention` always contains this
+> dimension — a permanently-red gate that reviewers will otherwise learn to ignore.
+
 ## Human's role
 
 The human reviews evidence, **judges business outcomes (NOT code)**. The LLM produces structured evidence; the human's job is to:
@@ -185,7 +196,7 @@ When handing off, emit: rid, `allPass`, `needsAttention[]`, output path, source 
 | `src/services/final-review/final-review-service.ts` | Authoritative service implementation. |
 | `src/services/final-review/final-review-types.ts` | `FinalReviewOutput`, `DimensionEvidence`, verdict/evidence/confidence enums. |
 | `src/services/audit/audit-goal-service.ts:16` | Line of evidence that `LlmRunner` is reusable across audit + final-review (service-level integration). |
-| `tests/unit/final-review/final-review-service.test.ts` | Existing service-level unit tests (5 cases). |
+| `tests/unit/final-review/final-review-service.test.ts` | Service-level unit tests (8 cases: evidence inlining, the no-evidence⇒no-`pass` gate, prompt bounds, plus contract guards). |
 | `docs/superpowers/plans/2026-06-25-slice-topology-multipass-phase-4.md:127` | Phase-4 plan prose (Task 14). |
 | `skills/peaks-qa/SKILL.md` | Upstream QA skill — 4-dim review is downstream of all QA gates. |
 | `skills/peaks-audit/SKILL.md` | Sibling skill — produces the `audit-goal` JSON that this skill consumes. |
