@@ -1,5 +1,46 @@
 # Changelog
 
+## 4.0.45 — 2026-09-12 (一个永远无法通过的维度 + 一个验代理的守卫)
+
+**Highlights**:
+
+1. **4 维验收闸里有一维从构造上就不可能通过。** `existing-functionality-intact` 的契约要求一份 `pre-post-diff`（前后结构对比：测试面 / 公开 API 面），而**全仓没有任何东西生产它**。于是它被喂的是 `rd/tech-doc.md`（设计意图）与 `prd/handoff.md`（批准范围）—— 而这个模块自己的文件头注释，把"拿设计意图文档当回归评估"列为它存在的理由。结果：`allPass === true` 对**任何**工作流都不可达。
+
+   本版补上生产者（`pre-post-diff.ts`）：以 base ref 对比工作树，报**测试面**（文件数 / 用例数）、**源文件清单**、**公开 API 面**（顶层 `export` 语句数与名字集合），写入 `.peaks/_runtime/<sessionId>/final-review/api-diff.txt`。**诚实边界写在产物里**：export 检测是行锚定的近似，能发现"少了一个导出"这类结构丢失，**发现不了签名变更**。算不出 baseline 时**不产出 artifact、不编造 diff** —— 该维保持 `inconclusive`。
+
+2. **消费它的那个闸，键在"送达"，不在"产物存在"。** 独立复核连做七轮，每轮都在下一层找到同一个形状 —— 一个接受**代理**的闸（"评审者看到了吗"被替换成"磁盘上有吗"）：
+
+   | 轮 | 被判为"检查过了"的东西 |
+   |---|---|
+   | 1 | `status === 'computed'`（磁盘上有文件） |
+   | 2 | `status === 'found'`（≥1 字节送达） |
+   | 3 | `totalBytes === 0`（把 missing 与 empty 混为一谈） |
+
+   共同根因是：一个源**可以被部分内联**，于是"送达了吗"永远有一个律师式答案。现在分配器是 **per-source 全有或全无**（要么整份、要么 omitted，不存在截在中间），且 `isDelivered` 是这个问题**唯一的家** —— 每个源声明自己的送达规则：`whole`（整份文档；被截断过的文档是另一份文档）或 `conclusion`（一个**就是结论本身**的字面量）。
+
+3. **随之而来的两处实质变化，都要求诚实。**
+   - 证据预算改为**推导**（`10,240 = 总额 / 4`）而不是常量 —— 因为走 `whole` 规则的源一旦超过它，就**永远送不到**。
+   - 一个维度若其全部支撑源都装不下，现在会被**响亮报出**（prompt 里出 `## Evidence delivery reachability` 段、维度 summary 挂 `[delivery-reachability: …]` 标记、并进 `needsAttention`），而不是**静默地永远红**。**故意不抛错** —— 抛错会连带毁掉那三个本来可送达的维度。
+
+4. **反回归守卫本身，就是同一个形状的第 7 个实例 —— 且它一开始是坏的。** 初版守卫按**语法形状**切分源码（只认行首 `function name`），于是**箭头函数、生成器、`export default function`、类方法**一律不被扫描：**8 种等价写法全部放行**，端到端实测"顶层箭头里放 2 个代理字面量"仍 `3 passed EXIT=0`。**一个能放行 8/8 的守卫比没有守卫更糟** —— 它把"没人在看"变成"有东西在看"。
+
+   现在它用仓库自带的 `typescript` 解析 AST、读**函数体内**的 token，于是那 4 种形状绕过全部关闭（实测：往真实源码注入箭头式代理 → 守卫转红）。剩下 4 种**不含该字面量**的改写（拆变量 `const F='found'`、`==`、`item['status']`、字符串拼接）**仍然放行** —— 这一点被**固定成一条通过的测试**，让守卫**陈述自己的边界**而不是暗示一个。
+
+5. **`peaks codegraph status` 在真有缺口时会同时印出两行互相矛盾的话。** 退出码（74）与 `[FAIL]` 细节都是对的，但人第一眼看到的是：
+
+   ```
+   [OK] Index is up to date
+   [FAIL] codegraph index is incomplete: 2 of 1133 tracked source files are excluded …
+   ```
+
+   两个闸在回答不同的问题：上游答"图与上次扫描一致"（确实一致），peaks 答"图覆盖了仓库吗"（没有）。**都对，并排印出来就是矛盾。** 现在上游那行被**归因而非抑制**（措辞与统计保留，只是把它的适用范围说明白），只在这一行、且只在缺口门**确实触发**时改动；无缺口路径逐字节不变（含 ANSI），机器可读 envelope 未动。
+
+**验证**:三个版本常量一致(**4.0.45**);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **214 files / 2165 passed / 3 skipped / 0 failed**;`pnpm build` 的 `build-integrity` OK。
+
+**已知未修 / 边界**:`conclusion` 规则下超大的源不算"不可送达"（结论标记可能在截断点之后）;单一可送达源的**穿越前余量**（本 session 实测 748 B）**没有**告警，只报"已经不可能"的状态;4 维中的 `existing-functionality-intact` 在**非 git 项目**里永久 `inconclusive`（这是诚实结果，已写进 SKILL.md 与 `4-dimensions.md`）。
+
+**备注**:本版的 `prepare-final-review` 闸**未经过独立复核**（前六轮每一轮都经过并各找到 1 个 HIGH;第 7 轮由 orchestrator 自行验证,含箭头注入实测),这一点如实记录以便日后回溯。
+
 ## 4.0.44 — 2026-09-12 (被静默排除的源文件 + 一个验错东西的验收闸)
 
 **Highlights**:
