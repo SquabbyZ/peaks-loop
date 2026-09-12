@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-08-12T01:47:49.567Z
+> Last updated: 2026-09-12T03:32:17.888Z
 
 ## Project: peaks-loop
 
@@ -48,20 +48,20 @@
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-08-12 | `2026-08-12-session-4aaf2b` | rid-skill-persistence-001 完整修复 (3 文件 + 2 | **Path:** `peaks-code / rid-skill-persistence-001` |
-| 2026-08-11 | `2026-08-11-session-5c3563` | Untitled | peaks-code |
-| 2026-08-11 | `2026-08-11-session-1f4285` | Untitled | - |
-| 2026-08-11 | `2026-08-11-session-fadc3c` | Untitled | - |
-| 2026-08-11 | `2026-08-11-session-383128` | Untitled | - |
-| 2026-08-11 | `2026-08-11-session-5a7298` | Untitled | - |
-| 2026-08-11 | `2026-08-11-session-6367bd` | Untitled | - |
-| 2026-08-11 | `2026-08-11-session-476090` | Untitled | $ pnpm exec tsc -p tsconfig.build.json |
-| 2026-08-11 | `2026-08-11-session-7f7f78` | 技能路径解析与codegraph项目优化 | 1. **CLI wire — `peaks vendor-detect`** must reach the real handler so |
-| 2026-08-10 | `2026-08-10-session-53a9ad` | Untitled | peaks-code |
-| 2026-08-10 | `2026-08-10-session-05b9be` | Untitled | | ID | Status (v1 → v2) | Evidence | |
-| 2026-08-06 | `2026-08-06-session-cacde8` | Untitled | title: ESLint JS/TS Gate (S1) + OCR 1.8.x Multi-language Reviewer Rebu |
-| 2026-08-04 | `2026-08-04-session-70ff1e` | Untitled | peaks-code |
-| 2026-08-04 | `2026-08-04-session-139b31` | Untitled | statusline 当前实现（4.0.9）有 2 个独立的 user-reported 问题： |
-| 2026-08-03 | `2026-08-03-session-1b6cf3` | Untitled | 对 RD 产出的两份 deliverable 做 **4 维验收**: |
+| 2026-09-12 | `2026-09-12-session-ded54d` | Untitled | - |
+| 2026-09-12 | `2026-09-12-session-2a1800` | Untitled | - |
+| 2026-09-12 | `2026-09-12-session-30287d` | Untitled | - |
+| 2026-09-12 | `2026-09-12-session-87d906` | Untitled | - |
+| 2026-09-12 | `2026-09-12-session-fe2f86` | Untitled | - |
+| 2026-09-11 | `2026-09-12-session-86f23b` | Untitled | Session: 2026-09-12-session-86f23b. Verdict: **NOT SHIPPABLE — 3 BLOCK |
+| 2026-09-11 | `2026-09-12-session-aaae4f` | Untitled | - |
+| 2026-09-11 | `2026-09-11-session-6cd43c` | Untitled | - |
+| 2026-09-11 | `2026-09-11-session-e40557` | Untitled | - |
+| 2026-09-11 | `2026-09-11-session-107b80` | Untitled | - |
+| 2026-09-11 | `2026-09-11-session-209390` | Untitled | - |
+| 2026-09-11 | `2026-09-11-session-d43a67` | Untitled | - |
+| 2026-09-10 | `2026-09-10-session-7aa6ec` | Untitled | - |
+| 2026-09-10 | `2026-09-10-session-195a7b` | Untitled | - |
+| 2026-09-10 | `2026-09-10-session-8ee8c6` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
