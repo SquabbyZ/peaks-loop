@@ -1,5 +1,37 @@
 # Changelog
 
+## 4.0.44 — 2026-09-12 (被静默排除的源文件 + 一个验错东西的验收闸)
+
+**Highlights**:
+
+1. **`peaks codegraph status` 报"索引是最新的",而 26 个 git 跟踪的源文件根本不在索引里。** 上游默认 exclude 表**按目录名**匹配,而本仓库恰好把 `artifacts/` `release/` `vendor/` `bin/` `publish/` 用作了源码目录名,于是 5 条默认规则把 26 个真实源文件挡在门外。`status` 说的是"图与上次扫描一致",不是"图覆盖了仓库" —— 所以这个洞是隐形的。
+
+   本版按**一条原则**建了 reconcile / repair / verify:被 git 跟踪的源文件不得被 exclude 规则挡住。
+
+   - 对账用 `picomatch`(从传递依赖提升为直接依赖),与上游**同一个匹配引擎**;此前自实现的 glob 对 `{}` 模式**漏报**,且会灾难性回溯
+   - `status` 现在**失败(exit 74)**并指名违规规则与文件,而不是报 OK;doctor 也报这个缺口
+   - `init` 自愈,且 preflight / autorefresh 走**同一个 helper** —— 它们此前会跑上游 init 并盖 marker 却**不做修复**,使"全新 clone 自愈"在真实流程里**不可达**
+   - 匹配不到任何 tracked 文件的规则**永不删除**;未跟踪文件仍被排除(原语义不变)
+
+2. **4 维人工验收闸干不了活 —— 四层独立失效,每一层都只有真机跑才看得见。**
+
+   - **(a)** 服务只把目标的 `successCriteria` 喂给模型,**一条证据都不给**,却要求它产出**带证据的裁决**。现在从磁盘收集真实证据(有界),并用**结构而非提示词措辞**保证:支撑源全部缺失的 `pass` 一律降级为 `inconclusive`
+   - **(b)** CLI 只能跑 `stub`;`--llm-provider anthropic` 现在真的构造 runner,`providerBinding` 如实上报
+   - **(c)** `maxTokens` 硬编码 3000,低于一份完整证据包所需,回复被**截在 JSON 中间**;预算随内联证据量伸缩,截断被诊断为"输出预算失败"而非"JSON 非法",并给出 `PEAKS_FINAL_REVIEW_MAX_OUTPUT_TOKENS` 逃生阀
+   - **(d)** 证据预算是**先到先得**,于是最后排序的源 —— 也就是四个维度里的一个 —— 被**永久饿死**;现在每个维度有保留配额
+
+   ⚠️ **`existing-functionality-intact` 仍然无法通过**:它要求的 `pre-post-diff` 产物**全仓没有任何生产者**。这是缺功能,不是 bug;已在 SKILL.md 记为**工具状态**,而**不是**把一个不相关的源重映射进去把闸弄绿。
+
+3. **同一个"闸门验代理而非性质"的形状,又抓到三处。**
+
+   - `handoff-auto-regen` 把 `sessionId` **写了两遍**,产出的 frontmatter 仓库自己的 YAML 解析器**拒绝** —— 而 `AUDIT_REQUIRES_HANDOFF` 只做**子串**检查,所以放行
+   - `sub-agent finalize --request-id` 扫会话目录下**所有** `.json`,读到 `active-dispatches.json` 就抛;两个分支现在都容忍坏记录,且 `--request-id` 与 `--batch` 共用**优先 queued** 的选择逻辑,并报出选了哪条、为何跳过其它
+   - `skills/peaks-final-review/SKILL.md` 断言它自己的 CLI "**尚不存在**",让调用方去手写 service 调用 —— 而它存在且已注册。这句话在本版开发中**真实地浪费了工作**:orchestrator 为一个早已存在的命令手写了一个调用脚本
+
+**验证**:三个版本常量一致(**4.0.44**);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **213 files / 2116 passed / 3 skipped / 0 failed**;`pnpm build` 的 `build-integrity` OK。
+
+**已知未修**:`existing-functionality-intact` 缺证据生产者(见第 2 条);`RUNTIME_NPM_VERSION`(0.0.21)与 internal-runtime 包版本已不同步(4.0.43 起即如此)。
+
 ## 4.0.43 — 2026-09-12 (一个从来拦不住东西的闸门 + 前端接口防腐层)
 
 **Highlights**:
