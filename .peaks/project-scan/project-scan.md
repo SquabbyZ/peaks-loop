@@ -1,6 +1,6 @@
 ---
 schemaVersion: 1
-capturedAt: 2026-07-26T12:20:00.000Z
+capturedAt: 2026-09-12T03:32:58.000Z
 techStack:
   language: typescript
   packageManager: pnpm
@@ -11,8 +11,7 @@ techStack:
 libraryVersions:
   commander: "^12.1.0"
   yaml: "^2.9.0"
-  zod: "^3.25.76"
-  zod-to-json-schema: "^3.25.2"
+  zod: "^4.4.3"
   fzf: "^0.5.2"
   vitest: "^4.1.10"
   "@vitest/coverage-v8": "^4.1.10"
@@ -52,7 +51,28 @@ karpathySelfCheck:
 # Peaks-Loop Project Scan (v2.11.0 → v2.13.0 baseline)
 
 > Auto-bootstrap of `.peaks/project-scan/project-scan.md`. Refresh with
-> `peaks project knowledge --project .` after every major dependency bump.
+> `peaks project context --project .` after every major dependency bump.
+>
+> 2026-09-12: the data below was refreshed in place rather than regenerated —
+> `peaks project context` preserves existing files, and this one carries
+> hand-authored reasoning (the vitest pin, the c8-over-built-in-coverage note)
+> that a regeneration would have destroyed.
+
+## Archetype
+
+| Field | Value |
+|---|---|
+| Type | `frontend-monorepo` |
+| Confidence | `high` |
+
+## Project mode
+
+| Field | Value |
+|---|---|
+| Integration mode | prd-only |
+| Integration mode reason | no-backend-no-interface-doc |
+| Frontend-only | `true` |
+| Reason | archetype=frontend-monorepo |
 
 ## Tech stack
 
@@ -73,8 +93,7 @@ karpathySelfCheck:
 |---|---|---|
 | `commander` | `^12.1.0` | CLI subcommand tree |
 | `yaml` | `^2.9.0` | frontmatter serialize/parse (handoff-service) |
-| `zod` | `^3.25.76` | schema validation across services |
-| `zod-to-json-schema` | `^3.25.2` | CLI schema export |
+| `zod` | `^4.4.3` | schema validation across services |
 | `fzf` | `^0.5.2` | fuzzy selector (sub-agent dispatch) |
 | `vitest` | `^4.1.10` | unit + integration tests (LOCKED 2026-07-25) |
 | `@vitest/coverage-v8` | `^4.1.10` | bundled but unused (c8 reads raw V8 output directly) |
