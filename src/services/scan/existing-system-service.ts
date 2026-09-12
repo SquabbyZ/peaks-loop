@@ -3,6 +3,7 @@ import { basename, join, relative } from 'node:path';
 import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
 
 import { scanArchetype } from './archetype-service.js';
+import { scanHookConvention } from './hook-convention-service.js';
 import type { ConventionSample, ExistingSystemReport, VisualToken, VisualTokenSource } from './scan-types.js';
 
 export type ExistingSystemScanOptions = {
@@ -205,14 +206,25 @@ export async function scanExistingSystem(options: ExistingSystemScanOptions): Pr
   const maxSamples = options.maxSamplesPerKind ?? DEFAULT_SAMPLES;
 
   const archetypeReport = await scanArchetype({ projectRoot });
+  // Deliberately NOT behind the legacy gate below: the hook convention is read
+  // from file contents whenever a hook directory exists, so a greenfield or
+  // monorepo project adopting the ACL convention still gets it reported.
+  const hookConvention = await scanHookConvention({ projectRoot, hookDirs: HOOK_DIRS });
   if (archetypeReport.archetype === 'greenfield' || archetypeReport.archetype === 'unknown') {
     return {
       archetype: archetypeReport.archetype,
       scanned: false,
       scanSkippedReason: `archetype=${archetypeReport.archetype} — extraction only runs on legacy projects`,
       visualTokens: { colors: [], spacing: [], typography: [], radii: [], sources: [] },
-      conventions: { componentNaming: 'unknown', componentDir: null, serviceDir: null, hookDir: null, samples: [] },
-      inconsistencies: []
+      conventions: {
+        componentNaming: 'unknown',
+        componentDir: null,
+        serviceDir: null,
+        hookDir: null,
+        samples: [],
+        hookConvention
+      },
+      inconsistencies: hookConvention.inconsistencies
     };
   }
 
@@ -296,8 +308,9 @@ export async function scanExistingSystem(options: ExistingSystemScanOptions): Pr
       componentDir,
       serviceDir,
       hookDir,
-      samples
+      samples,
+      hookConvention
     },
-    inconsistencies: findInconsistencies(rawTokens)
+    inconsistencies: [...findInconsistencies(rawTokens), ...hookConvention.inconsistencies]
   };
 }

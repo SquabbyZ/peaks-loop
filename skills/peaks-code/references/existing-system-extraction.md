@@ -20,7 +20,8 @@ The CLI emits stable JSON containing:
   - `componentNaming`: `PascalCase | kebab-case | mixed | unknown` (decided from real file names under the component directory)
   - `componentDir`, `serviceDir`, `hookDir` — first matching path found
   - `samples[]` — up to 5 most-recently-modified files per kind
-- `inconsistencies[]` — token names that have different values across sources
+  - `hookConvention` — the hook directories' file CONTENTS read (not just paths): `{ directories[], inconsistencies[] }`. Each directory carries `namingPattern`, `dominantReturnShape` (null when no class is strictly dominant) + `dominantReturnSignature`, `offShapeHooks[]` (hooks whose shape CLASS differs — key drift is reported separately) plus the file-level `hookFileCount` and `mapperFiles[]`; each hook carries `{ file, name, usePrefix, returnShape, returnSignature }`. These are OBSERVED from the text, never type-checked: an import specifier matching /mapper/i is recorded against the FILE that contains it, and a file absent from `mapperFiles[]` is the absence of an observation, NOT evidence that its hooks map data inline
+- `inconsistencies[]` — token names that have different values across sources, followed by the hook return-shape / hook-naming / mapper-delegation inconsistencies (all prefixed by the directory they belong to)
 
 Copy these fields VERBATIM into `existing-system.md`. Do not re-classify tokens; do not invent additional samples.
 
@@ -59,6 +60,9 @@ Use the template below. Every value must come from the CLI JSON; leave a section
 ## Hooks convention
 - Directory: <conventions.hookDir>
 - Sample files: <conventions.samples filtered by kind=hook>
+- Observed return shape: <per directory: namingPattern + dominantReturnShape + dominantReturnSignature from conventions.hookConvention.directories[*]; "- (none)" when the directory holds no exported function>
+- Hooks deviating from it: <offShapeHooks; "- (none)" when empty>
+- Mapper delegation: <mapperFiles.length of hookFileCount per directory — observed from import paths only, at FILE granularity; do not read a missing import as inlined mapping>
 
 ## Detected inconsistencies
 <paste inconsistencies[*] verbatim; if empty, write "- (none)">

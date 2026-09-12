@@ -58,6 +58,48 @@ export type ConventionSample = {
   kind: 'component' | 'service' | 'hook' | 'page';
 };
 
+export type HookReturnShape = 'object' | 'tuple' | 'other';
+
+/**
+ * One exported function found in a hook directory, read from file text only.
+ * Every field is OBSERVED, not verified: `returnShape` comes from the leading
+ * token of the returned expression. It is not a type-flow check — a shape
+ * produced by a call or held in an identifier is reported as `other`, and
+ * `returnSignature` is null when the keys could not be read.
+ */
+export type HookObservation = {
+  file: string;
+  name: string;
+  usePrefix: boolean;
+  returnShape: HookReturnShape;
+  returnSignature: string | null;
+};
+
+export type HookDirectoryConvention = {
+  dir: string;
+  hookCount: number;
+  hookFileCount: number;
+  namingPattern: 'use<X>' | 'mixed' | 'no-use-prefix' | 'unknown';
+  /** Null when no class is strictly dominant (a tie), not an arbitrary pick. */
+  dominantReturnShape: HookReturnShape | null;
+  dominantReturnSignature: string | null;
+  /** Hooks whose shape CLASS differs from the dominant one. Key-level drift
+   *  is separate detail and never makes an object deviate from objects. */
+  offShapeCount: number;
+  offShapeHooks: string[];
+  /** Files whose import specifiers match /mapper/i — a FILE-level observation:
+   *  an import belongs to a module, so it is not attributed to each hook that
+   *  module exports. An absent entry is the absence of an observation, NOT
+   *  evidence that a hook maps data inline (that would need a value's type). */
+  mapperFiles: string[];
+  hooks: HookObservation[];
+};
+
+export type HookConventionReport = {
+  directories: HookDirectoryConvention[];
+  inconsistencies: string[];
+};
+
 export type ExistingSystemReport = {
   archetype: ProjectArchetype;
   scanned: boolean;
@@ -75,6 +117,7 @@ export type ExistingSystemReport = {
     serviceDir: string | null;
     hookDir: string | null;
     samples: ConventionSample[];
+    hookConvention: HookConventionReport;
   };
   inconsistencies: string[];
 };
