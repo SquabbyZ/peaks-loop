@@ -106,8 +106,10 @@ means the user override always wins over the (missing) env var.
 ## Caveats
 
 - The 0.85 boundary is exact (`>=`). 222822 bytes = 0.8499984741... →
-  advisory mode `soft-warn`. In Job mode (`job-shape.json isJob=true`) it
-  becomes `auto-compact-now`.
+  `soft-warn`. One byte more → `auto-compact-now` (MANDATORY, in **every**
+  mode). Before 2026-09-12 a single-rid session in this band got an
+  advisory `soft-warn` instead; that downgrade is gone (see
+  `.peaks/memory/auto-compact-threshold-policy.md`).
 - The 256KB ≈ 100% approximation is a token-vs-byte approximation: 256KB of
   raw JSONL bytes does NOT equal 256K tokens (Opus 4.1 is 200K tokens ≈ 800KB
   jsonl). On Mac, where only the byte count is observable, the carve-out will

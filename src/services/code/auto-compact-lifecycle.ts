@@ -17,13 +17,18 @@ import {
   type CompactLifecycleRecord,
   type CompactLifecycleStage
 } from '../compact-statusline/compact-lifecycle-store.js';
+import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
 
 /**
  * Stages a compact *attempt* can prove from inside the dispatching
  * process. `verifying` / `completed` are deliberately absent — see
  * `CompactLifecyclePublisher` and `settleOpenLifecycleRun` for why.
+ *
+ * `armed` is the honest resting stage for a dispatch that only
+ * REGISTERED a trigger (slice 2026-09-12-compact-band-policy, defect B)
+ * — see `resolveDispatchedStage`.
  */
-type ObservableDispatchStage = Extract<CompactLifecycleStage, 'queued' | 'preparing' | 'compacting'>;
+type ObservableDispatchStage = Extract<CompactLifecycleStage, 'queued' | 'preparing' | 'compacting' | 'armed'>;
 
 /** Stage a failure is attributed to (mirrors the store's `failedAt` domain). */
 type FailableStage = Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
@@ -36,6 +41,32 @@ type FailableStage = Exclude<CompactLifecycleStage, 'failed' | 'completed'>;
  * + spec prose references must keep the literal value visible.
  */
 const COLLAPSED_ERROR_MAX_CHARS = 160;
+
+/**
+ * Slice 2026-09-12-compact-band-policy (defect B): which stage a
+ * *successful* dispatch can honestly claim.
+ *
+ * A dispatch is only evidence that a compact is IN FLIGHT when the
+ * adapter's own trigger is already satisfied. claude-code's
+ * `ide-native` pathway installs a PreToolUse hook that compacts
+ * in-band at ratio ≥ 0.95 (`AUTO_COMPACT_RED_LINE_RATIO`); at or above
+ * that ratio the very next tool call fires it, so `compacting` (and
+ * therefore `stalled` if it never lands) is the truthful reading.
+ *
+ * Below it — and for every pathway that only writes an intent
+ * (`llm-self-compress`), or whose shell-exec branch is a deprecated
+ * no-op — NOTHING is compacting. The process merely ARMED a trigger.
+ * Recording `compacting` there published a heartbeat nobody would ever
+ * send, which is what pinned the statusline at `stalled` forever.
+ */
+export function resolveDispatchedStage(input: {
+  readonly pathway: string;
+  readonly ratio: number;
+}): Extract<CompactLifecycleStage, 'compacting' | 'armed'> {
+  return input.pathway === 'ide-native' && input.ratio >= AUTO_COMPACT_RED_LINE_RATIO
+    ? 'compacting'
+    : 'armed';
+}
 
 /**
  * One id per compact attempt. Timestamp-prefixed so a human reading
@@ -131,8 +162,17 @@ export class CompactLifecyclePublisher {
     });
   }
 
-  /** Publish the terminal failure, attributed to the last stage reached. */
-  fail(error: unknown): void {
+  /**
+   * Publish the terminal failure, attributed to the last stage reached.
+   *
+   * `at` overrides that attribution for the case where the failure
+   * happened INSIDE a phase that is only named after its outcome
+   * (slice 2026-09-12-compact-band-policy): the dispatch call is the
+   * compacting phase even though the resting stage is now chosen from
+   * the pathway the dispatch returned. `failedAt` names the phase the
+   * attempt died in — it is not a published heartbeat.
+   */
+  fail(error: unknown, at?: FailableStage): void {
     this.write({
       schemaVersion: 1,
       runId: this.ctx.runId,
@@ -140,7 +180,7 @@ export class CompactLifecyclePublisher {
       updatedAt: new Date().toISOString(),
       triggerRatio: this.ctx.triggerRatio,
       redLine: this.ctx.redLine,
-      failedAt: this.lastStage,
+      failedAt: at ?? this.lastStage,
       errorSummary: summarizeLifecycleError(error)
     });
   }
@@ -229,9 +269,12 @@ export function settleOpenLifecycleRun(input: {
     sessionId: input.sessionId
   });
   if (prior === null) return;
-  // Only a run that was actually dispatched (`compacting`) can be
-  // completed by a post-compact measurement.
-  if (prior.stage !== 'compacting') return;
+  // Only a run that was actually dispatched can be completed by a
+  // post-compact measurement. Both `compacting` (the in-band trigger is
+  // satisfied) and `armed` (a trigger was registered and could fire at
+  // any time) qualify: the measured drop is proof that SOME compact
+  // landed, and this is the only open run to attribute it to.
+  if (prior.stage !== 'compacting' && prior.stage !== 'armed') return;
 
   const emit = (stage: 'verifying' | 'completed', withAfterRatio: boolean): void => {
     const record: CompactLifecycleRecord = {

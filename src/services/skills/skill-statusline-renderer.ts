@@ -8,6 +8,7 @@ import type {
 import type {
   CompactStatuslineState,
 } from '../compact-statusline/compact-statusline-service.js';
+import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
 import {
   computeRootSuffix as computeRootSuffixImpl,
   formatShortSid,
@@ -247,6 +248,10 @@ function formatRatio(value: number): string {
  *
  *   <stage-glyph> <bar> <label>[ · <before>%][ → <after>%]
  *
+ * `armed` is the one exception: it renders WITHOUT the bar
+ * (`<glyph> armed · <before>% · fires at <redLine>%`) because a bar is
+ * a progress claim and a registered-but-unfired trigger has no progress.
+ *
  * Failed states additionally suffix the stage at which the compact failed.
  * Stalled states keep the active-stage cell count and render a plain
  * "stalled" label. Invalid states surface the read-reason verbatim as a
@@ -277,6 +282,18 @@ function renderCompact(
           ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
           : ''
       }`;
+    case 'armed': {
+      // Slice 2026-09-12-compact-band-policy: NO bar. A bar is a
+      // progress claim, and a registered-but-unfired trigger has no
+      // progress to report — it is waiting for the ratio to reach the
+      // red line on its own. Say exactly that instead.
+      const now = typeof state.triggerRatio === 'number'
+        ? `${palette.inlineSeparator}${formatRatio(state.triggerRatio)}`
+        : '';
+      return `${palette.compact.armed} armed${now}${palette.inlineSeparator}fires at ${formatRatio(
+        AUTO_COMPACT_RED_LINE_RATIO,
+      )}`;
+    }
     case 'verifying':
       return `${palette.compact.verifying} ${renderCompactBar(6, palette)} verifying`;
     case 'completed':
@@ -615,28 +632,38 @@ export function renderStatusLine(
 
   let line: string;
   const hasCompact = compactSegment.length > 0;
-  if (hasCompact) {
+  // Slice 2026-09-12-compact-band-policy: `armed` is a RESTING state, not
+  // an in-flight compact. It can hold for the whole band between the
+  // auto-fire ratio and the red line, so it is appended to the normal
+  // line instead of REPLACING the skill token — hiding which skill is
+  // active for many turns would be a regression the user never asked
+  // for. Every other (genuinely in-flight) stage keeps replacing it.
+  const armedOnly = model.compact.kind === 'armed';
+  if (hasCompact && !armedOnly) {
     // Compact state replaces the active / stale / idle skill content.
     // `invalid-presence` still surfaces its own diagnostic when compact
     // is also `invalid` (the compact diagnostic wins, since it's the
     // more recent failure mode).
     line = `${brand} ${compactSegment}${rootSuffix}`;
   } else {
+    let base: string;
     switch (model.state) {
       case 'active':
-        line = `${brand} ${renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf, model.twentyFourHourState)}${rootSuffix}`;
+        base = renderActive(model.presence, palette, nowMs, capability, noColor, model.activeLeaf, model.twentyFourHourState);
         break;
       case 'stale':
-        line = `${brand} ${renderStale(model.presence, model.ageMs, palette, capability, noColor)}${rootSuffix}`;
+        base = renderStale(model.presence, model.ageMs, palette, capability, noColor);
         break;
       case 'invalid-presence':
-        line = `${brand} ${renderInvalid(palette)}${rootSuffix}`;
+        base = renderInvalid(palette);
         break;
       case 'idle':
       default:
-        line = `${brand} ${renderIdle(palette)}${rootSuffix}`;
+        base = renderIdle(palette);
         break;
     }
+    const armedSuffix = armedOnly ? `${palette.inlineSeparator}${compactSegment}` : '';
+    line = `${brand} ${base}${armedSuffix}${rootSuffix}`;
   }
 
   // Marquee is OFF for idle (and only idle). Compact states always

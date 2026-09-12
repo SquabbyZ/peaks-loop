@@ -69,6 +69,12 @@ interface CompactPalette {
   readonly queued: string;
   readonly preparing: string;
   readonly compacting: string;
+  /**
+   * Slice 2026-09-12-compact-band-policy: a trigger is registered but no
+   * compaction is running. Rendered WITHOUT a bar — see
+   * `renderCompact` in skill-statusline-renderer.ts.
+   */
+  readonly armed: string;
   readonly verifying: string;
   readonly completed: string;
   readonly failed: string;
@@ -169,7 +175,7 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
       idleLabel: 'empty',
       invalidMessage: 'presence unreadable',
       compact: {
-        queued: '[', preparing: '+', compacting: '+', verifying: '+',
+        queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+',
         completed: '*', failed,
       },
       barFilled: '#',
@@ -194,6 +200,9 @@ function buildPalette(capability: StatusLineCapability, noColor: boolean): Statu
       queued: brandGlyph('◐'),
       preparing: brandGlyph('◑'),
       compacting: brandGlyph('◒'),
+      // Distinct from `compacting` on purpose: "waiting for the trigger"
+      // must not wear the same face as "a compact is in flight".
+      armed: brandGlyph('◔'),
       verifying: brandGlyph('◓'),
       completed: brandGlyph('✓'),
       failed,

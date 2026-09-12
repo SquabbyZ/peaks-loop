@@ -689,6 +689,29 @@ describe("Scenario: render — compact precedence (exact strings)", () => {
     );
   });
 
+  it("when invoked, should armed renders NO bar and does NOT hide the active skill (slice 2026-09-12-compact-band-policy)", () => {
+    // given: a trigger that is registered but has not fired (0.84, below
+    //        the ≥95% in-band line)
+    const model = compactActiveModel({
+      kind: 'armed',
+      filledCells: 0,
+      triggerRatio: 0.84,
+      redLine: false,
+    });
+    // when:  the line renders
+    const out = renderStatusLine(model, { capability: 'unicode' }).replace(/\x1b\[[0-9;]*m/g, '');
+    // then:  the skill is STILL visible (armed is a resting state, not a
+    //        compact in flight — hiding the skill for the whole band
+    //        would be a regression) and no bar is drawn, because a bar
+    //        is a progress claim this state cannot make.
+    expect(out).toContain('peaks-code');
+    expect(out).toContain('armed');
+    expect(out).toContain('fires at 95%');
+    expect(out).not.toContain('█'); // █
+    expect(out).not.toContain('░'); // ░
+    expect(out).not.toMatch(/stalled/i);
+  });
+
   it("when invoked, should invalid unicode surfaces a single-line diagnostic", () => {
     // given: the test setup
     // when:  the function under test is invoked

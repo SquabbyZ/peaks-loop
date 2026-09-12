@@ -56,6 +56,7 @@ import type {
 import {
   CompactLifecyclePublisher,
   newCompactRunId,
+  resolveDispatchedStage,
   settleOpenLifecycleRun,
   summarizeLifecycleError
 } from './auto-compact-lifecycle.js';
@@ -613,10 +614,6 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
   let dispatch: CompactDispatchResult;
   try {
-    // `compacting` is the last stage this process can prove: the IDE
-    // performs the actual compaction out-of-band, so a successful
-    // dispatch return is NOT evidence the context shrank.
-    lifecycle.advance('compacting');
     if (input.testHooks?.failCompacting) throw new Error('IDE dispatch exploded');
 
     // Slice 2026-06-28: when targeting the main session, write an
@@ -640,7 +637,9 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       target
     });
   } catch (error) {
-    lifecycle.fail(error);
+    // `compacting` is the phase this failure died in — a phase label,
+    // not a claim that a compaction was in flight.
+    lifecycle.fail(error, 'compacting');
     return {
       ok: false,
       code: 'AUTO_COMPACT_DISPATCH_FAILED',
@@ -658,11 +657,21 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     };
   }
 
-  // A dispatcher that returns `ok: false` did not compact anything —
-  // record that as a failure at `compacting` rather than leaving the
-  // run looking like it is still in progress.
-  if (!dispatch.ok) {
-    lifecycle.fail(new Error(dispatch.message));
+  // Slice 2026-09-12-compact-band-policy (defect B): the stage is
+  // chosen from what the dispatch ACTUALLY did, never from the hope
+  // that it compacted. `ide-native` on claude-code only installs a
+  // PreToolUse hook that fires at ratio ≥ 0.95 — below that nothing is
+  // in flight and the honest stage is `armed` (see
+  // `resolveDispatchedStage`). Writing `compacting` there published a
+  // heartbeat that would never arrive, which is exactly what pinned
+  // the statusline at `stalled` for 92 minutes in the field.
+  if (dispatch.ok) {
+    lifecycle.advance(resolveDispatchedStage({ pathway: dispatch.pathway, ratio: probe.ratio }));
+  } else {
+    // A dispatcher that returns `ok: false` did not compact anything —
+    // record that as a failure at `compacting` rather than leaving the
+    // run looking like it is still in progress.
+    lifecycle.fail(new Error(dispatch.message), 'compacting');
   }
 
   // Slice 2026-07-30-compact-visibility: append a compact-history

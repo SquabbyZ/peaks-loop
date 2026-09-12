@@ -185,7 +185,7 @@ Before the first planning action, run `peaks fresh-context preflight --prompt "<
 1. **PreToolUse hook — `peaks code gate-step-08`.** Installed by `peaks workspace init` on the `Bash` matcher; checks `job-shape.json` presence + fail-closed backup regex. If `job-shape.json` AND `progress.json` exist, surfaces `Next: slice #N of M (<currentSlice>)` so the LLM cannot wake up cold.
 2. **Size-fear ban — `peaks code emit-handoff`.** Refuses to emit a final handoff while `remaining > 0` under Job mode. Pass `--force-under-job` only with explicit user approval.
 3. **On-disk slice progress — `peaks job progress`.** `peaks job checkpoint --state done` writes `progress.json`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader.
-4. **Forced auto-compact — `--enforce-job-mode`.** `peaks code context-now --enforce-job-mode` returns `action: 'auto-compact-now'` at ≥ 0.85. **Job mode at ≥ 0.85 is MANDATORY auto-compact** — Code MUST call `peaks code auto-compact` without confirmation.
+4. **Forced auto-compact — `peaks code context-now`.** It returns `action: 'auto-compact-now'` at ≥ 0.85. **≥ 0.85 is MANDATORY auto-compact in every mode (single-rid included)** — Code MUST call `peaks code auto-compact` without confirmation. `--enforce-job-mode` (v3.1.2) only labels the run `jobMode=true`; the ≥ 0.85 downgrade that used to apply to single-rid sessions was removed 2026-09-12.
 
 **Step 0.7 resume rule (read-FIRST):** on resume, `peaks code gate-step-08` reads `progress.json` first and surfaces `Next: slice #N of M (<currentSlice>)` so the orchestrator picks up at the right slice without re-reading the artifact tree.
 
@@ -209,7 +209,7 @@ Before the first planning action, run `peaks fresh-context preflight --prompt "<
 
 **Enforcement layers (defense in depth):**
 1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line`. Only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM/human approval branch.
-2. `--enforce-job-mode` (v3.1.2) — Job mode elevates ≥0.85 to MANDATORY regardless of in-flight batch.
+2. `peaks code context-now` — ≥ 0.85 is MANDATORY (`auto-compact-now`) in every mode; `--enforce-job-mode` no longer gates that (2026-09-12). Only an in-flight sub-agent batch defers it.
 3. `peaks code gate-step-08` (PreToolUse hook) — surfaces `auto-compact-now` on every Bash call when ratio is in the zone, so the LLM cannot wake up cold and forget.
 4. Karpathy §4 exception: `peaks code auto-compact` is fired *by the orchestrator*, not by the user. If you find yourself about to write "ask the user to compact" / "prompt the user to run `/compact`", STOP — that is the regression.
 

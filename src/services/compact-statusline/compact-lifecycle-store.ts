@@ -19,6 +19,14 @@
 // compacting / verifying) is `stalled` when (nowMs - updatedAt) >
 // staleAfterMs. Terminal stages (`completed`, `failed`) NEVER go
 // stalled — the record is the historical answer, not a heartbeat.
+//
+// Slice 2026-09-12-compact-band-policy (defect B): `armed` is a third
+// category — a RESTING stage. It records a fact ("we registered a
+// compact trigger") that stays true until a measurement supersedes it;
+// no heartbeat was ever promised, so waiting in it is NORMAL and it
+// must never be reported as `stalled`. Only `compacting` means "a
+// compaction should be in flight right now", which is the only state
+// where a missing heartbeat is real evidence of a stall.
 
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,7 +34,15 @@ import { getSessionDir } from '../session/getSessionDir.js';
 
 const LIFECYCLE_FILENAME = 'compact-lifecycle.json';
 const ERROR_SUMMARY_MAX = 160;
-const ACTIVE_STAGES: ReadonlyArray<Exclude<CompactLifecycleStage, 'completed' | 'failed'>> = [
+/**
+ * Stages that promise a heartbeat: each one is only written while the
+ * dispatching process (or the IDE it armed) is expected to make
+ * progress, so a stale `updatedAt` is real evidence of a stall.
+ *
+ * `armed` is deliberately NOT here — see the header. It is a resting
+ * state, not a heartbeat.
+ */
+const ACTIVE_STAGES: ReadonlyArray<Exclude<CompactLifecycleStage, 'completed' | 'failed' | 'armed'>> = [
   'queued',
   'preparing',
   'compacting',
@@ -36,6 +52,7 @@ const ALL_STAGES: ReadonlyArray<CompactLifecycleStage> = [
   'queued',
   'preparing',
   'compacting',
+  'armed',
   'verifying',
   'completed',
   'failed',
@@ -45,6 +62,14 @@ export type CompactLifecycleStage =
   | 'queued'
   | 'preparing'
   | 'compacting'
+  /**
+   * Slice 2026-09-12-compact-band-policy: a compact trigger was
+   * REGISTERED but no compaction has started — e.g. claude-code's
+   * `ide-native` pathway only installs the PreToolUse hook, which
+   * compacts in-band at ratio ≥ 0.95. In the 0.80–0.95 band nothing
+   * is in flight, so claiming `compacting` was a false heartbeat.
+   */
+  | 'armed'
   | 'verifying'
   | 'completed'
   | 'failed';
@@ -209,7 +234,8 @@ export function writeCompactLifecycle(input: {
  * Return kinds:
  *   - `missing`  — no record has ever been written for this session
  *   - `valid`    — record parsed and validated; stage is terminal
- *                  (completed/failed) OR is active but still fresh
+ *                  (completed/failed), resting (`armed`) OR is active
+ *                  but still fresh
  *   - `invalid`  — file exists but is malformed / wrong schema / out
  *                  of range. `reason` is a single-line English message
  *                  (no CLI verbs, no stack traces). The caller MUST

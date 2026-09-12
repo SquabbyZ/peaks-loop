@@ -308,7 +308,7 @@ describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () 
       trailSeparator: ' -> ',
       idleLabel: 'empty',
       invalidMessage: 'presence unreadable',
-      compact: { queued: '[', preparing: '+', compacting: '+', verifying: '+', completed: '*', failed: 'x' },
+      compact: { queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+', completed: '*', failed: 'x' },
       barFilled: '#',
       barEmpty: '-',
       ratioArrow: '->'
@@ -504,7 +504,7 @@ describe('rid-statusline-24h-overlay — format24hSuffix helper', () => {
     trailSeparator: ' -> ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
-    compact: { queued: '[', preparing: '+', compacting: '+', verifying: '+', completed: '*', failed: 'x' },
+    compact: { queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+', completed: '*', failed: 'x' },
     barFilled: '#',
     barEmpty: '-',
     ratioArrow: '->'

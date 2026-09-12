@@ -290,7 +290,11 @@ describe("Scenario: behavior — lifecycle transitions observable from a dispatc
 
     // The dispatching process can prove exactly these three, in this order.
     // It CANNOT prove verifying/completed — the IDE compacts out-of-process.
-    expect(seen).toEqual(['queued', 'preparing', 'compacting']);
+    // Slice 2026-09-12-compact-band-policy: at 0.88 (< red line) the
+    // claude-code `ide-native` pathway only ARMS its ≥95% PreToolUse
+    // hook, so `armed` is the last stage this process can honestly
+    // claim. `compacting` here was the defect: a heartbeat nobody sends.
+    expect(seen).toEqual(['queued', 'preparing', 'armed']);
     expect(result.ok).toBe(true);
   });
 
@@ -308,11 +312,15 @@ describe("Scenario: behavior — lifecycle transitions observable from a dispatc
     expect(seen).not.toContain('verifying');
     expect(seen).not.toContain('completed');
 
-    // The persisted record must rest at `compacting` — the honest answer.
+    // The persisted record must rest at `armed` — the honest answer for
+    // a dispatch that only registered the ≥95% in-band trigger. It must
+    // NOT claim `compacting`, which would promise a heartbeat that the
+    // 0.88 band never produces (slice 2026-09-12-compact-band-policy).
     const read = readLifecycle(projectRoot);
     expect(read.kind).toBe('valid');
     if (read.kind !== 'valid') throw new Error('expected valid record');
-    expect(read.record.stage).toBe('compacting');
+    expect(read.record.stage).toBe('armed');
+    expect(read.record.stage).not.toBe('compacting');
   });
 
   it("when invoked, should Case 7: persists runId, triggerRatio and redLine on the record", async () => {
@@ -496,7 +504,8 @@ describe("Scenario: integration — verifying/completed driven by the real post-
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    // Turn 1: the runner is full → dispatch. Record rests at `compacting`.
+    // Turn 1: the runner is full → dispatch. Record rests at `armed`
+    // (0.88 < red line: the ≥95% hook is registered, nothing compacted).
     await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,
@@ -504,7 +513,7 @@ describe("Scenario: integration — verifying/completed driven by the real post-
     });
     const mid = readLifecycle(projectRoot);
     if (mid.kind !== 'valid') throw new Error('expected valid record');
-    expect(mid.record.stage).toBe('compacting');
+    expect(mid.record.stage).toBe('armed');
     const runId = mid.record.runId;
 
     // Turn 2: the IDE has compacted; the adapter's postCompactDetectCommand
@@ -575,8 +584,39 @@ describe("Scenario: integration — verifying/completed driven by the real post-
 
     const read = readLifecycle(projectRoot);
     if (read.kind !== 'valid') throw new Error('expected valid record');
-    expect(read.record.stage).toBe('compacting');
+    expect(read.record.stage).toBe('armed');
     expect(read.record.afterRatio).toBeUndefined();
+  });
+
+  it("when invoked, should Case 18: a red-line (>=95%) dispatch claims `compacting` and completes with a measured afterRatio", async () => {
+    // given: a red-line dispatch (the ≥95% in-band trigger IS satisfied,
+    //        so a compaction really is in flight)
+    // when:  the next probe measures a dropped ratio
+    // then:  the run advances to `completed` carrying the real afterRatio —
+    //        the verification half of the zero-pause contract
+    await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.97),
+    });
+    const mid = readLifecycle(projectRoot);
+    if (mid.kind !== 'valid') throw new Error('expected valid record');
+    expect(mid.record.stage).toBe('compacting');
+    expect(mid.record.redLine).toBe(true);
+    const runId = mid.record.runId;
+
+    const after = await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.30),
+    });
+    expect(after.code).toBe('AUTO_COMPACT_SKIP');
+
+    const done = readLifecycle(projectRoot);
+    if (done.kind !== 'valid') throw new Error('expected valid record');
+    expect(done.record.stage).toBe('completed');
+    expect(done.record.afterRatio).toBeCloseTo(0.30, 5);
+    expect(done.record.runId).toBe(runId);
   });
 });
 

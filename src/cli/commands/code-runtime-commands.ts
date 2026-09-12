@@ -213,9 +213,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'Adapter-driven (no hard-coded IDE names): Claude Code is the MVP ' +
           'implementation; trae / codex / cursor / qoder / tongyi-lingma / ' +
           'hermes / openclaw register their own env-var via IdeAdapter.compact. ' +
-          'v3.1.2: when --enforce-job-mode is set OR job-shape.json says isJob=true, ' +
-          '≥0.85 emits action=auto-compact-now (MANDATORY, not advisory) and ' +
+          'v3.1.2 / 2026-09-12: ≥0.85 emits action=auto-compact-now ' +
+          '(MANDATORY in every mode — single-rid included) and ' +
           '≥0.95 emits action=red-line (forced hook fires next turn). ' +
+          '--enforce-job-mode only changes the reported `jobMode` label; ' +
+          'the thresholds are identical. ' +
           'Context-window override: set env PEAKS_CONTEXT_WINDOW_TOKENS=<positive int> ' +
           'or `peaks config set --key context.windowTokens --value <positive int>`; ' +
           'the JSON envelope reports the winning layer as capacitySource ' +
@@ -223,7 +225,7 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
-      .option('--enforce-job-mode', 'v3.1.2: treat ≥0.85 as MANDATORY auto-compact (not advisory). Auto-enabled when job-shape.json says isJob=true.')
+      .option('--enforce-job-mode', 'v3.1.2: label the run as Job-shaped (jobMode=true). Auto-enabled when job-shape.json says isJob=true. Since 2026-09-12 the ≥0.85 MANDATORY auto-compact applies in single-rid mode too, so this flag no longer changes any action.')
       .option('--prompt-size <bytes>', 'override the bytes-from-env path; takes priority over env / statusline / transcript. Useful when CLAUDE_CONTEXT_USAGE_PERCENT is absent (e.g. Mac Claude Code).')
   ).action(
     async (opts: { project: string; sessionId?: string; enforceJobMode?: boolean; promptSize?: string; json?: boolean }) => {
@@ -268,15 +270,20 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
         let next: string | null = null;
         if (probe.ratio >= 0.95) {
-          action = isJobMode ? 'red-line' : 'red-line';
+          action = 'red-line';
           next = 'peaks code auto-compact';
         } else if (probe.ratio >= 0.85) {
-          if (isJobMode) {
-            action = 'auto-compact-now';
-            next = 'peaks code auto-compact';
-          } else {
-            action = 'soft-warn';
-          }
+          // Slice 2026-09-12-compact-band-policy (defect A): the
+          // 0.85–0.95 band is MANDATORY auto-compact for single-rid
+          // sessions too. It used to be downgraded to `soft-warn` here,
+          // which contradicted this command's own help text, the
+          // `pre-compact` action from `peaks skill presence`, the
+          // peaks-code SKILL.md, and the 2026-07-27 user-calibrated
+          // threshold policy — and left an LLM that follows the "single
+          // source of truth" (`context-now`) never compacting in the
+          // zone, violating the zero-pause contract.
+          action = 'auto-compact-now';
+          next = 'peaks code auto-compact';
         } else if (probe.ratio >= 0.5) {
           action = 'soft-warn';
         }
@@ -285,9 +292,16 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             : action === 'auto-compact-now' ? 'pre-compact'
             : action === 'soft-warn' ? 'soft-warn'
             : 'ok';
-        const jobModeNotice = isJobMode
-          ? 'Job mode enforced: ≥0.85 is MANDATORY auto-compact (v3.1.2).'
-          : 'Advisory mode (single-rid): ≥0.85 is recommended, not mandatory.';
+        // Slice 2026-09-12-compact-band-policy: the two modes no longer
+        // differ in behaviour ABOVE 0.50 — both auto-fire at ≥0.85 and
+        // both red-line at ≥0.95 — so the old "advisory mode
+        // (single-rid)" notice was a lie the moment the downgrade was
+        // removed. Job mode's remaining difference is that its threshold
+        // policy is recorded up front (`job-shape.json`), which the
+        // `jobMode` field already reports. The notice now says only that.
+        const gateModeNotice = isJobMode
+          ? 'Job mode (job-shape.json isJob=true): the same ≥0.85 / ≥0.95 thresholds apply, and the decision is recorded in job-shape.json.'
+          : 'Single-rid mode: the same ≥0.85 / ≥0.95 thresholds apply — ≥0.85 is MANDATORY auto-compact, not advisory.';
         printResult(
           io,
           ok('code.context-now', {
@@ -313,13 +327,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             action === 'red-line'
               ? `RED LINE: ≥ 95%. Next: \`${next}\` (PreToolUse hook fires next turn).`
               : action === 'auto-compact-now'
-                ? `Job-mode MANDATORY auto-compact. Code MUST call \`${next}\` WITHOUT confirmation.`
+                ? `MANDATORY auto-compact (≥85%, every mode). Code MUST call \`${next}\` WITHOUT confirmation.`
                 : action === 'soft-warn'
-                  ? isJobMode
-                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
-                    : `Soft warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
+                  ? `Soft warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
                   : `Below 50%. No action required.`,
-            jobModeNotice
+            gateModeNotice
           ]),
           true
         );

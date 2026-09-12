@@ -28,6 +28,9 @@
 //   none       → 0 cells
 //   invalid    → 0 cells (no false reassurance)
 //   stalled    → keep the active stage's cell
+//   armed      → NO bar at all (slice 2026-09-12-compact-band-policy):
+//                a registered-but-idle trigger has no progress to
+//                report, and a bar would imply one.
 //
 // Render contract: the rendered label is a fixed-width 8-cell bar
 // (`[████░░░░]` filled from the left). NO `?` characters. NO guessed
@@ -37,6 +40,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { getSessionDir } from '../session/getSessionDir.js';
+import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
 import {
   readCompactLifecycle,
   type CompactLifecycleRecord,
@@ -52,7 +56,8 @@ export type CompactDisplayKind =
   | 'completed'
   | 'failed'
   | 'stalled'
-  | 'invalid';
+  | 'invalid'
+  | 'armed';
 
 export interface CompactStatuslineState {
   readonly kind: CompactDisplayKind;
@@ -105,6 +110,8 @@ const CELL_BY_STAGE: ReadonlyMap<CompactLifecycleStage, 0 | 2 | 4 | 6 | 8> = new
   ['verifying', STAGE_CELL_VERIFYING],
   ['completed', STAGE_CELL_COMPLETED],
   ['failed', STAGE_CELL_COMPACTING],
+  // `armed` is not in the cell table: it renders WITHOUT a bar (see
+  // renderCompactStatusline). Lookups therefore miss and fall back to 0.
 ]);
 
 const FILLED = '█';
@@ -306,6 +313,12 @@ export function renderCompactStatusline(state: CompactStatuslineState): string {
       return `compact ${renderBar(2)}`;
     case 'compacting':
       return `compact ${renderBar(STAGE_CELL_COMPACTING)}`;
+    // Slice 2026-09-12-compact-band-policy: a registered trigger that has
+    // not fired is NOT progress. Rendering a bar would imply movement
+    // that is not happening, so `armed` deliberately renders no bar at
+    // all — the label states what is true and what would change it.
+    case 'armed':
+      return `compact armed${formatArmedRatio(state)} — fires in-band at ${arRedLinePct()}`;
     case 'verifying':
       return `compact ${renderBar(STAGE_CELL_VERIFYING)}`;
     case 'completed':
@@ -317,6 +330,18 @@ export function renderCompactStatusline(state: CompactStatuslineState): string {
     case 'invalid':
       return formatInvalid(state);
   }
+}
+
+/** The red-line ratio the armed trigger waits for, as a display percentage. */
+function arRedLinePct(): string {
+  return `${Math.round(AUTO_COMPACT_RED_LINE_RATIO * 100)}%`;
+}
+
+/** ` (88% now)` when the opening trigger ratio is known; empty otherwise. */
+function formatArmedRatio(state: CompactStatuslineState): string {
+  return typeof state.triggerRatio === 'number'
+    ? ` (${Math.round(state.triggerRatio * 100)}% now)`
+    : '';
 }
 
 function formatCompleted(state: CompactStatuslineState): string {

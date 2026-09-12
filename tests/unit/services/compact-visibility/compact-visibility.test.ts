@@ -970,3 +970,86 @@ describe("Scenario: a11y — rendered label hygiene (no \"?\" anywhere)", () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Slice 2026-09-12-compact-band-policy (defect B).
+//
+// Field evidence: `.peaks/_runtime/<sid>/compact-lifecycle.json` sat at
+// `stage: "compacting"` for 92 minutes after a 0.8387-ratio dispatch that
+// only armed claude-code's ≥95% PreToolUse hook. Nothing was compacting,
+// the ratio never fell, `settleOpenLifecycleRun` never ran — and the
+// statusline reported `stalled` forever.
+//
+// The fix is a truthful stage, not a bigger stale window: `armed` is a
+// RESTING stage (no heartbeat is promised, so waiting is normal), while
+// `compacting` keeps its meaning — "a compaction should be in flight" —
+// which is the ONLY state where a missing heartbeat is real evidence.
+// ---------------------------------------------------------------------------
+
+describe("Scenario: behavior — `armed` rests; `compacting` is the only stage that can stall", () => {
+  withTmpWorkspacePerTest();
+
+  it("when invoked, should armed older than staleAfterMs stays valid (not stalled) and renders WITHOUT a progress bar", () => {
+    // given: an armed record written an hour before `now`
+    // when:  the canonical reader + statusline decide on it
+    // then:  it rests as `armed` — no stall, no bar, no guessed progress
+    const record = makeLifecycleRecord({
+      stage: 'armed',
+      updatedAt: '2026-08-01T11:00:00.000Z',
+      triggerRatio: 0.8387,
+    });
+    writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
+
+    const read = readCompactLifecycle({
+      projectRoot: process.cwd(),
+      sessionId: LIFECYCLE_SID,
+      nowMs: NOW_MS, // 1h after updatedAt, way past staleAfterMs=120_000
+      staleAfterMs: 120_000,
+    });
+    // Before the fix this returned `stalled` and pinned the statusline.
+    expect(read.kind).toBe('valid');
+
+    const out = decideCompactStatusline({
+      projectRoot: process.cwd(),
+      sessionId: LIFECYCLE_SID,
+      now: NOW_MS,
+    });
+    expect(out.kind).toBe('armed');
+    expect(out.kind).not.toBe('stalled');
+
+    const rendered = renderCompactStatusline(out);
+    expect(rendered).not.toMatch(/stalled/i);
+    // No bar characters at all: a bar is a progress claim.
+    expect(rendered).not.toMatch(/[█░]/);
+    // It states what it is waiting for, so the user can tell it apart
+    // from a compact that is actually running.
+    expect(rendered).toMatch(/95%/);
+  });
+
+  it("when invoked, should genuinely stuck compacting STILL reports stalled (capability preserved)", () => {
+    // given: a `compacting` record whose heartbeat never arrived
+    // when:  the canonical reader + statusline decide on it
+    // then:  it is still reported as stalled — the real failure mode
+    const record = makeLifecycleRecord({
+      stage: 'compacting',
+      updatedAt: '2026-08-01T11:00:00.000Z',
+    });
+    writeCompactLifecycle({ projectRoot: process.cwd(), sessionId: LIFECYCLE_SID, record });
+
+    const read = readCompactLifecycle({
+      projectRoot: process.cwd(),
+      sessionId: LIFECYCLE_SID,
+      nowMs: NOW_MS,
+      staleAfterMs: 120_000,
+    });
+    expect(read.kind).toBe('stalled');
+
+    const out = decideCompactStatusline({
+      projectRoot: process.cwd(),
+      sessionId: LIFECYCLE_SID,
+      now: NOW_MS,
+    });
+    expect(out.kind).toBe('stalled');
+    expect(renderCompactStatusline(out)).toMatch(/stalled/i);
+  });
+});
