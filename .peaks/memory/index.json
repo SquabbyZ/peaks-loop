@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-12T06:02:14.284Z",
+  "updatedAt": "2026-09-12T12:22:10.440Z",
   "hot": {
     "rule": [
       {
@@ -52,6 +52,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "checkpoint-every-20-tool-calls-is-mandatory",
+        "kind": "rule",
+        "description": "每 20 次工具调用的 session checkpoint 是**强制项**，本轮 orchestrator 整轮没跑，一直到 context 76% 才补了第一次。 **Why:** checkpoint 是 compact 之后...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\checkpoint-every-20-tool-calls-is-mandatory.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
         "name": "delete-the-line-and-see-whether-the-suite-still-passes",
         "kind": "rule",
         "description": "AC6's linchpin —  — had **zero coverage**: deleting it left all 129 tests green.",
@@ -66,6 +74,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\jsdoc-breaks-on-glob-literals-in-tsc.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "memory-extract-filename-comes-from-title-use-english-kebab",
+        "kind": "rule",
+        "description": "用 frontmatter 的  生成文件名。中文 （如「按 AC 全过收工会让…」）会被削成 、、 这类碎片。 **Why:** slug 生成器只保留 ASCII，中文字符被整体丢弃后只剩下零星拉丁片段或空串，落盘名字完全不可检索...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\memory-extract-filename-comes-from-title-use-english-kebab.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "on-windows-windowshide-covers-only-the-process-you-spawn",
@@ -790,6 +806,22 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "formal-rigor-in-argument-is-not-goal-attainment",
+        "kind": "lesson",
+        "description": "orchestrator 把一个「抬上限 vs 加 floor」的推理评价为 \"careful\" 并接受；独立复核证明它**够不到目标** —— 那个源本身的体积就超过 floor 切片，加上 floor 之后**仍然会被截断**。 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\formal-rigor-in-argument-is-not-goal-attainment.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
+        "name": "guard-verifies-syntax-shape-not-the-property",
+        "kind": "lesson",
+        "description": "反回归守卫 Guard C 初版按**行首 ** 切分源码，不匹配该形状的顶层代码**完全不扫描**；代码块只在「整行恰好是 」时结束，模板字面量里位于列 0 的  会提前闭合它，其后的全部内容漏扫。实测 **8 种等价写法全部放行*...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\guard-verifies-syntax-shape-not-the-property.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
         "name": "library-delegation-swaps-failure-modes",
         "kind": "lesson",
         "description": "为修自实现 matcher 的两条缺陷（扩展 glob 语法漏报 + 灾难性回溯），改用 （与 codegraph 上游同引擎同版本）。副作用： **抛错**（）。于是一条垃圾配置（）让**整个对账**抛错，消费者把这个 throw ...",
@@ -820,6 +852,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\openspec-peaks-code-peaks-runtime-source-of-truth.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "partial-delivery-makes-delivery-verdict-arguable",
+        "kind": "lesson",
+        "description": "同一个缺陷形状连出现 7 次，每次只换一层判据：（磁盘上有文件，但内容被截断）→ （≥1 字节就算送到）→ （把 missing 与 empty 混为一谈）。根因不是某一个判据写错，而是**一个源允许被\"部分内联\"**：总量预算把它从...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\partial-delivery-makes-delivery-verdict-arguable.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006",
@@ -950,6 +990,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "registry-check-after-publish-hits-subpackage-lag",
+        "kind": "lesson",
+        "description": "的 dependencies 对四个子包版本做**精确 pin**。发布后立刻查 registry， /  可能仍显示旧版本（表现为 MISSING）；而 pin 指向的新版本尚不存在时， 会直接失败。等待数十秒后重查即恢复正常 ——...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\registry-check-after-publish-hits-subpackage-lag.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
+      },
+      {
         "name": "rid-001 redo fake-green recovery closure — 9 文件 commit landed e8fb5ed9",
         "kind": "lesson",
         "description": "rid-001 redo closure — fake-green recovery 完整 cycle > **优先级**：项目级 hard lesson。任何 \"新增 CLI 表面\" slice 都必须按本 sediment 的 a...",
@@ -980,6 +1028,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\silent-warning-5-grace-marker-slice-1-5.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-005-silent-warning-grace.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "single-observation-is-not-a-property",
+        "kind": "lesson",
+        "description": "orchestrator 基于**一次**  就向用户报告「闸已经能端到端跑通」；随后自己复跑 **3/3 全败**（1 次输出截断 + 2 次 \"no text block\"）。 **Why:** 那次成功是运气，但它在报告里被写成...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\single-observation-is-not-a-property.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "skill-external-invocation-pattern-doctoring-is-one-line-surgery",
