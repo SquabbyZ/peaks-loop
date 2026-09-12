@@ -94,7 +94,58 @@ export function rewriteBareCodegraphHints(text: string): string {
   );
 }
 
-async function runCodegraphCommand(io: ProgramIO, command: string, options: CodegraphInvocationOptions, asJson?: boolean): Promise<void> {
+const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
+
+/**
+ * Upstream `status` answers a different question than peaks-loop's
+ * integrity gate: upstream says "the on-disk graph matches the last scan"
+ * (true), peaks says "that graph covers the repository" (false when rules
+ * exclude tracked files). Both verdicts are correct, but an unqualified
+ * `[OK] Index is up to date` printed above our `[FAIL] ...` reads as
+ * "nothing to see here" — and the OK is the line the eye lands on first.
+ * The exit code and the JSON envelope are already right; only this line
+ * lies by juxtaposition.
+ *
+ * So: keep upstream's wording — the line stays recognizable, and the
+ * Files/Nodes counts around it are untouched — but drop the bare OK
+ * marker and name the only question it answers. Clean runs never reach
+ * this, so their output stays byte-identical.
+ *
+ * The match is anchored to THAT line. An earlier version keyed on
+ * `includes('up to date')`, which is content-blind: upstream prints other
+ * `[OK] ... are up to date` lines (a language-server or watcher line is the
+ * observed one), and each of those was rewritten into a claim about the
+ * INDEX — a misattribution introduced by a change whose entire purpose was
+ * to stop misleading output. Anything that is not the index line is passed
+ * through byte-for-byte, tail note and all.
+ */
+const INDEX_UP_TO_DATE_RE = /^\[OK\]\s+Index is up to date\b/i;
+
+export function attributeUpstreamUpToDateLine(stdout: string): string {
+  return stdout
+    .split('\n')
+    .map((line) => {
+      const visible = line.replace(ANSI_SGR_PATTERN, '').trim();
+      if (!INDEX_UP_TO_DATE_RE.test(visible)) {
+        return line;
+      }
+
+      // Only the OK marker is downgraded and the attribution appended: the
+      // rest of the line — including whatever upstream wrote after it — is
+      // preserved, so nothing upstream actually said is replaced.
+      const withoutOk = visible.replace(/^\[OK\]\s*/, '');
+      return `[i] ${withoutOk} (upstream: matches the last scan only; repository coverage is answered below)`;
+    })
+    .join('\n');
+}
+
+async function runCodegraphCommand(
+  io: ProgramIO,
+  command: string,
+  options: CodegraphInvocationOptions,
+  asJson?: boolean,
+  attributeStdout?: (text: string) => string
+): Promise<void> {
   try {
     const invocation = createCodegraphInvocation(options);
     const result = await executeCodegraphInvocation(invocation);
@@ -105,7 +156,8 @@ async function runCodegraphCommand(io: ProgramIO, command: string, options: Code
     }
 
     const didFail = result.exitCode !== null && result.exitCode !== 0;
-    const stdout = rewriteBareCodegraphHints(result.stdout);
+    const rewritten = rewriteBareCodegraphHints(result.stdout);
+    const stdout = attributeStdout === undefined ? rewritten : attributeStdout(rewritten);
     const stderr = rewriteBareCodegraphHints(result.stderr);
 
     if (stdout.length > 0) {
@@ -224,7 +276,17 @@ async function runCodegraphStatusCommand(
   if (asJson === true) {
     await runCodegraphStatusJson(io, options, integrity, integrityWarning);
   } else {
-    await runCodegraphCommand(io, 'codegraph.status', { subcommand: 'status', project: options.project });
+    // Only when the gate found a gap: upstream's `[OK] Index is up to
+    // date` answers "consistent with the last scan", and printing it
+    // unqualified right above our `[FAIL]` tells the reader two opposite
+    // things at once. Clean runs get no transform and stay byte-identical.
+    await runCodegraphCommand(
+      io,
+      'codegraph.status',
+      { subcommand: 'status', project: options.project },
+      false,
+      integrity?.gap === true ? attributeUpstreamUpToDateLine : undefined
+    );
     if (integrityWarning !== null) {
       io.stdout(`[WARN] codegraph exclude integrity not evaluated: ${integrityWarning}`);
     } else if (integrity !== null) {

@@ -54,9 +54,24 @@ vi.mock('../../../src/services/codegraph/codegraph-service.js', async () => {
   return { ...actual, executeCodegraphInvocation: __m.executeCodegraphInvocation };
 });
 
-import { registerCodegraphCommands } from '../../../src/cli/commands/codegraph-commands.js';
+import {
+  attributeUpstreamUpToDateLine,
+  registerCodegraphCommands
+} from '../../../src/cli/commands/codegraph-commands.js';
 
 type CapturedIo = ReturnType<typeof makeCapturedIo>['captured'];
+
+// Byte-for-byte the shape the real upstream binary prints on a clean run:
+// ANSI-colored markers, an index-statistics block, then the `[OK]` marker.
+// The defect this file guards is a *juxtaposition* defect, so the mock has
+// to carry the color codes the real line carries — a plain string would let
+// the fix pass without ever seeing the escape sequences.
+const UPSTREAM_CLEAN_STDOUT =
+  '\x1b[1mIndex Statistics:\x1b[0m\n  Files:     1,133\n\n\x1b[32m[OK]\x1b[0m Index is up to date\n';
+
+// Test-local oracle: strip SGR sequences so assertions read what the user
+// sees, not what the terminal needs.
+const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, '');
 
 async function runCodegraph(argv: readonly string[]): Promise<CapturedIo> {
   const { io, captured } = makeCapturedIo();
@@ -141,7 +156,7 @@ beforeEach(() => {
   __m.executeCodegraphInvocation.mockReset();
   __m.executeCodegraphInvocation.mockResolvedValue({
     exitCode: 0,
-    stdout: 'Index is up to date\n',
+    stdout: UPSTREAM_CLEAN_STDOUT,
     stderr: '',
   });
 });
@@ -214,6 +229,79 @@ describe('peaks codegraph status (integrity gate)', () => {
 
     expect(readFileSync(configPath, 'utf8')).toBe(before);
     expect(existsSync(`${configPath}.bak`)).toBe(false);
+  });
+});
+
+// ── render: the OK line may not contradict the FAIL line ─────────────
+
+describe('peaks codegraph status (no unqualified OK next to a gap)', () => {
+  it('when a gap exists, should not print an unqualified [OK] Index is up to date', async () => {
+    const project = seedProject(ws, 'gapped');
+
+    const captured = await runCodegraph(['status', '--project', project]);
+    const visible = stripAnsi(captured.stdout.join('\n'));
+
+    // Two correct verdicts about two different questions were printed as
+    // one contradiction, and the green OK is the line the eye lands on
+    // first. It must not survive as a bare, unqualified claim.
+    expect(visible).not.toContain('[OK] Index is up to date');
+    // Attributed, not deleted: upstream's wording stays recognizable and
+    // the statistics block around it is untouched, so nothing upstream
+    // actually said is lost.
+    expect(visible).toContain('[i] Index is up to date');
+    expect(visible).toContain('Files:     1,133');
+    expect(visible).toContain('[FAIL] codegraph index is incomplete');
+    expect(visible).toContain('vendor/lib.ts');
+    // The contract is still the exit code, not the prose.
+    expect(process.exitCode).toBe(CODEGRAPH_INTEGRITY_EXIT_CODE);
+  });
+
+  it('when nothing is excluded, should proxy the upstream output byte-for-byte', async () => {
+    const project = seedProject(ws, 'clean');
+
+    const captured = await runCodegraph(['status', '--project', project]);
+    const out = captured.stdout.join('\n');
+
+    // Regression guard for the other half of the fix: a clean run is
+    // untouched down to the byte, ANSI sequences included.
+    expect(out).toBe(UPSTREAM_CLEAN_STDOUT.trimEnd());
+    expect(stripAnsi(out)).toContain('[OK] Index is up to date');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('when the marker is on another up-to-date line, should not attribute it to the index', () => {
+    // FAILS BEFORE THE CHANGE: the rewrite keyed on `includes('up to date')`,
+    // which is content-blind — this language-server line was rewritten into
+    // `[i] Index is up to date (...)`, a claim about the INDEX that upstream
+    // never made. A misattribution introduced by the change whose whole purpose
+    // was to stop misleading output is the same defect, mirrored.
+    const stdout = [
+      '\x1b[32m[OK]\x1b[0m Language servers are up to date',
+      '\x1b[32m[OK]\x1b[0m Index is up to date',
+      '[OK] Something else is up to date (built 3m ago)'
+    ].join('\n');
+
+    const rewritten = stripAnsi(attributeUpstreamUpToDateLine(stdout)).split('\n');
+
+    expect(rewritten[0]).toBe('[OK] Language servers are up to date');
+    expect(rewritten[2]).toBe('[OK] Something else is up to date (built 3m ago)');
+    // Only the index line is downgraded — and its own tail note is kept.
+    expect(rewritten[1]).toContain('[i] Index is up to date');
+    expect(rewritten[1]).not.toContain('[OK]');
+  });
+
+  it('when the index line carries a tail note, should downgrade the marker without dropping it', () => {
+    // FAILS BEFORE THE CHANGE: the whole line was replaced by a canned string,
+    // so anything upstream printed after the phrase was silently discarded —
+    // in a change whose stated contract is "nothing upstream actually said is
+    // lost".
+    const stdout = '[OK] Index is up to date (last scan 2026-09-12, 3 files ahead)';
+
+    const rewritten = stripAnsi(attributeUpstreamUpToDateLine(stdout));
+
+    expect(rewritten).toContain('Index is up to date (last scan 2026-09-12, 3 files ahead)');
+    expect(rewritten).toContain('(upstream: matches the last scan only');
+    expect(rewritten.startsWith('[i] ')).toBe(true);
   });
 });
 
