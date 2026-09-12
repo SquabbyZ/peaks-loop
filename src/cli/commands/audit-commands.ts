@@ -13,9 +13,18 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
 import { runStaticAudit, type AgentShieldState } from '../../services/audit/static-service.js';
+import { auditGoal, IncompleteAuditError, type LlmRunner } from '../../services/audit/audit-goal-service.js';
+import {
+  createAnthropicRunner,
+  LlmBindingError,
+  LlmRequestError,
+  resolveAnthropicConfig,
+} from '../../services/llm/anthropic-runner.js';
+import { createStubRunner } from '../../services/llm/stub-runner.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
+import type { AuditGoalOutput } from '../../services/audit/audit-goal-types.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
 import { type AuditDecisionRecord, writeAuditDecision } from '../../services/audit/decision-writer.js';
 import { computeProseRatio, type ProseRatioResult } from '../../services/audit/prose-ratio-calculator.js';
@@ -78,19 +87,39 @@ function isSupportedArtifactKind(value: string): value is ArtifactKind {
 }
 
 /** Whitelist of supported `--llm-provider` values for `peaks audit goal`. */
-const SUPPORTED_LLM_PROVIDERS = ['stub'] as const;
+const SUPPORTED_LLM_PROVIDERS = ['anthropic', 'stub'] as const;
 type SupportedLlmProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number];
+
+/**
+ * The real provider is the default: `peaks audit goal` is the entry gate for
+ * every peaks-* workflow, so it must audit by default and only scaffold when
+ * a caller explicitly asks for `stub`.
+ */
+const DEFAULT_LLM_PROVIDER: SupportedLlmProvider = 'anthropic';
 
 function isSupportedLlmProvider(value: string): value is SupportedLlmProvider {
   return (SUPPORTED_LLM_PROVIDERS as readonly string[]).includes(value);
 }
 
+/** `audit-failed` is a failure envelope's status — never a scaffold, never a success. */
+export type AuditGoalStatus = 'audit-complete' | 'scaffold-only' | 'audit-failed';
+
 export interface AuditGoalData {
-  readonly status: 'scaffold-only';
-  readonly serviceWired: true;
-  readonly providerBinding: 'pending-follow-up-slice';
+  readonly status: AuditGoalStatus;
+  /** Which LLM produced (or failed to produce) the audit. `unresolved` = rejected before binding. */
+  readonly providerBinding: 'anthropic-messages-api' | 'stub' | 'unresolved';
   readonly need: string;
   readonly projectRoot: string;
+  /** The validated 6-dimension audit. Present on success only. */
+  readonly result?: AuditGoalOutput;
+  /** The bound model. Present on a real run only. */
+  readonly model?: string;
+  /**
+   * Environment variables the binding needed and did not find. Present on a
+   * binding failure only, and verbatim: `fail()` redacts `message`, so this
+   * is the channel that reliably names what the operator must set.
+   */
+  readonly missingEnv?: readonly string[];
 }
 
 function validateProjectRoot(projectArg: string): { ok: true; projectRoot: string } | { ok: false; code: string; message: string } {
@@ -315,32 +344,41 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // Fix M1 (W5) — `peaks audit goal` CLI wrapper around `auditGoal()`.
-  // The service is correctly implemented but is NOT yet wired to a real
-  // LLM provider; this CLI exposes the route with a `stub` provider that
-  // returns a scaffold envelope. A follow-up slice will bind a real
-  // provider. Until then, non-stub providers fail loudly with
-  // `LLM_PROVIDER_NOT_IMPLEMENTED` so callers cannot silently no-op.
+  // Slice 2026-09-12-llm-provider-binding — `peaks audit goal` now runs the
+  // gate it advertises. `auditGoal()` was already correct (one `LlmRunner`
+  // call, 6-dimension validation, `IncompleteAuditError` on a partial audit);
+  // what was missing was a provider binding, so the command answered with a
+  // fixed `scaffold-only` envelope no matter what it was asked.
+  //
+  // `anthropic` is now the default and reads the session's own environment
+  // (see `resolveAnthropicConfig`). `stub` stays for CI/tests but is
+  // reported as a scaffold, and a missing credential fails loudly — a silent
+  // fall back to the scaffold envelope would leave the gate exactly as fake
+  // as it was before this slice.
   addJsonOption(
     audit
       .command('goal')
       .description('Audit a human need across 6 dimensions and propose a goal (peaks-audit primitive)')
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--need <text>', 'the human need to audit (becomes input.need for auditGoal())')
-      .option('--llm-provider <name>', 'LLM provider name (default: stub)', 'stub')
+      .option(
+        '--llm-provider <name>',
+        `LLM provider (${SUPPORTED_LLM_PROVIDERS.join(' | ')}); stub performs no audit`,
+        DEFAULT_LLM_PROVIDER
+      )
   ).action(async (options: AuditGoalOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
       printResult(
         io,
-        fail<AuditGoalData>('audit.goal', validation.code, validation.message, emptyAuditGoalData(options.need, options.project), ['Verify the project path exists and is a directory']),
+        fail<AuditGoalData>('audit.goal', validation.code, validation.message, auditGoalFailureData(options.need, options.project), ['Verify the project path exists and is a directory']),
         options.json
       );
       process.exitCode = 1;
       return;
     }
 
-    const provider = options.llmProvider ?? 'stub';
+    const provider = options.llmProvider ?? DEFAULT_LLM_PROVIDER;
     if (!isSupportedLlmProvider(provider)) {
       printResult(
         io,
@@ -348,10 +386,9 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
           'audit.goal',
           'LLM_PROVIDER_NOT_IMPLEMENTED',
           `LLM provider "${provider}" is not implemented. Supported providers: ${SUPPORTED_LLM_PROVIDERS.join(', ')}.`,
-          emptyAuditGoalData(options.need, validation.projectRoot),
+          auditGoalFailureData(options.need, validation.projectRoot),
           [
-            'Re-run with `--llm-provider stub` (default) to exercise the wired route.',
-            'Real provider binding is tracked as a follow-up slice; see peaks-audit skill notes.'
+            `Re-run with \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for a real audit, or \`--llm-provider stub\` for an offline scaffold.`
           ]
         ),
         options.json
@@ -360,25 +397,58 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       return;
     }
 
-    // Stub provider: surface a structured "scaffold ready" envelope so the
-    // CLI route is wired and a CI test can verify it without a real LLM.
-    const data: AuditGoalData = {
-      status: 'scaffold-only',
-      serviceWired: true,
-      providerBinding: 'pending-follow-up-slice',
-      need: options.need,
-      projectRoot: validation.projectRoot,
-    };
-    const envelope: ResultEnvelope<AuditGoalData> = ok(
-      'audit.goal',
-      data,
-      [],
-      [
-        'auditGoal() service is wired and reachable. The stub provider returns a scaffold envelope so CI can verify the route without a real LLM.',
-        'A follow-up slice will bind a real LLM provider; until then, non-stub providers fail loudly with `LLM_PROVIDER_NOT_IMPLEMENTED`.'
-      ]
-    );
-    printResult(io, envelope, options.json);
+    const isStub = provider === 'stub';
+    const providerBinding: AuditGoalData['providerBinding'] = isStub ? 'stub' : 'anthropic-messages-api';
+
+    try {
+      let model: string | undefined;
+      let llmRunner: LlmRunner;
+      if (isStub) {
+        llmRunner = createStubRunner();
+      } else {
+        const config = resolveAnthropicConfig();
+        model = config.model;
+        llmRunner = createAnthropicRunner(config);
+      }
+
+      const result = await auditGoal({ need: options.need }, llmRunner);
+      const data: AuditGoalData = {
+        status: isStub ? 'scaffold-only' : 'audit-complete',
+        providerBinding,
+        need: options.need,
+        projectRoot: validation.projectRoot,
+        result,
+        ...(model === undefined ? {} : { model }),
+      };
+      const envelope: ResultEnvelope<AuditGoalData> = ok(
+        'audit.goal',
+        data,
+        [],
+        isStub
+          ? [`Stub provider: the 6 dimensions below are placeholders, not findings. Re-run with \`--llm-provider ${DEFAULT_LLM_PROVIDER}\` for a real audit.`]
+          : [`Audit produced by ${providerBinding}${model === undefined ? '' : ` (model: ${model})`}.`]
+      );
+      printResult(io, envelope, options.json);
+    } catch (error) {
+      const code = auditGoalErrorCode(error);
+      printResult(
+        io,
+        fail<AuditGoalData>(
+          'audit.goal',
+          code,
+          getErrorMessage(error),
+          auditGoalFailureData(
+            options.need,
+            validation.projectRoot,
+            providerBinding,
+            error instanceof LlmBindingError ? error.missingEnv : undefined
+          ),
+          auditGoalNextActions(code)
+        ),
+        options.json
+      );
+      process.exitCode = 1;
+    }
   });
 
   // ---------------------------------------------------------------------------
@@ -599,14 +669,43 @@ function emptyStaticAuditData(): StaticAuditData {
   };
 }
 
-function emptyAuditGoalData(need: string, projectRoot: string): AuditGoalData {
+function auditGoalFailureData(
+  need: string,
+  projectRoot: string,
+  providerBinding: AuditGoalData['providerBinding'] = 'unresolved',
+  missingEnv?: readonly string[]
+): AuditGoalData {
   return {
-    status: 'scaffold-only',
-    serviceWired: true,
-    providerBinding: 'pending-follow-up-slice',
+    status: 'audit-failed',
+    providerBinding,
     need,
     projectRoot,
+    ...(missingEnv === undefined ? {} : { missingEnv }),
   };
+}
+
+/** The slice-owned error codes are carried verbatim so callers can gate on them. */
+function auditGoalErrorCode(error: unknown): string {
+  if (error instanceof IncompleteAuditError || error instanceof LlmBindingError || error instanceof LlmRequestError) {
+    return error.code;
+  }
+  return 'AUDIT_GOAL_FAILED';
+}
+
+function auditGoalNextActions(code: string): string[] {
+  switch (code) {
+    case 'LLM_CREDENTIAL_MISSING':
+      return [
+        'Export ANTHROPIC_AUTH_TOKEN (or ANTHROPIC_API_KEY) in the environment that launches peaks, then re-run.',
+        'For an offline scaffold instead of an audit, re-run with `--llm-provider stub` — it performs NO audit.',
+      ];
+    case 'LLM_MODEL_MISSING':
+      return ['Export ANTHROPIC_MODEL (or CLAUDE_CODE_SUBAGENT_MODEL) in the environment that launches peaks, then re-run.'];
+    case 'INCOMPLETE_AUDIT':
+      return ['The LLM reply omitted a required dimension; re-run so autonomous work never proceeds on a partial audit.'];
+    default:
+      return ['Inspect the failure above, then re-run with the same --need.'];
+  }
 }
 
 function emptyProseRatioResult(): ProseRatioResult {
