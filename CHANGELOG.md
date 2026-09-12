@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.0.46 — 2026-09-12 (85% 该压不压 + 把"派发"记成了"正在压缩")
+
+**Highlights**:
+
+1. **同一个 0.85–0.95 带，四份权威说法互相打架,而代码挑了那个"什么都不做"的。** `peaks code context-now` 对**单 rid** 会话把该带降级成 `soft-warn`（"仅建议"）；而**它自己的 help 文本**写着 *"≥0.85 emits action=auto-compact-now (**MANDATORY, not advisory**)"*；`peaks skill presence` 返回 `pre-compact`；`peaks-code` 的 SKILL.md 说该带 **auto-compact fires automatically** 并把 `context-now` 称作 **single source of truth**；你 2026-07-27 亲自校准的阈值策略写的是 **soft-mandatory**。
+
+   后果直接：一个**照着"唯一真相源"办事**的 LLM，在 0.85–0.95 里**永远不会压缩** —— 直接违反 zero-pause 契约。现在单 rid 与 job 模式一致：该带一律 `auto-compact-now`，并把过时的 notice/help 改成如实描述代码行为。
+
+2. **`compact-lifecycle.json` 把"已派发"记成了"正在压缩"，于是状态栏永久卡在 `stalled`。** claude-code 的 `ide-native` pathway **只在 ratio ≥ 0.95 才真的 in-band 压缩**（且 dispatcher 无论装没装上 hook 都返回 `ok: true`）；于是 0.85–0.95 区间里**什么都没有在飞**，记录却在 2 分钟后被判 stale，状态栏画一条永不前进的进度条并报 `stalled`。
+
+   **比显示错更严重的**：结算逻辑 `settleOpenLifecycleRun` 只在 **ratio 跌破阈值**时结算 —— 而那条 pathway 根本不会造成下跌，**所以 `afterRatio` 永远写不上，"压缩后 ratio 确实降了"这条验证链是死的**，而它正是 zero-pause 契约唯一的验收依据。
+
+   两半一起修，方式是**让记录说实话**：新增**静止态 `armed`**（含义是"触发器已设好，等 95% 的 in-band 时机"），并被**类型系统**排除在 `ACTIVE_STAGES` 之外 —— 只有承诺过心跳的 stage（`queued`/`preparing`/`compacting`/`verifying`）才可能 stall。状态栏据此渲染成 `◔ armed · 88% · fires at 95%`，**不画进度条**。而**真的卡住的 `compacting` 仍然正确报 `stalled`** —— 这条能力是实测确认保住的，不是假设。
+
+**验证**:三个版本常量一致(**4.0.46**);`tsc -p tsconfig.build.json` exit 0;宽 `tsconfig.json` 保持 **142** 基线;`tests/unit` **215 files / 2173 passed / 3 skipped / 0 failed**;`pnpm build` 的 `build-integrity` OK。
+
+**本轮顺带发现、尚未处理（不属本版修复）**:`tests/integration/**`（90 个文件）**从未进过 CI** —— `ci.yml` 的测试步骤是默认 config，其 `include` 只含 `tests/unit/**`；CI 里另有一个 job 只为单个文件特判。实测该套件 **10 files / 20 tests / 3 errors 红**。也就是说"CI 绿"与"全量绿"都**不覆盖这 90 个文件**。同一形状（一个看似覆盖全局的绿信号，实际有射程外的东西）已由 `a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing` 记录在案。建议下一片专门处理，含那 20 个失败的分诊。
+
 ## 4.0.45 — 2026-09-12 (一个永远无法通过的维度 + 一个验代理的守卫)
 
 **Highlights**:
