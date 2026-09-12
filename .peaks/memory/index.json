@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-10T15:03:53.586Z",
+  "updatedAt": "2026-09-12T00:11:13.906Z",
   "hot": {
     "rule": [
       {
@@ -740,6 +740,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\desktop-application-ide-adapter-z-code-cli.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "ecc-hooks-json-peaks-loop",
+        "kind": "lesson",
+        "description": "**现象**：Claude Code 启动打印 。 **根因（2026-09-12 实证）**：来源是第三方 ECC 插件 。Claude Code 的插件 hook schema 在 matcher 组上只接受 、顶层只接受 （+ ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-hooks-json-peaks-loop.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-86f23b/txt/handoff.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "F2 detached arch ship + 4.0.21 publish closure (with publish.yml auto-bump lesson + 4.0.22 retry) — session 476090 final sediment",
