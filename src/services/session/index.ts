@@ -1,6 +1,8 @@
 export {
   ensureSession,
   getSessionId,
+  resolveCallerBoundSession,
+  type CallerBoundSession,
   getCurrentSessionDir,
   listSessions,
   getSessionMeta,
@@ -27,6 +29,8 @@ export {
   getActiveSkillFileForCaller,
   synthesiseLegacyCallerId,
   getCallerBinding,
+  resolveCallerBinding,
+  type CallerBindingResolution,
   setCallerBinding,
   listCallerBindings
 } from './caller-binding-service.js';

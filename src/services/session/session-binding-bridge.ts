@@ -25,7 +25,7 @@ import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 import { projectRootsMatch, stableRealPath } from '../../shared/path-utils.js';
 import {
-  getCallerBinding,
+  resolveCallerBinding,
   setCallerBinding,
 } from './caller-binding-service.js';
 import type { CallerBinding } from './caller-id-types.js';
@@ -261,6 +261,12 @@ export type EnsureSessionResult = {
  * `ensureSession` consults it BEFORE `readSessionFile` so a binding
  * written by a previous call from the same caller is preferred over
  * a stale `session.json` (the legacy single-file binding).
+ *
+ * Slice 2026-09-12 (rid=caller-binding-staleness): the binding is only
+ * usable when its bound session directory still exists
+ * (`resolveCallerBinding`). A binding pointing at a deleted session
+ * directory is treated as absent, so `ensureSession` falls through and
+ * rolls a fresh session instead of returning an id whose tree is gone.
  */
 function resolveCallerBindingForEnsure(
   projectRoot: string
@@ -272,11 +278,11 @@ function resolveCallerBindingForEnsure(
     return null;
   }
   try {
-    const binding = getCallerBinding(projectRoot, projection.callerId);
-    if (binding === null) return null;
+    const resolution = resolveCallerBinding(projectRoot, projection.callerId);
+    if (resolution.status !== 'bound') return null;
     return {
-      sessionId: binding.peakSessionId,
-      createdAt: binding.createdAt,
+      sessionId: resolution.binding.peakSessionId,
+      createdAt: resolution.binding.createdAt,
       callerId: projection.callerId
     };
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
@@ -383,7 +389,6 @@ export async function ensureSession(projectRoot: string): Promise<string> {
       peakSessionId: sessionId,
       projectRoot,
       createdAt: now,
-      lastActivityAt: now,
       skill: 'peaks-code',
       mode: 'unknown',
       gate: 'startup'

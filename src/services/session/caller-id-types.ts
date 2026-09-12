@@ -63,6 +63,18 @@ export interface CallerProjection {
 /**
  * On-disk shape of `.peaks/_runtime/callers/<callerId>.json`. One file
  * per caller; two callers may point to the same `peakSessionId` (D6).
+ *
+ * Slice 2026-09-12 (rid=caller-binding-staleness): the former
+ * `lastActivityAt` field is REMOVED. It promised "bumped on every
+ * `peaks <cmd>` that touches the binding" but was written only at first
+ * bind and at an explicit rebind — never on reuse — so no freshness
+ * decision could rest on it without first fixing the write side, and a
+ * TTL built on a timestamp that ages on a live binding would un-bind
+ * exactly the live sessions the caller-first resolution exists to keep
+ * apart. Freshness is decided by the bound session directory (see
+ * `resolveCallerBinding`) plus rotation clearing the binding, not by a
+ * clock. A legacy file that still carries the key is read fine — the
+ * extra property is ignored.
  */
 export interface CallerBinding {
   /** Echo of the filename stem; matches D1 regex. */
@@ -73,8 +85,6 @@ export interface CallerBinding {
   projectRoot: string;
   /** ISO 8601 timestamp; stamped at first write. */
   createdAt: string;
-  /** ISO 8601 timestamp; bumped on every `peaks <cmd>` that touches the binding. */
-  lastActivityAt: string;
   /** Last skill that touched this binding, e.g. "peaks-code". */
   skill: string;
   /** Last mode, e.g. "full-auto". */

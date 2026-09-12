@@ -62,12 +62,17 @@ function seedCallerBinding(root: string, callerId: string, sessionId: string): v
     peakSessionId: sessionId,
     projectRoot: root,
     createdAt: '2026-09-12T00:00:00.000Z',
-    lastActivityAt: '2026-09-12T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'unknown',
     gate: 'startup',
   };
   setCallerBinding(root, callerId, payload);
+  // Slice 2026-09-12 (rid=caller-binding-staleness): the caller binding is
+  // only trusted while the bound session directory exists (a binding to a
+  // deleted session tree is stale and falls through). Seed the directory
+  // a real `peaks workspace init` leaves behind so these cases exercise the
+  // caller-first precedence they are about, not the staleness rule.
+  mkdirSync(join(root, '.peaks', '_runtime', sessionId), { recursive: true });
 }
 
 /** Point the project-global binding at `sessionId` (last-writer-wins slot). */

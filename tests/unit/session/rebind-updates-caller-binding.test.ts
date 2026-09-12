@@ -93,12 +93,17 @@ function seedCallerBinding(callerId: string, sessionId: string): void {
     peakSessionId: sessionId,
     projectRoot: workspace,
     createdAt: '2026-09-10T00:00:00.000Z',
-    lastActivityAt: 'SENTINEL-LAST-ACTIVITY',
     skill: 'peaks-code',
     mode: 'full-auto',
     gate: 'started',
   };
   setCallerBinding(workspace, callerId, payload);
+  // Slice 2026-09-12 (rid=caller-binding-staleness): a binding is only
+  // usable while its bound session directory exists, so seed the
+  // directory a real bind leaves behind. Without it the binding is
+  // (correctly) dropped as stale and every resolution below would fall
+  // through to session.json, testing a different contract than intended.
+  mkdirSync(join(workspace, '.peaks', '_runtime', sessionId), { recursive: true });
 }
 
 function rawCallerFile(callerId: string): string {

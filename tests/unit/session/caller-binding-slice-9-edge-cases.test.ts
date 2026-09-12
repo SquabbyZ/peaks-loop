@@ -23,10 +23,15 @@
 //         auto-deleted). The non-rotated caller's binding must point
 //         at the OLD peak (preserved on disk).
 //
-//   - G3: TTL / lastActivityAt freshness — setCallerBinding stamps
-//         lastActivityAt on every write. A stale binding (old
-//         timestamp) is still readable; only a re-write via
-//         setCallerBinding refreshes it.
+//   - G3: staleness is decided by the bound session directory, not by a
+//         clock (slice 2026-09-12 rid=caller-binding-staleness). The
+//         former `lastActivityAt` field is REMOVED — it was written but
+//         never read, and the write side never bumped it on reuse, so a
+//         TTL built on it would have un-bound live sessions. An idle
+//         binding whose session tree still exists stays usable; a binding
+//         whose session tree is gone is reported stale by
+//         `resolveCallerBinding` while the raw `getCallerBinding` read
+//         stays shape-only.
 //
 //   - G4: caller-binding hygiene under rotation — after rotation the
 //         fresh session has NO caller-binding until ensureSession is
@@ -54,6 +59,7 @@ import {
 } from '../../../src/services/session/session-binding-bridge.js';
 import {
   getCallerBinding,
+  resolveCallerBinding,
   setCallerBinding,
 } from '../../../src/services/session/caller-binding-service.js';
 import {
@@ -76,6 +82,8 @@ const CALLER_A = 'caller-A-slice9';
 const CALLER_B = 'caller-B-slice9';
 const SID_OLD = '2026-08-07-session-old-peak';
 const SID_OLD_B = '2026-08-07-session-old-peak-B';
+/** A session id whose directory is deliberately absent (stale-binding case). */
+const SID_MISSING = '2026-08-07-session-peak-deleted';
 
 let workspace: string;
 let prevCwd: string;
@@ -116,13 +124,31 @@ afterEach(() => {
   });
 });
 
-function seedCallerBinding(callerId: string, sid: string, lastActivityAt: string): void {
+function seedCallerBinding(callerId: string, sid: string): void {
   const payload: CallerBinding = {
     callerId,
     peakSessionId: sid,
     projectRoot: workspace,
     createdAt: '2026-08-07T00:00:00.000Z',
-    lastActivityAt,
+    skill: 'peaks-code',
+    mode: 'full-auto',
+    gate: 'startup'
+  };
+  setCallerBinding(workspace, callerId, payload);
+  // Slice 2026-09-12 (rid=caller-binding-staleness): a binding is only
+  // usable while its bound session directory exists — a real bind always
+  // leaves one behind (`initWorkspace`). Seed it so these cases exercise
+  // the isolation / rotation contracts they are about.
+  mkdirSync(join(workspace, '.peaks', '_runtime', sid), { recursive: true });
+}
+
+/** Seed a binding and leave its session directory ABSENT (stale case). */
+function seedCallerBindingWithoutSessionDir(callerId: string, sid: string): void {
+  const payload: CallerBinding = {
+    callerId,
+    peakSessionId: sid,
+    projectRoot: workspace,
+    createdAt: '2026-08-07T00:00:00.000Z',
     skill: 'peaks-code',
     mode: 'full-auto',
     gate: 'startup'
@@ -160,8 +186,8 @@ function seedLegacySessionMeta(sid: string, outerId: string): void {
 describe('Scenario: behavior — multi-tenant caller-binding isolation (D6)', () => {
   it('G1.1: two callers bound to the SAME peakSessionId (D6 invariant) → both bindings are readable independently', () => {
     // Seed BOTH caller-bindings pointing at the same peak.
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
-    seedCallerBinding(CALLER_B, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
+    seedCallerBinding(CALLER_B, SID_OLD);
 
     const a = getCallerBinding(workspace, CALLER_A);
     const b = getCallerBinding(workspace, CALLER_B);
@@ -175,28 +201,28 @@ describe('Scenario: behavior — multi-tenant caller-binding isolation (D6)', ()
   });
 
   it('G1.2: writing caller-A again does NOT mutate caller-B (per-caller file isolation)', () => {
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
-    seedCallerBinding(CALLER_B, SID_OLD_B, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
+    seedCallerBinding(CALLER_B, SID_OLD_B);
+    const callerBPath = join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_B}.json`);
+    const beforeB = readFileSync(callerBPath, 'utf8');
 
-    // Re-write caller-A with a fresh lastActivityAt.
-    const refreshedActivity = '2026-08-07T01:00:00.000Z';
-    seedCallerBinding(CALLER_A, SID_OLD, refreshedActivity);
+    // Re-write caller-A (every bind goes through the same per-caller file).
+    seedCallerBinding(CALLER_A, SID_OLD);
 
     const a = getCallerBinding(workspace, CALLER_A);
     const b = getCallerBinding(workspace, CALLER_B);
     expect(a?.peakSessionId).toBe(SID_OLD);
-    expect(a?.lastActivityAt).toBe(refreshedActivity);
-    // caller-B's binding is untouched: same peakSessionId, original timestamp.
+    // caller-B's binding file is untouched, byte for byte.
+    expect(readFileSync(callerBPath, 'utf8')).toBe(beforeB);
     expect(b?.peakSessionId).toBe(SID_OLD_B);
-    expect(b?.lastActivityAt).toBe('2026-08-07T00:00:00.000Z');
   });
 });
 
 describe('Scenario: behavior — recovery after rotation', () => {
   it('G2.1: after rotation, rotated caller-binding file still exists on disk (rotation preserves data)', async () => {
     // Setup: caller-A bound to SID_OLD with outer=X, caller-B bound to SID_OLD.
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
-    seedCallerBinding(CALLER_B, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
+    seedCallerBinding(CALLER_B, SID_OLD);
     seedSessionJson(SID_OLD);
     seedLegacySessionMeta(SID_OLD, 'outer-X');
 
@@ -219,8 +245,8 @@ describe('Scenario: behavior — recovery after rotation', () => {
 
   it('G2.2: after rotation, fresh session has no caller-binding (rotation does NOT auto-migrate callers)', async () => {
     // Setup: caller-A bound to SID_OLD; caller-B bound to SID_OLD.
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
-    seedCallerBinding(CALLER_B, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
+    seedCallerBinding(CALLER_B, SID_OLD);
     seedSessionJson(SID_OLD);
     seedLegacySessionMeta(SID_OLD, 'outer-X');
 
@@ -241,8 +267,8 @@ describe('Scenario: behavior — recovery after rotation', () => {
 
   it('G2.3: non-rotating caller-binding survives rotation with peakSessionId UNCHANGED', async () => {
     // Pre-seed: caller-A and caller-B both bound to SID_OLD.
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
-    seedCallerBinding(CALLER_B, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
+    seedCallerBinding(CALLER_B, SID_OLD);
     seedSessionJson(SID_OLD);
     seedLegacySessionMeta(SID_OLD, 'outer-X');
 
@@ -259,58 +285,50 @@ describe('Scenario: behavior — recovery after rotation', () => {
   });
 });
 
-describe('Scenario: behavior — TTL / lastActivityAt freshness (G3)', () => {
-  it('G3.1: stale caller-binding (lastActivityAt 7 days old) is still readable', () => {
-    const sevenDaysAgo = '2026-07-31T00:00:00.000Z';
-    seedCallerBinding(CALLER_A, SID_OLD, sevenDaysAgo);
-
-    const a = getCallerBinding(workspace, CALLER_A);
-    expect(a).not.toBeNull();
-    expect(a?.peakSessionId).toBe(SID_OLD);
-    // Stale timestamp is preserved by the read path — getCallerBinding
-    // does NOT refresh on read.
-    expect(a?.lastActivityAt).toBe(sevenDaysAgo);
+describe('Scenario: behavior — staleness is the session directory, not a clock (G3)', () => {
+  it('G3.1: an idle binding whose session directory still exists resolves as bound', () => {
+    // given: a binding whose session tree is present on disk
+    seedCallerBinding(CALLER_A, SID_OLD);
+    // when: the binding is resolved for session resolution
+    const resolution = resolveCallerBinding(workspace, CALLER_A);
+    // then: it is usable — an idle-but-live window is not stale, and no
+    //       clock can make it stale (the removed lastActivityAt would have)
+    expect(resolution.status).toBe('bound');
   });
 
-  it('G3.2: re-writing via setCallerBinding refreshes lastActivityAt (idempotent update)', () => {
-    const stale = '2026-07-31T00:00:00.000Z';
-    seedCallerBinding(CALLER_A, SID_OLD, stale);
-
-    const fresh = '2026-08-07T01:00:00.000Z';
-    seedCallerBinding(CALLER_A, SID_OLD, fresh);
-
-    const a = getCallerBinding(workspace, CALLER_A);
-    expect(a?.lastActivityAt).toBe(fresh);
-    // peakSessionId is unchanged.
-    expect(a?.peakSessionId).toBe(SID_OLD);
+  it('G3.2: a binding whose session directory is gone is stale, while the raw read still returns the file', () => {
+    // given: a binding whose bound session directory was deleted
+    seedCallerBindingWithoutSessionDir(CALLER_A, SID_MISSING);
+    // when: the raw shape read and the resolution read both run
+    const raw = getCallerBinding(workspace, CALLER_A);
+    const resolution = resolveCallerBinding(workspace, CALLER_A);
+    // then: the file is still readable (shape-only contract preserved) but
+    //       it is NOT trusted for resolution
+    expect(raw?.peakSessionId).toBe(SID_MISSING);
+    expect(resolution.status).toBe('stale');
   });
 
-  it('G3.3: getCallerBinding does not modify on-disk timestamp (read is read-only)', () => {
-    const originalActivity = '2026-08-07T00:00:00.000Z';
-    seedCallerBinding(CALLER_A, SID_OLD, originalActivity);
-
-    // Read repeatedly — on-disk timestamp must not change.
-    for (let i = 0; i < 3; i++) {
-      const a = getCallerBinding(workspace, CALLER_A);
-      expect(a?.lastActivityAt).toBe(originalActivity);
-    }
-    // Re-read the raw file: timestamp unchanged.
+  it('G3.3: the binding file no longer carries the removed lastActivityAt field', () => {
+    // given: a freshly written per-caller binding
+    seedCallerBinding(CALLER_A, SID_OLD);
+    // when: the raw on-disk file is read
     const raw = JSON.parse(
       readFileSync(join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`), 'utf8')
-    ) as { lastActivityAt: string };
-    expect(raw.lastActivityAt).toBe(originalActivity);
+    ) as Record<string, unknown>;
+    // then: the written-but-never-read field is gone from the contract
+    expect('lastActivityAt' in raw).toBe(false);
   });
 });
 
 describe('Scenario: behavior — rotation hygiene for caller-binding file paths (G4)', () => {
   it('G4.1: the per-caller binding file lives under .peaks/_runtime/callers/<callerId>.json (canonical path)', () => {
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     const canonicalPath = join(workspace, '.peaks', '_runtime', 'callers', `${CALLER_A}.json`);
     expect(existsSync(canonicalPath)).toBe(true);
   });
 
   it('G4.2: getCallerBinding returns null for a callerId that has no file (no cross-tenant leakage)', () => {
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     // caller-B has no file → getCallerBinding returns null.
     const b = getCallerBinding(workspace, CALLER_B);
     expect(b).toBeNull();
@@ -321,7 +339,7 @@ describe('Scenario: behavior — rotation hygiene for caller-binding file paths 
 
   it('G4.3: rotation does not delete caller-binding files or the old peak dir', async () => {
     // Setup: caller-A bound to SID_OLD, session.json + per-session meta.
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     seedSessionJson(SID_OLD);
     seedLegacySessionMeta(SID_OLD, 'outer-X');
 
@@ -348,7 +366,7 @@ describe('Scenario: integration — caller-binding survives getSessionId rotatio
     // (the adapter throws PEAKS_CALLER_NOT_RESOLVED otherwise, which
     // falls through to the session.json path).
     process.env.PEAKS_CALLER_ID = CALLER_A;
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     seedSessionJson(SID_OLD_B); // legacy points at a different id
 
     // Per-caller wins. The legacy file's id is NOT returned.
@@ -360,14 +378,14 @@ describe('Scenario: integration — caller-binding survives getSessionId rotatio
     // PEAKS_CALLER_NOT_RESOLVED → getSessionIdFromCallerBinding
     // returns null → falls through to readSessionFile.
     delete process.env.PEAKS_CALLER_ID;
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     seedSessionJson(SID_OLD_B);
 
     expect(getSessionId(workspace)).toBe(SID_OLD_B);
   });
 
   it('G5.2: getSessionMeta on the per-caller peak returns the outerSessionId stamped by the bridge', async () => {
-    seedCallerBinding(CALLER_A, SID_OLD, '2026-08-07T00:00:00.000Z');
+    seedCallerBinding(CALLER_A, SID_OLD);
     seedSessionJson(SID_OLD);
     seedLegacySessionMeta(SID_OLD, 'outer-X');
 

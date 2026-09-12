@@ -106,6 +106,41 @@ export function getCallerBinding(projectRoot: string, callerId: string): CallerB
 }
 
 /**
+ * Resolution-time read of a per-caller binding.
+ *
+ * `getCallerBinding` answers a SHAPE question: "is there a well-formed
+ * binding file for this caller?". Session resolution needs a second
+ * answer: "is that binding still USABLE?". Slice 2026-09-12
+ * (rid=caller-binding-staleness) found it is not when the bound session's
+ * directory is gone — the binding was still trusted, so a command
+ * resolved the dead session id and `mkdir`'d a fresh tree under
+ * `.peaks/_runtime/<gone-sid>/...` for a session that no longer exists.
+ *
+ * Returns a tagged result rather than `null` so the fall-through is
+ * observable to the caller instead of silent:
+ *   - `bound`  — usable; resolve to `binding.peakSessionId`.
+ *   - `stale`  — the file is well-formed but its session directory is
+ *                gone; callers fall through the chain and may report it.
+ *   - `absent` — no binding file (or a malformed one).
+ */
+export type CallerBindingResolution =
+  | { readonly status: 'bound'; readonly binding: CallerBinding }
+  | { readonly status: 'stale'; readonly binding: CallerBinding }
+  | { readonly status: 'absent' };
+
+export function resolveCallerBinding(
+  projectRoot: string,
+  callerId: string
+): CallerBindingResolution {
+  const binding = getCallerBinding(projectRoot, callerId);
+  if (binding === null) return { status: 'absent' };
+  if (!existsSync(getSessionDir(projectRoot, binding.peakSessionId))) {
+    return { status: 'stale', binding };
+  }
+  return { status: 'bound', binding };
+}
+
+/**
  * Write or update a per-caller binding file. The caller is responsible
  * for the binding object (callerId must match the file stem, peakSessionId
  * must be a valid session id, projectRoot is canonicalized). Idempotent:
@@ -168,8 +203,7 @@ export function updateCallerBindingSessionId(
   if (existing === null) return false;
   setCallerBinding(projectRoot, callerId, {
     ...existing,
-    peakSessionId,
-    lastActivityAt: new Date().toISOString()
+    peakSessionId
   });
   return true;
 }

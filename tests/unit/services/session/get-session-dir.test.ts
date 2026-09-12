@@ -80,24 +80,27 @@ describe("Scenario: render — caller-id types", () => {
     expect('a'.repeat(200)).toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should CallerBinding interface includes all 8 documented fields", () => {
+  it("when invoked, should CallerBinding interface includes all 7 documented fields", () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     // The interface itself is erased at runtime; this test pins the
     // documented shape via a structural assignment.
+    // Slice 2026-09-12 (rid=caller-binding-staleness) removed the former
+    // `lastActivityAt` field: it was written but never read, and the
+    // write side never bumped it on reuse, so no freshness decision could
+    // rest on it. Staleness is decided by the bound session directory.
     const sample: CallerBinding = {
       callerId: 'c1',
       peakSessionId: 'sid-1',
       projectRoot: '/proj',
       createdAt: '2026-07-30T00:00:00.000Z',
-      lastActivityAt: '2026-07-30T00:00:00.000Z',
       skill: 'peaks-code',
       mode: 'full-auto',
       gate: 'startup',
     };
     expect(Object.keys(sample).sort()).toEqual([
-      'callerId', 'createdAt', 'gate', 'lastActivityAt',
+      'callerId', 'createdAt', 'gate',
       'mode', 'peakSessionId', 'projectRoot', 'skill',
     ]);
   });

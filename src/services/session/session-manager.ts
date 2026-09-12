@@ -16,7 +16,7 @@ import {
   stableRealPath
 } from '../../shared/path-utils.js';
 import { ensureSession } from './session-binding-bridge.js';
-import { getCallerBinding } from './caller-binding-service.js';
+import { getCallerBinding, getCallerBindingFile, resolveCallerBinding } from './caller-binding-service.js';
 import { resolveCallerProjection } from './resolve-caller-id.js';
 
 export type SessionInfo = {
@@ -241,7 +241,10 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
  * is left intact — rotating does NOT delete the user's data, it
  * just unbinds the project from that session. Also drops the legacy
  * `.peaks/.session.json` if present so a stale read from another
- * tool cannot re-bind the project after rotation.
+ * tool cannot re-bind the project after rotation. Also drops the
+ * ROTATING caller's per-caller binding when it points at the rotated-out
+ * session (slice 2026-09-12, rid=caller-binding-staleness) — see
+ * `clearRotatedCallerBinding`.
  *
  * Returns the id of the session that was unbound, or `null` if
  * no binding was present. The caller is expected to do something
@@ -272,7 +275,47 @@ export function rotateSessionBinding(projectRoot: string): string | null {
       // best-effort: a stale legacy binding is not blocking
     }
   }
+  // Slice 2026-09-12 (rid=caller-binding-staleness): the per-caller
+  // binding is the FIRST thing `getSessionId` reads, so unlinking only
+  // the project-global files left the rotating caller still resolving
+  // the session it just rotated out of — `peaks job init` re-created
+  // `.peaks/_runtime/<old-sid>/job/...` instead of reporting
+  // NO_ACTIVE_SESSION, and `ensureSession` returned the old id instead
+  // of rolling a fresh session. The rotation is only complete once THIS
+  // caller's binding is gone too (the next resolution then either
+  // falls through to the global file or starts a fresh session).
+  clearRotatedCallerBinding(projectRoot, previous.sessionId);
   return previous.sessionId;
+}
+
+/**
+ * Drop the ROTATING caller's per-caller binding when it points at the
+ * session being rotated out.
+ *
+ * Only that caller is affected: every other caller holds its own session
+ * on purpose (D6 multi-caller isolation — a second IDE window must not
+ * lose its binding because a sibling window rotated). When no caller id
+ * is resolvable (CI / plain shell), there is no per-caller binding to
+ * clear and this is a no-op.
+ */
+function clearRotatedCallerBinding(projectRoot: string, rotatedOutSessionId: string): void {
+  let callerId: string;
+  try {
+    callerId = resolveCallerProjection({ projectRoot, env: process.env }).callerId;
+  } catch { // PEAKS_CALLER_NOT_RESOLVED → no per-caller binding exists
+    return;
+  }
+  const binding = getCallerBinding(projectRoot, callerId);
+  if (binding === null || binding.peakSessionId !== rotatedOutSessionId) {
+    return;
+  }
+  try {
+    unlinkSync(getCallerBindingFile(projectRoot, callerId));
+  } catch { // TODO(g2): best-effort unlink — rotation must not fail on a cleanup
+    // error (Windows EPERM). On failure the binding survives; it is stale
+    // for as long as its session directory is gone, and the next rotation
+    // or rebind retries the clear.
+  }
 }
 
 /**
@@ -455,16 +498,18 @@ export {
  */
 export function getSessionId(projectRoot: string): string | null {
   // Slice 2026-08-06-session-cacde8-A.5a: caller-binding becomes
-  // primary source. Read order is (1) `getCallerBinding` if
-  // `resolveCallerProjection` succeeds, (2) `readSessionFile`
-  // (the legacy session.json), (3) null (no binding). The legacy
-  // session.json is preserved as a fallback so a project without
-  // a caller-id resolution still resolves its binding (e.g. CLI
-  // run from a stock shell with no IDE adapter). `PEAKS_CALLER_NOT_RESOLVED`
-  // falls through to the session.json path; no caller-facing exit
-  // change.
-  const fromCallerBinding = getSessionIdFromCallerBinding(projectRoot);
-  if (fromCallerBinding !== null) return fromCallerBinding;
+  // primary source. Read order is (1) the per-caller binding if
+  // `resolveCallerProjection` succeeds — and only when that binding is
+  // still usable (`resolveCallerBoundSession` drops one whose session
+  // directory is gone, slice 2026-09-12 rid=caller-binding-staleness),
+  // (2) `readSessionFile` (the legacy session.json), (3) null (no
+  // binding). The legacy session.json is preserved as a fallback so a
+  // project without a caller-id resolution still resolves its binding
+  // (e.g. CLI run from a stock shell with no IDE adapter).
+  // `PEAKS_CALLER_NOT_RESOLVED` falls through to the session.json path;
+  // no caller-facing exit change.
+  const { sessionId } = resolveCallerBoundSession(projectRoot);
+  if (sessionId !== null) return sessionId;
   const info = readSessionFile(projectRoot);
   return info?.sessionId ?? null;
 }
@@ -500,26 +545,54 @@ export function getSessionIdCanonical(projectRoot: string): string | null {
   // Slice 2026-08-06-session-cacde8-A.5a: same caller-binding primary
   // lookup as `getSessionId`; fall back to the canonical-fallback
   // `readSessionFileCanonical` if caller-binding is absent / unresolved.
-  const fromCallerBinding = getSessionIdFromCallerBinding(projectRoot);
-  if (fromCallerBinding !== null) return fromCallerBinding;
+  const { sessionId } = resolveCallerBoundSession(projectRoot);
+  if (sessionId !== null) return sessionId;
   const info = readSessionFileCanonical(projectRoot);
   return info?.sessionId ?? null;
 }
 
 /**
- * Internal helper: read the caller-binding primary source.
- * Returns `null` when caller-id resolution fails
- * (`PEAKS_CALLER_NOT_RESOLVED`), when no per-caller file exists,
- * or when the file is malformed. NOT exported; the public surface
- * is still `getSessionId` / `getSessionIdCanonical`.
+ * Outcome of the caller-binding half of session resolution.
+ *
+ * `staleSessionId` is the id of a per-caller binding that was SKIPPED
+ * because its session directory no longer exists — `null` for the
+ * ordinary "no binding" case. It exists so the fall-through is
+ * observable: a caller can tell "this caller has no binding" apart from
+ * "this caller's binding pointed at a session tree that is gone", and
+ * report it instead of silently resolving a different session.
  */
-function getSessionIdFromCallerBinding(projectRoot: string): string | null {
+export type CallerBoundSession = {
+  sessionId: string | null;
+  staleSessionId: string | null;
+};
+
+/**
+ * Resolve the caller-binding primary source (slice 2026-09-12,
+ * rid=caller-binding-staleness).
+ *
+ * The caller-first precedence is unchanged: this caller's binding still
+ * outranks the project-global `session.json`. What changed is what counts
+ * as a USABLE binding — a binding whose bound session directory is gone
+ * is stale, is not trusted, and is reported through `staleSessionId`
+ * instead of being returned as if it were live.
+ *
+ * Returns `{ sessionId: null, staleSessionId: null }` when caller-id
+ * resolution fails (`PEAKS_CALLER_NOT_RESOLVED`), when no per-caller file
+ * exists, or when the file is malformed.
+ */
+export function resolveCallerBoundSession(projectRoot: string): CallerBoundSession {
   try {
     const projection = resolveCallerProjection({ projectRoot, env: process.env });
-    const binding = getCallerBinding(projectRoot, projection.callerId);
-    return binding?.peakSessionId ?? null;
+    const resolution = resolveCallerBinding(projectRoot, projection.callerId);
+    if (resolution.status === 'bound') {
+      return { sessionId: resolution.binding.peakSessionId, staleSessionId: null };
+    }
+    if (resolution.status === 'stale') {
+      return { sessionId: null, staleSessionId: resolution.binding.peakSessionId };
+    }
+    return { sessionId: null, staleSessionId: null };
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
+    return { sessionId: null, staleSessionId: null };
   }
 }
 
