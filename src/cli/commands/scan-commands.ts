@@ -65,7 +65,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     scan
       .command('archetype')
-      .description('Detect project archetype, frontend-only mode, and supporting signals from the filesystem (read-only)')
+      .description('Detect project archetype, integration mode (three scenarios), frontend-only mode, and supporting signals from the filesystem (read-only)')
       .requiredOption('--project <path>', 'target project root')
   ).action(async (options: ArchetypeOptions) => {
     try {

@@ -18,8 +18,10 @@ The command emits a stable JSON envelope with these fields you copy verbatim int
 
 - `archetype`: `greenfield | legacy-frontend | legacy-fullstack | frontend-monorepo | unknown`
 - `confidence`: `high | medium | low`
-- `frontendOnly`: `true | false`
+- `frontendOnly`: `true | false` (back-compat boolean — keep it recorded)
 - `frontendOnlyReason`: short string explaining the decision
+- `integrationMode`: `full-stack | prd-plus-interface-doc | prd-only` — which of the three frontend integration scenarios the project is in (`full-stack` = backend in this repo, contract is a shared interface; `prd-plus-interface-doc` = no backend here but an interface doc exists, derive the ACL from it; `prd-only` = no backend and no doc yet, mock and keep the boundary cheap to change)
+- `integrationModeReason`: short string explaining the decision (`backend-detected | interface-doc-present | no-backend-no-interface-doc`)
 - `signals[]`: each signal's name, matched flag, and detail (paste under `## Archetype → Signals matched`)
 - `detected`: raw filesystem facts (package.json presence, backend frameworks, swagger paths, monorepo configs, src file count, lockfile age)
 
@@ -106,8 +108,15 @@ Grep `src/` for outdated patterns and list them as constraints in `project-scan.
 - Signals matched: <bullet list of signals that drove the decision>
 
 ## Project mode
+- Integration mode: <full-stack | prd-plus-interface-doc | prd-only> (from `peaks scan archetype --json` → `.integrationMode`)
+- Integration mode reason: <backend-detected | interface-doc-present | no-backend-no-interface-doc>
 - Frontend-only: <true | false>
 - Reason: <archetype-derived | user-stated | backend-detected>
+
+The integration mode is one of exactly three values, all derived by `peaks scan archetype`
+from signals it already detects — never judged by hand. The 0-1 bootstrap stub writes
+`unknown` instead, because on that path no archetype report has been produced yet; treat
+`unknown` as "not yet scanned", not as a fourth mode.
 
 ## Build tool
 - Framework: <name> <version>
@@ -127,6 +136,16 @@ Grep `src/` for outdated patterns and list them as constraints in `project-scan.
 - State: <name>
 - Routing: <name>
 - Data fetching: <name>
+
+## API
+- Record file paths, not summaries — a later slice diffs against them, and a path that has moved is a finding.
+- Base URL / env configuration: <env-var name(s) and the file that reads them, e.g. `VITE_API_BASE` in `src/config/env.ts` | none>
+- Request wrapper + interceptors: <path of the single HTTP entry point, e.g. `src/services/http/client.ts`, and the mechanism used for cross-cutting concerns — axios interceptors, a `fetch` wrapper, ofetch hooks — with the auth/retry/header logic named | none>
+- Error-handling shape: <what the wrapper hands callers on failure — thrown `Error` subclass, `{ ok, data, error }` result, HTTP-status branch — and the file where it is normalised>
+- Hook convention: <naming pattern and directory, e.g. `use<Domain>` under `src/hooks/`, the return shape (`{ data, loading, error }` | `[data, actions]` | query object), and whether the hook does its own mapping or delegates>
+- Endpoint inventory: <one bullet per endpoint the frontend actually calls — `METHOD /path` → calling file; when an interface doc exists, cross-check with `peaks scan api-diff <path-to-doc>`>
+- Existing mock strategy: <mechanism in use today (module mock | MSW | static fixture module | inline) and where mock files live. Per `frontend-only-mode.md` mocks MUST NOT be inline in component files — an inline mock here is a finding, record it>
+- DTO ↔ ViewModel boundary: <path of the per-domain mapper file, e.g. `src/mappers/user.mapper.ts`, and the internal ViewModel file it targets, per `skills/bee/peaks-rd/references/frontend-acl-mapper.md`. Record `none` explicitly when there is no mapper — that is a finding, not a blank>
 
 ## Library versions
 - Source: output of `peaks scan libraries --project <repo> --json` (see Gate A; cross-check diff imports against `schemas/library-breaking-changes.data.json` in `peaks-rd` preflight)

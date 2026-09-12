@@ -2,7 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
 
-import type { ArchetypeReport, ArchetypeSignal, ProjectArchetype } from './scan-types.js';
+import type { ArchetypeReport, ArchetypeSignal, IntegrationMode, ProjectArchetype } from './scan-types.js';
 
 export type ArchetypeScanOptions = {
   projectRoot: string;
@@ -258,7 +258,10 @@ function decideArchetype(
   return { archetype: 'unknown', confidence: 'low', signals };
 }
 
-function decideFrontendOnly(report: Omit<ArchetypeReport, 'frontendOnly' | 'frontendOnlyReason'>): {
+/** The report before the derived mode fields are attached to it. */
+type ArchetypeFacts = Omit<ArchetypeReport, 'frontendOnly' | 'frontendOnlyReason' | 'integrationMode' | 'integrationModeReason'>;
+
+function decideFrontendOnly(report: ArchetypeFacts): {
   frontendOnly: boolean;
   reason: string;
 } {
@@ -273,6 +276,29 @@ function decideFrontendOnly(report: Omit<ArchetypeReport, 'frontendOnly' | 'fron
     return { frontendOnly: false, reason: 'backend-detected' };
   }
   return { frontendOnly: false, reason: 'swagger-or-proto-present' };
+}
+
+/**
+ * Three frontend integration scenarios, from the signals `detected`
+ * already holds. Backend presence uses the SAME triple as
+ * `decideArchetype`'s `hasBackend` (framework OR next API routes OR
+ * backend dirs) rather than `hasBackendFramework` alone: `next` is
+ * deliberately excluded from `backendFrameworks` (:77), so a Next
+ * project with `pages/api` is `legacy-fullstack` there and must not be
+ * `prd-only` here — one report cannot contradict itself.
+ */
+function decideIntegrationMode(report: ArchetypeFacts): {
+  integrationMode: IntegrationMode;
+  reason: string;
+} {
+  const hasBackend = report.detected.hasBackendFramework || report.detected.hasNextApiRoutes || report.detected.backendDirsPresent.length > 0;
+  if (hasBackend) {
+    return { integrationMode: 'full-stack', reason: 'backend-detected' };
+  }
+  if (report.detected.hasSwaggerOrProto) {
+    return { integrationMode: 'prd-plus-interface-doc', reason: 'interface-doc-present' };
+  }
+  return { integrationMode: 'prd-only', reason: 'no-backend-no-interface-doc' };
 }
 
 export async function scanArchetype(options: ArchetypeScanOptions): Promise<ArchetypeReport> {
@@ -302,8 +328,15 @@ export async function scanArchetype(options: ArchetypeScanOptions): Promise<Arch
   };
 
   const { archetype, confidence, signals } = decideArchetype(detected);
-  const base: Omit<ArchetypeReport, 'frontendOnly' | 'frontendOnlyReason'> = { archetype, confidence, signals, detected };
+  const base: ArchetypeFacts = { archetype, confidence, signals, detected };
   const { frontendOnly, reason } = decideFrontendOnly(base);
+  const { integrationMode, reason: integrationReason } = decideIntegrationMode(base);
 
-  return { ...base, frontendOnly, frontendOnlyReason: reason };
+  return {
+    ...base,
+    frontendOnly,
+    frontendOnlyReason: reason,
+    integrationMode,
+    integrationModeReason: integrationReason
+  };
 }

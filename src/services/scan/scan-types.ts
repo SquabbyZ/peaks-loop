@@ -12,11 +12,20 @@ export type ArchetypeSignal = {
   detail?: string;
 };
 
+/**
+ * Which of the three frontend integration scenarios the consumer project
+ * is in. Derived from signals `ArchetypeReport.detected` already carries —
+ * no new probes. `frontendOnly` stays for back-compat; this is additive.
+ */
+export type IntegrationMode = 'full-stack' | 'prd-plus-interface-doc' | 'prd-only';
+
 export type ArchetypeReport = {
   archetype: ProjectArchetype;
   confidence: 'high' | 'medium' | 'low';
   frontendOnly: boolean;
   frontendOnlyReason: string;
+  integrationMode: IntegrationMode;
+  integrationModeReason: string;
   signals: ArchetypeSignal[];
   detected: {
     hasPackageJson: boolean;
