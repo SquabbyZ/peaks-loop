@@ -1,7 +1,7 @@
 // API contract: RUNTIME_VERSION tracks peaks-loop root version (4.0.x).
 // This is what consumers (sub-agents dispatched by peaks-code) check at
 // runtime to verify protocol compatibility.
-export const RUNTIME_VERSION = '4.0.42';
+export const RUNTIME_VERSION = '4.0.43';
 
 // npm version: independent 0.0.x SemVer. Runtime is its own package
 // (peaks-loop-internal-runtime@NPM_VERSION) on the registry; bumps
