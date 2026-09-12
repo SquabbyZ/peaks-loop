@@ -110,7 +110,7 @@ const defaultRunner: ShellProbeRunner = {
         resolveRun(value);
       };
       try {
-        const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
         let stdout = '';
         child.stdout?.on('data', (chunk) => {
           stdout += chunk.toString('utf8');

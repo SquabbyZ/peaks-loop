@@ -161,7 +161,8 @@ function loadDiffRanges(cwd: string): readonly DiffRange[] {
     const result = spawnSync('git', ['diff', 'HEAD', '--unified=0', '--no-color'], {
       cwd,
       encoding: 'utf8',
-      maxBuffer: DIFF_BUFFER_BYTES
+      maxBuffer: DIFF_BUFFER_BYTES,
+      windowsHide: true
     });
     if (result.status !== 0 || typeof result.stdout !== 'string') return [];
     const stdout = result.stdout;
@@ -340,6 +341,7 @@ export function runEslint(options: EslintRunOptions): EslintRunResult {
   const spawnOptions: SpawnSyncOptions = {
     cwd: projectRoot,
     encoding: 'utf8',
+    windowsHide: true,
     timeout: options.timeoutMs ?? ESLINT_DEFAULT_TIMEOUT_MS,
     maxBuffer: OUTPUT_BUFFER_BYTES
   };

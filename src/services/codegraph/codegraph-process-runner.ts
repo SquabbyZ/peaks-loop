@@ -38,7 +38,7 @@ function terminateCodegraphProcess(childProcess: ChildProcess): void {
 
   if (process.platform === 'win32') {
     if (process.env.SystemRoot) {
-      spawn(join(process.env.SystemRoot, 'System32', 'taskkill.exe'), ['/pid', String(childProcess.pid), '/T', '/F'], { shell: false, stdio: 'ignore' });
+      spawn(join(process.env.SystemRoot, 'System32', 'taskkill.exe'), ['/pid', String(childProcess.pid), '/T', '/F'], { shell: false, stdio: 'ignore', windowsHide: true });
     } else {
       childProcess.kill();
     }
@@ -58,7 +58,8 @@ export function defaultCodegraphProcessRunner(invocation: CodegraphInvocation): 
       cwd: invocation.cwd,
       detached: process.platform !== 'win32',
       env: createCodegraphEnvironment(),
-      shell: false
+      shell: false,
+      windowsHide: true
     });
     const timeout = setTimeout(() => {
       terminateCodegraphProcess(childProcess);

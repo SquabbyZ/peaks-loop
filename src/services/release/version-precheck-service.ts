@@ -180,7 +180,8 @@ export function runTagCollision(opts: PrecheckOptions): LayerResult {
   // blocker). It also emitted DEP0190 on every run, on every layer.
   const res = spawnSync('git', ['-C', opts.projectRoot, 'tag', '--list', tagName], {
     encoding: 'utf8',
-    timeout: 5_000
+    timeout: 5_000,
+    windowsHide: true
   });
   if (res.error !== null && res.error !== undefined) {
     return {

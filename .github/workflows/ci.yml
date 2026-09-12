@@ -117,3 +117,67 @@ jobs:
           TZ: UTC
           CI: 'true'
           RUNNER_OS: Linux
+
+  # Slice 2026-09-12 `integration-ci-and-windowshide`.
+  #
+  # Until now the FULL `tests/integration` suite (90 files / ~462 tests) ran
+  # NOWHERE. The `test` job above runs the DEFAULT vitest config, whose
+  # `include` is `tests/unit/**` and which EXCLUDES `tests/integration/**`;
+  # the `binding-store-multi-process` job above covers exactly one file.
+  # So "CI green" never covered this suite, and neither did any other signal.
+  #
+  # THIS JOB IS EXPECTED TO FAIL AT FIRST, AND THAT IS INTENTIONAL.
+  # It is wired in BEFORE the 20 known failures are fixed. There is
+  # deliberately NO `continue-on-error`, NO `|| true`, NO skipped tests and
+  # NO relaxed assertions — a red workflow is the honest initial state, and
+  # suppressing it would recreate the exact "looks green, checked nothing"
+  # shape this job exists to end. Triage of the 20 failures lives in
+  # `.peaks/_runtime/2026-09-12-session-e37ef0/qa/integration-triage.md`.
+  integration-suite:
+    name: 'integration suite (tests/integration, ubuntu-only, EXPECTED RED)'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm (corepack)
+        # Same reason as the jobs above: pnpm/action-setup's self-installer
+        # fails on the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        # Same contract as every other job here: `npm run build` creates
+        # packages/*/dist (which the shared `./version` subpath export
+        # resolves to) and runs the canonical typecheck. Parts of the
+        # integration suite spawn `bin/peaks.js`, which needs `dist/`.
+        run: npm run build
+
+      - name: Test integration suite
+        # Platform choice — ubuntu-latest ONLY, on purpose:
+        #   * the suite runs with `fileParallelism: false` (serial, 60s
+        #     timeouts) over ~460 tests, so a second OS roughly doubles
+        #     wall-clock for a signal we already know is red;
+        #   * the red we are wiring in is a LOWER BOUND, not an equivalent,
+        #     on Windows: two integration files are Windows-aware
+        #     (release-precheck, vm-kvm-runtime) and part of the known red is
+        #     environment-shaped (`spawn claude ENOENT`). Wiring
+        #     windows-latest is deferred to the slice that fixes the 20
+        #     failures, when the signal is stable enough to be worth two
+        #     platforms rather than a guess about which red is which.
+        # `--config vitest.config.integration.ts` must be explicit: the
+        # `test:integration` npm script omits it, so it inherits the base
+        # config's `include` and selects zero files — pre-existing bug, left
+        # alone by this slice.
+        run: pnpm exec vitest run --config vitest.config.integration.ts tests/integration --reporter=default --reporter=github-actions
+        env:
+          TZ: UTC

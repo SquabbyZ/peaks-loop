@@ -33,7 +33,7 @@ export class CodexAdapter implements VendorAdapter {
     const argv = ['--compact'];
     if (args.force === true) argv.push('--force');
     return new Promise<VendorCompactResult>((resolveRun) => {
-      const proc = spawn('codex', argv, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn('codex', argv, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       let stdout = '';
       let stderr = '';
       proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });

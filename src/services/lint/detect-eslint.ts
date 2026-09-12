@@ -38,7 +38,7 @@ function packageNameFor(key: keyof typeof ESLINT_PACKAGE_PINS): string {
 
 function probeNpx(): boolean {
   const { command, args, baseEnv } = resolveNpxInvocation(['--version']);
-  const probe = spawnSync(command, args, { encoding: 'utf8', env: baseEnv });
+  const probe = spawnSync(command, args, { encoding: 'utf8', env: baseEnv, windowsHide: true });
   return probe.status === 0;
 }
 
@@ -61,7 +61,7 @@ function probePackage(key: keyof typeof ESLINT_PACKAGE_PINS): PackageProbe {
   // own JS entry and this runs it through `process.execPath`. Same shape as the
   // npx probe above and as `eslint-runner.ts`.
   const { command, args, baseEnv } = resolveNpmInvocation(['view', `${pkg}@${pin}`, 'version']);
-  const result = spawnSync(command, args, { encoding: 'utf8', env: baseEnv });
+  const result = spawnSync(command, args, { encoding: 'utf8', env: baseEnv, windowsHide: true });
   return {
     ok: result.status === 0,
     error: result.error === undefined || result.error === null ? null : result.error.message

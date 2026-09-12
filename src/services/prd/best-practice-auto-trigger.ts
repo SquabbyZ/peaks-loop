@@ -126,6 +126,7 @@ export async function triggerBestPracticeScan(opts: {
         cwd: opts.projectRoot,
         stdio: 'ignore',
         detached: true,
+        windowsHide: true,
         env: { ...process.env, PEAKS_BEST_PRACTICE_STDIN: '' }
       }
     );

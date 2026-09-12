@@ -278,7 +278,8 @@ export function runRunner(
     const proc = spawnFn(resolution.command, resolution.args, {
       cwd: projectRoot,
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     });
     let stdout = '';
     let stderr = '';

@@ -61,7 +61,7 @@ export function runHookGuardSubprocess(prompt: string): HookGuardResult {
     'sub-agent-dispatch-guard',
     '--prompt', prompt,
     '--json'
-  ], { encoding: 'utf8' });
+  ], { encoding: 'utf8', windowsHide: true });
   if (result.status !== 0) {
     // Fallback: allow (don't block the dispatch on a guard subprocess failure).
     return {

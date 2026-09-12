@@ -70,6 +70,7 @@ export function runShadcnInit(options: ShadcnInitOptions): ShadcnInitResult {
   const result = spawnSync(invocation.command, [...invocation.args], {
     cwd: options.cwd,
     encoding: 'utf8',
+    windowsHide: true,
     timeout: options.timeoutMs ?? 300_000,
     maxBuffer: 32 * 1024 * 1024,
     env: invocation.baseEnv

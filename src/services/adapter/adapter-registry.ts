@@ -76,7 +76,7 @@ class ProcessVendorAdapter implements VendorAdapter {
     const argv = [...this.extraArgs];
     if (args.force === true) argv.push('--force');
     return new Promise<VendorCompactResult>((resolveRun) => {
-      const proc = spawn(this.binary, argv, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn(this.binary, argv, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       let stdout = '';
       let stderr = '';
       proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });

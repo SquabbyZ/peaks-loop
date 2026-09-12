@@ -174,7 +174,8 @@ export function spawnPlaywrightMcp(
       cwd: projectRoot,
       env: process.env,
       stdio: 'ignore',
-      detached: true
+      detached: true,
+      windowsHide: true
     }
   );
   return { pid: child.pid, child };
