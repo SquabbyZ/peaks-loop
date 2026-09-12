@@ -99,7 +99,7 @@
 - [src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior](src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md) — The  module is the single source of truth for IDE-aware behavior.
 - [src-services-session-canonical-workspace-resolver](src-services-session-canonical-workspace-resolver.md) — is the canonical home for the per-session workspace.
 
-## lesson (64)
+## lesson (65)
 
 - [2026-06-26-unknown-sid-root-cause](archived/2026-06-26-unknown-sid-root-cause.md) — Root cause + remediation log for the  and  orphan session dirs.
 - [2026-07-28-rid-034-handoff-no-sediment-block](2026-07-28-rid-034-handoff-no-sediment-block.md) — rid-034 收尾遇 sediment 反向 — no peaks-memory:start/end 闭合块 **Date:** 2026-07-28 **Rid:** 2026-07-28-rid-034-v2-13-0-clea...
@@ -130,6 +130,7 @@
 - [peaks-slice-check-windows-typecheck-bug](peaks-slice-check-windows-typecheck-bug.md) — The  typecheck stage on Windows shells reports  (too fast for tsc to have actually run) and  with empty /, while the ...
 - [perf-slice3-revert-2026-08-07](2026-08-07-perf-slice3-revert.md) — Perf slice 3 — speculative optimization REVERTED (2026-08-07) TL;DR Three "easy perf wins" from RD-016 (vitest cache,...
 - [polyrepo-root-child-peaks-lazy](polyrepo-root-child-peaks-lazy.md) — session 2026-07-08-session-17918f 实施 polyrepo 工作流。 机制: 在父目录写 root ,child  在首次 dispatch 时 lazy 创建(Karpathy #2 Simplici...
+- [project-memory](project-memory.md) — **现象**：本 session 的每一片都出过"测试全绿却存在真缺陷"的情况，形状完全一致 —— 作者挑的 fixture 里不含能打破它的那个输入。 **具体实例**：S1 的六类假 EXACT（未变字段被报成变更）、相对路径在 ...
 - [r3-format-compact-defaults-by-artifact-type](r3-format-compact-defaults-by-artifact-type.md) — r3 — per-artifact compact-by-default Slice 023 (R3).
 - [r3-retrospective-defaults-to-index-compact](r3-retrospective-defaults-to-index-compact.md) — r3 — retrospective reads come from index.json Slice 023 (R3).
 - [real-cmdline-regression-test-for-spawn](real-cmdline-regression-test-for-spawn.md) — For any  call on Windows that goes through , assertion-only dogfood (e.g.

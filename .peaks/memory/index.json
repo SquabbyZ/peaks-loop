@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-12T00:11:13.906Z",
+  "updatedAt": "2026-09-12T02:48:51.757Z",
   "hot": {
     "rule": [
       {
@@ -868,6 +868,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\polyrepo-root-child-peaks-lazy.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "project-memory",
+        "kind": "lesson",
+        "description": "**现象**：本 session 的每一片都出过\"测试全绿却存在真缺陷\"的情况，形状完全一致 —— 作者挑的 fixture 里不含能打破它的那个输入。 **具体实例**：S1 的六类假 EXACT（未变字段被报成变更）、相对路径在 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\project-memory.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-12-session-86f23b/txt/handoff-acl.md",
+        "updatedAt": "2026-09-12"
       },
       {
         "name": "r3-format-compact-defaults-by-artifact-type",

@@ -139,6 +139,18 @@ Therefore any authored contract must be a **live state, not a frozen file**: som
 
 **S1 ships first and S2 is independent of it. S3 is conditional — it does not get built on schedule, it gets built on evidence.**
 
+### 4.1 Outcome (2026-09-12, implemented)
+
+| # | Result |
+|---|---|
+| S1 | **Shipped** — `9441d314`. Command group is `peaks scan api-diff <doc>`, not a new `peaks api` group: `scan` already hosts a read-only API analysis with the same `--project` shape, so a new top-level verb group bought nothing. |
+| S2 | **Shipped** — `6410b4c2`. One behaviour change, not additive: the generated `## Project mode` `Mode` row now carries the tri-state instead of `frontend-only \| full-stack-or-unknown`. Nothing parsed the old value. |
+| S3 | **NOT BUILT — rejected on evidence.** Its gate was "a demonstrated S1 shortfall". S1 works on the mainstream shape (flat, `openapi-typescript`-generated interfaces) and suppresses honestly elsewhere, and no scenario-3 case was demonstrated that S1 cannot serve. Building it without that evidence would be schedule-driven, not need-driven. |
+| S4 | **Shipped** — `9e6d468d`. Placed in the consumer-side scan; reads hook contents; reports the observed convention with inconsistency as the signal. |
+| — | **Added, unplanned: S4'** — `55401062`. S2's tri-state would have been a dead field: the RD guidance still branched on the boolean, so all three scenarios routed identically. S4' routes RD per mode. S2 without S4' would have been recorded metadata nobody reads. |
+
+Implementation cost far exceeded §4's estimate for S1 — seven RD rounds and four QA gates. The cause was not scope but the `Exact` label: each gate found another class of line that was labelled exact and was wrong, and every one of them had passed a fully green test suite. The rule that finally held is now the design's spine: **suppress unless both sides are proven complete, and name the reason when suppressing.** It had to be applied to the recorded side *and* the document side; the asymmetry between them was the last structural gap.
+
 ---
 
 ## 5. Risks
