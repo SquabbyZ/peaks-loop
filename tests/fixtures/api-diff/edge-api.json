@@ -1,0 +1,84 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Edge API", "version": "1.0.0" },
+  "paths": {
+    "/api/v31/{id}": {
+      "get": {
+        "operationId": "getV31",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "count", "scores"],
+                  "properties": {
+                    "id": { "type": ["integer", "null"] },
+                    "count": { "type": ["integer"] },
+                    "scores": { "type": "array", "items": { "type": ["integer", "null"] } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/opt/{id}": {
+      "get": {
+        "operationId": "getOpt",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scalar/{id}": {
+      "get": {
+        "operationId": "getScalar",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": { "application/json": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/api/partial/{id}": {
+      "get": {
+        "operationId": "getPartial",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": { "application/json": { "schema": { "type": "string" } } }
+          },
+          "404": {
+            "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["message"],
+                  "properties": { "message": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

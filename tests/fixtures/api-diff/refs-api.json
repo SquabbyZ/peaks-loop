@@ -1,0 +1,104 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Refs API", "version": "1.0.0" },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["id"],
+        "properties": { "id": { "type": "string" } }
+      },
+      "OwnerRef": { "$ref": "#/components/schemas/User" },
+      "BaseUser": {
+        "type": "object",
+        "required": ["id"],
+        "properties": { "id": { "type": "string" } }
+      }
+    }
+  },
+  "paths": {
+    "/api/refs/{id}": {
+      "get": {
+        "operationId": "getRef",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "owner", "tags"],
+                  "properties": {
+                    "id": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/User" },
+                    "tags": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hop/{id}": {
+      "get": {
+        "operationId": "getHop",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "owner"],
+                  "properties": {
+                    "id": { "type": "string" },
+                    "owner": { "$ref": "#/components/schemas/OwnerRef" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/composed/{id}": {
+      "get": {
+        "operationId": "getComposed",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [{ "$ref": "#/components/schemas/BaseUser" }],
+                  "type": "object",
+                  "properties": { "name": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/enum/{id}": {
+      "get": {
+        "operationId": "getEnum",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status"],
+                  "properties": { "status": { "type": "string", "enum": ["active", "suspended"] } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

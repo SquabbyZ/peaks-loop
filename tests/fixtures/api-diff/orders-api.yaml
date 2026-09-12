@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info:
+  title: Orders API
+  version: 2.0.0
+paths:
+  /api/orders/{orderId}:
+    get:
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, total, note, tags]
+      properties:
+        id:
+          type: string
+        total:
+          type: number
+        note:
+          type: ['string', 'null']
+        tags:
+          type: array
+          items:
+            type: string

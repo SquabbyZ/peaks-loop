@@ -67,6 +67,7 @@ import { registerRoleCommands } from './role-commands.js';
 import { registerRuntimeCommands } from './runtime-commands.js';
 import { registerSCCommands } from './sc-commands.js';
 import { registerScanCommands } from './scan-commands.js';
+import { registerApiDiffCommands } from './api-diff-commands.js';
 import { registerShadcnCommands } from './shadcn-commands.js';
 import { registerSecurityAuditCommands } from './security-audit-commands.js';
 import { registerSedimentCommands } from './sediment-commands.js';
@@ -116,6 +117,9 @@ const REGISTRATIONS: readonly Registration[] = [
   ['project-commands', registerProjectCommands], ['prd-commands', registerPrdCommands],
   ['request-commands', registerRequestCommands], ['retrospective-commands', registerRetrospectiveCommands],
   ['scan-commands', registerScanCommands], ['shadcn-commands', registerShadcnCommands],
+  // Registered after `scan-commands` on purpose: it attaches `scan api-diff`
+  // to the existing parent instead of creating a second `scan` command.
+  ['api-diff-commands', registerApiDiffCommands],
   ['slice-commands', registerSliceCommands],
   ['sop-commands', registerSopCommands], ['feedback-commands', registerFeedbackCommands],
   ['fork-commands', registerForkCommands], ['impact-commands', registerImpactCommands],

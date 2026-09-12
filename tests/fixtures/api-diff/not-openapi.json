@@ -1,0 +1,6 @@
+{
+  "name": "definitely-not-openapi",
+  "version": "1.0.0",
+  "swagger": "2.0",
+  "paths": { "/legacy": { "get": {} } }
+}
