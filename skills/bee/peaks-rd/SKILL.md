@@ -223,11 +223,19 @@ When RD work creates a frontend application and the user has not specified a tec
 
 → see `references/frontend-project-generation.md` for the scaffold protocol.
 
-## Frontend anti-corruption layer (ACL)
+## Frontend anti-corruption layer (ACL) — route by integration mode first
 
-When RD work touches the frontend (pure frontend or full-stack), enforce the ACL discipline: the frontend's internal model is never polluted by external / API shapes. DTO ↔ ViewModel mapping converts external fields to internal fields at the boundary, and all conversion logic lives in one mapper file per domain (e.g. `mappers/user.mapper.ts`) — never scattered across pages. Hard constraint, verified by QA / code-review.
+When RD work touches the frontend, read `.integrationMode` from `## Project mode` in `.peaks/project-scan/project-scan.md` (written from `peaks scan archetype --json`) and run that mode's procedure. Do **not** route on the `frontendOnly` boolean: it is back-compat only and merges two modes that need different first commands (`frontendOnly=false` covers both `full-stack` and `prd-plus-interface-doc`; `frontendOnly=true` covers `prd-only`).
 
-→ see `references/frontend-acl-mapper.md` for the three rules + reference shape + verification.
+| `.integrationMode` | RD runs first | Contract source | Artifact that proves it ran |
+|---|---|---|---|
+| `full-stack` | read `## API` in `.peaks/project-scan/project-scan.md` (a real wrapper + endpoint inventory exist here) | the backend's own response type in this repo | the per-domain mapper at the path in `## API → DTO ↔ ViewModel boundary`, plus `peaks scan diff-vs-scope --rid <rid> --project <repo>` |
+| `prd-plus-interface-doc` | `peaks scan api-diff <doc> --project <repo>`, **before writing any type** | the OpenAPI document | the doc-derived `src/services/types/<feature>-api.types.ts` + the `Exact` section recorded in `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` |
+| `prd-only` | write `.peaks/_runtime/<sessionId>/rd/mock-plan.md` before any mock file | an authored guess | `mock-plan.md` + `mock/<feature>-mock.ts` |
+
+Whichever the mode, the mapping rule is unchanged: the frontend's internal model is never polluted by external / API shapes, DTO ↔ ViewModel conversion happens at the boundary, and all conversion logic for a domain lives in exactly one mapper file (e.g. `mappers/user.mapper.ts`) — never scattered across pages. Hard constraint, verified by QA / code-review.
+
+→ see `references/frontend-acl-mapper.md` for the three rules + reference shape + verification, and `skills/peaks-code/references/frontend-only-mode.md` §"Integration-mode routing (RD)" for the numbered procedure per mode — including the two checks each mode **cannot** perform (doc↔server drift; and, for `prd-only`, that no mechanism detects a real document appearing, since the §2.6 staleness artifact is not built).
 
 ## Artifact and standards output
 
