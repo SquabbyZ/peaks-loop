@@ -178,6 +178,26 @@ export type GateguardProbeResult = {
 export type GateguardProbe = () => GateguardProbeResult;
 
 /**
+ * 2026-09-12 — the third-party ECC plugin (github.com/affaan-m/ECC)
+ * ships `$schema` at the root of its `hooks/hooks.json` plus
+ * `description` + `id` on every matcher group. Claude Code's plugin
+ * hook schema accepts only `{ matcher, hooks }` per matcher group, and
+ * at the root `hooks` plus an OPTIONAL top-level `description`, so it
+ * prints an `unknown keys ... ignored`
+ * line at startup for the 47 extra keys (cosmetic — the hooks still
+ * load). The probe is injected so tests never read the real
+ * `~/.claude/plugins/` tree.
+ */
+export type EccHooksDriftProbeResult = {
+  /** Absolute path to the ECC plugin's `hooks/hooks.json` (null when the plugin is not installed). */
+  hooksPath: string | null;
+  /** Parsed `hooks/hooks.json` payload (null when missing / unreadable). */
+  hooks: unknown;
+};
+
+export type EccHooksDriftProbe = () => EccHooksDriftProbeResult;
+
+/**
  * Subset of SkillPresence consumed by the doctor (slice-3b: the full
  * `SkillPresence` type lives in `src/services/skills/skill-presence-service.ts`;
  * the doctor only needs `skill / mode / gate / setAt` for the freshness /
@@ -246,6 +266,8 @@ export type DoctorOptions = {
   workspaceLayoutProbe?: WorkspaceLayoutProbe;
   /** Injected for the integration:gateguard-peaks-conflict check (defaults to defaultGateguardProbe on disk). */
   gateguardProbe?: GateguardProbe;
+  /** Injected for the integration:ecc-hooks-schema-drift check (defaults to defaultEccHooksDriftProbe on disk). */
+  eccHooksDriftProbe?: EccHooksDriftProbe;
   /**
    * Slice 2026-06-13-repair-pre-existing-test-failures: injected
    * root for the L3:l3-memory-health check (defaults to

@@ -47,6 +47,7 @@ import { check as distSourceVersion } from './checks/dist-source-version.js';
 import { check as multiBinaryDrift } from './checks/multi-binary-drift.js';
 import { check as workspaceLayout } from './checks/workspace-layout.js';
 import { check as gateguardConflict } from './checks/gateguard-conflict.js';
+import { check as eccHooksSchemaDrift } from './checks/ecc-hooks-schema-drift.js';
 import { check as checkIdSchema } from './checks/check-id-schema.js';
 import { check as l3OrphanSessions } from './checks/l3-orphan-sessions.js';
 import { check as l3MemoryHealth } from './checks/l3-memory-health.js';
@@ -76,6 +77,7 @@ export const PLUGINS: ReadonlyArray<DoctorCheckPlugin> = [
   multiBinaryDrift,     // id "build:multi-binary-drift"
   workspaceLayout,      // id "build:workspace-layout-canonical"
   gateguardConflict,    // id "integration:gateguard-peaks-conflict"
+  eccHooksSchemaDrift,  // id "integration:ecc-hooks-schema-drift"
   checkIdSchema,        // id "doctor-self:check-id-pattern"
   l3OrphanSessions,     // id "L3:l3-orphan-sessions"
   l3MemoryHealth,       // id "L3:l3-memory-health"

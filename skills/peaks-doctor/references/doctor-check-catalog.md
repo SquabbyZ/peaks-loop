@@ -21,6 +21,7 @@ Slice L3.2 ships 69 doctor checks. The most user-relevant ones:
 ## Integration (third-party hooks)
 
 - **`integration:gateguard-peaks-conflict`** — warns when `gateguard-fact-force` is installed without a `.peaks/**` skip pattern (the 3rd-party hook would block all peaks-qa .peaks/ artifact writes)
+- **`integration:ecc-hooks-schema-drift`** — warns (cosmetic, never fails the run) when the 3rd-party ECC plugin's `hooks/hooks.json` carries keys Claude Code ignores (`$schema` at the root; `description` + `id` per matcher group), which is what prints `ecc: hooks.json: unknown keys ... ignored` at startup
 
 ## Skills
 
