@@ -20,9 +20,25 @@ Every acceptance criterion in the approved audit-goal at `.peaks/_runtime/<sessi
 
 ### Verdict semantics
 
-- `pass` — every AC has a passing test and the test suite is green.
+- `pass` — every AC has a passing test, the test suite is green, **and the approved-scope contract was delivered**: the `prd/handoff.md` source block reached the reviewer with its WHOLE byte count (`FOUND at … — N bytes`), because "complete" is defined against the approved scope and its non-goals, and a test report alone shows only that *something* was built.
 - `fail` — one or more ACs are unmapped, the targeted test is failing, or the suite is red on a non-flaky ground.
 - `inconclusive` (needs-human) — the mapping is plausible but the human needs to confirm that a passing test truly reflects the business intent of an AC. Example: a test exists for "config-service splits into 3 modules" but the human must decide whether the *seam* the test exercises is the seam they actually wanted.
+
+### When the scope contract does not arrive — same rule as dimension 4
+
+The service keys this dimension's `pass` on the **delivery** of its scope contract, not on its existence on disk, for the same reason dimension 4 keys its `pass` on the delivered baseline:
+
+| Situation | What the reviewer is told | Verdict the service allows |
+|---|---|---|
+| `prd/handoff.md` inlined in full | `STATUS: FOUND at … — N bytes` | `pass` is available |
+| `prd/handoff.md` present but the budget did not reach it, or the read was truncated | `STATUS: MISSING (omitted)`, or `TRUNCATED, showing the first N of M bytes` | `pass` is downgraded to `inconclusive`, with a `scope-contract-gate` marker in the summary |
+| `prd/handoff.md` exists for this run but carries nothing (0 bytes / whitespace) | `STATUS: MISSING (empty)` | Same downgrade: the PRD phase ran and the reviewer was given no contract. An empty contract is a delivery failure, not an absent phase. |
+| `prd/handoff.md` exists but this process could not read it (EACCES / EBUSY / EISDIR) | `STATUS: UNREADABLE` | Same downgrade. Deliberately NOT reported as "no PRD phase": the file is there, the read failed, and only one of those two facts is fixable. |
+| No `prd/handoff.md` in this project at all — ENOENT (no PRD phase) | `STATUS: MISSING (missing)` | Not a delivery failure — the dimension is judged on the evidence that exists. Absence is not the same fact as non-delivery. |
+
+The delivery rule is deliberately not "some bytes arrived": `qa-test-report` also supports this dimension, which is exactly how a `pass` used to survive while the contract that defines the dimension was inlined with **zero** bytes. See `enforceScopeContractDelivery()` in `src/services/final-review/final-review-service.ts`.
+
+The contract source holds a **floor** in the byte allocator: its whole unit is reserved for this dimension, so a saturated run can no longer drop it as a side effect of the allocation order. The downgrade rows above are therefore about a document that is genuinely absent, empty or unreadable — not about a contract that merely happened to sit last in the order.
 
 ### Example
 
@@ -92,9 +108,29 @@ A pre/post baseline diff shows no unintended drift in the test surface, public A
 
 ### Verdict semantics
 
-- `pass` — every measured dimension (tests, API, behavior) is unchanged or changed only in ways that the slice was explicitly authorized to change (e.g. AC-2 says "add a new exported helper `resolveWithSchema()`" — that IS the authorized change).
+- `pass` — the baseline was **compared and delivered**: the pre/post diff block reached the reviewer **with its conclusion** (`STATUS: FOUND`, and the `VERDICT:` line is in the delivered bytes — the verdict is the first thing in the artifact, so an over-cap slice still carries it), and every measured dimension (tests, API, behavior) is unchanged or changed only in ways that the slice was explicitly authorized to change (e.g. AC-2 says "add a new exported helper `resolveWithSchema()`" — that IS the authorized change).
 - `fail` — an unauthorized change slipped in: an exported symbol disappeared, a test was deleted rather than updated, a behavior baseline drifted without a corresponding AC.
 - `inconclusive` (needs-human) — a change is present that *could* be authorized drift or *could* be an unintentional regression. The human rules.
+
+### When the baseline itself is missing — the one case where no verdict can be earned
+
+A `pass` here rests on a **comparison**, so two things must both be true: the producer had to *compute* a baseline, and that baseline had to *reach the reviewer's prompt* — conclusion included. Neither substitutes for the other.
+
+| Situation | What the reviewer is told | Verdict the service allows |
+|---|---|---|
+| Baseline computed and inlined | `STATUS: COMPUTED` + the diff block | `pass` is available |
+| Baseline computed, dropped by the evidence budget | `STATUS: COMPUTED ON DISK, NOT DELIVERED` + the block marked `MISSING (omitted)` | `pass` is downgraded to `inconclusive` |
+| Baseline inlined but larger than the per-file cap | `STATUS: FOUND … TRUNCATED, showing the first N of M bytes` — the slice still opens with the `VERDICT:` line | `pass` is available (the conclusion is in the delivered bytes) |
+| No base ref resolves / base resolves to HEAD (empty range) | `STATUS: UNAVAILABLE` + the reason | `pass` is downgraded to `inconclusive` |
+| The project is not a git work tree | `STATUS: UNAVAILABLE` + the reason | `pass` is downgraded to `inconclusive` — permanently, on every run |
+
+The "dropped by the evidence budget" row is now a defensive branch rather than the expected failure: this source holds a **floor** in the allocator — its whole unit is reserved for this dimension — so when a baseline IS computed it is delivered, and the reviewer is never asked to judge this dimension against a comparison it was not shown. The rows that still fire are the ones where no baseline exists to deliver.
+
+Three consequences worth stating plainly, because all three read like defects and are not:
+
+- **A non-git project can never reach `allPass === true`.** Dimension 4 is permanently `inconclusive` there: no comparison exists to hand over, so there is no honest way to have it green. The service does not invent one, and a design-intent document (`rd/tech-doc.md`, `prd/handoff.md`) is not a substitute — it states what was intended, not what changed. There is no CLI way out either: `--base <ref>` names a COMMIT to compare against, so it cannot help a project that has no git history to resolve a ref in — the reason the reviewer is given is the project's state, not a missing argument.
+- **A dimension whose evidence was omitted does not get a pass "because the file exists".** If the block is not in the prompt, the reviewer never saw it; the service downgrades the verdict and does **not** attach the artifact as an `EvidenceItem`, because an envelope citing evidence the reviewer never received is the forged clean handoff this gate exists to prevent.
+- **A saturated run can redden more than one dimension, and that is the honest reading.** The evidence budget allocates each source WHOLE or not at all (never a partial slice), so a run whose sources do not all fit drops whole sources — and each dimension whose contract source was dropped loses its `pass`: dimension 4 when the baseline goes, dimension 1 when the approved-scope contract does.
 
 ### Example
 
@@ -106,12 +142,13 @@ A pre/post baseline diff shows no unintended drift in the test surface, public A
 
 The service contract (`src/services/final-review/final-review-service.ts:23-31` and `:88-93`):
 
-- `allPass === true` iff every dimension's `verdict === 'pass'`.
-- `needsAttention` is the list of dimension names whose verdict is `fail` or `inconclusive`. The LLM does NOT need to populate it — the service enforces presence of all 4 dimensions and the human-facing summarizer (in peaks-code or peaks-txt) computes `needsAttention` for display.
+- `allPass === true` iff every dimension's `verdict === 'pass'` **and** the service itself has nothing to flag. The two fields are derived from the verdicts, never copied from the model's own summary: a model that wrote a fabricated `pass` plus a matching `allPass: true` cannot hand over an unsupported clean review.
+- `needsAttention` is the list of dimension names whose verdict is `fail` or `inconclusive`, **plus** any dimension the service has to flag mechanically even though the reviewer passed it. The one such flag today is a delivered pre/post baseline whose own `VERDICT:` line reports `STRUCTURAL DRIFT DETECTED` (or a verdict line the service cannot classify): a detected structural removal may well be authorized, but a review that says "4/4 pass, nothing needs attention" directly above a diff that reports a removal it attached itself is self-contradicting, so that dimension is listed and `allPass` is `false`. The dimension's verdict is left as the reviewer wrote it — the call on whether a removal was authorized stays with the reviewer and the human. A second, related case is NOT a mechanical flag but a structural red the service explains: when **every** source on disk supporting a dimension is larger than the per-file cap (10,240 bytes, derived from `MAX_EVIDENCE_BYTES_TOTAL`), no source can ever be delivered under the `whole` rule, so the reviewer is told so in a `## Evidence delivery reachability (structural)` block and the dimension's summary carries a `delivery-reachability` marker naming the source and its byte count. Such a dimension is `inconclusive` by byte arithmetic — never by having passed and been overruled — and it appears in `needsAttention` through the ordinary non-`pass` route, which is what makes the CLI envelope state the reason instead of leaving a permanent red unexplained.
+- The LLM does NOT need to populate `needsAttention` — the service enforces presence of all 4 dimensions and derives the field.
 - An `IncompleteFinalReviewError` is thrown when JSON is malformed or any required dimension is missing. That is a **gate failure**, not a `fail` verdict — the LLM call is invalid and must be re-prompted, not surfaced to the human.
 
 ## Confidence and what it means
 
 - `high` — evidence is concrete (named test file, named artifact, deterministic run).
 - `medium` — evidence is concrete but covers only part of the dimension; the LLM is being honest about coverage gaps.
-- `inconclusive` verdicts should always be `medium` or `low` confidence; `high` confidence on `inconclusive` is a contradiction and the LLM should be re-prompted.
+- `inconclusive` verdicts should always be `medium` or `low` confidence; `high` confidence on `inconclusive` is a contradiction and the LLM should be re-prompted. The service does not rely on the re-prompt alone: it clamps a `high` on an `inconclusive` verdict to `medium` and marks the summary, so the contradiction cannot reach the human in the envelope even if the model keeps producing it.

@@ -47,6 +47,7 @@ type PrepareFinalReviewOptions = {
   project: string;
   sessionId: string;
   llmProvider?: string;
+  base?: string;
   json?: boolean;
 };
 
@@ -185,6 +186,10 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         `LLM provider name: ${SUPPORTED_LLM_PROVIDERS.join(' | ')} (default: ${DEFAULT_LLM_PROVIDER} — performs no review)`,
         DEFAULT_LLM_PROVIDER
       )
+      .option(
+        '--base <ref>',
+        'base ref for the pre/post baseline diff (`existing-functionality-intact`); default: merge-base with origin/HEAD, then origin/main, then origin/master, then HEAD~1 — pass this explicitly when none of those resolve'
+      )
   ).action(async (rid: string, options: PrepareFinalReviewOptions) => {
     // 1. Project root must exist and be a directory.
     const projectValidation = validateProjectRoot(options.project);
@@ -322,6 +327,7 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
         projectRoot: projectValidation.projectRoot,
         sessionId: sessionValidation.sessionId,
         llmRunner,
+        ...(options.base === undefined ? {} : { baseRef: options.base }),
       });
       const data: FinalReviewData = {
         status: 'review-complete',

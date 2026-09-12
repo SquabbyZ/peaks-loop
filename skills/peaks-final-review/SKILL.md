@@ -137,40 +137,73 @@ Each `DimensionEvidence` carries:
 - `evidence` — list of `EvidenceItem` (`{ kind, description, artifact?, link? }`) with `EvidenceKind` ∈ `test-result | test-coverage | manual-spot-check | pre-post-diff | regression-suite | ac-mapping`
 - `confidence` — `high | medium | low`
 
-The service enforces that **all 4 dimensions are present**; a missing dimension throws `IncompleteFinalReviewError` and the call is a gate failure. Treat `allPass === true` + empty `needsAttention` as a clean handoff to the human. Anything else — `allPass === false`, a `fail` verdict, or an `inconclusive` verdict — must come back to the LLM loop with a re-prompt (do not ask the human to interpret raw LLM output).
+The service enforces that **all 4 dimensions are present**; a missing dimension throws `IncompleteFinalReviewError` and the call is a gate failure. Treat `allPass === true` + empty `needsAttention` as a clean handoff to the human **only where it is reachable at all**: if the pre/post baseline for dimension 4 cannot be **computed** at all (see dimension 4 below), that dimension is permanently `inconclusive` and `allPass` is structurally `false` on every run — a `false` there means "no comparison was shown to the reviewer", not "the work regressed". The same delivery rule applies to **dimension 1's approved-scope contract** (`prd/handoff.md`): a contract that is absent, empty, unreadable, or too large to reach the reviewer costs that dimension its `pass` (a `scope-contract-gate` marker says so in the summary). Read both as "the reviewer was not given the document this verdict needs", never as "the work regressed". A computed baseline or a present contract is no longer at the mercy of the byte budget: both sources hold a floor in the allocator, so the budget-starved delivery failures left are the ones with no document behind them. One failure is NOT the budget's to fix, and the service says so in as many words: when **every** source on disk that supports a dimension is larger than the per-file cap (`MAX_EVIDENCE_BYTES_PER_FILE`, 10,240 bytes — derived from the total, so raising the total does not raise it), that dimension can never be delivered — not on this run and not on any run. The reviewer gets a `## Evidence delivery reachability (structural)` block naming the source and its size, and the dimension's summary carries a `delivery-reachability` marker with the same arithmetic. Read that `inconclusive` as "no evidence for this dimension can reach the reviewer", never as "the reviewer was unsure". Two cases worth naming: `needsAttention` is populated by the SERVICE too, not only by the verdicts — a delivered baseline whose own `VERDICT: ` line reports `STRUCTURAL DRIFT DETECTED` puts dimension 4 in `needsAttention` and clears `allPass` even when the reviewer passed it, because a detected removal is not "nothing needs attention"; and every dimension named by the reachability block above lands there too (it can never be `pass`), so the field tells you *why* it is red. And anything else — `allPass === false`, a `fail` verdict, or an `inconclusive` verdict — must come back to the LLM loop with a re-prompt (do not ask the human to interpret raw LLM output).
 
 ## The 4 dimensions (one-line summary)
 
 Full evidence contract per dimension: `references/4-dimensions.md`.
 
-1. **functional-completeness** — every AC from the approved audit-goal maps to a passing test (`evidence.kind === 'ac-mapping'` + `test-result`).
+1. **functional-completeness** — every AC from the approved audit-goal maps to a passing test (`evidence.kind === 'ac-mapping'` + `test-result`), and the approved-scope contract (`prd/handoff.md`) was delivered to the reviewer in full.
 2. **problem-resolution** — there is a targeted test for the original problem case (`evidence.kind === 'test-result'` against the original repro).
 3. **no-new-bugs** — the regression suite is green AND the LLM surfaces 0 net-new failures (`evidence.kind === 'regression-suite'` + `manual-spot-check`).
 4. **existing-functionality-intact** — a pre/post baseline diff (test count, public API surface, key behavior) shows no unintended drift (`evidence.kind === 'pre-post-diff'`).
 
-> **⚠️ This dimension currently cannot pass — read before acting on it (verified 2026-09-12).**
-> `pre-post-diff` is a declared `EvidenceKind`, but **nothing in peaks-loop produces that artifact**.
-> The evidence actually mapped to this dimension is `rd/tech-doc.md` (design intent) and
-> `prd/handoff.md` (scope / non-goals) — neither is a baseline diff, and the model correctly
-> reports that ("the only FOUND source… is a design-intent document, not a regression assessment").
-> `peaks scan api-diff <doc>` is *not* a producer: it diffs an API **document**, not the code surface.
+> **Status of this dimension — updated 2026-09-12 (the `pre-post-diff` producer now ships).**
+> The producer exists. `peaks prepare-final-review` runs a read-only git comparison of a base ref
+> against the working tree and writes `.peaks/_runtime/<sessionId>/final-review/api-diff.txt`
+> — the test-file and non-test `.ts` / `.tsx` source-file lists, the `it(` / `test(` case counts
+> before/after, and the added/removed top-level `export` names over changed `.ts` / `.tsx` files —
+> and maps that artifact into this dimension's `supports`. The service also attaches it to the
+> dimension as an `EvidenceItem` of kind `pre-post-diff` whose `artifact` points at that file.
+> The dimension can reach `pass` — when a baseline could actually be computed **and was delivered to the
+> reviewer**. Both halves are required. The source holds a floor in the evidence allocation, so a
+> budget that runs out no longer drops it; if it ever is dropped the reviewer's prompt says
+> `STATUS: COMPUTED ON DISK, NOT DELIVERED`
+> instead of claiming a comparison it does not carry, the dimension's `pass` is downgraded to
+> `inconclusive`, and no `pre-post-diff` `EvidenceItem` is attached to it. A baseline the reviewer never
+> saw is not evidence, exactly as a baseline that was never computed is not — the verdict may not
+> outlive the evidence that was actually handed over. Two properties make that judgement structural
+> rather than arithmetic: a source is delivered only when the bytes the reviewer received carry its
+> conclusion (for this artifact, its opening `VERDICT:` line), and the delivered conclusion is then
+> READ — a `STRUCTURAL DRIFT DETECTED` line puts this dimension in `needsAttention` and clears
+> `allPass` even when the reviewer answered `pass`, because a detected removal is a question for a
+> human, not a clean handoff.
 >
-> **Consequences:** `allPass === true` is **unreachable by construction**, for every workflow.
-> This dimension will return `inconclusive` with an empty `evidence[]` even when the work is
-> perfect. Treat that as a **tooling** state, not as evidence of a regression — and do **not**
-> "fix" it by re-mapping `qa/test-reports` into this dimension's `supports`, which would turn the
-> gate green without producing the baseline diff the definition above requires.
+> **A baseline that cannot be computed is never invented.** No base ref resolving, a base ref that
+> resolves to HEAD itself (an empty range — what a shallow clone's `merge-base` produces on its
+> default path), or a project that is not a git work tree, all mean the same thing: no artifact is
+> written, the reviewer is told why in the prompt, and a `pass` on this dimension is downgraded to
+> `inconclusive` — for EVERY one of those causes, with no exemptions. "This project keeps no
+> baseline" is the CAUSE of the missing evidence; it is not a reason to trust the claim the
+> evidence was supposed to support, and a permanently-`inconclusive` dimension is the honest
+> reading of a comparison that never happened. The base ref comes from `--base <ref>`; the default
+> is the merge-base with `origin/HEAD`, then `origin/main`, then `origin/master`, then `HEAD~1`,
+> and when none of those resolve the reason says so and names `--base` as the way out.
 >
-> **Real fix (unbuilt):** a producer for the pre/post baseline diff (test-count delta, public-API
-> surface snapshot) written to `.peaks/_runtime/<sessionId>/final-review/api-diff.txt`, then mapped
-> into this dimension's `supports`. Until that ships, `needsAttention` always contains this
-> dimension — a permanently-red gate that reviewers will otherwise learn to ignore.
+> **What that means for `allPass`.** On a project that is not a git work tree — or where no base ref
+> resolves — this dimension is permanently `inconclusive`, so `allPass === true` can never be reached
+> there, however complete the other nine evidence sources are. That is the intended reading and not a
+> bug to work around: nothing was ever compared, so there is no answer to hand over. Likewise, a
+> project whose evidence set outgrows the reviewer's input budget leaves this block OMITTED, and the
+> honest envelope then says `inconclusive` rather than asserting a comparison the reviewer was never
+> shown.
+>
+> **Boundary:** the export comparison is a line-anchored regex, not a type checker — it detects a
+> removed or renamed export and cannot detect a changed signature. Type-only exports count, both
+> spellings (`export type { T }` and `export { type T }`). File-level DELETION is visible, because
+> it is read from the file lists rather than inferred from the counts — a module with no
+> `export ` line and no `it(` is still reported when it is deleted. And the reverse direction is
+> guarded too: a name that appears on both sides of the diff, a `git mv`, and an `it(` ->
+> `test.each(` conversion are reported as changes, not as removals. The artifact carries a
+> wall-clock timestamp, so two runs over the same base differ on that line and on nothing else.
+> And still do **not** "fix" a red dimension by re-mapping `qa/test-reports` into its `supports`:
+> that turns the gate green without producing the baseline diff the definition above requires.
 
 ## Human's role
 
 The human reviews evidence, **judges business outcomes (NOT code)**. The LLM produces structured evidence; the human's job is to:
 
-- confirm that `allPass === true` corresponds to the business outcome they actually want (not just "tests are green");
+- confirm that `allPass === true` corresponds to the business outcome they actually want (not just "tests are green", and — for dimension 4 — not just "a diff file exists somewhere on disk");
 - decide what to do with `needsAttention` items — accept the LLM's verdict, override a `pass` to `fail` when the evidence is weak, or send the slice back to RD with a re-prompt;
 - gate the release / archive action based on `allPass` + their own business review, not just on the LLM signal.
 
