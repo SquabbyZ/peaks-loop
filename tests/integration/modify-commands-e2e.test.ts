@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const BIN_TIMEOUT_MS = 120_000;
@@ -116,6 +116,40 @@ describe('peaks config rollback (P2-B.2 modify e2e)', () => {
 });
 
 describe('peaks config restore (P2-B.2 modify e2e)', () => {
+  // `config restore` reads `~/.peaks/config.json.1.x.bak` — NOT the project
+  // root — so `process.cwd()` was never the dependency these two cases relied
+  // on: the DEVELOPER'S migrated config was. A fresh checkout has no `.bak`,
+  // the CLI exits 1 with a structured NO_BACKUP envelope, and both cases went
+  // red on CI while `config rollback` (which degrades to `available:false`
+  // instead of throwing) stayed green. Build the `.bak` here, the same way
+  // `config-migrate-cli.test.ts` and `full-migration.test.ts` already build
+  // theirs: a temp `$HOME`.
+  let home: string;
+  let origHome: string | undefined;
+  let origUserProfile: string | undefined;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'peaks-p2b2-restore-home-'));
+    mkdirSync(join(home, '.peaks'), { recursive: true });
+    writeFileSync(
+      join(home, '.peaks', 'config.json.1.x.bak'),
+      JSON.stringify({ version: '1.x', language: 'en', currentWorkspace: 'ws-default' }, null, 2) + '\n',
+      'utf8'
+    );
+    origHome = process.env.HOME;
+    origUserProfile = process.env.USERPROFILE;
+    // Both, because `os.homedir()` prefers USERPROFILE on win32 and HOME
+    // elsewhere.
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+  });
+
+  afterEach(() => {
+    if (origHome === undefined) delete process.env.HOME; else process.env.HOME = origHome;
+    if (origUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = origUserProfile;
+    rmSync(home, { recursive: true, force: true });
+  });
+
   test('--list dry-run reports fields available in .bak without writing', () => {
     const result = runCli(['config', 'restore', '--list', '--dry-run', '--json'], process.cwd());
     expect(result.code).toBe(0);

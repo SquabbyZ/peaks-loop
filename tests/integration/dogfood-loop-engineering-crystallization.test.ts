@@ -6,7 +6,8 @@
  * + crystallization_event). This is the proof that the design works end-to-end:
  *
  *   - 4-section evidence_brief is built from the real workflow trace
- *     (8 git commit SHAs as source_trace_pointers).
+ *     (commit SHAs from this repo as source_trace_pointers — as many as the
+ *     checkout's history holds; a shallow CI clone keeps only the tip).
  *   - Pre-run gate is enforced (task_status=completed, gates_passed=true,
  *     evidence_collected=true).
  *   - Loop + main bee + relation + crystallization_event are written in a
@@ -126,17 +127,19 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
   });
 
   it('crystallizes the M0..M7 work into a real loop + bee + relation + event (M8 exit)', () => {
-    const headSha = git('rev-parse', 'HEAD');
-    const sourceShas = [
-      git('rev-parse', 'HEAD~7'),
-      git('rev-parse', 'HEAD~6'),
-      git('rev-parse', 'HEAD~5'),
-      git('rev-parse', 'HEAD~4'),
-      git('rev-parse', 'HEAD~3'),
-      git('rev-parse', 'HEAD~2'),
-      git('rev-parse', 'HEAD~1'),
-      headSha,
-    ];
+    // The SHAs below are this test's INPUT (real commits used as evidence
+    // pointers), never an assertion: `source_trace_pointers` is
+    // `.default([])` with no minimum, and nothing further down counts them.
+    // So ask git for whatever history the checkout actually has, instead of
+    // indexing `HEAD~7..HEAD`, which a shallow clone does not have — CI
+    // checks out with `actions/checkout@v4`'s default fetch-depth of 1, where
+    // `git rev-parse HEAD~7` dies with "unknown revision ... not in the
+    // working tree" and this test was red by construction. Taking what is
+    // there keeps every assertion below and drops the environment assumption.
+    const sourceShas = git('rev-list', '-n', '8', 'HEAD')
+      .split('\n')
+      .map((sha) => sha.trim())
+      .filter((sha) => sha.length > 0);
 
     const brief = buildEvidenceBrief({
       trace_id: 'm8-dogfood-loop-engineering-2026-07-07',

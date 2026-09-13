@@ -140,11 +140,16 @@ jobs:
   # would recreate the exact "looks green, checked nothing" shape this job
   # exists to end.
   #
-  # ONE THING IS NOT YET OBSERVED: green was measured on Windows, and the
-  # suite contains Windows-aware files (release-precheck, vm-kvm-runtime), so
-  # ubuntu has NOT been confirmed green. If the first run on this job is red,
-  # that is a real, untriaged signal — find out which platform-specific
-  # assumption it is rather than assuming it is the old known red.
+  # GREEN WAS MEASURED ON WINDOWS, AND THE FIRST UBUNTU RUN WAS RED — but the
+  # causes were NOT platform-specific, which is worth knowing before this job
+  # goes red again. All three failures were ENVIRONMENT-conditional: a runner
+  # has no IDE adapter env and no developer $HOME, while a workstation has
+  # both. Two of them reproduced on Windows once the environment was changed
+  # rather than the OS, and one fails on Windows outright under a scrubbed env.
+  # So the first question when this job goes red is "what does a runner have
+  # that a workstation does not, or lack that it has" — not "which OS behaves
+  # differently". Reaching for the platform explanation first would have sent
+  # someone looking in the wrong subsystem for all three.
   # The classified triage that drove the fixes is in
   # `.peaks/_runtime/2026-09-12-session-e37ef0/qa/integration-triage-classified.md`.
   integration-suite:
@@ -203,3 +208,18 @@ jobs:
         run: pnpm exec vitest run --config vitest.config.integration.ts tests/integration --reporter=default --reporter=github-actions
         env:
           TZ: UTC
+          # Same reason as the `test` job's capability-guard step (L61-69), and
+          # the same env var: `tests/integration/capability-guard/**` is also
+          # part of THIS suite, and the J* contracts spawn `bin/peaks.js`.
+          # `request init` resolves a caller id and, with no IDE adapter env,
+          # falls through to D2/EX_USAGE (exit 64) — a structured
+          # `CALLER_ID_INVALID` envelope that the contract runner reads as a
+          # spawn failure. PEAKS_CALLER_ID is the documented vendor-neutral
+          # override for exactly this case.
+          #
+          # NOT a platform difference: this fails identically on a Windows
+          # runner, and passes on a developer machine only because that shell
+          # happens to carry the IDE's own caller-id variable
+          # (CLAUDE_CODE_SESSION_ID). The `test` job above passes the same 15
+          # contracts on BOTH OSes purely because it already sets this.
+          PEAKS_CALLER_ID: ci-runner
