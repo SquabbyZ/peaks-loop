@@ -17,6 +17,7 @@ import { withExternalGateExemptions } from '../skills/hooks-codegate-superpowers
 import {
   buildClaudeSettingsLocalJson,
   CLAUDE_SETTINGS_LOCAL_FILENAME,
+  mergeTemplateOwnedHooks,
   templateContentMatches
 } from './claude-settings-template.js';
 
@@ -54,12 +55,16 @@ function readEnvObject(serialized: string): Record<string, unknown> | undefined 
  * The top-level keys this function's template is allowed to DECIDE. Every other
  * key on disk belongs to whoever put it there and is carried across verbatim.
  *
- *  - `hooks` — the tree this function exists to keep in sync. `peaks workspace
- *    init` is the writer that converges a consumer's file on the current
+ *  - `hooks` — the tree this function exists to keep in sync, ENTRY BY ENTRY.
+ *    `peaks workspace init` converges a consumer's file on the current
  *    release's handler set, and `templateContentMatches` (the drift detector
- *    that decides whether to rewrite at all) compares exactly this tree. Letting
- *    the disk win here would make the rewrite a no-op that reports `refreshed`
- *    forever.
+ *    that decides whether to rewrite at all) asks whether every entry the
+ *    generated tree declares is present — not whether the trees are equal.
+ *    Letting the disk win outright would make the rewrite a no-op that reports
+ *    `refreshed` forever AND would never deliver a changed handler; letting the
+ *    template win outright is what deleted the auto-compact hook. See
+ *    `mergeHooksTree` / `mergeTemplateOwnedHooks` for the rule that does
+ *    neither.
  *  - `env` — jointly owned with `peaks hooks install`, which unions the user's
  *    exemption globs into it. Handled as a union below, not by either side
  *    winning outright.
@@ -69,41 +74,34 @@ function readEnvObject(serialized: string): Record<string, unknown> | undefined 
  * is how `permissions` was lost — whereas anything absent from this list is
  * preserved by default, including keys no release of peaks-loop knows about.
  *
- * ⚠️ KNOWN HAZARD — `hooks` is owned WHOLE, so an entry that another writer put
- * in this file's `hooks` tree and the template does not declare is deleted by
- * the next `peaks workspace init`, silently: `templateContentMatches` sees the
- * extra entry, answers "drifted", and the rewrite emits `{...template}`.
- *
- * That is not hypothetical. `.claude/settings.local.json` has a second writer
- * of peaks' OWN hooks: `installAutoCompactHook`
- * (`src/services/hooks/auto-compact-hook-install.ts`), reached from
- * `peaks code auto-compact` on an adapter declaring
+ * ⚠️ `hooks` USED TO BE OWNED WHOLE — every entry in it was deleted by the next
+ * `peaks workspace init` unless the template declared it, silently:
+ * `templateContentMatches` saw the extra entry, answered "drifted", and the
+ * rewrite emitted `{...template}`. That was not hypothetical.
+ * `.claude/settings.local.json` has a second writer of peaks' OWN hooks:
+ * `installAutoCompactHook` (`src/services/hooks/auto-compact-hook-install.ts`),
+ * reached from `peaks code auto-compact` on an adapter declaring
  * `compactPathway: 'ide-native'` — which `claude-code` does. Measured on a
- * throwaway project root (rid 2026-09-13-leftover-cleanup item 4.2):
+ * throwaway project root (rid 2026-09-13-two-decisions item ②):
  *
- *   init (written, 3 PreToolUse entries)
+ *   init (written, 3 PreToolUse entries: Write|Edit|MultiEdit, Bash, Bash)
  *   → installAutoCompactHook (installed, 4: … | Bash|Task)
  *   → init again (REFRESHED, 3: … )   ← the Bash|Task entry is gone
  *
  * and nothing re-installs it: the hook's whole job was to fire on the next
  * Bash/Task call, so once it is deleted the auto-compact contract stops
- * silently. A `SessionStart` entry added to this file by hand or by a future
- * installer would go the same way — that is the latent half of the same
- * hazard, and it is why this note lives here rather than at the auto-compact
- * installer.
+ * silently.
  *
- * WHY THIS IS NOT FIXED HERE. The obvious repair — let the on-disk `hooks`
- * tree win, or union the entries — is only half a fix: it makes
- * `templateContentMatches` compare a 3-entry generated tree against a 4-entry
- * file forever, so every `peaks workspace init` reports `refreshed` and
- * rewrites, which is precisely the state this function's `hooks` ownership
- * exists to prevent (see the `templateContentMatches` coverage comment above).
- * The other half is a change to that comparator — from "same entries in the
- * same order" to "every generated entry is present" — and that comparator also
- * gates `.peaks/.claude-settings-template.json` self-healing. It changes which
- * on-disk files count as current, and it is not a leftover cleanup: it needs a
- * decision about who owns the local `hooks` tree (this template, or the union
- * of every writer), plus its own verification. Recorded, not guessed at.
+ * FIXED 2026-09-13 (user-decided): this template now owns only the entries IT
+ * DECLARES. `mergeHooksTree` below unions the rest of the on-disk `hooks` tree
+ * across verbatim, and `templateContentMatches` — the drift detector — was
+ * changed in the same slice from "the trees are identical" to "every entry the
+ * generated tree declares is present". The two halves are one change: the merge
+ * alone would leave the comparator comparing a 3-entry generated tree against a
+ * 4-entry file on EVERY init and reporting `refreshed` forever, which is the
+ * state whole-key ownership existed to prevent. See
+ * `mergeTemplateOwnedHooks` in `claude-settings-template.ts` for the ownership
+ * rule and `templateContentMatches` for the containment rule it implies.
  */
 const TEMPLATE_OWNED_KEYS: ReadonlySet<string> = new Set(['hooks', 'env']);
 
@@ -117,7 +115,35 @@ function carryUserOwnedKeys(
     if (TEMPLATE_OWNED_KEYS.has(key)) continue;
     merged[key] = value;
   }
+  merged.hooks = mergeHooksTree(onDisk.hooks, template.hooks);
   return merged;
+}
+
+/**
+ * Merge the on-disk `hooks` tree with the template's, one event at a time.
+ *
+ * Only the events the template DECLARES are merged (and only their declared
+ * entries — see `mergeTemplateOwnedHooks`); every other event, and every other
+ * key under `hooks`, is carried across from the disk untouched. The template
+ * currently declares `PreToolUse` alone, so this is what keeps a hand-added or
+ * future-installer `SessionStart` entry in this file instead of deleting it —
+ * the latent half of the hazard the header describes.
+ */
+function mergeHooksTree(onDiskHooks: unknown, templateHooks: unknown): Record<string, unknown> {
+  const onDisk = isPlainRecord(onDiskHooks) ? { ...onDiskHooks } : {};
+  const template = isPlainRecord(templateHooks) ? templateHooks : {};
+  for (const [event, declared] of Object.entries(template)) {
+    const current = onDisk[event];
+    onDisk[event] = Array.isArray(declared)
+      ? mergeTemplateOwnedHooks(Array.isArray(current) ? current : [], declared)
+      : declared;
+  }
+  return onDisk;
+}
+
+/** A JSON object, as opposed to a null / array / primitive. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -281,6 +307,17 @@ export async function materializeClaudeSettingsLocal(
  * Returns the action taken so the caller can surface it in the
  * envelope. Read failures are treated as drift so a malformed
  * on-disk file always self-heals on the next init.
+ *
+ * WHAT IS COMPARED (rid 2026-09-13-two-decisions item ②): the copy is checked
+ * against the TEMPLATE'S OWN entries — `buildClaudeSettingsLocalJson()` — not
+ * against `serialized`, the merged LOCAL file content it is written from. This
+ * file is a copy of the template (its name and this doc both say so), so
+ * "is it current?" is a question about the template's entries only; asking it
+ * against the merged local file made the copy report `refreshed` once for every
+ * entry another writer had added to `.claude/settings.local.json` — drift noise
+ * about a file the copy does not own, on the very init that is supposed to be a
+ * no-op. With entry-containment semantics the copy is current as soon as it
+ * declares every template entry, whatever else it carries.
  */
 async function writeOfflineTemplateCopy(
   projectRoot: string,
@@ -294,7 +331,8 @@ async function writeOfflineTemplateCopy(
     try {
       const { readFile } = await import('node:fs/promises');
       const existing = await readFile(copyPath, 'utf8');
-      if (templateContentMatches(serialized, existing)) {
+      const declared = JSON.stringify(buildClaudeSettingsLocalJson());
+      if (templateContentMatches(declared, existing)) {
         action = 'already-current';
       } else {
         action = 'refreshed';

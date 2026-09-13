@@ -91,15 +91,35 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
 export const TEMPLATE_VERSION = '1.7.0';
 
 /**
- * Compare two serialized template strings for semantic equivalence: does the
- * on-disk file already declare everything the generated template declares?
+ * Compare two serialized template strings: does the on-disk file already
+ * declare every entry the generated tree declares?
  *
- * Returns `true` iff both strings parse to objects whose
- * `hooks.PreToolUse` arrays are structurally identical (same length;
- * each entry's `matcher`, `hooks[].type`, `hooks[].command` match) AND the
- * on-disk `env` already carries every exemption the template declares (extra
- * on-disk keys and extra globs are allowed — a user may exempt other trees,
- * and a requirement the file already exceeds must not re-trigger a write).
+ * OWNERSHIP IS PER ENTRY, NOT PER KEY (rid 2026-09-13-two-decisions item ②).
+ * This comparator answers "is each entry the GENERATED tree declares present
+ * on disk?", NOT "are the two `hooks` trees identical". Extra on-disk entries
+ * are IGNORED, so an entry another writer put in this file never makes it look
+ * drifted.
+ *
+ * That is the deliberate other half of the entry-level merge in
+ * `mergeTemplateOwnedHooks` / `workspace-claude-settings-materializer.ts`.
+ * `.claude/settings.local.json` has a SECOND writer of `hooks.PreToolUse`:
+ * `installAutoCompactHook` appends a `Bash|Task` entry. Under the previous
+ * exact-tree rule the merged file carried 4 entries against a 3-entry
+ * generated tree, so every `peaks workspace init` answered "drifted",
+ * rewrote, and reported `refreshed` forever — precisely the state whole-key
+ * ownership existed to prevent, and the reason the merge could not ship alone.
+ *
+ * Matching is order-insensitive AND multiset-aware: the template declares TWO
+ * `Bash` entries, and each must have its own counterpart on disk, so a file
+ * carrying only one of them is still reported as drifted (the previous
+ * index-by-index loop had the same property; it is load-bearing, not a
+ * detail).
+ *
+ * Returns `true` iff both strings parse to objects whose `hooks.PreToolUse`
+ * arrays satisfy that containment AND the on-disk `env` already carries every
+ * exemption the template declares (extra on-disk keys and extra globs are
+ * allowed — a user may exempt other trees, and a requirement the file already
+ * exceeds must not re-trigger a write).
  *
  * Returns `false` on any `JSON.parse` error, shape mismatch, or
  * missing `hooks.PreToolUse`. Whitespace and key order do NOT affect
@@ -126,22 +146,15 @@ export function templateContentMatches(generated: string, onDisk: string): boole
     return false;
   }
 
-  const generatedEntries = parsedGenerated.hooks.PreToolUse;
-  const onDiskEntries = parsedOnDisk.hooks.PreToolUse;
-
-  if (generatedEntries.length !== onDiskEntries.length) {
-    return false;
-  }
-
-  for (let i = 0; i < generatedEntries.length; i += 1) {
-    const a = generatedEntries[i]!;
-    const b = onDiskEntries[i]!;
-    if (a.matcher !== b.matcher) {
+  // Multiset containment: consume one on-disk entry per generated entry so a
+  // file holding a single copy of a doubly-declared entry still fails.
+  const unmatched = [...parsedOnDisk.hooks.PreToolUse];
+  for (const required of parsedGenerated.hooks.PreToolUse) {
+    const at = unmatched.findIndex((candidate) => sameEntry(required, candidate));
+    if (at === -1) {
       return false;
     }
-    if (!sameHooksArray(a.hooks, b.hooks)) {
-      return false;
-    }
+    unmatched.splice(at, 1);
   }
 
   // A project installed by a release that predates a template-declared
@@ -152,11 +165,89 @@ export function templateContentMatches(generated: string, onDisk: string): boole
   return hasExternalGateExemptions({ env: (parsedOnDisk as { env?: unknown }).env });
 }
 
+/**
+ * Merge the on-disk `hooks.PreToolUse` list with the template's.
+ *
+ * THE OWNERSHIP RULE (rid 2026-09-13-two-decisions item ②): this template owns
+ * the entries IT DECLARES — and nothing else. Every other on-disk entry is
+ * carried across verbatim, whatever its matcher, because the template has no
+ * opinion about it:
+ *
+ *   - a `matcher` the template does not declare (`Bash|Task`, the auto-compact
+ *     hook `installAutoCompactHook` appends) is never touched;
+ *   - surplus entries BEYOND the template's count for a declared matcher (a
+ *     user's own `Bash` hook) are surplus too, and survive;
+ *   - an on-disk entry that fills a declared slot is REPLACED by the template's
+ *     entry for it. That is what makes a hand-edited (or older-release) entry
+ *     self-heal instead of lingering next to a correct copy of itself.
+ *
+ * Slot counting is per `matcher` and positional within it: the template
+ * declares TWO `Bash` entries, so the first two on-disk `Bash` entries are
+ * theirs and a third is the user's. The template's entries are emitted first,
+ * in template order, then the preserved ones in their on-disk order — which is
+ * a fixed point: re-merging the result yields the result (the template's own
+ * entries are encountered first and refill their own slots).
+ *
+ * Non-conforming entries (no string `matcher`, no `hooks` array) are preserved
+ * rather than dropped: guessing at their shape is how a user's entry gets
+ * deleted.
+ */
+export function mergeTemplateOwnedHooks(
+  onDisk: ReadonlyArray<unknown>,
+  template: ReadonlyArray<unknown>
+): unknown[] {
+  const slots = new Map<string, number>();
+  for (const entry of template) {
+    if (!isPreToolUseEntry(entry)) continue;
+    slots.set(entry.matcher, (slots.get(entry.matcher) ?? 0) + 1);
+  }
+
+  const taken = new Map<string, number>();
+  const preserved: unknown[] = [];
+  for (const entry of onDisk) {
+    // Unowned by construction: not a shape the template could have declared.
+    if (!isPreToolUseEntry(entry)) {
+      preserved.push(entry);
+      continue;
+    }
+    const declared = slots.get(entry.matcher) ?? 0;
+    const used = taken.get(entry.matcher) ?? 0;
+    if (used >= declared) {
+      preserved.push(entry);
+      continue;
+    }
+    taken.set(entry.matcher, used + 1);
+  }
+
+  return [...template, ...preserved];
+}
+
+/** Structural equality of two `PreToolUse` entries. */
+function sameEntry(a: TemplatePreToolUseEntry, b: TemplatePreToolUseEntry): boolean {
+  return a.matcher === b.matcher && sameHooksArray(a.hooks, b.hooks);
+}
+
 type TemplateHookCommand = { type: string; command: string; shell?: string };
 
+/**
+ * One `hooks.PreToolUse` entry in the shape this template declares. The
+ * `matcher` + `hooks` pair is the entry's identity everywhere below: `matcher`
+ * alone is not unique (two `Bash` entries), and whole-object identity would
+ * make a hand-edited entry unrecognizable and therefore unrepairable.
+ */
+type TemplatePreToolUseEntry = { matcher: string; hooks: TemplateHookCommand[] };
+
 type TemplateShape = {
-  hooks: { PreToolUse: Array<{ matcher: string; hooks: TemplateHookCommand[] }> };
+  hooks: { PreToolUse: TemplatePreToolUseEntry[] };
 };
+
+function isPreToolUseEntry(value: unknown): value is TemplatePreToolUseEntry {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as { matcher?: unknown; hooks?: unknown };
+  return typeof candidate.matcher === 'string' && Array.isArray(candidate.hooks);
+}
 
 function isTemplateShape(value: unknown): value is TemplateShape {
   if (typeof value !== 'object' || value === null) {

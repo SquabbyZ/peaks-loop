@@ -97,10 +97,11 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
         const plan = planRollback();
         printResult(io, ok('config.rollback', { ...plan, applied: false }), options.json);
       } catch (error) {
+        // No `NO_BACKUP` branch: a missing `.bak` is no longer an error, it is
+        // an `available: false` SUCCESS envelope (see `config-rollback.ts`).
         const message = getErrorMessage(error);
-        const code = message.startsWith('NO_BACKUP') ? 'NO_BACKUP' : 'CONFIG_ROLLBACK_FAILED';
-        io.stderr(`${code}: ${message}`);
-        printResult(io, fail('config.rollback', code, message, {}, ['Re-run peaks config migrate --apply to recreate the .bak']), options.json);
+        io.stderr(`CONFIG_ROLLBACK_FAILED: ${message}`);
+        printResult(io, fail('config.rollback', 'CONFIG_ROLLBACK_FAILED', message, {}, ['Re-run peaks config migrate --apply to recreate the .bak']), options.json);
         process.exitCode = 1;
       }
     });
@@ -115,9 +116,14 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
     .option('--json', 'JSON envelope output')
     .action((options: { field?: string; list?: boolean; apply?: boolean; dryRun?: boolean; json?: boolean }) => {
       try {
+        // `available` is on every envelope this command prints (see
+        // `config-restore.ts`): `false` ⇒ this machine has no `.bak`, exit 0,
+        // nothing to restore; `true` on a FAILURE envelope ⇒ the backup is
+        // there and the field/guard was the problem, exit 1. One key replaces
+        // the exit code as the "was there ever a backup?" signal.
         if (options.list === true || !options.field) {
-          const fields = listAvailableFields();
-          printResult(io, ok('config.restore', { fields, applied: false }), options.json);
+          const { available, fields } = listAvailableFields();
+          printResult(io, ok('config.restore', { available, fields, applied: false }), options.json);
           return;
         }
         const apply = options.apply === true;
@@ -125,12 +131,23 @@ function registerConfigMigrationCommands(config: Command, io: ProgramIO): void {
         printResult(io, ok('config.restore', result), options.json);
       } catch (error) {
         const message = getErrorMessage(error);
+        // A missing `.bak` no longer reaches this block, so anything that does
+        // implies the backup exists — which is what `available: true` reports.
         let code = 'CONFIG_RESTORE_FAILED';
-        if (message.startsWith('NO_BACKUP')) code = 'NO_BACKUP';
-        else if (message.startsWith('RESTORE_GUARDED')) code = 'RESTORE_GUARDED';
+        if (message.startsWith('RESTORE_GUARDED')) code = 'RESTORE_GUARDED';
         else if (message.startsWith('FIELD_NOT_FOUND')) code = 'FIELD_NOT_FOUND';
         io.stderr(`${code}: ${message}`);
-        printResult(io, fail('config.restore', code, message, {}, ['Use --list to see available fields']), options.json);
+        printResult(
+          io,
+          fail(
+            'config.restore',
+            code,
+            message,
+            { available: true, ...(options.field !== undefined ? { field: options.field } : {}) },
+            ['Use --list to see available fields']
+          ),
+          options.json
+        );
         process.exitCode = 1;
       }
     });

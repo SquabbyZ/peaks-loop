@@ -30,7 +30,12 @@ export function planRollback(): RollbackPlan {
 export function executeRollback(opts: { apply: boolean }): RollbackResult {
   const plan = planRollback();
   if (!plan.available) {
-    throw new Error('NO_BACKUP: ~/.peaks/config.json.1.x.bak not found');
+    // rid 2026-09-13-two-decisions ①: a machine that never migrated has no
+    // `.bak`, and that is its normal state — `--apply` on such a machine is
+    // "nothing to roll back", not a failure. Returned instead of thrown so the
+    // exit status and the `available` key agree on every path; see
+    // `config-restore.ts` for the full rationale and the accepted cost.
+    return { ...plan, applied: false };
   }
   if (!opts.apply) {
     return { ...plan, applied: false };

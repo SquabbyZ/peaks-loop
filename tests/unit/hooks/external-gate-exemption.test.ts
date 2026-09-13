@@ -265,20 +265,19 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
   });
 
   it('when a workspace-init refresh runs, should preserve the user’s own exemption globs', async () => {
-    // given: a project whose local file declares an extra tree, plus hooks
-    //        that have drifted from the current template (which is what makes
-    //        the materializer rewrite at all)
+    // given: a project whose local file declares an extra tree, plus a
+    //        TEMPLATE-DECLARED hook whose command has drifted — that is what
+    //        makes the materializer rewrite at all; an entry the template does
+    //        not declare is no longer drift, it is preserved (rid
+    //        2026-09-13-two-decisions item ②)
     const tmpRoot = makeTempProjectRoot();
     const drifted = buildClaudeSettingsLocalJson();
-    drifted.hooks.PreToolUse.push({
-      matcher: 'Bash',
-      hooks: [{ type: 'command', command: 'echo user-added' }]
-    });
+    drifted.hooks.PreToolUse[0]!.hooks[0]!.command = 'echo hand-edited-by-a-user';
     drifted.env[VENDOR_KEY] = `tests/**,${PEAKS_WORKSPACE_GLOB}`;
     seedLocalSettings(tmpRoot, drifted);
     // when: the materializer refreshes the file
     const result = await materializeClaudeSettingsLocal(tmpRoot, false);
-    // then: the refresh drops the drifted hook but NOT the user's exemption
+    // then: the refresh repairs the drifted hook but NOT the user's exemption
     expect(result.action).toBe('refreshed');
     expect(readEnvObject(localSettingsPath(tmpRoot))[VENDOR_KEY]).toBe(`tests/**,${PEAKS_WORKSPACE_GLOB}`);
   });

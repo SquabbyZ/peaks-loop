@@ -94,11 +94,13 @@ describe('workspace init keeps the settings.local.json keys it does not own', ()
     expect(written.permissions).toEqual({ allow: ['Bash(ls:*)'], deny: ['Bash(rm -rf /)'] });
   });
 
-  it('when the on-disk hooks have drifted, should still refresh them from the template', async () => {
-    // given: a file with drifted hooks (so the comparator forces a rewrite)
-    //        alongside keys the user owns
+  it('when a template-declared entry has drifted, should refresh it and keep the rest', async () => {
+    // given: a file whose TEMPLATE-DECLARED entry was hand-edited — which is
+    //        what drift means now — alongside an entry the template does not
+    //        declare and a key the user owns
     const root = makeProject();
     const drifted = buildClaudeSettingsLocalJson();
+    drifted.hooks.PreToolUse[0]!.hooks[0]!.command = 'echo hand-edited-by-a-user';
     drifted.hooks.PreToolUse.push({
       matcher: 'Bash',
       hooks: [{ type: 'command', command: 'echo user-added' }]
@@ -106,11 +108,18 @@ describe('workspace init keeps the settings.local.json keys it does not own', ()
     seed(root, { ...drifted, permissions: { allow: ['Bash(git diff:*)'] } });
     // when: the materializer refreshes
     const result = await materializeClaudeSettingsLocal(root, false);
-    // then: `hooks` is the template's to decide (drift is dropped), while the
-    //       user's own key is carried across
+    // then: the entry the template declares is repaired and the hand-edited
+    //       command is gone — while the surplus `Bash` entry (the template
+    //       declares two, this is a third) and the user's own key are carried
+    //       across. `hooks` is templated per ENTRY, not per key.
     expect(result.action).toBe('refreshed');
     const written = read(root);
-    expect(written.hooks).toEqual(buildClaudeSettingsLocalJson().hooks);
+    expect(JSON.stringify(written.hooks)).not.toContain('hand-edited-by-a-user');
+    const writtenPreToolUse = (written.hooks as { PreToolUse: unknown[] }).PreToolUse;
+    expect(writtenPreToolUse).toEqual([
+      ...buildClaudeSettingsLocalJson().hooks.PreToolUse,
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo user-added' }] }
+    ]);
     expect(written.permissions).toEqual({ allow: ['Bash(git diff:*)'] });
   });
 
