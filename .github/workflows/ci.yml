@@ -126,15 +126,29 @@ jobs:
   # the `binding-store-multi-process` job above covers exactly one file.
   # So "CI green" never covered this suite, and neither did any other signal.
   #
-  # THIS JOB IS EXPECTED TO FAIL AT FIRST, AND THAT IS INTENTIONAL.
-  # It is wired in BEFORE the 20 known failures are fixed. There is
-  # deliberately NO `continue-on-error`, NO `|| true`, NO skipped tests and
-  # NO relaxed assertions — a red workflow is the honest initial state, and
-  # suppressing it would recreate the exact "looks green, checked nothing"
-  # shape this job exists to end. Triage of the 20 failures lives in
-  # `.peaks/_runtime/2026-09-12-session-e37ef0/qa/integration-triage.md`.
+  # This job was first wired in as EXPECTED RED: it landed BEFORE the 20
+  # known failures were fixed, and saying so out loud was the point. Those
+  # failures have since been fixed — 2 product bugs, 1 triage finding
+  # investigated and refused, the remaining stale expectations rewritten, and
+  # 4 contract questions decided and implemented. The suite now passes on a
+  # Windows developer machine (88 files / 2 skipped / 0 failed).
+  #
+  # SO THIS IS NO LONGER AN EXPECTED-RED JOB. A red here is now a real
+  # regression and must be triaged as one, not waved through as the known
+  # initial state. There is still deliberately NO `continue-on-error`, NO
+  # `|| true`, NO skipped tests and NO relaxed assertions — suppressing a red
+  # would recreate the exact "looks green, checked nothing" shape this job
+  # exists to end.
+  #
+  # ONE THING IS NOT YET OBSERVED: green was measured on Windows, and the
+  # suite contains Windows-aware files (release-precheck, vm-kvm-runtime), so
+  # ubuntu has NOT been confirmed green. If the first run on this job is red,
+  # that is a real, untriaged signal — find out which platform-specific
+  # assumption it is rather than assuming it is the old known red.
+  # The classified triage that drove the fixes is in
+  # `.peaks/_runtime/2026-09-12-session-e37ef0/qa/integration-triage-classified.md`.
   integration-suite:
-    name: 'integration suite (tests/integration, ubuntu-only, EXPECTED RED)'
+    name: 'integration suite (tests/integration, ubuntu-only)'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,21 +177,29 @@ jobs:
         run: npm run build
 
       - name: Test integration suite
-        # Platform choice — ubuntu-latest ONLY, on purpose:
-        #   * the suite runs with `fileParallelism: false` (serial, 60s
-        #     timeouts) over ~460 tests, so a second OS roughly doubles
-        #     wall-clock for a signal we already know is red;
-        #   * the red we are wiring in is a LOWER BOUND, not an equivalent,
-        #     on Windows: two integration files are Windows-aware
-        #     (release-precheck, vm-kvm-runtime) and part of the known red is
-        #     environment-shaped (`spawn claude ENOENT`). Wiring
-        #     windows-latest is deferred to the slice that fixes the 20
-        #     failures, when the signal is stable enough to be worth two
-        #     platforms rather than a guess about which red is which.
+        # Platform choice — ubuntu-latest ONLY. This is now an OPEN decision,
+        # not a settled one, and the reason it used to be settled has expired.
+        #
+        # When this job was expected red, staying on one platform was right
+        # for two stated reasons: the suite is serial (`fileParallelism:
+        # false`, 60s timeouts, ~460 tests) so a second OS roughly doubles
+        # wall-clock for a signal already known to be red; and Windows-specific
+        # red (`spawn claude ENOENT`, plus two Windows-aware files:
+        # release-precheck, vm-kvm-runtime) would have been mixed in with it.
+        # Both reasons were explicitly deferred "to the slice that fixes the 20
+        # failures" — and that slice has landed, so the deferral has run out.
+        #
+        # Windows is NOT added here. Doubling CI wall-clock is a cost decision
+        # rather than a correctness one, the suite already passes on a Windows
+        # developer machine, and adding a platform is exactly the kind of
+        # change that should be made deliberately rather than as a rider on a
+        # comment fix. Whoever wants the second data point should add it and
+        # say so in the commit.
+        #
         # `--config vitest.config.integration.ts` must be explicit: the
         # `test:integration` npm script omits it, so it inherits the base
-        # config's `include` and selects zero files — pre-existing bug, left
-        # alone by this slice.
+        # config's `include` and selects zero files — a pre-existing bug that
+        # is STILL unfixed (this job works around it rather than repairing it).
         run: pnpm exec vitest run --config vitest.config.integration.ts tests/integration --reporter=default --reporter=github-actions
         env:
           TZ: UTC
