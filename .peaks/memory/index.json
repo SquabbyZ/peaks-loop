@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T07:56:59.105Z",
+  "updatedAt": "2026-09-13T10:28:34.072Z",
   "hot": {
     "rule": [
       {
@@ -2110,6 +2110,14 @@
         "kind": "project",
         "description": "**commander 的第三个参数是默认值。** 一旦声明， **永远不是 ** —— 于是下游任何  的  **永远不执行**。这不是\"默认值\"，是**悄悄删掉一条分支**。 **2026-09-11 真实事故（）：** **结果...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\commander-defaults-defeat-fallbacks.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "compact-calibration-is-automatic-but-not-yet-accumulating",
+        "kind": "project",
+        "description": "**\"由 peaks-loop 决定压缩触发点\"只差标定数据。它自动产生，但有前提，而且启动很慢。** **自动链条**（无需任何人工步骤）： peaks code auto-compactsettleOpenLifecycleRun...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\compact-calibration-is-automatic-but-not-yet-accumulating.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
