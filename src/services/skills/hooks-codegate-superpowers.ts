@@ -87,6 +87,17 @@ const HOOK_COMMAND_BY_IDE: Readonly<Partial<Record<IdeId, { command: string; sen
   // here — the function below fail-closes on missing entries.
 };
 
+/**
+ * True when the IDE is tabled in `HOOK_COMMAND_BY_IDE`, i.e. peaks can write a
+ * hook entry for it. `qoder` / `tongyi-lingma` / `zcode` are reserved adapter
+ * ids the registry knows but this table does not, so no hook can exist for
+ * them — which makes "uninstall" a no-op (nothing was ever installed) while
+ * "install" remains a hard failure.
+ */
+export function hasHookSpec(ide: IdeId): boolean {
+  return HOOK_COMMAND_BY_IDE[ide] !== undefined;
+}
+
 export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
   // getAdapter throws on unregistered IDEs — the registry is the source of truth.
   const adapter = getAdapter(ide);
@@ -95,7 +106,12 @@ export function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
     // Defensive fallback: if an adapter is added to the registry without a
     // HOOK_COMMAND_BY_IDE entry, fail-closed with a clear error instead of
     // silently writing a Claude-shaped entry to a non-Claude settings.json.
-    throw new Error(`peaks hooks install: unsupported IDE '${ide}' (no HOOK_COMMAND_BY_IDE entry; add one to hooks-settings-service.ts)`);
+    //
+    // Caller-neutral on purpose: this one resolver backs install, status,
+    // uninstall and the dry-run plan, so the message names neither a verb
+    // (naming the install verb made an uninstall failure read as an install
+    // failure) nor a file that is not the table.
+    throw new Error(`unsupported IDE '${ide}': no HOOK_COMMAND_BY_IDE entry (add one in hooks-codegate-superpowers.ts)`);
   }
   const isClaudeCode = ide === 'claude-code';
   // Claude Code's gate hook must emit its structured decision as JSON:

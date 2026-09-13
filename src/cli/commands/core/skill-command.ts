@@ -393,7 +393,22 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // non-fatal: context update failure should not block presence clear
     }
-    printResult(io, ok('skill.presence:clear', { active: false, removed, projectContextUpdated: true }), options.json);
+    // Report the state the project is actually in, not the state this command
+    // intended to reach. `clearSkillPresence` unlinks only the DEPRECATED
+    // single-slot marker files; the canonical sid-scoped lease is deliberately
+    // left alive for an AD-HOC lease (raw unlink is FORBIDDEN — only session
+    // exit may terminalize one; workflow leases route through `workflow
+    // terminalize`). So after a `presence:set` the very next `peaks skill
+    // presence` call still reads `active: true`. A hardcoded `active: false`
+    // therefore reported a state the command never reached, and the caller had
+    // no way to tell that from a real clear.
+    //
+    // Re-reading through `getSkillPresence` — the same projection the
+    // `skill presence` command serves — is the only derivation that cannot
+    // drift from what the next command prints: it is the same read path, on
+    // the same project root, evaluated after every write this command makes.
+    const active = getSkillPresence(projectRoot) !== null;
+    printResult(io, ok('skill.presence:clear', { active, removed, projectContextUpdated: true }), options.json);
   });
 
   // Slice 4.0.8 (RD §4): manual lease GC primitive. LLM-coordinated;

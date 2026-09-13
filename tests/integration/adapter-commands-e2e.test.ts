@@ -303,7 +303,7 @@ describe('peaks skill presence:set (P2-B.4 adapter/distribution e2e)', () => {
 });
 
 describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
-  test('clears an isolated marker and restores active:false', () => {
+  test('reports the lease it did not clear: an ad-hoc lease survives outside session exit', () => {
     const project = makeProject('peaks-p2b4-presence-clear-');
     initWorkspace(project);
     runCli(['skill', 'presence:set', 'peaks-rd', '--project', project, '--json'], project);
@@ -321,22 +321,32 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
     }>>(result);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.presence:clear');
-    // `removed` reports whether the DEPRECATED single-slot marker file
-    // (`.peaks/_runtime/active-skill.json` / `.peaks/.active-skill.json`, both
-    // pre-4.0.11) was actually unlinked — it is not "was a marker cleared".
-    // Since 4.0.11 the live marker is the sid-scoped lease under
-    // `.peaks/_runtime/<sid>/leases/`, and `clearSkillPresence` deliberately
-    // does not touch it (workflow leases terminalize through
-    // `terminalizeWorkflow`): `clearSkillPresence` @
-    // src/services/skills/skill-presence-service.ts:731-775. A project that
-    // never carried a legacy file therefore clears nothing — the `active:false`
-    // below is the assertion that carries the "marker is gone" meaning.
-    expect(envelope.data).toMatchObject({ active: false, removed: false });
+    // Two independent facts, asserted separately:
+    //
+    //   `removed` — whether the DEPRECATED single-slot marker file
+    //   (`.peaks/_runtime/active-skill.json` / `.peaks/.active-skill.json`, both
+    //   pre-4.0.11) was actually unlinked. It is not "was a marker cleared".
+    //   Since 4.0.11 the live marker is the sid-scoped lease under
+    //   `.peaks/_runtime/<sid>/leases/`, and `clearSkillPresence` deliberately
+    //   does not touch it (workflow leases terminalize through
+    //   `terminalizeWorkflow`): `clearSkillPresence` @
+    //   src/services/skills/skill-presence-service.ts:731-775. This project
+    //   never carried a legacy file, so nothing was unlinked.
+    //
+    //   `active` — the LIVE state, re-read through the same projection
+    //   `peaks skill presence` serves. The lease above was set by
+    //   `presence:set` and is AD-HOC (no workflow binding), so
+    //   `presence:clear` must leave it running: only session exit may
+    //   terminalize an ad-hoc lease, and raw unlink is FORBIDDEN. The
+    //   envelope must report that truthfully — reporting `active: false`
+    //   here would be a state the command never reached, contradicted by
+    //   the very next `peaks skill presence` call.
+    expect(envelope.data).toMatchObject({ active: true, removed: false });
 
     const after = parseJson<CliEnvelope<{ active: boolean }>>(
       runCli(['skill', 'presence', '--project', project, '--json'], project)
     );
-    expect(after.data.active).toBe(false);
+    expect(after.data.active).toBe(true);
   }, BIN_TIMEOUT_MS);
 
   test('removes a planted pre-4.0.11 single-slot marker and reports removed:true', () => {

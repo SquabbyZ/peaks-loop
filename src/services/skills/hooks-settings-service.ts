@@ -9,6 +9,7 @@ import type { HookScope } from '../ide/shared/safe-path.js';
 import {
   resolveHookSpec,
   resolveHookEntries,
+  hasHookSpec,
   resolveLegacySentinels,
   SUPERPOWERS_DENIED_SKILLS,
   formatSuperpowersDenyEntry,
@@ -652,6 +653,24 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
+  // An IDE with no HOOK_COMMAND_BY_IDE entry can never carry a peaks hook, so
+  // "remove it" is already true. That is a no-op success, not a failure: the
+  // post-condition the caller asked for holds. This stays asymmetric with
+  // `applyHookInstall`, which still fails closed for the same IDEs — reporting
+  // a successful install there would claim an enforcement that cannot exist.
+  //
+  // `resolveHookTargets` below is what throws for these IDEs, so the check has
+  // to come first. Note `resolveSettingsPath` above still runs: an IDE the
+  // adapter registry does not know at all remains a hard error.
+  if (!hasHookSpec(ide)) {
+    const localSettingsPath = resolveLocalSettingsPath(scope, ide, projectRoot);
+    return {
+      scope,
+      settingsPath,
+      removed: false,
+      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath ? { localSettingsPath } : {})
+    };
+  }
   const targets = resolveHookTargets(scope, ide, projectRoot);
   const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
   const present = targets.filter((t) => existsSync(t.settingsPath));
