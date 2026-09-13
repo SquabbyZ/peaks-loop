@@ -64,6 +64,12 @@ interface ResolvedHookSpec {
  * cannot help; pinning the hook's `shell` is the only lever the hook schema
  * offers. The platform-neutral default (`undefined` → omit the key) is kept
  * everywhere else.
+ *
+ * Scope note: this is applied to the `Bash`-matcher handlers only. The three
+ * `SessionStart` entries are deliberately NOT pinned, and not because the
+ * mechanism is believed absent there — see the block comment in
+ * `resolveHookEntries` for what is and is not established, and for why adding
+ * the pin in place would break every non-Windows teammate.
  */
 export function resolveHookShell(platform: NodeJS.Platform = process.platform): string | undefined {
   return platform === 'win32' ? 'powershell' : undefined;
@@ -177,6 +183,37 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       ...(spec.hookEnforceShell !== undefined ? { shell: spec.hookEnforceShell } : {})
     }
   ];
+  // ── Why the three SessionStart entries below carry NO `shell` pin ─────────
+  //
+  // The gate-enforce entry above is shell-pinned on Windows (see
+  // `resolveHookShell`) because Claude Code runs a shell-form hook command
+  // through a shell that defaults to bash — Git Bash / MSYS2 on Windows — and
+  // MSYS2 bash force-allocates its own console window. That reason is a
+  // property of the hook RUNNER's shell resolution, not of the `PreToolUse`
+  // event: nothing in it exempts `SessionStart`, so the same command-form
+  // entry on this event goes through the same shell. The pin was applied only
+  // to the `Bash`-matcher handlers because those were the ones the reporter
+  // could see (they run on EVERY Bash tool call); these three run once per
+  // session, so a window here — if there is one — is a single flash rather
+  // than a per-tool-call nuisance. That is a difference in frequency, not
+  // evidence that the window does not appear, and no A/B measurement on this
+  // event exists.
+  //
+  // The pin is nonetheless NOT applied here, and adding it would be a defect
+  // rather than a fix: `shell: "powershell"` resolves to `pwsh`, these entries
+  // are written to the COMMITTED `.claude/settings.json`, and a macOS / Linux
+  // teammate reading that file has no `pwsh` — the exact cross-platform damage
+  // the machine-local split exists to prevent (see the gate-enforce entry's
+  // `machineLocal` flag, and commit 4637baa8's rationale).
+  //
+  // A correct fix therefore has to move these three entries to the
+  // machine-local file as well, which changes where a fresh clone gets its
+  // SessionStart hooks: today they arrive with the repository, after such a
+  // change they would require `peaks hooks install` / `peaks workspace init`.
+  // That is a product-shape decision, not a leftover; it is recorded here so
+  // that whoever makes it starts from the reason the pin is absent instead of
+  // re-deriving it — or, worse, adding the pin in place and breaking every
+  // non-Windows teammate.
   if (ide === 'claude-code') {
     entries.push({
       sentinel: HOOK_OUTER_CACHE_SENTINEL,

@@ -68,6 +68,42 @@ function readEnvObject(serialized: string): Record<string, unknown> | undefined 
  * direction matters. A whitelist drops every key it was not told about — which
  * is how `permissions` was lost — whereas anything absent from this list is
  * preserved by default, including keys no release of peaks-loop knows about.
+ *
+ * ⚠️ KNOWN HAZARD — `hooks` is owned WHOLE, so an entry that another writer put
+ * in this file's `hooks` tree and the template does not declare is deleted by
+ * the next `peaks workspace init`, silently: `templateContentMatches` sees the
+ * extra entry, answers "drifted", and the rewrite emits `{...template}`.
+ *
+ * That is not hypothetical. `.claude/settings.local.json` has a second writer
+ * of peaks' OWN hooks: `installAutoCompactHook`
+ * (`src/services/hooks/auto-compact-hook-install.ts`), reached from
+ * `peaks code auto-compact` on an adapter declaring
+ * `compactPathway: 'ide-native'` — which `claude-code` does. Measured on a
+ * throwaway project root (rid 2026-09-13-leftover-cleanup item 4.2):
+ *
+ *   init (written, 3 PreToolUse entries)
+ *   → installAutoCompactHook (installed, 4: … | Bash|Task)
+ *   → init again (REFRESHED, 3: … )   ← the Bash|Task entry is gone
+ *
+ * and nothing re-installs it: the hook's whole job was to fire on the next
+ * Bash/Task call, so once it is deleted the auto-compact contract stops
+ * silently. A `SessionStart` entry added to this file by hand or by a future
+ * installer would go the same way — that is the latent half of the same
+ * hazard, and it is why this note lives here rather than at the auto-compact
+ * installer.
+ *
+ * WHY THIS IS NOT FIXED HERE. The obvious repair — let the on-disk `hooks`
+ * tree win, or union the entries — is only half a fix: it makes
+ * `templateContentMatches` compare a 3-entry generated tree against a 4-entry
+ * file forever, so every `peaks workspace init` reports `refreshed` and
+ * rewrites, which is precisely the state this function's `hooks` ownership
+ * exists to prevent (see the `templateContentMatches` coverage comment above).
+ * The other half is a change to that comparator — from "same entries in the
+ * same order" to "every generated entry is present" — and that comparator also
+ * gates `.peaks/.claude-settings-template.json` self-healing. It changes which
+ * on-disk files count as current, and it is not a leftover cleanup: it needs a
+ * decision about who owns the local `hooks` tree (this template, or the union
+ * of every writer), plus its own verification. Recorded, not guessed at.
  */
 const TEMPLATE_OWNED_KEYS: ReadonlySet<string> = new Set(['hooks', 'env']);
 

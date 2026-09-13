@@ -46,16 +46,27 @@ export async function dispatch(f: DispatchFlags) {
     warnings.push('user-overrode: --no-throttle (peak runtime may exceed performance ceiling)');
   }
 
-  // rid-001 fix (F1 follow-up): the vendor CLI's ChildProcess is owned by
-  // peaks-loop-internal-runtime/dispatch.dispatchDetached, which now exposes
-  // it via DispatchResult.child. When the vendor binary is not on PATH the
-  // spawn fires an async 'error' event after dispatchDetached returns; we
-  // attach a per-child handler that swallows ENOENT (expected when the user
-  // hasn't installed claude/codex/copilot) and logs anything else. This is
-  // the canonical pattern (matches codegraph-process-runner.ts) — no more
-  // process-level uncaughtException swallow.
+  // The vendor CLI's ChildProcess is owned by
+  // peaks-loop-internal-runtime/dispatch.dispatchDetached, and this handler
+  // deliberately attaches NO 'error' listener to it.
+  //
+  // The handler that used to live here — an 'error' listener attached to
+  // `r.child` after the await — could never fire. `ProcessSupervisor.spawn`
+  // attaches its own 'error' + 'spawn' listeners in the SAME synchronous turn
+  // the child is created, and `dispatchDetached` awaits the resulting `settled` promise
+  // before returning. A missing binary is emitted on the nextTick queue,
+  // which drains BEFORE the awaiting caller resumes — so by the time this
+  // function holds `r`, the event has already been consumed and turned into
+  // the typed `spawnError` value below. Attaching a listener here is not
+  // merely late; it is unreachable by construction.
   const sid = process.env.PEAKS_SESSION_ID ?? 'local';
-  let r: { pid: number; dispatchRecordPath: string; child?: import('node:child_process').ChildProcess };
+  // `spawnError` is optional in this annotation, not because the value is
+  // uncertain but because the type this resolves against is: the workspace
+  // package's `types` entry points at `dist/index.d.ts`, and a `dist` built
+  // before the field was added does not declare it. Reading it defensively
+  // (`?? null`, below) is correct in both worlds; requiring it here would make
+  // the handler fail to compile against a stale build.
+  let r: { pid: number; dispatchRecordPath: string; spawnError?: NodeJS.ErrnoException | null };
   r = await dispatchDetached({
     sid,
     rid: f.requestId,
@@ -67,15 +78,18 @@ export async function dispatch(f: DispatchFlags) {
     runtimeDir: `.peaks/_runtime/${sid}/detached`,
     subAgentsDir: `.peaks/_sub_agents/${sid}`,
   });
-  r.child?.on('error', (err: NodeJS.ErrnoException) => {
-    if (err && err.code === 'ENOENT') return;
-    // Non-ENOENT child errors are surfaced to stderr; the dispatch envelope
-    // has already been written and the detached child is fire-and-forget.
-    console.error('[peaks sub-agent dispatch] detached child error:', err);
-  });
+  // The launch outcome is the envelope's `ok`, not a footnote. A vendor CLI
+  // that is not installed is an expected environment, and the dispatch record
+  // already says `status: 'failed'`; the envelope used to say `ok: true` with
+  // `pid: -1` and a "⏳ Spawning …" hint, so the two surfaces disagreed and the
+  // orchestrator read a launch that never happened as a running one.
+  //
+  // `?? null` covers a DispatchResult-shaped value produced by a test double
+  // that omits the field; a real `dispatchDetached` always sets it.
+  const spawnError = r.spawnError ?? null;
 
   return {
-    ok: true,
+    ok: spawnError === null,
     command: 'sub-agent.dispatch.detached',
     data: {
       mode: 'detached',
@@ -84,14 +98,27 @@ export async function dispatch(f: DispatchFlags) {
       dispatchRecordPath: r.dispatchRecordPath,
       maxConcurrent,
       noThrottle: f.noThrottle ?? false,
-      orchestratorVisibleHint: `⏳ Spawning detached sub-agent via ${f.vendor ?? 'claude'}: rid=${f.requestId} (ETA ~60s)`,
+      ...(spawnError === null
+        ? {
+            orchestratorVisibleHint: `⏳ Spawning detached sub-agent via ${f.vendor ?? 'claude'}: rid=${f.requestId} (ETA ~60s)`
+          }
+        : {
+            spawnError: { code: spawnError.code, message: spawnError.message },
+            orchestratorVisibleHint: `❌ Could not launch detached sub-agent via ${f.vendor ?? 'claude'}: rid=${f.requestId} (${spawnError.code})`
+          }),
       expectedCompletionSeconds: 60,
     },
     warnings,
-    nextActions: [
-      'Sub-agent runs as detached OS process. Status at .peaks/_runtime/<sid>/detached/<rid>/status.json',
-      'Use `peaks sub-agent list --mode detached` to monitor.',
-      'Run `peaks sub-agent cleanup --orphan` to reap orphan processes (RL-15: user-only decision).',
-    ],
+    nextActions:
+      spawnError === null
+        ? [
+            'Sub-agent runs as detached OS process. Status at .peaks/_runtime/<sid>/detached/<rid>/status.json',
+            'Use `peaks sub-agent list --mode detached` to monitor.',
+            'Run `peaks sub-agent cleanup --orphan` to reap orphan processes (RL-15: user-only decision).'
+          ]
+        : [
+            `The ${f.vendor ?? 'claude'} CLI is not runnable from this shell (${spawnError.code}); nothing was launched and no sub-agent is running.`,
+            'Either install the vendor CLI on PATH, or re-dispatch without --mode detached to use the in-process path.'
+          ]
   };
 }

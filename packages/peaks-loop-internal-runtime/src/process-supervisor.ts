@@ -76,7 +76,21 @@ export class ProcessSupervisor {
 
     const dir = join(this.cfg.runtimeDir, opts.rid);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'pid'), String(child.pid ?? ''));
+    // `<rid>/pid` exists IFF a real OS process was launched. `child.pid` is
+    // `undefined` until the OS confirms the spawn, so a failed launch used to
+    // write `String(undefined ?? '')` — an EMPTY pid file. That is not a
+    // cosmetic wart: `Number('')` is `0`, so a cleanup path doing
+    // `kill(Number(readFileSync(pid)))` would send its signal to pid 0 (the
+    // whole process group), and an existence check for "is something running
+    // here" reads `true` for a launch that never happened.
+    //
+    // Nothing is lost by omitting it: the launch failure is recorded as a
+    // VALUE on the dispatch record (`status: 'failed'` + `spawnError`), which
+    // is the surface a reader should consult. Absence in the pid file is the
+    // one encoding that cannot be misread as a pid.
+    if (child.pid !== undefined) {
+      writeFileSync(join(dir, 'pid'), String(child.pid));
+    }
 
     return {
       pid: child.pid ?? -1,

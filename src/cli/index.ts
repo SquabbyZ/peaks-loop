@@ -2,7 +2,12 @@ import { CommanderError } from 'commander';
 import { createProgram } from './program.js';
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
-import { printErrorEnvelope, type ProgramIO } from './cli-helpers.js';
+import {
+  printErrorEnvelope,
+  printMissingRequiredOptionEnvelope,
+  resolveInvokedCommandPath,
+  type ProgramIO
+} from './cli-helpers.js';
 
 const defaultIo: ProgramIO = {
   stdout: (text) => process.stdout.write(`${text}\n`),
@@ -33,30 +38,6 @@ const argv = process.argv.slice(2);
 const hasHelp = argv.some((arg) => arg === '--help' || arg === '-h');
 const firstPositional = argv.find((arg) => !arg.startsWith('-'));
 const program = createProgram();
-/**
- * The subcommand path the caller actually invoked, in the same tokens they
- * typed (`release canary`). Derived from the registered command tree by
- * consuming leading non-`-` argv tokens, so it never disagrees with what
- * Commander dispatched on.
- *
- * Commander's `CommanderError` carries a code and a message but no command
- * reference — `missingMandatoryOptionValue` is raised by the leaf command and
- * throws out of `parseAsync` with nothing naming it. Without this walk the
- * missing-option envelope could only say `command: "cli"`, which is the field
- * the caller needs to act on.
- */
-function resolveInvokedCommandPath(): string {
-  let cmd: (typeof program.commands)[number] | typeof program = program;
-  const parts: string[] = [];
-  for (const token of argv) {
-    if (token.startsWith('-')) break;
-    const next = cmd.commands.find((c) => c.name() === token || c.aliases().includes(token));
-    if (next === undefined) break;
-    parts.push(next.name());
-    cmd = next;
-  }
-  return parts.length > 0 ? parts.join(' ') : program.name();
-}
 
 if (hasHelp && firstPositional !== undefined) {
   const registered = new Set(program.commands.map((c) => c.name()));
@@ -96,31 +77,10 @@ program.parseAsync(process.argv).catch((error: unknown) => {
       return;
     }
     if (error.code === 'commander.missingMandatoryOptionValue') {
-      // A `.requiredOption()` the caller did not supply. Commander raises this
-      // as a plain `Error`-shaped `CommanderError`, so the `.catch()` below used
-      // to file it under `UNHANDLED_ERROR` — "you left out an argument" reported
-      // as a crash, with empty `nextActions` and no way to see WHICH option or
-      // what values it takes. The flags string Commander formats carries both
-      // (`--percent <10|50>`), so it is worth extracting rather than
-      // paraphrasing: it is the option's own declaration.
-      const message = getErrorMessage(error);
-      const option = /required option '([^']+)'/.exec(message)?.[1];
-      const invoked = resolveInvokedCommandPath();
-      printErrorEnvelope(
-        defaultIo,
-        invoked,
-        'MISSING_REQUIRED_OPTION',
-        option === undefined
-          ? message
-          : `Missing required option '${option}' for \`peaks ${invoked}\`.`,
-        { option: option ?? null },
-        [
-          option === undefined
-            ? `Run \`peaks ${invoked} --help\` to see the options this command requires.`
-            : `Supply ${option} — it is required, so the command has no default for it.`,
-          `Run \`peaks ${invoked} --help\` for the option's accepted values and its siblings.`
-        ]
-      );
+      // See `printMissingRequiredOptionEnvelope` — the same builder backs the
+      // in-process test runner, so the envelope a test asserts is the envelope
+      // a user gets.
+      printMissingRequiredOptionEnvelope(defaultIo, resolveInvokedCommandPath(program, argv), getErrorMessage(error));
       return;
     }
     if (error.code === 'commander.missingArgument' || error.code === 'commander.unknownCommand' || error.code === 'commander.unknownOption') {

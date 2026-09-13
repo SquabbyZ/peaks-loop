@@ -63,6 +63,28 @@ export function listAdapterIds(): readonly IdeId[] {
   return Array.from(ADAPTERS.keys());
 }
 
+/**
+ * Help text for every `--ide <id>` option, derived from the registry.
+ *
+ * It used to be a hand-written literal — `"target adapter id (claude-code |
+ * trae); default: auto-detect from env/cwd"` — copy-pasted into six option
+ * declarations across `hooks-commands.ts` and `statusline-commands.ts`. By the
+ * time anyone read it the registry had nine adapters, so the help named two of
+ * the nine values the option accepts and stayed silent about the other seven.
+ * A help string that enumerates a set it does not own cannot be kept true by
+ * discipline; deriving it here is the only form that cannot drift.
+ *
+ * Note for whoever is tempted to point the help at `peaks adapter list`
+ * instead: that command lists USER-REGISTERED vendor adapters from
+ * `.peaks/runtime/adapters.json` (a different registry, empty on a fresh
+ * project). It is not this set. The nine ids below have no CLI surface of
+ * their own; `peaks ide model --current` is the closest read-only viewer and
+ * it reports one adapter, not the list.
+ */
+export function resolveIdeOptionHelp(): string {
+  return `target adapter id (${listAdapterIds().join(' | ')}); default: auto-detect from env/cwd`;
+}
+
 /** All registered adapters (insertion order). */
 export function listAdapters(): readonly IdeAdapter[] {
   return Array.from(ADAPTERS.values());

@@ -20,12 +20,15 @@
 // (ENOENT) — same-source fake-green as the original rid-001 defect.
 
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 vi.mock('peaks-loop-internal-runtime', () => ({
   dispatchDetached: vi.fn(async () => ({
     pid: 1234,
     dispatchRecordPath: '/x/dispatch-r1.json',
     child: { on: vi.fn(), kill: vi.fn() },
+    spawnError: null,
   })),
   ResourceBudgetGuard: class {
     constructor(_cfg: { maxRssMb: number; maxCpuPct: number }) {}
@@ -38,7 +41,8 @@ vi.mock('peaks-loop-internal-runtime', () => ({
   },
 }));
 
-import { dispatch } from '../../../src/cli/commands/sub-agent/detached';
+import { dispatchDetached } from 'peaks-loop-internal-runtime';
+import { dispatch } from '../../../src/cli/commands/sub-agent/detached.js';
 
 describe('peaks sub-agent dispatch --mode detached', () => {
   it('envelope includes mode=detached + vendor + pid + orchestratorVisibleHint', async () => {
@@ -102,5 +106,72 @@ describe('peaks sub-agent dispatch --mode detached', () => {
         json: true,
       }),
     ).rejects.toThrow(/detached/);
+  });
+
+  /**
+   * Item 2.1 of rid 2026-09-13-leftover-cleanup.
+   *
+   * Before the fix, a launch failure produced an envelope that agreed with
+   * nothing on disk: `ok: true`, `pid: -1`, no `spawnError`, and an
+   * `orchestratorVisibleHint` that read "⏳ Spawning detached sub-agent via
+   * codex". Observed on this machine with the real handler and vendor
+   * `codex` (not installed):
+   *
+   *   envelope.ok   : true
+   *   envelope.data : { "pid": -1, ... "orchestratorVisibleHint":
+   *                     "⏳ Spawning detached sub-agent via codex: … " }
+   *   has spawnError key? false
+   *
+   * ...while the dispatch record for the same call already said
+   * `status: "failed"` + `spawnError`. Two surfaces, two answers.
+   */
+  it('reports a failed launch as ok:false carrying the typed spawnError', async () => {
+    const enoent = Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' });
+    // `DispatchResult` here resolves to the workspace package's
+    // `dist/index.d.ts`, and a `dist` built before `spawnError` existed does
+    // not declare the field — the same staleness the handler's own annotation
+    // documents. It IS on `DispatchResult` in `src`, and `dispatchDetached`
+    // sets it on every call, so the cast only bridges the stale build.
+    vi.mocked(dispatchDetached).mockResolvedValueOnce({
+      pid: -1,
+      dispatchRecordPath: '/x/dispatch-r5.json',
+      child: undefined,
+      spawnError: enoent,
+    } as never);
+    const out = await dispatch({
+      role: 'rd',
+      prompt: 'do X',
+      requestId: 'r5',
+      mode: 'detached',
+      vendor: 'codex',
+      project: '.',
+      json: true,
+    });
+    expect(out.ok).toBe(false);
+    expect(out.data.pid).toBe(-1);
+    expect((out.data as { spawnError?: unknown }).spawnError).toEqual({
+      code: 'ENOENT',
+      message: 'spawn codex ENOENT',
+    });
+    // The hint must not claim a spawn that did not happen.
+    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).not.toMatch(/Spawning/);
+    expect((out.data as { orchestratorVisibleHint: string }).orchestratorVisibleHint).toMatch(/Could not launch/);
+    expect((out.nextActions ?? []).join(' ')).toMatch(/install the vendor CLI/i);
+  });
+
+  it('does not attach a child error listener after the await (unreachable by construction)', () => {
+    // `ProcessSupervisor.spawn` attaches its own 'error'/'spawn' listeners in
+    // the same synchronous turn the child is created, and `dispatchDetached`
+    // awaits `settled` before returning. The error emission runs on the
+    // nextTick queue, which drains BEFORE the awaiting caller resumes — so a
+    // caller-side `child.on('error', …)` after the await can never fire.
+    // Source scan on purpose: no test body can distinguish "handler attached
+    // and never called" from "handler never attached".
+    const src = readFileSync(
+      join(__dirname, '..', '..', '..', 'src', 'cli', 'commands', 'sub-agent', 'detached.ts'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/\.on\(\s*['"]error['"]/);
+    expect(src).toMatch(/spawnError/);
   });
 });

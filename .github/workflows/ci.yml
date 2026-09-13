@@ -201,10 +201,13 @@ jobs:
         # comment fix. Whoever wants the second data point should add it and
         # say so in the commit.
         #
-        # `--config vitest.config.integration.ts` must be explicit: the
-        # `test:integration` npm script omits it, so it inherits the base
-        # config's `include` and selects zero files — a pre-existing bug that
-        # is STILL unfixed (this job works around it rather than repairing it).
+        # `--config vitest.config.integration.ts` is explicit here, and this
+        # step invokes `vitest` directly rather than `pnpm test:integration` —
+        # so the repair of that script (rid 2026-09-13-leftover-cleanup item
+        # 3.1: it omitted `--config`, inherited the base config's `include`,
+        # and selected zero files) does NOT make this job run the suite twice.
+        # The flag is now redundant rather than load-bearing; left in place so
+        # this step keeps working against an older checkout.
         run: pnpm exec vitest run --config vitest.config.integration.ts tests/integration --reporter=default --reporter=github-actions
         env:
           TZ: UTC

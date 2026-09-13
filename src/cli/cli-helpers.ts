@@ -127,6 +127,70 @@ export function printErrorEnvelope(
   process.exitCode = 1;
 }
 
+/**
+ * The subcommand path the caller actually invoked, in the same tokens they
+ * typed (`release canary`). Derived from the registered command tree by
+ * consuming leading non-`-` argv tokens, so it never disagrees with what
+ * Commander dispatched on.
+ *
+ * Commander's `CommanderError` carries a code and a message but no command
+ * reference — `missingMandatoryOptionValue` is raised by the leaf command and
+ * throws out of `parseAsync` with nothing naming it. Without this walk the
+ * missing-option envelope could only say `command: "cli"`, which is the field
+ * the caller needs to act on.
+ */
+export function resolveInvokedCommandPath(program: Command, argv: readonly string[]): string {
+  let cmd: Command = program;
+  const parts: string[] = [];
+  for (const token of argv) {
+    if (token.startsWith('-')) break;
+    const next = cmd.commands.find((c) => c.name() === token || c.aliases().includes(token));
+    if (next === undefined) break;
+    parts.push(next.name());
+    cmd = next;
+  }
+  return parts.length > 0 ? parts.join(' ') : program.name();
+}
+
+/**
+ * Render the `MISSING_REQUIRED_OPTION` envelope for a Commander
+ * `commander.missingMandatoryOptionValue`.
+ *
+ * A `.requiredOption()` the caller did not supply is raised as a plain
+ * `Error`-shaped `CommanderError`, so an unhandled `.catch()` used to file it
+ * under `UNHANDLED_ERROR` — "you left out an argument" reported as a crash,
+ * with empty `nextActions`, `command: "cli"` and no way to see WHICH option.
+ * The flags string Commander formats carries both the name and the accepted
+ * values (`--percent <10|50>`), so it is worth extracting rather than
+ * paraphrasing: it is the option's own declaration.
+ *
+ * Exported because it has TWO callers that must not drift: the real wrapper
+ * (`src/cli/index.ts`) and the in-process test runner
+ * (`tests/integration/_cli-helper.ts`), which re-creates the wrapper's
+ * behaviour for tests that call the program directly. That file used to
+ * hand-mirror the pre-fix shape, so every integration test that hit a missing
+ * required option asserted an envelope production no longer emits. Sharing the
+ * builder is what makes the mirror incapable of lying.
+ */
+export function printMissingRequiredOptionEnvelope(io: ProgramIO, invokedCommand: string, message: string): void {
+  const option = /required option '([^']+)'/.exec(message)?.[1];
+  printErrorEnvelope(
+    io,
+    invokedCommand,
+    'MISSING_REQUIRED_OPTION',
+    option === undefined
+      ? message
+      : `Missing required option '${option}' for \`peaks ${invokedCommand}\`.`,
+    { option: option ?? null },
+    [
+      option === undefined
+        ? `Run \`peaks ${invokedCommand} --help\` to see the options this command requires.`
+        : `Supply ${option} — it is required, so the command has no default for it.`,
+      `Run \`peaks ${invokedCommand} --help\` for the option's accepted values and its siblings.`
+    ]
+  );
+}
+
 export function isRecommendationWorkflow(value: string): value is RecommendationWorkflow {
   return value === 'code-refactor' || value === 'product-refactor' || value === 'frontend-design';
 }

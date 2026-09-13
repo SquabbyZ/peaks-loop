@@ -16,6 +16,7 @@ import {
 } from '../../services/skills/statusline-settings-service.js';
 import { readHookStatus as readSettingsStatus } from '../../services/skills/hooks-settings-service.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
+import { resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 import {
   decideCompactStatusline,
@@ -169,7 +170,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .description("Install the Peaks status line into the adapter's settings.json (project scope by default).")
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
+      .option('--ide <id>', resolveIdeOptionHelp())
       .option('--force', 'overwrite an existing non-Peaks statusLine entry')
       .option('--dry-run', 'show what would change without writing')
   ).action((options: InstallOptions) => {
@@ -208,7 +209,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .description("Remove the Peaks status line from the adapter's settings.json.")
       .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
+      .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: UninstallOptions) => {
     const scope = resolveScope(options);
     const projectRoot = scope === 'project'
@@ -231,7 +232,7 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
       .description('Report whether the Peaks status line is installed in the adapter settings.json.')
       .option('--global', 'inspect the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
+      .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: StatusOptions) => {
     const scope = resolveScope(options);
     const projectRoot = scope === 'project'

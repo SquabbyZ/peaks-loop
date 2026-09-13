@@ -17,7 +17,7 @@ import {
 } from '../../services/skills/hooks-settings-service.js';
 import { readJsonObjectFile } from '../../services/ide/shared/atomic-json.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
-import { getAdapter } from '../../services/ide/ide-registry.js';
+import { getAdapter, resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
 type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
@@ -179,7 +179,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       )
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', "target adapter id (claude-code | trae); default: auto-detect from env/cwd")
+      .option('--ide <id>', resolveIdeOptionHelp())
       .option('--dry-run', 'show what would change without writing')
       .option('--no-progress', 'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry')
   ).action((options: HookCliOptions) => {
@@ -330,7 +330,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       .description("Remove the peaks-managed gate-enforce hook entry from the target settings.json. Any legacy progress-start entry that a pre-#014 install left behind is also removed (sentinel-based scan). Third-party hooks are preserved.")
       .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
+      .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: HookCliOptions) => {
     const scope = resolveScope(options);
     const projectRoot = resolveProjectRoot(scope, options.project);
@@ -364,7 +364,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       .description('Report which peaks-managed hook entries are installed.')
       .option('--global', 'inspect the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-      .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
+      .option('--ide <id>', resolveIdeOptionHelp())
   ).action((options: HookCliOptions) => {
     const scope = resolveScope(options);
     const projectRoot = resolveProjectRoot(scope, options.project);

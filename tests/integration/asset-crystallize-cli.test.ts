@@ -168,6 +168,14 @@ describe("peaks asset CLI integration — M5", () => {
       // service layer (MISSING_BRIEF_SECTION on stdout). Both are
       // valid gates per AC-15 / RL-7; the assertion only verifies
       // the call did NOT succeed.
+      //
+      // The commander-layer code is MISSING_REQUIRED_OPTION. This case used
+      // to accept `UNHANDLED_ERROR` instead, which was never what production
+      // emitted: `_cli-helper.ts` fabricated that shape from a hand-written
+      // mirror of the wrapper's pre-fix `.catch()` branch. The mirror now
+      // calls the same builder production does (rid
+      // 2026-09-13-leftover-cleanup item 3.2), so this expectation names the
+      // envelope a user actually gets.
       const combined = `${result.stdout}\n${result.stderr}`;
       expect(combined.length).toBeGreaterThan(0);
       // Find the JSON envelope in either stream.
@@ -177,8 +185,13 @@ describe("peaks asset CLI integration — M5", () => {
       expect(out.ok).toBe(false);
       expect(
         out.code === "MISSING_BRIEF_SECTION" ||
-          out.code === "UNHANDLED_ERROR"
+          out.code === "MISSING_REQUIRED_OPTION"
       ).toBe(true);
+      if (out.code === "MISSING_REQUIRED_OPTION") {
+        // ...and it names the command, not the generic `cli` the old mirror
+        // reported — that field is the whole reason the branch exists.
+        expect(out.command).toBe("asset crystallize");
+      }
     } finally {
       rmSync(project, { recursive: true, force: true });
     }

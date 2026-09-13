@@ -27,7 +27,11 @@
  * previous `cli()` 1:1 so call sites don't need further changes.
  */
 import { createProgram, __resetBootstrapForTests } from '../../src/cli/program.js';
-import type { ProgramIO } from '../../src/cli/cli-helpers.js';
+import {
+  printMissingRequiredOptionEnvelope,
+  resolveInvokedCommandPath,
+  type ProgramIO
+} from '../../src/cli/cli-helpers.js';
 
 export interface CliResult {
   stdout: string;
@@ -51,9 +55,9 @@ export async function runCli(args: string[], cwd: string): Promise<CliResult> {
   __resetBootstrapForTests();
   process.chdir(cwd);
 
+  const program = createProgram(io);
+  program.exitOverride();
   try {
-    const program = createProgram(io);
-    program.exitOverride();
     await program.parseAsync(['node', 'peaks', ...args], { from: 'node' });
   } catch (err: unknown) {
     // Commander's exitOverride throws on --help and on bad CLI input.
@@ -65,8 +69,19 @@ export async function runCli(args: string[], cwd: string): Promise<CliResult> {
     // "missing brief section" — commander rejects on requiredOption
     // before the action runs, so the only JSON the test can see is
     // the envelope written here).
+    //
+    // Item 3.2 of rid 2026-09-13-leftover-cleanup: the requiredOption case
+    // used to fall through to the generic branch below and fabricate the
+    // PRE-FIX production shape (`UNHANDLED_ERROR` / `command: "cli"`).
+    // Production had since moved to `MISSING_REQUIRED_OPTION` /
+    // `command: "<real command path>"`, so the mirror was asserting a shape
+    // no user could see. It now calls the SAME builder production calls,
+    // which is the only version of this mirror that cannot go stale.
     const code = (err as { code?: string } | null)?.code ?? '';
-    if (
+    if (code === 'commander.missingMandatoryOptionValue') {
+      const message = (err as Error)?.message ?? String(err);
+      printMissingRequiredOptionEnvelope(io, resolveInvokedCommandPath(program, args), message);
+    } else if (
       code !== 'commander.help' &&
       code !== 'commander.helpDisplayed' &&
       code !== 'commander.version' &&

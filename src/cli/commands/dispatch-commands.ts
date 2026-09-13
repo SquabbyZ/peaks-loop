@@ -156,7 +156,26 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             ? { maxConcurrent }
             : {}),
         });
-        printResult(io, ok(result.command, result.data, result.warnings ?? [], result.nextActions ?? []), asJson);
+        // The handler's `ok` is the launch outcome (a vendor CLI that is not
+        // installed is a failure, not a footnote) — the caller must not
+        // re-wrap it as `ok()` unconditionally, which is how `ok: true` with
+        // `pid: -1` reached the orchestrator.
+        if (result.ok) {
+          printResult(io, ok(result.command, result.data, result.warnings ?? [], result.nextActions ?? []), asJson);
+        } else {
+          printResult(
+            io,
+            fail(
+              result.command,
+              'DISPATCH_DETACHED_SPAWN_FAILED',
+              `Could not launch the vendor CLI for a detached dispatch; nothing was started.`,
+              result.data as never,
+              result.nextActions ?? []
+            ),
+            asJson
+          );
+          process.exitCode = 1;
+        }
       } catch (error: unknown) {
         printResult(io, fail('sub-agent.dispatch', 'DISPATCH_DETACHED_ERROR', getErrorMessage(error), {
           role,
