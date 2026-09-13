@@ -371,18 +371,19 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('presence:clear')
-      .description('Clear the active Peaks skill presence indicator. Slice 4.0.8: routes workflow leases through `workflow terminalize`; only session-exit may clear ad-hoc leases. Raw unlink is FORBIDDEN.')
+      .description('Unlink the DEPRECATED pre-4.0.11 single-slot presence marker files (`.peaks/_runtime/active-skill.json`, `.peaks/.active-skill.json`). It does NOT terminalize a live presence lease — a workflow-bound lease terminalizes through `peaks workflow terminalize --workflow <id> --reason <reason>`, an ad-hoc lease only at session exit, and raw unlink is FORBIDDEN for both. The envelope reports what is still active.')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action(async (options: { project?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    // Slice 4.0.8 (DR): `presence:clear` is a workflow terminalizer,
-    // not a raw unlink. For workflow-bound leases the call is routed
-    // through `workflow terminalize` (canonical in
-    // workflow-presence-lifecycle.ts). Ad-hoc (non-workflow) leases
-    // remain terminalizable only via session exit. We delegate to the
-    // compat shim `clearSkillPresence`, which the compat wrapper
-    // re-routes to `terminalizePresenceLease` when a workflow
-    // binding is present.
+    // What this command actually is: a stale-marker cleanup for projects
+    // carrying a pre-4.0.11 single-slot file, and nothing more. The previous
+    // description claimed it "routes workflow leases through `workflow
+    // terminalize`" and that a "compat wrapper re-routes [it] to
+    // `terminalizePresenceLease` when a workflow binding is present" — there is
+    // no such wrapper, and no such routing happens here or in
+    // `clearSkillPresence`. A caller who read that line and ran this command
+    // expecting a live workflow lease to terminalize got a successful exit code
+    // and a still-running lease.
     const removed = clearSkillPresence(options.project);
     // Auto-update project context so future sessions have up-to-date history.
     // Slice 2026-07-15-project-scan-bootstrap: generateProjectContext now also
@@ -408,7 +409,35 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     // drift from what the next command prints: it is the same read path, on
     // the same project root, evaluated after every write this command makes.
     const active = getSkillPresence(projectRoot) !== null;
-    printResult(io, ok('skill.presence:clear', { active, removed, projectContextUpdated: true }), options.json);
+    // `cleared` is the live question the caller is actually asking ("is it gone
+    // now?"), which `removed` could never answer: a legacy marker being unlinked
+    // says nothing about the lease the next command will read. When it is false
+    // the envelope says WHY, in the two routes that can terminalize a lease —
+    // without this the caller saw `active: true, removed: false` and had no way
+    // to tell "you ran the wrong command" from "this command has no opinion".
+    const cleared = !active;
+    printResult(
+      io,
+      ok(
+        'skill.presence:clear',
+        {
+          active,
+          removed,
+          cleared,
+          ...(cleared ? {} : { reason: 'live-lease-survives-presence-clear' }),
+          projectContextUpdated: true
+        },
+        [],
+        cleared
+          ? []
+          : [
+              'A workflow-bound lease terminalizes through `peaks workflow terminalize --workflow <id> --reason <reason>`.',
+              'An ad-hoc lease (`peaks skill presence:set`) is terminalizable only at session exit; `presence:clear` will not remove it, and raw unlink is FORBIDDEN.',
+              'Run `peaks skill presence --json` to read the lease that survived.'
+            ]
+      ),
+      options.json
+    );
   });
 
   // Slice 4.0.8 (RD §4): manual lease GC primitive. LLM-coordinated;

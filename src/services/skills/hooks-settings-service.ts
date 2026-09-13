@@ -153,6 +153,18 @@ export type HookStatus = {
   localSettingsPath?: string;
   localExists?: boolean;
   installed: boolean;
+  /**
+   * Whether this IDE can host a peaks hook AT ALL (`hasHookSpec`).
+   *
+   * `status` answers "what is on disk", and for an IDE with no
+   * `HOOK_COMMAND_BY_IDE` entry the answer is "nothing, and nothing ever will
+   * be" — which is a successful query returning a negative fact, not a failed
+   * one. The exit code says the query succeeded; this field says what it found.
+   * Without it `installed: false` would be indistinguishable from a supported
+   * IDE that simply has no hook installed yet, which is a state the user can
+   * act on.
+   */
+  supportsHooks: boolean;
 };
 
 type HookHandler = { type?: string; command?: string };
@@ -746,6 +758,30 @@ export function readHookStatus(scope: HookScope, projectRoot?: string, options?:
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
+  // An IDE with no HOOK_COMMAND_BY_IDE entry has no hook on disk and can never
+  // have one, so "what is installed?" has a definite answer: nothing. That is a
+  // no-op success, exactly like `removeHookInstall` — the query ran, the disk
+  // was read, and the honest reply is `supportsHooks: false, installed: false`.
+  // This stays asymmetric with `applyHookInstall`, which still fails closed for
+  // the same IDEs: reporting a successful INSTALL would claim an enforcement
+  // that cannot exist, whereas reporting a successful STATUS claims nothing.
+  //
+  // `resolveHookTargets` below is what throws for these IDEs, so the check has
+  // to come first. `resolveSettingsPath` above still runs: an IDE the adapter
+  // registry does not know at all remains a hard error.
+  if (!hasHookSpec(ide)) {
+    const localSettingsPath = resolveLocalSettingsPath(scope, ide, projectRoot);
+    return {
+      scope,
+      settingsPath,
+      exists: existsSync(settingsPath),
+      ...(localSettingsPath !== undefined && localSettingsPath !== settingsPath
+        ? { localSettingsPath, localExists: existsSync(localSettingsPath) }
+        : {}),
+      installed: false,
+      supportsHooks: false
+    };
+  }
   const targets = resolveHookTargets(scope, ide, projectRoot);
   const exists = existsSync(settingsPath);
   const localTarget = targets.find((t) => t.settingsPath !== settingsPath);
@@ -759,7 +795,8 @@ export function readHookStatus(scope: HookScope, projectRoot?: string, options?:
     installed: targets.some((t) => {
       const settings = readSettingsFile(t.settingsPath);
       return Object.keys(settings).length > 0 && isInstalledForEntries(settings, t.entries);
-    })
+    }),
+    supportsHooks: true
   };
 }
 

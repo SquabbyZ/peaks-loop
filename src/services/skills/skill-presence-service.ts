@@ -740,6 +740,15 @@ export function clearSkillPresence(projectRootOverride?: string): boolean {
   // shim; the LLM runner calls `peaks workflow terminalize` or
   // `terminalizePresenceLease` directly).
   //
+  // That rule is the surrounding DESIGN, not a description of this
+  // function: nothing below routes anywhere. This shim has no session
+  // lock, no lease argument and no workflow id, so it cannot route —
+  // it cleans up deprecated files and returns whether it removed any.
+  // The truthful report of what remains is the caller's job
+  // (`skill-command.ts` re-reads the live projection and emits
+  // `cleared` / `reason`). Do not read the paragraph above as a
+  // promise about this function.
+  //
   // The shim still removes the legacy `active-skill.json` /
   // `.peaks/.active-skill.json` so a stale marker from a prior CLI
   // version cannot resurrect after a fresh `clear`. The canonical

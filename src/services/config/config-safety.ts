@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
+import { projectRootsMatch } from '../../shared/path-utils.js';
+
 export function getUserConfigPath(): string {
   return resolve(homedir(), '.peaks', 'config.json');
 }
@@ -232,6 +234,81 @@ function resolveProjectRootFromGit(startPath: string): string | null {
   } catch {
     return rawRoot;
   }
+}
+
+/**
+ * True when `projectRoot` IS the user's home directory itself.
+ *
+ * Exact match, NOT `isInsidePath`: `~/my-project` is an ordinary project and
+ * must keep working — the guard exists for the one directory that is never a
+ * project.
+ *
+ * `projectRootsMatch` rather than `===` because the two strings reach this
+ * function from different sources: a `--project .` argument arrives in the
+ * caller's spelling while `homedir()` yields the OS form (`C:\Users\x` vs
+ * `C:/Users/x`, and differing case on win32/darwin).
+ *
+ * This is the ONE definition of "the user's home" in the codebase; the
+ * harness-window writer's own guard delegates here so the two cannot drift.
+ */
+export function isUserHomeProjectRoot(projectRoot: string): boolean {
+  try {
+    return projectRootsMatch(projectRoot, homedir());
+  } catch {
+    // A path that cannot be resolved is not a claim about the home directory.
+    return false;
+  }
+}
+
+/**
+ * Thrown by `assertWritableProjectRoot` / `resolveWritableProjectRoot` when a
+ * write would land in the user's home directory. Distinct from
+ * `InvalidProjectRootError` (which is about a malformed/absent path): this path
+ * is perfectly valid — it is just not a project.
+ */
+export class UnsafeProjectRootError extends Error {
+  constructor(public readonly projectRoot: string) {
+    super(
+      `Refusing to write into the user's home directory: "${projectRoot}" is not a project root.`
+    );
+    this.name = 'UnsafeProjectRootError';
+  }
+}
+
+/**
+ * Refuse a project root that IS the user's home directory.
+ *
+ * The hazard this closes: a fresh terminal starts in `$HOME`, and
+ * `peaks workspace init --project .` there resolved to `$HOME` (via
+ * `resolveCanonicalProjectRoot`'s fail-open fallback, which returns the start
+ * path when it can find no project marker) and then materialized a whole
+ * project tree INTO the user's home — `.claude/settings.local.json` above all,
+ * which is a live config file shared with every other project on the machine.
+ *
+ * Deliberately NOT enforced inside `resolveCanonicalProjectRoot`. That helper
+ * is called from 85 sites across 32 files, most of them READS (`peaks status`,
+ * `peaks dashboard`, `peaks memory`, the observability commands). Refusing
+ * there would break every one of them the moment a user runs a read command
+ * from their home directory, and its fail-open contract is documented and
+ * depended on. The hazard is a WRITE to `$HOME/.claude/`, so the guard belongs
+ * on write paths — this function, plus `resolveWritableProjectRoot` so a
+ * writer only has to make one call.
+ */
+export function assertWritableProjectRoot(projectRoot: string): void {
+  if (isUserHomeProjectRoot(projectRoot)) {
+    throw new UnsafeProjectRootError(projectRoot);
+  }
+}
+
+/**
+ * `resolveCanonicalProjectRoot` for a path that is about to be WRITTEN to:
+ * same git-root-then-heuristic promotion, plus the home-directory refusal.
+ * Read paths keep using the fail-open helper.
+ */
+export function resolveWritableProjectRoot(startPath: string): string {
+  const root = resolveCanonicalProjectRoot(startPath);
+  assertWritableProjectRoot(root);
+  return root;
 }
 
 export function getProjectConfigPath(projectRoot: string | null): string | null {

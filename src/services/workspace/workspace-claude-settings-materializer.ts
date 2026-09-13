@@ -30,19 +30,58 @@ function readTextIfPresent(filePath: string): string | undefined {
 }
 
 /**
- * The `env` object of a serialized settings file, or `undefined` when the file
- * is malformed or has no `env` object. Tolerant on purpose: a bad on-disk file
- * must not stop the materialization.
+ * The parsed top-level object of a serialized settings file, or `undefined`
+ * when the file is malformed or is not a JSON object. Tolerant on purpose: a
+ * bad on-disk file must not stop the materialization.
  */
-function readEnvObject(serialized: string): Record<string, unknown> | undefined {
+function readSettingsObject(serialized: string): Record<string, unknown> | undefined {
   try {
     const parsed: unknown = JSON.parse(serialized);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
-    const env = (parsed as { env?: unknown }).env;
-    return typeof env === 'object' && env !== null && !Array.isArray(env) ? (env as Record<string, unknown>) : undefined;
+    return parsed as Record<string, unknown>;
   } catch {
     return undefined;
   }
+}
+
+/** The `env` object of a serialized settings file, or `undefined`. */
+function readEnvObject(serialized: string): Record<string, unknown> | undefined {
+  const env = readSettingsObject(serialized)?.env;
+  return typeof env === 'object' && env !== null && !Array.isArray(env) ? (env as Record<string, unknown>) : undefined;
+}
+
+/**
+ * The top-level keys this function's template is allowed to DECIDE. Every other
+ * key on disk belongs to whoever put it there and is carried across verbatim.
+ *
+ *  - `hooks` — the tree this function exists to keep in sync. `peaks workspace
+ *    init` is the writer that converges a consumer's file on the current
+ *    release's handler set, and `templateContentMatches` (the drift detector
+ *    that decides whether to rewrite at all) compares exactly this tree. Letting
+ *    the disk win here would make the rewrite a no-op that reports `refreshed`
+ *    forever.
+ *  - `env` — jointly owned with `peaks hooks install`, which unions the user's
+ *    exemption globs into it. Handled as a union below, not by either side
+ *    winning outright.
+ *
+ * This is deliberately an owned-key LIST and not a preserved-key whitelist: the
+ * direction matters. A whitelist drops every key it was not told about — which
+ * is how `permissions` was lost — whereas anything absent from this list is
+ * preserved by default, including keys no release of peaks-loop knows about.
+ */
+const TEMPLATE_OWNED_KEYS: ReadonlySet<string> = new Set(['hooks', 'env']);
+
+/** `template`'s own keys, then every on-disk key the template does not own. */
+function carryUserOwnedKeys(
+  onDisk: Record<string, unknown>,
+  template: Record<string, unknown>
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...template };
+  for (const [key, value] of Object.entries(onDisk)) {
+    if (TEMPLATE_OWNED_KEYS.has(key)) continue;
+    merged[key] = value;
+  }
+  return merged;
 }
 
 /**
@@ -117,10 +156,20 @@ export async function materializeClaudeSettingsLocal(
   // the rewrite this function is about to do, or a refresh would silently
   // drop someone else's exemptions. The template's own row is added on top, so
   // the result is a union either way.
+  //
+  // The same argument applies to every OTHER top-level key on disk, which the
+  // rewrite used to drop wholesale: `{ ...template }` emitted only the keys the
+  // template declares, so a user's `permissions.allow`, `statusLine`, `model`,
+  // … were deleted by an init that had no opinion about them. The user's
+  // permission rules are not this function's to remove, and the removal was
+  // silent — the envelope reported only `refreshed`. See `carryUserOwnedKeys`
+  // for which keys the template still decides.
+  const onDisk = existing === undefined ? undefined : readSettingsObject(existing);
   const onDiskEnv = existing === undefined ? undefined : readEnvObject(existing);
+  const merged = onDisk === undefined ? template : carryUserOwnedKeys(onDisk, template);
   const serialized =
     JSON.stringify(
-      withExternalGateExemptions(onDiskEnv === undefined ? template : { ...template, env: onDiskEnv }),
+      withExternalGateExemptions(onDiskEnv === undefined ? merged : { ...merged, env: onDiskEnv }),
       null,
       2
     ) + '\n';

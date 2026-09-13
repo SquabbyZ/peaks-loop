@@ -28,9 +28,9 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname } from 'node:path';
-import { projectRootsMatch } from '../../shared/path-utils.js';
+
+import { isUserHomeProjectRoot } from '../config/config-safety.js';
 
 /**
  * Peaks-owned opt-out flag, read from the SAME machine-local `env` block the
@@ -92,9 +92,10 @@ export interface HarnessWindowLocation {
    * (reason `unsafe-project-root`) and says so instead of writing.
    *
    * Optional: callers that legitimately operate on a temp directory or on a
-   * path they built themselves simply omit it, and no check is made. Compared
-   * with `projectRootsMatch`, never by string equality — the caller may pass
-   * `C:/Users/x` where `homedir()` yields `C:\Users\x`.
+   * path they built themselves simply omit it, and no check is made. The
+   * comparison lives in `isUserHomeProjectRoot` (`config-safety.ts`) and is
+   * never string equality — a `--project` argument may arrive as `C:/Users/x`
+   * where `homedir()` yields `C:\Users\x`.
    */
   readonly projectRoot?: string;
 }
@@ -427,20 +428,17 @@ function isEditable(settingsPath: string): boolean {
 /**
  * True when `candidate` is the user's home directory itself.
  *
- * `projectRootsMatch` (not `===`) because the two strings reach this function
- * from different sources: a CLI `--project` argument may arrive as
- * `C:/Users/x` or with different casing, while `homedir()` yields the OS form.
- * Tolerating a probe of a *subdirectory* of `$HOME` is deliberate — `~/proj`
- * is an ordinary project — so this is an exact match, not `isInsidePath`.
+ * Delegates to the shared `isUserHomeProjectRoot` — this guard used to carry
+ * its own copy of the predicate, and `resolveWritableProjectRoot` /
+ * `assertWritableProjectRoot` now need the same answer on every write path. Two
+ * definitions of "the user's home" is one too many: they are compared against
+ * the same `homedir()` under the same case-folding rules or they disagree about
+ * some path eventually. Tolerating a probe of a *subdirectory* of `$HOME` is
+ * deliberate — `~/proj` is an ordinary project — so this is an exact match, not
+ * `isInsidePath`.
  */
 function isUserHome(candidate: string): boolean {
-  try {
-    return projectRootsMatch(candidate, homedir());
-  } catch {
-    // A path that cannot be resolved is not a claim about the home directory;
-    // the write itself will surface any real problem.
-    return false;
-  }
+  return isUserHomeProjectRoot(candidate);
 }
 
 function envString(settings: SettingsFileShape | null, key: string): unknown {

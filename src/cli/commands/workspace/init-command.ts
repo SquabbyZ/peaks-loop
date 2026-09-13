@@ -30,6 +30,7 @@ import {
 // level.
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
+import { resolveWritableProjectRoot, UnsafeProjectRootError } from '../../../services/config/config-safety.js';
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
 import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
 import { gcStalePresenceLeases } from '../../../services/skills/presence-lease-service.js';
@@ -217,7 +218,12 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // (the same regression that produced prompt-project/.peaks/ in
       // the 5/27-5/29 sessions). When startPath is not inside any
       // git repo, the helper falls through to the cwd verbatim.
-      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      // `resolveWritableProjectRoot` = `resolveCanonicalProjectRoot` plus the
+      // home-directory refusal. It has to be this one, and it has to run here:
+      // `ensureSessionWithRotation` below WRITES (it mints/binds a session), so
+      // a guard placed after it would leave a `.peaks/_runtime/` tree in the
+      // user's home even though the init was refused.
+      const projectRoot = resolveWritableProjectRoot(options.project);
 
       // Slice 018: outer-session-mismatch auto-rotation. When the
       // user did NOT pass --session-id explicitly, run
@@ -597,6 +603,27 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         options.json
       );
     } catch (error) {
+      if (error instanceof UnsafeProjectRootError) {
+        // A typed refusal, not a crash: "you are standing in your home
+        // directory, which is not a project" is a thing the caller can fix in
+        // one step, and the envelope has to say which directory was refused and
+        // what to pass instead. `WORKSPACE_INIT_FAILED` below would have buried
+        // it as an unexplained failure.
+        printResult(
+          io,
+          fail('workspace.init', 'UNSAFE_PROJECT_ROOT', error.message, {
+            resolvedProjectRoot: error.projectRoot,
+            projectOption: options.project ?? null
+          }, [
+            'Pass --project <path-to-your-project> instead of a path that resolves to your home directory.',
+            'This command creates .peaks/, .gitignore, .claude/settings.local.json and a codegraph index; none of those belong in $HOME.',
+            'If you meant to initialize the current directory, cd into a project directory first — peaks will not write into the home directory itself.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       if (error instanceof InvalidSessionIdError) {
         printResult(
           io,

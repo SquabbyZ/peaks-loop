@@ -88,7 +88,11 @@ afterEach(() => {
 // ============================================================================
 
 describe('peaks prd handoff show (P2-B.6 misc e2e)', () => {
-  test('returns a structured UNHANDLED_ERROR envelope (--path is required)', () => {
+  test('returns a typed MISSING_REQUIRED_OPTION envelope (--path is required)', () => {
+    // Was `UNHANDLED_ERROR`. A `.requiredOption()` the caller omitted is not an
+    // unhandled error — it is the single most actionable thing the CLI can be
+    // told, and the old envelope said only "command: cli" with empty
+    // nextActions. See `src/cli/index.ts` (`commander.missingMandatoryOptionValue`).
     const project = makeProject('peaks-p2b6-prd-show-');
     const result = runCli(
       ['prd', 'handoff', 'show', '--project', project, '--json'],
@@ -97,7 +101,37 @@ describe('peaks prd handoff show (P2-B.6 misc e2e)', () => {
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('UNHANDLED_ERROR');
+    expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
+    // The two facts the caller needs: WHICH command, and WHICH option (with the
+    // option's own declared values — `--path <file>` is the declaration).
+    expect(envelope.command).toBe('prd handoff show');
+    expect(envelope.message).toContain('--path <file>');
+    expect(envelope.nextActions.length).toBeGreaterThan(0);
+    expect(envelope.nextActions.join('\n')).toContain('--path <file>');
+  });
+});
+
+// ============================================================================
+// peaks release canary (P2-B.6 misc e2e) — same gate, a different command
+// ============================================================================
+
+describe('peaks release canary (P2-B.6 misc e2e)', () => {
+  test('returns a typed MISSING_REQUIRED_OPTION envelope (--percent is required)', () => {
+    // Pinned for a SECOND command on purpose: the fix lives in the CLI's one
+    // error exit, so it has to hold for every `.requiredOption()` in the tree,
+    // not just the one that happened to be reported.
+    const project = makeProject('peaks-p2b6-release-canary-');
+    const result = runCli(
+      ['release', 'canary', '--project', project, '--json'],
+      project
+    );
+    expect(result.code).not.toBe(0);
+    const envelope = parseEnvelope(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
+    expect(envelope.command).toBe('release canary');
+    expect(envelope.message).toContain('--percent <10|50>');
+    expect(envelope.nextActions.length).toBeGreaterThan(0);
   });
 });
 
@@ -417,11 +451,12 @@ describe('peaks mut scan (P2-B.6 misc e2e)', () => {
 // ============================================================================
 
 describe('peaks fork sync (P2-B.6 misc e2e)', () => {
-  test('returns a structured UNHANDLED_ERROR envelope (--sync-id is required)', () => {
+  test('returns a structured MISSING_REQUIRED_OPTION envelope (--sync-id is required)', () => {
     const result = runCli(['fork', 'sync', '--json'], REPO);
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
-    expect(envelope.code).toBe('UNHANDLED_ERROR');
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('--sync-id');
   });
@@ -566,13 +601,15 @@ describe('peaks bee export (P2-B.6 misc e2e)', () => {
 // ============================================================================
 
 describe('peaks bee import (P2-B.6 misc e2e)', () => {
-  test('returns a structured UNHANDLED_ERROR envelope (--in <path> is required)', () => {
+  test('returns a structured MISSING_REQUIRED_OPTION envelope (--in <path> is required)', () => {
     const result = runCli(['bee', 'import', '--json'], REPO);
     expect(result.code).not.toBe(0);
     const envelope = parseEnvelope(result);
-    expect(envelope.command).toBe('cli');
+    // Was `command: "cli"` — the envelope now names the command the caller
+    // typed, which is the field that makes the error actionable.
+    expect(envelope.command).toBe('bee import');
     expect(envelope.ok).toBe(false);
-    expect(envelope.code).toBe('UNHANDLED_ERROR');
+    expect(envelope.code).toBe('MISSING_REQUIRED_OPTION');
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('--in');
   });

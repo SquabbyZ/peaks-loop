@@ -395,6 +395,15 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // through verbatim so the envelope reflects reality. The desired
       // list is also included for parity with install / uninstall.
       const onDiskDeny = readOnDiskDenyEntries(settings);
+      // `status` reports the state of the world; for an IDE that cannot host a
+      // hook the state of the world is "none, and none is possible". The exit
+      // code stays 0 (the query succeeded) and the payload carries the finding
+      // — `supportsHooks: false` on the data, plus a warning naming the IDE, so
+      // the negative fact is not confused with "supported IDE, nothing
+      // installed yet".
+      const warnings = status.supportsHooks
+        ? []
+        : [`IDE '${ide}' cannot host peaks hooks (no HOOK_COMMAND_BY_IDE entry); nothing can be installed for it, which is why none is.`];
       printResult(
         io,
         ok('hooks.status', {
@@ -406,7 +415,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
           ],
           permissionsDenyEntries: listSuperpowersDenyEntries(),
           permissionsDenyOnDisk: onDiskDeny
-        }),
+        }, warnings),
         options.json
       );
     } catch (error: unknown) {

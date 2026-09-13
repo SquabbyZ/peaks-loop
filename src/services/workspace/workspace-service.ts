@@ -7,6 +7,7 @@ import { getSessionIdCanonical, setCurrentSessionBinding, setSessionMeta } from 
 import { updateCallerBindingSessionId } from '../session/caller-binding-service.js';
 import { resolveCallerProjection } from '../session/resolve-caller-id.js';
 import { normalizePath } from '../../shared/path-utils.js';
+import { assertWritableProjectRoot } from '../config/config-safety.js';
 
 /**
  * Slice 2026-09-10 (rid=rebind-must-update-caller-binding): repoint the
@@ -294,6 +295,13 @@ export function validateSessionId(sessionId: string): void {
 
 export async function initWorkspace(options: WorkspaceInitOptions): Promise<WorkspaceInitReport> {
   validateSessionId(options.sessionId);
+  // Before anything is created: a project tree must never be materialized into
+  // the user's home directory. `--project .` from a fresh terminal (whose cwd
+  // is `$HOME`) resolved to `$HOME` and did exactly that — `.peaks/`,
+  // `.gitignore`, `.claude/settings.local.json` and a codegraph index, all in
+  // the user's home. Enforced here as well as at the CLI so a non-CLI caller
+  // (`peaks upgrade`) cannot reach the same write by another door.
+  assertWritableProjectRoot(options.projectRoot);
 
   // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work) +
   // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs) +

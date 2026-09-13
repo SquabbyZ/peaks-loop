@@ -308,16 +308,30 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
     const project = makeProject('peaks-p2b4-presence-clear-');
     initWorkspace(project);
     runCli(['skill', 'presence:set', 'peaks-rd', '--project', project, '--json'], project);
-    expectRegisteredHelp(
+    const help = expectRegisteredHelp(
       ['skill', 'presence:clear'],
       'peaks skill presence:clear [options]',
       project
     );
+    // The help text used to promise a routing this command does not perform
+    // ("routes workflow leases through `workflow terminalize`"). A caller who
+    // believed it ran `presence:clear` expecting a live workflow lease to
+    // terminalize, got exit 0, and kept a running lease. Asserting the ABSENCE
+    // of the claim is the point of the case: the command must not describe
+    // itself as the terminalizer.
+    // Commander wraps the description to the terminal width, so compare on
+    // collapsed whitespace rather than on raw line breaks.
+    const helpText = help.stdout.replace(/\s+/g, ' ');
+    expect(helpText).not.toContain('routes workflow leases through');
+    expect(helpText).toContain('does NOT terminalize a live presence lease');
+    expect(helpText).toContain('peaks workflow terminalize');
     const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
     const envelope = parseJson<CliEnvelope<{
       active: boolean;
       removed: boolean;
+      cleared: boolean;
+      reason?: string;
       projectContextUpdated: boolean;
     }>>(result);
     expect(envelope.ok).toBe(true);
@@ -342,7 +356,16 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
     //   envelope must report that truthfully — reporting `active: false`
     //   here would be a state the command never reached, contradicted by
     //   the very next `peaks skill presence` call.
-    expect(envelope.data).toMatchObject({ active: true, removed: false });
+    expect(envelope.data).toMatchObject({ active: true, removed: false, cleared: false });
+    // ...and WHY it is still there. `active: true, removed: false` alone cannot
+    // distinguish "you ran the wrong command" from "this command has no opinion
+    // on live leases"; the two terminalization routes below are the whole
+    // answer, so the envelope has to carry them rather than leave the caller to
+    // infer them from the help text.
+    expect(envelope.data.reason).toBe('live-lease-survives-presence-clear');
+    const nextActions = envelope.nextActions.join('\n');
+    expect(nextActions).toContain('peaks workflow terminalize');
+    expect(nextActions).toContain('session exit');
 
     const after = parseJson<CliEnvelope<{ active: boolean }>>(
       runCli(['skill', 'presence', '--project', project, '--json'], project)
@@ -362,8 +385,13 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
 
     const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
-    const envelope = parseJson<CliEnvelope<{ active: boolean; removed: boolean }>>(result);
-    expect(envelope.data).toMatchObject({ active: false, removed: true });
+    const envelope = parseJson<CliEnvelope<{ active: boolean; removed: boolean; cleared: boolean; reason?: string }>>(result);
+    expect(envelope.data).toMatchObject({ active: false, removed: true, cleared: true });
+    // The other direction of the `reason` contract: nothing survived, so there
+    // is nothing to explain. Asserted so `reason` is exercised both ways rather
+    // than only ever read as set.
+    expect(envelope.data.reason).toBeUndefined();
+    expect(envelope.nextActions).toEqual([]);
     expect(existsSync(legacyMarker)).toBe(false);
   }, BIN_TIMEOUT_MS);
 });
@@ -412,13 +440,31 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
       expect(install.code).toBe('HOOKS_INSTALL_FAILED');
       expect(install.data.applied).toBe(false);
 
+      // `status` is the one verb of the three that stays idempotent-success for
+      // an IDE with no HOOK_COMMAND_BY_IDE entry. The QUERY succeeded — the disk
+      // was read and the answer is "nothing is installed", which is true and
+      // permanent — so the exit code says success and the payload carries the
+      // finding (`supportsHooks: false`). Carrying "this IDE cannot host hooks"
+      // on the exit code would make an ordinary query result look like a failed
+      // command, and the caller could not tell the two apart.
+      //
+      // `install` above is deliberately NOT symmetric: its success would claim
+      // an enforcement that cannot exist.
       const statusResult = runCli([
         'hooks', 'status', '--project', project, '--ide', expected.ide, '--json'
       ], project);
-      const status = parseJson<CliEnvelope<{ ide: string }>>(statusResult);
-      expect(statusResult.code).toBe(1);
-      expect(status.ok).toBe(false);
-      expect(status.code).toBe('HOOKS_STATUS_FAILED');
+      const status = parseJson<CliEnvelope<{
+        ide: string;
+        installed: boolean;
+        supportsHooks: boolean;
+      }>>(statusResult);
+      expect(statusResult.code).toBe(0);
+      expect(status.ok).toBe(true);
+      expect(status.command).toBe('hooks.status');
+      expect(status.data.ide).toBe(expected.ide);
+      expect(status.data.supportsHooks).toBe(false);
+      expect(status.data.installed).toBe(false);
+      expect(status.warnings.join('\n')).toContain(expected.ide);
     } else {
       expect(installResult.code).toBe(0);
       expect(install.ok).toBe(true);
@@ -435,11 +481,15 @@ describe('peaks hooks install/status/uninstall --ide variants (P2-B.4 adapter/di
       expect(statusResult.code).toBe(0);
       const status = parseJson<CliEnvelope<{
         installed: boolean;
+        supportsHooks: boolean;
         entries: readonly unknown[];
       }>>(statusResult);
       expect(status.ok).toBe(true);
       expect(status.command).toBe('hooks.status');
       expect(status.data.installed).toBe(true);
+      // Asserted in both directions so `supportsHooks` is not a field that only
+      // ever reads `false` — it has to distinguish the two IDE classes.
+      expect(status.data.supportsHooks).toBe(true);
       expect(status.data.entries).toHaveLength(expected.statusEntries ?? 0);
     }
 
