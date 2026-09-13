@@ -27,6 +27,51 @@
 /** Sentinel substring identifying a SessionStart outer-cache hook entry. */
 export const HOOK_OUTER_CACHE_SENTINEL = 'peaks outer-cache write';
 
+/**
+ * rid `2026-09-13-a2-post-compact-reinject` — SessionStart entry scoped to
+ * `matcher: 'compact'` that puts the engineering state back into the context
+ * a compaction just emptied.
+ *
+ * This is the official mechanism, and the `matcher` is the load-bearing part
+ * of it: Claude Code adds a `SessionStart` hook's plain-text stdout to the
+ * context, and scoping to `compact` means the card is re-injected AFTER a
+ * compaction rather than on every fresh session. Compaction itself cannot be
+ * initiated from here — the harness performs it, and a hook can only observe
+ * or veto. Re-injection is the half that IS available to us.
+ *
+ * Why a separate entry instead of folding this into the `peaks session
+ * primer` entry that already runs on every SessionStart: the primer's own
+ * contract is "rotation + presence cleanup", it fires on `startup` too (where
+ * the dispatch context is still in the history and the card would be noise),
+ * and its output is a rotation envelope rather than an engineering-state
+ * card. Two entries, two intents — each one's output means exactly one thing.
+ */
+export const HOOK_POST_COMPACT_REINJECT_SENTINEL = 'peaks session reinject';
+
+/**
+ * The reinject hook command. `--project "${CLAUDE_PROJECT_DIR}"` matches the
+ * other two SessionStart entries: `${CLAUDE_PROJECT_DIR}` is Claude Code's
+ * standard project-root convention, and the CLI resolves it strictly (a
+ * SessionStart payload is env-driven and must not be trusted as a path).
+ *
+ * `--quiet-failure` is NOT a flag and deliberately so: printing nothing on
+ * failure is this command's unconditional behaviour, not something a caller
+ * opts into. See `reinject-command.ts` — stdout IS context here, so an error
+ * message on stdout would be injected into the model's context as though
+ * peaks-loop meant it.
+ */
+export const HOOK_POST_COMPACT_REINJECT_COMMAND = `peaks session reinject --project "\${CLAUDE_PROJECT_DIR}"`;
+
+/** SessionStart hook event key (same as outer-cache + primer). */
+export const HOOK_POST_COMPACT_REINJECT_EVENT = 'SessionStart';
+
+/**
+ * The SessionStart `source` value the re-injection is scoped to. Claude Code
+ * reports `compact` as the SessionStart source when the session is resuming
+ * from a compaction; the hook entry's `matcher` is matched against it.
+ */
+export const HOOK_POST_COMPACT_REINJECT_MATCHER = 'compact';
+
 /** Default (claude-code) SessionStart hook command. */
 export const HOOK_OUTER_CACHE_COMMAND = `peaks outer-cache write --project "\${CLAUDE_PROJECT_DIR}"`;
 

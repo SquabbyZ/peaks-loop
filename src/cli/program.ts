@@ -21,6 +21,7 @@ import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { registerPrimerCommand } from './commands/primer-command.js';
+import { registerReinjectCommand } from './commands/reinject-command.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import { printErrorEnvelope, printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
@@ -227,6 +228,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // `program.command('session primer')` (that registers a single
  // literal command name, not a child of the session group).
  registerPrimerCommand(program, io);
+ // rid 2026-09-13-a2-post-compact-reinject: register `peaks session reinject`
+ // as a sibling child of the same `session` group. It is the transport for
+ // the SessionStart (matcher `compact`) hook's post-compaction card.
+ registerReinjectCommand(program, io);
 
  return program;
 }

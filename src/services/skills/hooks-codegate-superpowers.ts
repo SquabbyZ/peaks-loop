@@ -13,6 +13,10 @@ import {
   HOOK_OUTER_CACHE_COMMAND,
   HOOK_OUTER_CACHE_EVENT,
   HOOK_OUTER_CACHE_SENTINEL,
+  HOOK_POST_COMPACT_REINJECT_COMMAND,
+  HOOK_POST_COMPACT_REINJECT_EVENT,
+  HOOK_POST_COMPACT_REINJECT_MATCHER,
+  HOOK_POST_COMPACT_REINJECT_SENTINEL,
   HOOK_WORKSPACE_INIT_COMMAND,
   HOOK_WORKSPACE_INIT_EVENT,
   HOOK_WORKSPACE_INIT_SENTINEL
@@ -205,6 +209,23 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       command: HOOK_CODE_GATE_COMMAND,
       event: HOOK_CODE_GATE_EVENT
     });
+    // rid 2026-09-13-a2-post-compact-reinject: the post-compaction
+    // engineering-state re-injection. A THIRD SessionStart entry, on a
+    // DIFFERENT matcher (`compact`) than the outer-cache and primer entries
+    // (matcher `''`, i.e. every source). The matcher is what scopes it: the
+    // card belongs in the context after a compaction emptied it, not on a
+    // fresh `startup` where the dispatch context is still present.
+    //
+    // It rides this table rather than a bespoke installer so install,
+    // status, uninstall, the dry-run plan and the workspace-init drift
+    // comparator all see it as one more peaks-managed entry — the same
+    // contract the other two SessionStart entries have.
+    entries.push({
+      sentinel: HOOK_POST_COMPACT_REINJECT_SENTINEL,
+      matcher: HOOK_POST_COMPACT_REINJECT_MATCHER,
+      command: HOOK_POST_COMPACT_REINJECT_COMMAND,
+      event: HOOK_POST_COMPACT_REINJECT_EVENT
+    });
   }
   return entries;
 }
@@ -232,7 +253,12 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
    // the gate-enforce entry, and so hand-added entries matching this
    // sentinel are recognized as peaks-managed (not stripped as
    // non-Peaks).
-   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL];
+   // rid 2026-09-13-a2-post-compact-reinject: the post-compact re-injection
+   // sentinel joins the same set, so uninstall strips it (and status counts
+   // it) exactly like the other two SessionStart entries. Without this the
+   // entry would be unremovable by `peaks hooks uninstall` — the rollback
+   // path T2 requires.
+   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL, HOOK_POST_COMPACT_REINJECT_SENTINEL];
  }
  return base;
 }
