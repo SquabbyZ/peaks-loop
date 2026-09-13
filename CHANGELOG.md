@@ -1,5 +1,35 @@
 # Changelog
 
+## 4.0.47 — 2026-09-13 (90 个文件第一次进 CI 就绿了 + 弹窗的根在守卫射程 + 说"能做"而做不到的地方)
+
+**Highlights**:
+
+1. **`tests/integration/**`（90 个文件 / 463 个测试）第一次进了 CI，也第一次在 ubuntu 上绿了。** 它此前**从未在任何地方跑过** —— `ci.yml` 的测试步骤用默认 config，其 `include` 只含 `tests/unit/**`；所以"CI 绿"与"全量绿"都不覆盖它。接入后实测 **20 条失败**，逐条分诊后：**2 条是真产品 bug**（`memory extract` 把"文件不存在"报成沙箱逃逸；`release canary` 缺 `package.json` 时抛 `UNHANDLED_ERROR`）、**1 条分诊误判被拒绝**（`sop registry` 看着像读不到磁盘清单，实际是仓库从没跑过 `sop register` —— 内容缺口，不是代码缺口）、其余为陈旧期望与契约选择。
+
+   **那个 CI job 一开始是"有意变红"的，现在是普通闸门** —— 它的名字与注释都改成了如实描述：**红即真回归**，不再是"已知初始状态"。已验证：**ubuntu 与 windows 双双全绿**。
+
+2. **空白 `cmd.exe` 弹窗：根在守卫的射程，不在扫描的深度。** 上一版给 14 个文件加了 `windowsHide` 并加了守卫，弹窗却没停 —— 因为守卫的 `GUARDED_FILES` 是**那 14 个文件的硬编码棘轮**，其它文件**按构造就在射程外**，于是守卫报零而症状继续。扩成**发现式**（遍历 `src|tests|scripts|packages`，**先收集完整列表再逐个解析**，不依赖单文件结果）后，查出 **214 个未隐藏调用点 / 105 个文件**，**全部修复，债务棘轮为空**。
+
+   扩围还暴露了守卫**自身 AST 遍历的 4 处缺陷** —— 那些缺陷正是这些站点长期隐形的原因：`execFile(cmd,args,OPTIONS,cb)` 的 options 读错位置（放过 `src/shared/process.ts`，**每次子代理派发都在跑**）、改名 import 跟不上、**`promisify(execFile)` 完全跟不上**（隐藏了 `orchestrator-can-do.ts` 上**每轮** `code context-now` 路径的两个活站点）、动态 import 命名空间漏。
+
+3. **auto-compact：从"谁来决定何时压"到"压完之后还在不在"。** 两件事都做了：
+
+   - **尺度对齐。** peaks-loop 与 harness **各自独立解析"上下文窗口"**（前者走 env → config → 模型名启发式 → 硬编码 200K），**没有任何机制保证两者相同**。后果：启发式认不出模型时，peaks-loop 的"95%"落在 **190K token**、而 harness 要到 **~967K** 才压 —— **红线早触发约 5 倍，然后死锁**（没有任何东西能在 190K 处强制压缩）。现在两边**是同一个数**；红线**不再封死派发**，只请求并报告等待；阈值写入 `.claude/settings.local.json` 的 `env` 块，**带人类可读的告知与一键回滚**（harness 默认对被覆盖是静默的）。
+   - **压缩后回注。** 压缩由 harness 执行、摘要是**泛化的** —— 它不知道什么是 slice / request / gate / AC，所以丢掉的恰恰是本项目自己的状态，而**没有任何东西把它装回去**。新增 `SessionStart` + `matcher:"compact"` 钩子（官方支持的回注通道），**预算 3072 字节**：按**存活排名**保留块（身份 → **指针** → 运行期规则 → 下一步 → 当前工作），**指针优先于规则**（让人去读产物，而不是把产物搬进来）；降级是 **greedy by rank（跳过并继续）**，不是一个超大块把后面的全挤掉。**单位是字节而非"窗口的百分之几"** —— 百分比预算会**随窗口变大而变大**，正好重新制造它要防的失效。
+
+4. **一批"代码在说它做不到的事"** —— 本版最反复的一条主线：
+
+   - **一个谁都接不住的 spawn 失败。** 集成套件测试全过、进程却 exit 1。根因不是平台：`ProcessSupervisor.spawn` 调 `nodeSpawn` 时**没挂 `'error'` 监听器**，而 **Node 把 ENOENT 派发在 nextTick 上，那个队列在 `await` 恢复之前就排空了** —— 所以 `await spawn(); child.on('error', …)` **无论谁写都输掉竞速**，`DispatchResult.child`（注释写明"给调用方挂 handler 用"）是个**无法兑现的承诺**，CLI 里自称 "canonical pattern" 的 handler **是死代码**。改为把结果做成**类型化的值**（`settled` 承诺 + `spawnError`），失败不再被记成 `running`。
+   - **缺必填选项报成 `UNHANDLED_ERROR`**（`command: "cli"`、`nextActions` 为空）—— 改为类型化的 `MISSING_REQUIRED_OPTION`，点名命令与选项。
+   - **`config restore` 读的是 `~/.peaks/*.bak` 而不是项目目录** —— 所以它在一台**恰好迁移过配置的开发机**上绿、在干净 runner 上红；而 `rollback` 因为优雅降级反而一直绿。
+   - **CI 里 `request init` 要解析 caller id**，无 IDE env 时落到 D2/EX_USAGE（exit 64），而 `workspace init` 从不解析它 —— 这就是"上一行成功、这一行失败"的不对称。
+
+**验证**：三个版本常量一致（**4.0.47**）；`tsc -p tsconfig.json` 保持 **142** 基线；`tests/unit` **228 files / 2397 passed / 3 skipped / 0 failed**；`tests/integration` **88 files / 2 skipped / 0 failed**，且 **CI 的 ubuntu 与 windows 两个平台都绿**。
+
+**明确未验证的（不当作已完成）**：压缩后回注**没有人在一次*真实*压缩之后观察过** —— 单测无法让 harness 压缩、也无法观测它怎么捕获钩子 stdout，所以 `matcher:"compact"` 是当作已知条件接受的，**它的失效方式是静默的**；**下一次真实压缩才是第一次真检验**。以及"由 peaks-loop 决定**触发点**"仍未达成：写入的窗口等于真实窗口，只让两边共享尺度，**没有让 harness 提前压** —— 标定需要真实会话数据，`compact-history.jsonl` 已记录"意图 vs 实际"待读。
+
+**本轮顺带发现、尚未处理（不属本版修复）**：三条 `SessionStart` 条目假设 Windows 上 shell 形式的 SessionStart 命令不会开控制台窗口 —— `shell: powershell` 那个钉子只加在了 per-tool-call 钩子上，**这是 windowsHide 家族还没扫到的一处**；`materializeClaudeSettingsLocal` 拥有本地 settings 文件的整个 `hooks` 键，落在那里的一条 SessionStart 条目会被模板刷新**静默删掉**（今天没有东西走那条路）；`config restore --list` 在缺 `.bak` 时 exit 1 而 `rollback` exit 0 并返回 `{available:false}` —— 一处真实的不对称，需要产品决定；`test:integration` 脚本仍漏 `--config`，**选中的是零个文件**。
+
 ## 4.0.46 — 2026-09-12 (85% 该压不压 + 把"派发"记成了"正在压缩")
 
 **Highlights**:
