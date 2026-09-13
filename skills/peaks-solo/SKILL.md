@@ -14,7 +14,7 @@ metadata:
   red_lines: [RL-1, RL-8, HC-7, HC-8, HC-9, HC-10, HC-11]
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

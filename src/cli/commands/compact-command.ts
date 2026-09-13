@@ -34,6 +34,7 @@ import {
   resolveHarnessWindowLocation
 } from '../../services/context/auto-compact-reader.js';
 import {
+  disableHarnessWindowSync,
   reenableHarnessWindowSync,
   resetHarnessWindow
 } from '../../services/context/harness-window-config.js';
@@ -438,13 +439,13 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
       }),
   );
 
-  // 7. peaks compact harness-window [--reset | --reenable]
+  // 7. peaks compact harness-window [--reset | --disable | --reenable]
   //    (slice 2026-09-13-auto-compact-trigger-ownership, T1 + T2)
   //
   // The window peaks-loop divides by and the window the harness compacts
   // against must be ONE number, or "95%" lands at two different token counts.
   // This command is the visible half of that write: the default reports what
-  // is in force, `--reset` removes it.
+  // is in force, `--reset` removes it, `--disable` stops managing it.
   //
   // There is deliberately NO `--sync` flag. Materializing the window requires
   // the ratio's own denominator, which only a probe has (it is the only place
@@ -462,15 +463,19 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
           'against exactly this number, so the value it reports as "85%" and the ' +
           'point the harness compacts at are the same. Context probes ' +
           '(`peaks code context-now`, `peaks code auto-compact`) materialize it ' +
-          'automatically; --reset removes the key AND opts the project out so ' +
-          'later probes do not put it back (when the file holds no peaks-loop ' +
-          'row at all there is nothing to roll back, so --reset writes nothing); ' +
-          '--reenable undoes that opt-out.'
+          'automatically. Two different intentions, two verbs: --reset removes ' +
+          'the key AND opts the project out so later probes do not put it back ' +
+          '(when the file holds no peaks-loop row at all there is nothing to ' +
+          'roll back, so --reset writes nothing); --disable records the opt-out ' +
+          'only, leaving whatever value is already there untouched, so "stop ' +
+          'managing this key" works on a project peaks-loop has never written ' +
+          'to; --reenable undoes either opt-out.'
       )
       .option('--project <path>', 'project root (defaults to git root or cwd)')
       .option('--reset', 'rollback: remove the window key and stop managing it')
-      .option('--reenable', 'undo a --reset opt-out (peaks-loop manages it again)')
-      .action((options: { project?: string; reset?: boolean; reenable?: boolean; json?: boolean }) => {
+      .option('--disable', 'record the opt-out only (do not manage this key), without removing a value that is already there; expressible before the first write')
+      .option('--reenable', 'undo a --reset or --disable opt-out (peaks-loop manages it again)')
+      .action((options: { project?: string; reset?: boolean; disable?: boolean; reenable?: boolean; json?: boolean }) => {
         try {
           const project = options.project !== undefined
             ? resolveCanonicalProjectRoot(options.project)
@@ -509,7 +514,33 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
                 [
                   result.action === 'removed'
                     ? `Removed ${location.envVar} from ${result.settingsPath} and opted this project out, so later probes stop writing it. Undo with \`peaks compact harness-window --reenable\`.`
-                    : `Nothing to remove — ${location.envVar} was already absent from ${result.settingsPath}, so nothing was written and no opt-out row was recorded: if a probe writes a window here later, run --reset again to remove it.`,
+                    : `Nothing to remove — ${location.envVar} was already absent from ${result.settingsPath}, so nothing was written and no opt-out row was recorded: if a probe writes a window here later, run --reset again to remove it. To say "never manage this key here" WITHOUT waiting for that first write, run \`peaks compact harness-window --disable\`.`,
+                ],
+              ),
+              options.json,
+            );
+            return;
+          }
+
+          if (options.disable === true) {
+            const result = disableHarnessWindowSync({ location });
+            printResult(
+              io,
+              ok(
+                'compact.harness-window',
+                {
+                  projectRoot: project,
+                  action: result.action,
+                  key: location.envVar,
+                  settingsPath: result.settingsPath,
+                },
+                [],
+                [
+                  result.action === 'disabled'
+                    ? `Recorded the opt-out in ${result.settingsPath}: peaks-loop will not write ${location.envVar} here, and left any value already in the file exactly as it was. Undo with \`peaks compact harness-window --reenable\`.`
+                    : result.action === 'already-opted-out'
+                      ? `Already opted out — ${result.settingsPath} carries ${location.envVar}'s opt-out, so nothing was written. Undo with \`peaks compact harness-window --reenable\`.`
+                      : `Nothing written — ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so the opt-out could not be recorded there.`,
                 ],
               ),
               options.json,

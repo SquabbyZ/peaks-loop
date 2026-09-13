@@ -91,6 +91,25 @@ describe('loop-hygiene block in every SKILL.md', () => {
     expect(block).toContain('Peaks-Loop Skill');
   });
 
+  it('the marker describes what actually maintains this block (no generator exists)', () => {
+    // The marker used to read "generated block". There is no generator: the
+    // block is hand-maintained in 22 files and held together by the
+    // byte-identity assertion above. A future reader who trusted the marker
+    // would go looking for the generator, find none, and then either stall or
+    // edit one file and trip this suite. The marker must describe the real
+    // mechanism, and it must name the guard so the reader can find it.
+    const block = extractBlock(readFileSync(files[0]!, 'utf8')) ?? '';
+    const marker = block.split('\n')[0] ?? '';
+    expect(marker).toContain('peaks:loop-hygiene');
+    // The false claim, in the form that was actually shipped.
+    expect(marker).not.toMatch(/\bgenerated block\b/i);
+    expect(marker).toMatch(/hand-maintained/i);
+    expect(marker).toMatch(/NOT generated/i);
+    // Where the enforcement lives, and the one rule that keeps it true.
+    expect(marker).toContain('tests/unit/skills/loop-hygiene-block.test.ts');
+    expect(marker).toMatch(/edit one, edit all 22/i);
+  });
+
   it('every SKILL.md has frontmatter that parses as YAML', () => {
     // Two skills shipped invalid frontmatter for several releases: an
     // unquoted `schemaVersion: 2` inside a value made the document fail with

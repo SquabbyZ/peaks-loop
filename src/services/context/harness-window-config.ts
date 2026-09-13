@@ -656,6 +656,62 @@ export function resetHarnessWindow(input: {
 }
 
 /**
+ * Record the opt-out WITHOUT removing anything: "stop managing this key",
+ * expressible at any moment — including before peaks-loop has ever written it.
+ *
+ * WHY THIS IS A SEPARATE ENTRY POINT AND NOT A FALLBACK OF `resetHarnessWindow`
+ *
+ * "Remove what is there" and "never write it again" are two different
+ * intentions. `--reset` on a file holding no peaks row is deliberately a no-op
+ * (see the file-litter note in `resetHarnessWindow`), so a user whose project
+ * peaks-loop has never touched had NO command for the second intention at all:
+ * they had to wait for a probe to write the key and then remove it — the order
+ * backwards. Folding the opt-out into `--reset` would fix that by making one
+ * verb mean "delete" or "don't write", depending on whether the file happened
+ * to hold a row, which is a verb whose effect the user cannot predict from its
+ * name. Two verbs, two intentions, each predictable.
+ *
+ * WHAT IT DOES NOT DO
+ *   - it does not touch the window key: a hand-set value stays exactly as it
+ *     was (peaks-loop would not have overwritten it anyway — see the B1 guard);
+ *   - it does not write a provenance marker, so it claims no ownership of a
+ *     value it did not write.
+ * The next probe reports `skipped / opted-out` and writes nothing.
+ *
+ * The H1 home-directory guard is deliberately NOT applied here, unlike in
+ * `syncHarnessWindow`. That guard exists because `--project .` from a fresh
+ * terminal turns an implicit project root into `$HOME` and the user never asked
+ * peaks-loop to edit their personal settings. This function is the opposite: an
+ * explicit, unambiguous instruction to stop managing the key AT THIS LOCATION,
+ * and the location's own file is the only place the opt-out can be recorded for
+ * it to mean anything. Refusing here would make the intention inexpressible in
+ * exactly the situation the user is most likely to be in. The CLI names the
+ * absolute path it wrote, so the user can always see where the row landed.
+ *
+ * Idempotent: a second call reports `already-opted-out` and rewrites nothing.
+ */
+export function disableHarnessWindowSync(input: {
+  readonly location: HarnessWindowLocation;
+}): { readonly settingsPath: string; readonly action: 'disabled' | 'already-opted-out' | 'unreadable-settings' } {
+  const settingsPath = input.location.settingsPath;
+  const settings = readSettingsObject(settingsPath);
+  if (!isEditable(settingsPath)) {
+    return { settingsPath, action: 'unreadable-settings' };
+  }
+  const env = typeof settings?.env === 'object' && settings.env !== null && !Array.isArray(settings.env)
+    ? { ...(settings.env as Record<string, unknown>) }
+    : {};
+  if (env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] === HARNESS_WINDOW_SYNC_OPTOUT_VALUE) {
+    return { settingsPath, action: 'already-opted-out' };
+  }
+  env[HARNESS_WINDOW_SYNC_OPTOUT_KEY] = HARNESS_WINDOW_SYNC_OPTOUT_VALUE;
+  const dir = dirname(settingsPath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(settingsPath, `${JSON.stringify({ ...(settings ?? {}), env }, null, 2)}\n`, 'utf8');
+  return { settingsPath, action: 'disabled' };
+}
+
+/**
  * Undo the opt-out (the companion of `resetHarnessWindow`) so peaks-loop
  * resumes owning the harness window.
  */

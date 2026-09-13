@@ -3,7 +3,7 @@ name: peaks-status
 description: Universal status primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Reads the existing CLI primitives (peaks skill presence, peaks session list, peaks project dashboard, peaks request show) and renders a 1-screen status table. Use when the user asks "where are we", "现在到哪了", "what's the current state" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-status", "现在到哪了", "what is the current state", "show me the dashboard". (Replaces peaks-status as a top-level primitive.)
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

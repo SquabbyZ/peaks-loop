@@ -3,7 +3,7 @@ name: peaks-audit
 description: Gate autonomous LLM work on a 6-dimension audit + user-accepted goal. Use IMMEDIATELY after a need is expressed, BEFORE any PRD/RD/QA work starts.
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

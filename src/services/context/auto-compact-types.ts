@@ -101,6 +101,23 @@ export interface CompactDispatchResult {
   readonly message: string;
 }
 
+/**
+ * Old → new map of envelope fields that were renamed but are still emitted
+ * under their old name as deprecated aliases.
+ *
+ * One definition, used both as the `deprecatedFields` value the envelopes
+ * carry and as the registry the type's `@deprecated` tags describe, so the
+ * alias and its record cannot drift apart into two lists.
+ *
+ * `redLineGated` → `redLineRequested` (slice
+ * 2026-09-13-auto-compact-trigger-ownership): nothing was ever gated. See
+ * `redLineGated` on the dispatch branches for why the alias is kept rather
+ * than deleted.
+ */
+export const DEPRECATED_ENVELOPE_FIELDS: Readonly<Record<string, string>> = {
+  redLineGated: 'redLineRequested'
+};
+
 /** Final envelope returned by `runAutoCompact`. */
 export type AutoCompactResult =
   | {
@@ -164,6 +181,41 @@ export type AutoCompactResult =
          * what deadlocked the runner.
          */
         readonly redLineRequested?: boolean;
+        /**
+         * Deprecated alias of `redLineRequested` — same value, written by the
+         * same statement, so the two can never disagree.
+         *
+         * Kept because the old name SHIPPED: `redLineGated` is in every release
+         * from 2.13.0 through 4.0.46, so a script outside this repo that reads
+         * it exists in the wild. Dropping the key would hand that script
+         * `undefined` instead of the boolean it branches on — no error, no log,
+         * just a silently different branch. This is the same call this slice
+         * already made for `--bypass-red-line`: stop advertising a
+         * wrong-named surface, do not delete it out from under a published
+         * caller. That flag is likewise kept with nothing reading it.
+         *
+         * There is deliberately NO removal date here. A date would be a promise
+         * with no mechanism behind it; removing a published field is a MAJOR
+         * decision to be taken on purpose, not one this comment can schedule.
+         *
+         * `deprecatedFields` (below) is the part a runtime consumer can
+         * actually see — a `@deprecated` tag is not.
+         */
+        readonly redLineGated?: boolean;
+        /**
+         * Old → new map of the envelope fields still emitted as deprecated
+         * aliases, so a consumer that parses JSON can discover the rename
+         * without reading this file.
+         *
+         * Why it has to exist: the consumers a rename breaks are precisely the
+         * ones that never read `auto-compact-types.ts`. A type comment reaches
+         * the compiler and the next editor, not a script parsing a CLI
+         * envelope, which is what made the rename silent in the first place.
+         * This puts the fact in the envelope they already read.
+         *
+         * Absent on the branches that carry no renamed field.
+         */
+        readonly deprecatedFields?: Readonly<Record<string, string>>;
         /** See the `AUTO_COMPACT_SKIP` data shape above. */
         readonly harnessWindow?: HarnessWindowSyncResult | null;
       };

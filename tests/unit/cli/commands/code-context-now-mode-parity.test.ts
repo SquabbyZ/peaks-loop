@@ -17,12 +17,25 @@
 // These tests exercise the REAL CLI action (registered command +
 // captured IO). No child process, no network.
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Command } from 'commander';
 
 import { makeCapturedIo, withEnv } from '../../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
-import { registerCodeRuntimeCommands } from '../../../../src/cli/commands/code-runtime-commands.js';
+import {
+  buildAutoCompactEnvelope,
+  registerCodeRuntimeCommands,
+} from '../../../../src/cli/commands/code-runtime-commands.js';
+import { syncHarnessWindowForProject } from '../../../../src/services/context/auto-compact-reader.js';
+import {
+  describeHarnessWindowSync,
+  harnessWindowSyncWarning,
+  syncHarnessWindow,
+  type HarnessWindowLocation,
+} from '../../../../src/services/context/harness-window-config.js';
+import type { AutoCompactResult } from '../../../../src/services/code/auto-compact-orchestrator.js';
 
 /** The ratio is forced through the canonical Claude Code env seam. */
 const RATIO_ENV = 'CLAUDE_CONTEXT_USAGE_PERCENT';
@@ -157,6 +170,83 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
       //       to their settings and how to undo it
       expect(text).toContain('next: ');
       expect(text).toContain('next: Harness window');
+    });
+  });
+
+  // Slice 2026-09-13-defects-cd (C12).
+  //
+  // `context-now` reported the harness-window CONFLICT through the `warnings`
+  // array (the machine-readable half of 要告知), while `auto-compact` hard-coded
+  // `warnings: []` and let the same fact reach a consumer only as a sentence
+  // buried inside `nextActions`. One fact, two shapes, depending on which of
+  // the two syncing commands a consumer happened to read — two parsers for one
+  // mechanism. The conflict is a fact about the STATE, so `warnings` is the
+  // channel; `nextActions` stays for the advice.
+  describe('harness-window conflict — one fact, one channel, on both commands', () => {
+    const KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
+
+    /** A REAL conflict: the file pins a value peaks-loop did not write. */
+    function realConflict(): ReturnType<typeof syncHarnessWindow> {
+      const path = join(ws().path, '.claude', 'settings.local.json');
+      mkdirSync(join(ws().path, '.claude'), { recursive: true });
+      // A hand-set window with no provenance marker → `not-peaks-owned`, so
+      // the write is REFUSED while peaks-loop divides by its own number.
+      writeFileSync(path, `${JSON.stringify({ env: { [KEY]: '150000' } }, null, 2)}\n`, 'utf8');
+      const location: HarnessWindowLocation = { settingsPath: path, envVar: KEY, projectRoot: ws().path };
+      return syncHarnessWindow({ location, tokens: 200_000, env: {} });
+    }
+
+    function skipEnvelope(harnessWindow: ReturnType<typeof syncHarnessWindow>): AutoCompactResult {
+      return {
+        ok: true,
+        code: 'AUTO_COMPACT_SKIP',
+        // Mirrors what the orchestrator's SKIP branch actually puts in
+        // `message`: the notice is appended when a write happened OR when the
+        // refusal is not a quiet one (see `runAutoCompact`). The CLI forwards
+        // `result.message` into `nextActions`, which is how the prose reaches
+        // `next:` lines.
+        message: `Context below the auto-fire threshold. ${describeHarnessWindowSync(harnessWindow)}`,
+        data: {
+          sessionId: '2026-09-13-defects-cd',
+          ratio: 0.4,
+          source: 'claude-code-env',
+          decision: 'below-threshold',
+          harnessWindow,
+        },
+      };
+    }
+
+    it('when the window conflicts, should put the conflict on `warnings` (the channel context-now uses)', () => {
+      const conflict = realConflict();
+      // sanity: the fixture really is the conflict state, not a quiet one
+      expect(conflict.action).toBe('skipped');
+      expect(conflict.reason).toBe('not-peaks-owned');
+      expect(conflict.requestedTokens).toBe(200_000);
+      expect(conflict.previousTokens).toBe(150_000);
+      const expected = harnessWindowSyncWarning(conflict);
+      expect(expected).not.toBeNull();
+      // when: the auto-compact envelope is built from that result
+      const envelope = buildAutoCompactEnvelope(skipEnvelope(conflict));
+      // then: the conflict is on `warnings` — the SAME function, so the same
+      //       string context-now emits for this state
+      expect(envelope.warnings).toContain(expected);
+      // and: both numbers and the file are named, so the fact is actionable
+      expect(envelope.warnings.join('\n')).toContain('150000');
+      expect(envelope.warnings.join('\n')).toContain('200000');
+      // and: the prose advice is STILL forwarded to nextActions (the fix added
+      //       a channel; it did not move the sentence), because "what the sync
+      //       did" and "what you should do about it" are two different
+      //       questions
+      expect(envelope.nextActions.join('\n')).toContain(describeHarnessWindowSync(conflict));
+    });
+
+    it('when there is no conflict, should leave `warnings` empty (the quiet case stays quiet)', () => {
+      // given: a percent probe carries no token window, so nothing was refused
+      const noWindow = syncHarnessWindowForProject({ projectRoot: ws().path, tokens: null });
+      const envelope = buildAutoCompactEnvelope(skipEnvelope(noWindow!));
+      // then: no invented warning
+      expect(harnessWindowSyncWarning(noWindow)).toBeNull();
+      expect(envelope.warnings).toEqual([]);
     });
   });
 

@@ -31,6 +31,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 import { makeCapturedIo, withEnv } from '../../_setup/io.js';
 import { withTmpWorkspacePerTest } from '../../_setup/tmp-workspace.js';
 import { registerCompactCommands } from '../../../../src/cli/commands/compact-command.js';
+import { syncHarnessWindowForProject } from '../../../../src/services/context/auto-compact-reader.js';
 
 declareDimensions(
   'tests/unit/cli/commands/compact-harness-window.test.ts',
@@ -176,6 +177,61 @@ describe('peaks compact harness-window — show / rollback', () => {
     expect(envBlock()['SOME_USER_KEY']).toBe('keep-me');
     // and: the operator is told that — "absent" alone would read as "done"
     expect(envelope.nextActions.join('\n')).toContain('nothing was written');
+  });
+
+  it('when --disable runs on a project never written to, should record the opt-out and make the NEXT probe write nothing (integration)', async () => {
+    // given: a FRESH project — peaks-loop has never written a window here, so
+    //        `--reset` is a deliberate no-op and the user has no way to say
+    //        "do not manage this key" until AFTER a probe has written it
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**' });
+    // when: the user says it up front
+    const disabled = await run(['--project', ws().path, '--disable']);
+    // then: the opt-out is recorded, and nothing was removed because nothing
+    //       was there to remove
+    expect(disabled.ok).toBe(true);
+    expect(disabled.data['action']).toBe('disabled');
+    expect(envBlock()['PEAKS_HARNESS_WINDOW_SYNC']).toBe('off');
+    expect(envBlock()[KEY]).toBeUndefined();
+    expect(disabled.nextActions.join('\n')).toContain('--reenable');
+    // and: THE POINT — the probe that would have written the key does not
+    const probe = syncHarnessWindowForProject({ projectRoot: ws().path, tokens: 1_000_000 });
+    expect(probe?.action).toBe('skipped');
+    expect(probe?.reason).toBe('opted-out');
+    expect(envBlock()[KEY]).toBeUndefined();
+    // and: the way back exists
+    const reenabled = await run(['--project', ws().path, '--reenable']);
+    expect(reenabled.data['action']).toBe('reenabled');
+    expect(syncHarnessWindowForProject({ projectRoot: ws().path, tokens: 1_000_000 })?.action).toBe('written');
+    expect(envBlock()[KEY]).toBe('1000000');
+  });
+
+  it('when --disable is NOT used, should be the control: the same probe writes the key (integration)', async () => {
+    // given: the identical fresh project, without the opt-out. Control for the
+    //        case above — without it, a probe that failed for any unrelated
+    //        reason would look exactly like the opt-out working.
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    writeSettings({ GATEGUARD_EXEMPT_GLOBS: '.peaks/**' });
+    // when: the probe runs
+    const probe = syncHarnessWindowForProject({ projectRoot: ws().path, tokens: 1_000_000 });
+    // then: it writes — so "nothing was written" above is the opt-out's doing
+    expect(probe?.action).toBe('written');
+    expect(envBlock()[KEY]).toBe('1000000');
+  });
+
+  it('when --disable runs twice, should report the second as already opted out (behavior)', async () => {
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    writeSettings({ [KEY]: '150000' });
+    await run(['--project', ws().path, '--disable']);
+    // when: it runs again
+    const again = await run(['--project', ws().path, '--disable']);
+    // then: idempotent and honest about it — and the pinned value still stands,
+    //       because "stop managing" is not "remove"
+    expect(again.data['action']).toBe('already-opted-out');
+    expect(envBlock()[KEY]).toBe('150000');
   });
 
   it('when --reenable runs, should clear the opt-out and report whether one existed (behavior)', async () => {

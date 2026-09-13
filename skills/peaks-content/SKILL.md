@@ -3,7 +3,7 @@ name: peaks-content
 description: Non-code orchestrator for content workflows (draft / edit / publish / archive). Use when a user wants to drive an end-to-end content-production loop (blog post, newsletter, marketing copy, social thread, doc page) where the LLM must coordinate draft / edit / tone / publish / archive stages with explicit gates between them, and where the user only wants to speak natural language and pick options. NOT for free-form chatting; NOT for code review. Reuses the peaks-loop Loop Engineering primitives (Loop Engineering Asset, Bee Asset, Workflow Trace, Evolution Evaluation) but does NOT import peaks-code internals. Triggers on `/peaks-content`, "peaks content", "content workflow", "publish this to <channel>", "edit the draft", "archive the previous version".
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

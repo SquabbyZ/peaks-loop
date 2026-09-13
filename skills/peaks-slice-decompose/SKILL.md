@@ -3,7 +3,7 @@ name: peaks-slice-decompose
 description: Run multi-pass slice decomposition on a PRD-ready request and emit a v2 envelope with passes, cross-pass edges, and an LLM-arbitration trace. Use when a PRD is ready and the caller needs service-level and/or file-level cuts in one artifact.
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

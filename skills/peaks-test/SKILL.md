@@ -3,7 +3,7 @@ name: peaks-test
 description: Universal test-runner primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Runs the project's test suite on the current repo and reports results. Use when the user asks "run the tests", "跑一下 test", "跑测试" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-test", "跑一下 test", "跑测试", "run the tests", "test now". (Replaces peaks-test as a top-level primitive.)
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

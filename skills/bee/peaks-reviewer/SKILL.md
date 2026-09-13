@@ -4,7 +4,7 @@ visibility: internal
 description: Third-party independent code-review skill for Peaks. Use as a parallel reviewer to karpathy-reviewer when a workflow needs an out-of-band (non-RD-model) review pass to mitigate single-LLM self-dogfood blind spots. Emits a schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 G4.
 ---
 
-<!-- peaks:loop-hygiene — generated block; keep byte-identical in every SKILL.md -->
+<!-- peaks:loop-hygiene — HAND-MAINTAINED block, NOT generated; byte-identical in every SKILL.md, enforced by tests/unit/skills/loop-hygiene-block.test.ts. Edit one, edit all 22. -->
 
 ## Loop hygiene (every turn — MANDATORY)
 

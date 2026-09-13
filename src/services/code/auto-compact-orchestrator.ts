@@ -42,6 +42,7 @@ import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../context/
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
+  DEPRECATED_ENVELOPE_FIELDS,
   type CompactDispatchResult,
   type CompactTrigger,
   type ConvergencePlan,
@@ -712,6 +713,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         target: input.target ?? 'main',
         mode,
         redLineRequested: isRedLine,
+        // Compatibility alias + its record. `redLineGated` shipped from
+        // 2.13.0 to 4.0.46, so a consumer outside this repo reads it and must
+        // not start receiving `undefined`; the record is what makes the
+        // deprecation visible to that consumer. See the type.
+        redLineGated: isRedLine,
+        deprecatedFields: DEPRECATED_ENVELOPE_FIELDS,
         harnessWindow
       }
     };
@@ -762,6 +769,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         target,
         mode,
         redLineRequested: isRedLine,
+        redLineGated: isRedLine,
+        deprecatedFields: DEPRECATED_ENVELOPE_FIELDS,
         harnessWindow
       }
     };
@@ -834,6 +843,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       target,
       mode,
       redLineRequested: isRedLine,
+      redLineGated: isRedLine,
+      deprecatedFields: DEPRECATED_ENVELOPE_FIELDS,
       harnessWindow
     }
   };

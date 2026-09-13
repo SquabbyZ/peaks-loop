@@ -33,6 +33,7 @@ import {
   HARNESS_WINDOW_SYNC_OPTOUT_VALUE,
   HARNESS_WINDOW_WRITTEN_KEY,
   describeHarnessWindowSync,
+  disableHarnessWindowSync,
   harnessWindowSyncWarning,
   parseHarnessWindowTokens,
   readHarnessWindow,
@@ -552,6 +553,86 @@ describe('harness-window-config', () => {
       expect(result.action).toBe('removed');
       expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBeUndefined();
       expect(envBlock()[HARNESS_WINDOW_SYNC_OPTOUT_KEY]).toBe(HARNESS_WINDOW_SYNC_OPTOUT_VALUE);
+    });
+  });
+
+  describe('(behavior) disable — "do not manage this key" is expressible before the first write', () => {
+    it('when the project has never been written to, should record the opt-out and let a later sync write NOTHING', () => {
+      // given: a FRESH project — no window key, and no provenance marker,
+      //        i.e. exactly the state in which `resetHarnessWindow` is a no-op
+      //        (it reports `absent` and writes nothing, by design). Before
+      //        `disable` existed that no-op left the user with no command at
+      //        all for "stop managing this key": the intention was only
+      //        expressible AFTER a probe had written the key, i.e. the wrong
+      //        order round.
+      writeSettings(existingSettings());
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: the user says "do not manage this key here"
+      const result = disableHarnessWindowSync({ location });
+      // then: the opt-out is on disk — and it did NOT touch the window key,
+      //       because "stop managing" is not "remove"
+      expect(result).toMatchObject({ action: 'disabled', settingsPath: location.settingsPath });
+      expect(envBlock()[HARNESS_WINDOW_SYNC_OPTOUT_KEY]).toBe(HARNESS_WINDOW_SYNC_OPTOUT_VALUE);
+      expect(envBlock()[KEY]).toBeUndefined();
+      expect(envBlock()['GATEGUARD_EXEMPT_GLOBS']).toBe('.peaks/**');
+      expect(before).not.toBe(readFileSync(location.settingsPath, 'utf8'));
+      // and: THE POINT — the probe that would have written the key now does not
+      const sync = syncHarnessWindow({ location, tokens: 1_000_000, env: {} });
+      expect(sync.action).toBe('skipped');
+      expect(sync.reason).toBe('opted-out');
+      expect(envBlock()[KEY]).toBeUndefined();
+      // and: re-enabling restores management (the way back exists)
+      expect(reenableHarnessWindowSync({ location }).action).toBe('reenabled');
+      expect(syncHarnessWindow({ location, tokens: 1_000_000, env: {} }).action).toBe('written');
+      expect(envBlock()[KEY]).toBe('1000000');
+    });
+
+    it('when the sync is working, should be the control: the SAME probe writes the key', () => {
+      // given: the identical fresh project, without the opt-out. This is the
+      //        control for the case above: without it, a probe that failed for
+      //        some unrelated reason would look like the opt-out working.
+      writeSettings(existingSettings());
+      // when: the probe runs
+      const sync = syncHarnessWindow({ location, tokens: 1_000_000, env: {} });
+      // then: it writes — so the "nothing was written" above is the opt-out's
+      //       doing, not a probe that never writes
+      expect(sync.action).toBe('written');
+      expect(envBlock()[KEY]).toBe('1000000');
+    });
+
+    it('when a value is already in force, should leave it exactly as it was', () => {
+      // given: a window the user pinned by hand (no provenance marker)
+      writeSettings({ env: { [KEY]: '150000' } });
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: the opt-out is recorded
+      const result = disableHarnessWindowSync({ location });
+      // then: only the opt-out row was added — the pinned number survives, so
+      //       peaks-loop never claims (or overwrites) a value it did not write
+      expect(result.action).toBe('disabled');
+      expect(envBlock()[KEY]).toBe('150000');
+      expect(envBlock()[HARNESS_WINDOW_SYNC_OPTOUT_KEY]).toBe(HARNESS_WINDOW_SYNC_OPTOUT_VALUE);
+      expect(readFileSync(location.settingsPath, 'utf8').length).toBeGreaterThan(before.length);
+    });
+
+    it('when the opt-out is already recorded, should report it and rewrite nothing', () => {
+      writeSettings({ env: { [HARNESS_WINDOW_SYNC_OPTOUT_KEY]: HARNESS_WINDOW_SYNC_OPTOUT_VALUE } });
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: the command runs a second time
+      const result = disableHarnessWindowSync({ location });
+      // then: idempotent, and it says so rather than pretending to have acted
+      expect(result.action).toBe('already-opted-out');
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
+    });
+
+    it('when the settings file cannot be parsed, should report that instead of clobbering it', () => {
+      // given: a file peaks-loop cannot safely edit
+      mkdirSync(join(root, '.claude'), { recursive: true });
+      writeFileSync(location.settingsPath, '{ not json\n', 'utf8');
+      // when: the opt-out is requested
+      const result = disableHarnessWindowSync({ location });
+      // then: nothing is written — the honest answer is "could not record it"
+      expect(result.action).toBe('unreadable-settings');
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe('{ not json\n');
     });
   });
 

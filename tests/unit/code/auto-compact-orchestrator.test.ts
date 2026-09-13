@@ -760,6 +760,43 @@ describe("Scenario: behavior — the red line asks the harness instead of gating
     expect(result.data.redLineRequested).toBe(true);
   });
 
+  it("when invoked, should Case 23: the renamed field keeps a deprecated alias AND says so in the envelope", async () => {
+    // given: a red-line dispatch (the branch that carries the renamed field)
+    // when: the orchestrator runs
+    const result = await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.97),
+    });
+    if (result.code !== 'AUTO_COMPACT_RED_LINE') throw new Error('expected the red-line dispatch envelope');
+    // then: `redLineGated` shipped from 2.13.0 through 4.0.46, so a consumer
+    //       outside this repo branches on it. It must keep resolving to the
+    //       same boolean — an absent key would be `undefined`, i.e. no error
+    //       and a silently different branch.
+    expect(result.data.redLineGated).toBe(true);
+    expect(result.data.redLineGated).toBe(result.data.redLineRequested);
+    // and: the rename is visible IN the envelope, because the consumers this
+    //      breaks are exactly the ones that never read the type file.
+    expect(result.data.deprecatedFields).toEqual({ redLineGated: 'redLineRequested' });
+  });
+
+  it("when invoked, should Case 24: the alias tracks the canonical field on the non-red-line branch too", async () => {
+    // given: a pre-compact dispatch, where `isRedLine` is false
+    // when: the orchestrator runs
+    const result = await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.87),
+    });
+    if (result.code !== 'AUTO_COMPACT_DISPATCHED') throw new Error('expected the pre-compact dispatch envelope');
+    // then: the alias is emitted with the SAME value on every branch the old
+    //       name was ever emitted on — a consumer that only reads the alias
+    //       sees exactly what it saw before the rename, on every path.
+    expect(result.data.redLineGated).toBe(false);
+    expect(result.data.redLineGated).toBe(result.data.redLineRequested);
+    expect(result.data.deprecatedFields).toEqual({ redLineGated: 'redLineRequested' });
+  });
+
   it("when invoked, should Case 22: the red-line convergence plan hands control back instead of demanding a gate", async () => {
     // given: a red-line dispatch
     // when: the orchestrator runs
