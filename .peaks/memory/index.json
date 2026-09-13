@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T13:50:16.538Z",
+  "updatedAt": "2026-09-13T16:24:11.444Z",
   "hot": {
     "rule": [
       {
@@ -2058,6 +2058,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "a-probe-that-samples-one-point-reports-green-for-the-whole-space",
+        "kind": "project",
+        "description": "**一个探针在它看过的地方确实有效，于是它看起来在工作 —— 而\"它没看过哪里\"从来不是判决的一部分。** 实测（2026-09-13，切片 2 容差守卫） 守卫的锐度闸门是 **peaks-loop 比例**的函数，而残差里的信号强...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-probe-that-samples-one-point-reports-green-for-the-whole-space.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "capability-baseline-4-0-8-freeze",
         "kind": "project",
         "description": "**What happened**: Task 6 of 5-slice plan wrote the candidate input (commit d92d8c5, 452-line JSON, 15 rows).",
@@ -2190,6 +2198,14 @@
         "kind": "project",
         "description": "**门禁查的是产物的\"形状\"，不是内容。形状契约只写在  里，生产者（子代理）看不到。于是：内容全对，仍报\"文件缺失\"。** 形状要求（实测，2026-09-13） | 产物 |  | |---|---| |  |  **和** 字面...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\gated-artifacts-have-shape-contracts-nobody-tells-the-producers.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "gated-audit-artifacts-collide-across-slices-in-one-session",
+        "kind": "project",
+        "description": "** 要求的审计产物路径里没有 rid，于是同一 session 的第二个切片写同名文件时，第一个切片的证据被静默覆盖。** 碰撞面 | 路径 | 带 rid？ | |---|---| |  | ❌ | |  | ❌ | |  | ❌...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\gated-audit-artifacts-collide-across-slices-in-one-session.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
