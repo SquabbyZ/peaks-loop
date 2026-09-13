@@ -117,6 +117,7 @@ function runBumpVersion(args: string[]): { status: number | null; stdout: string
     env,
     encoding: 'utf8',
     shell: false,
+    windowsHide: true,
   });
   return {
     status: r.status,

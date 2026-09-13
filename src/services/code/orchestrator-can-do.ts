@@ -207,6 +207,7 @@ export async function probeSubAgentAvailable(
     await execFileAsync(command, [...args, 'sub-agent', 'dispatch', '--role', 'rd', '--help'], {
       cwd: projectRoot,
       timeout: 5000,
+      windowsHide: true,
     });
     return true;
   } catch {
@@ -231,6 +232,7 @@ export async function probeContextRatio(
       {
         cwd: projectRoot,
         timeout: 10000,
+        windowsHide: true,
       }
     );
     const parsed = JSON.parse(stdout) as { data?: { ratio?: number; source?: string } };

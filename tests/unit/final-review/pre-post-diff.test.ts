@@ -51,7 +51,8 @@ function git(root: string, args: readonly string[]): string {
   return execFileSync('git', [...args], {
     cwd: root,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
   });
 }
 

@@ -38,6 +38,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, 'code', 'detect-job', ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -56,6 +57,7 @@ function runCliRead(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, 'code', 'read-job-shape', ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };

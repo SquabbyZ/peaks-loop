@@ -44,6 +44,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, 'worktree', ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: 30_000
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -122,11 +123,11 @@ afterEach(() => {
 function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-wt-lifecycle-'));
   projects.push(project);
-  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'lifecycle@test'], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'lifecycle'], { stdio: 'pipe' });
+  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'lifecycle@test'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'lifecycle'], { stdio: 'pipe', windowsHide: true });
   // commit-1 establishes a real main branch so `git worktree add -b feat` succeeds
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe' });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
   return project;
 }
 

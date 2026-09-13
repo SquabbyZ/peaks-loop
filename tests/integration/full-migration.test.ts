@@ -53,6 +53,7 @@ function cli(args: string): { stdout: string; stderr: string; code: number } {
       cwd: PROJECT_DIR,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {

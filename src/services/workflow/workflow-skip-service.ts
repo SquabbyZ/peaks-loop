@@ -258,7 +258,8 @@ function resolveSkipAppliedBy(): string {
     const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
     const out = execFileSync('git', ['config', '--global', 'user.name'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
     });
     const trimmed = out.trim();
     if (trimmed.length > 0) {

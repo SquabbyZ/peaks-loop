@@ -108,7 +108,7 @@ function registryLatest() {
     const out = execFileSync(
       npmBin,
       ['view', 'peaks-loop', 'dist-tags.latest', '--json'],
-      { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' },
+      { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32', windowsHide: true },
     ).toString();
     return JSON.parse(out);
   } catch {

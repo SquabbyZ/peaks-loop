@@ -221,11 +221,11 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
     mkdirSync(join(project, 'vendor'), { recursive: true });
     writeFileSync(join(project, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
     writeFileSync(join(project, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-    execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('git', ['-C', project, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
     danglingCodegraph(project);
 
     const runner = vi.fn(async (invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> => {

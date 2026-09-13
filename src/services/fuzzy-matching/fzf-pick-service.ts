@@ -105,6 +105,7 @@ export async function pickFromList<T>(options: FzfPickOptions<T>): Promise<FzfPi
         input: fzfInput,
         cwd: options.projectRoot,
         stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
         shell: false,
         timeout: SPAWN_TIMEOUT_MS,
         maxBuffer: MAX_BUFFER_BYTES
@@ -144,6 +145,7 @@ function checkFzfVersion(fzfBin: string): string {
     stdout = execFileSync(fzfBin, ['--version'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
+      windowsHide: true,
       timeout: 5_000
     }).toString('utf8');
   } catch (error: unknown) {

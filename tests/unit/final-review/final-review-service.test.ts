@@ -65,7 +65,7 @@ function makeProject(): string {
 
 /** Read-only git, for the fixtures themselves (never for the service). */
 function git(root: string, args: readonly string[]): void {
-  execFileSync('git', [...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  execFileSync('git', [...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
 }
 
 /**

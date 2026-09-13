@@ -142,6 +142,7 @@ function isAlreadyPublished(name, version) {
   const probe = spawnSync(bin, [...prefixArgs, 'view', `${name}@${version}`, 'version', '--json'], {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   });
   if (probe.status !== 0) return false;
   const stdout = probe.stdout?.toString?.() ?? '';
@@ -168,7 +169,7 @@ function isRegistryStale(name, version, localTarball) {
     if (localVer === null) return false;
     const { bin, prefixArgs } = resolveNpmInvocation();
     execFileSync(bin, [...prefixArgs, 'pack', `${name}@${version}`, '--pack-destination', tmp], {
-      cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
     });
     const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
     if (!tgz) {
@@ -194,7 +195,7 @@ function isRegistryStale(name, version, localTarball) {
 function readVersionJsFromTarballSilent(tarball, label) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-silent-'));
   try {
-    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)]);
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], { windowsHide: true });
     const f = join(tmp, 'package', 'dist', 'version.js');
     if (!existsSync(f)) return null;
     return readFileSync(f, 'utf8');
@@ -212,7 +213,7 @@ function readVersionJsFromTarballSilent(tarball, label) {
 function readVersionJsFromTarball(tarball, label) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-'));
   try {
-    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)]);
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)], { windowsHide: true });
     const f = join(tmp, 'package', 'dist', 'version.js');
     if (!existsSync(f)) {
       throw new Error(

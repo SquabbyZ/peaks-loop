@@ -126,6 +126,7 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
       const stdout = execFileSync('node', ['bin/peaks.js', ...args], {
         cwd: options.project,
         stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
       }).toString('utf-8');
       printResult(io, ok('loop.distill', {
         project: options.project,

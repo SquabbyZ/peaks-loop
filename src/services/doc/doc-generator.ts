@@ -113,7 +113,8 @@ export function gitLogSince(projectRoot: string, since: string): ChangelogEntry[
     const out = execSync(`git log --pretty=format:"%s" ${since}..HEAD`, {
       cwd: projectRoot,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
     });
     if (out.trim().length === 0) return [];
     return out.split('\n').filter((s) => s.length > 0).map((s) => parseCommitSubject(s, 'git log'));

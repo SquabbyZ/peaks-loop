@@ -21,9 +21,9 @@ const tmp = join(tmpdir(), 'sdd-review');
 mkdirSync(tmp, { recursive: true });
 
 const stamp = Date.now();
-const log = execSync(`git log --oneline ${base}..${head}`, { encoding: 'utf-8' });
-const stat = execSync(`git diff --stat ${base}..${head}`, { encoding: 'utf-8' });
-const diff = execSync(`git diff -U10 ${base}..${head}`, { encoding: 'utf-8' });
+const log = execSync(`git log --oneline ${base}..${head}`, { encoding: 'utf-8', windowsHide: true });
+const stat = execSync(`git diff --stat ${base}..${head}`, { encoding: 'utf-8', windowsHide: true });
+const diff = execSync(`git diff -U10 ${base}..${head}`, { encoding: 'utf-8', windowsHide: true });
 
 const outPath = join(tmp, `review-package-${stamp}.md`);
 const body = [

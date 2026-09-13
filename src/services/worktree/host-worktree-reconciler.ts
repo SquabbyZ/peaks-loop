@@ -28,6 +28,7 @@ export function reconcileHostWorktrees(input: {
       cwd: input.projectRoot,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     records = parseGitWorktreePorcelain(raw);
   } catch {

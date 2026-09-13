@@ -49,6 +49,7 @@ function runShim(dir: string, args: readonly string[] = []): SpawnOutcome {
       cwd: dir,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     return { status: 0, stdout, stderr: '' };
   } catch (err) {
@@ -138,7 +139,7 @@ describe('(behavior) happy path is unchanged; non-internal errors rethrow', () =
   });
 
   it.skipIf(!existsSync(REAL_DIST_ENTRY))('real repo shim still runs the real CLI', () => {
-    const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], { cwd: REPO_ROOT, encoding: 'utf8' });
+    const stdout = execFileSync(process.execPath, [REAL_BIN, '--version'], { cwd: REPO_ROOT, encoding: 'utf8', windowsHide: true });
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });

@@ -42,6 +42,10 @@ export class ProcessSupervisor {
       // Suppress the popup console window on Windows without changing
       // process group membership. The child is still part of the
       // parent's process group (no Windows process-group detach flag).
+      // Deliberately NOT set on POSIX — pinned by
+      // `tests/unit/runtime/process-supervisor-in-shell.test.ts` 1a/1b,
+      // which assert this platform split by name. The spawn-hygiene guard
+      // reads this assignment form; see `collectWindowsHideAssignments`.
       spawnOpts.windowsHide = true;
     }
 

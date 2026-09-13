@@ -87,7 +87,7 @@ function detectHypervisor(requested: VmHypervisor): { ok: true; binary: string }
     case 'hyperv': binary = 'hvc'; break;
   }
   try {
-    const v = execSync(`${binary} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
+    const v = execSync(`${binary} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true });
     if (requested === 'kvm' && !existsSync('/dev/kvm')) {
       return { ok: false, stderr: 'KVM kernel module not loaded (/dev/kvm absent)' };
     }
@@ -122,20 +122,20 @@ function spawnVmWithHypervisor(args: {
 </domain>`;
     const xmlPath = `${args.workdir}/.peaks-vm-${args.leaseId}.xml`;
     require('node:fs').writeFileSync(xmlPath, xml, 'utf8');
-    const out = execSync(`virsh create ${xmlPath}`, { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
+    const out = execSync(`virsh create ${xmlPath}`, { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true });
     return { vmId: out.trim() };
   }
   if (args.hypervisor === 'hyperkit') {
     const out = execSync(
       `hvftool create --image ${args.image} --mount ${args.mount}:/work --label peaks.leaseId=${args.leaseId} --label peaks.rid=${args.rid} --entrypoint sleep -- infinity`,
-      { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }
+      { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }
     );
     return { vmId: out.trim() };
   }
   // hyperv: the hvc shim writes a vhdx + emits the new VM id.
   const out = execSync(
     `hvc create --image ${args.image} --mount ${args.mount} --label peaks.leaseId=${args.leaseId} --label peaks.rid=${args.rid}`,
-    { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }
+    { cwd: args.workdir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }
   );
   return { vmId: out.trim() };
 }
@@ -143,11 +143,11 @@ function spawnVmWithHypervisor(args: {
 function destroyVmWithHypervisor(args: { hypervisor: VmHypervisor; vmId: string }): boolean {
   try {
     if (args.hypervisor === 'kvm') {
-      execSync(`virsh destroy ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(`virsh destroy ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     } else if (args.hypervisor === 'hyperkit') {
-      execSync(`hvftool stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(`hvftool stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     } else {
-      execSync(`hvc stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'] });
+      execSync(`hvc stop ${args.vmId}`, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     }
     return true;
   } catch {

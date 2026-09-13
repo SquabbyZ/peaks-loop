@@ -69,6 +69,7 @@ function spawnDriver(envSignal: string, projectRoot: string): DriverEnvelope {
     env: childEnv,
     encoding: 'utf8',
     cwd: REPO_ROOT,
+    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   });
 

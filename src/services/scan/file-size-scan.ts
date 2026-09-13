@@ -95,9 +95,9 @@ function getChangedFiles(projectRoot: string, baseRef: string): string[] {
     // (--diff-filter=D) are intentionally excluded: they have no on-disk
     // body to count, and a refactor that deletes large files is exactly
     // when the gate should NOT block. Slice #015 fix.
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', '--diff-filter=AM', baseRef], { encoding: 'utf8' });
+    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', '--diff-filter=AM', baseRef], { encoding: 'utf8', windowsHide: true });
     const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' });
+    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8', windowsHide: true });
     const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     return Array.from(new Set([...tracked, ...untracked]));
   } catch {

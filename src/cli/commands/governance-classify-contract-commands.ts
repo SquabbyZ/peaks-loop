@@ -225,6 +225,7 @@ function getSignalsFromGitDiff(projectRoot: string): ClassifySignals {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'ignore'],
       maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
     }).toString('utf8');
   } catch {
     return { filesChanged: 0, linesChanged: 0, touchesDependencies: false, touchesMigrationScripts: false, isPureRefactor: true, keywords: [] };

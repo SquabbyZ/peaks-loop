@@ -28,10 +28,10 @@ function makeSpacedProjectRoot(): string {
  */
 function seedGitTag(projectRoot: string, version: string): boolean {
   const run = (args: string[]): void => {
-    execFileSync('git', ['-C', projectRoot, ...args], { stdio: 'pipe' });
+    execFileSync('git', ['-C', projectRoot, ...args], { stdio: 'pipe', windowsHide: true });
   };
   try {
-    execFileSync('git', ['init', '-q', '-b', 'main', projectRoot], { stdio: 'pipe' });
+    execFileSync('git', ['init', '-q', '-b', 'main', projectRoot], { stdio: 'pipe', windowsHide: true });
     run(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init']);
     run(['tag', `v${version}`]);
     return true;

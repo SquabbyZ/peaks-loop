@@ -65,6 +65,7 @@ export function runTar(args: string[]): void {
   try {
     execFileSync(cmd, args, {
       stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true,
       // Surface stderr text rather than dumping a Buffer at the caller.
       // execFileSync with stdio: ["ignore","ignore","pipe"] captures the
       // stderr stream into the Error's `.stderr` Buffer when the child

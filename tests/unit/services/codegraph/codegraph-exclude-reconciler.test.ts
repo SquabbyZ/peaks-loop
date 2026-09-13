@@ -89,7 +89,7 @@ afterEach(() => {
 // ── fixtures ────────────────────────────────────────────────────────
 
 function runGit(project: string, args: string[]): void {
-  execFileSync('git', ['-C', project, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  execFileSync('git', ['-C', project, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
 }
 
 // Create a throwaway git work tree containing `files`, all committed.

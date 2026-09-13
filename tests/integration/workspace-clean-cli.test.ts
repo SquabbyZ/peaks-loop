@@ -31,6 +31,7 @@ function cli(args: string, cwd: string): { stdout: string; stderr: string; code:
       env: SPAWN_ENV,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err: unknown) {

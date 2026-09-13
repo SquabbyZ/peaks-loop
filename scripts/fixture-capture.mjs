@@ -56,7 +56,7 @@ if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
 const result = spawnSync(
   process.execPath,
   ['--import', 'tsx', 'src/cli/index.ts', 'fixture', 'capture', ...argv],
-  { cwd: projectRoot, stdio: 'inherit', env: process.env }
+  { cwd: projectRoot, stdio: 'inherit', env: process.env, windowsHide: true }
 );
 
 process.exit(result.status ?? 1);

@@ -126,7 +126,8 @@ function runCommand(command: string, args: string[], cwd: string, timeoutMs: num
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: EXEC_MAX_BUFFER_BYTES
+      maxBuffer: EXEC_MAX_BUFFER_BYTES,
+      windowsHide: true
     }).toString('utf8');
     return {
       status: 'pass',

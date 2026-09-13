@@ -128,9 +128,9 @@ describe('F5 anti-fake-green: --must-ls-files frontmatter + verification envelop
         mkdirSync(join(tmp, 'src'), { recursive: true });
         const target = join(tmp, 'src', 'real.ts');
         writeFileSync(target, 'export const x = 1;\n');
-        execFileSync('git', ['init', '-q'], { cwd: tmp });
-        execFileSync('git', ['add', 'src/real.ts'], { cwd: tmp });
-        execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], { cwd: tmp });
+        execFileSync('git', ['init', '-q'], { cwd: tmp, windowsHide: true });
+        execFileSync('git', ['add', 'src/real.ts'], { cwd: tmp, windowsHide: true });
+        execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], { cwd: tmp, windowsHide: true });
 
         const files = runGitLsFiles(tmp, '*.ts');
         expect(files).toEqual(['src/real.ts']);

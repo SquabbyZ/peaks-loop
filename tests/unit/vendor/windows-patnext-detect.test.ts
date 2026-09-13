@@ -29,9 +29,9 @@ describe('Windows vendor detection through PATHEXT', () => {
     await expect(Promise.all(adapters.map((adapter) => adapter.detectInstalled())))
       .resolves.toEqual([true, true, true]);
     expect(execFileMock.mock.calls).toEqual([
-      ['where.exe', ['claude'], { timeout: 3000 }, expect.any(Function)],
-      ['where.exe', ['codex'], { timeout: 3000 }, expect.any(Function)],
-      ['where.exe', ['copilot'], { timeout: 3000 }, expect.any(Function)],
+      ['where.exe', ['claude'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
+      ['where.exe', ['codex'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
+      ['where.exe', ['copilot'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
     ]);
     expect(execFileMock.mock.calls.every((call) => call[2].shell === undefined)).toBe(true);
   });

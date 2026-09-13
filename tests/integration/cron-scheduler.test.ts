@@ -39,6 +39,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: 15_000
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };

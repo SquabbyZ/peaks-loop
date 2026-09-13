@@ -160,9 +160,9 @@ function parseRedLineScope(rdBody: string): { inScope: ScopePattern[]; outOfScop
 
 function tryGitChangedFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
   try {
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8' });
+    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8', windowsHide: true });
     const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' });
+    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8', windowsHide: true });
     const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     return { ok: true, files: Array.from(new Set([...tracked, ...untracked])) };
   } catch {

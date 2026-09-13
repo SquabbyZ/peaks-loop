@@ -65,7 +65,7 @@ function detectContainerRuntime(explicit: ContainerRuntime | undefined): { ok: t
   const tryOrder: ContainerRuntime[] = explicit ? [explicit] : ['docker', 'podman'];
   for (const r of tryOrder) {
     try {
-      const version = execSync(`${r} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }).trim();
+      const version = execSync(`${r} --version`, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }).trim();
       return { ok: true, runtime: r, binary: `${r} (${version.split('\n')[0] ?? ''})` };
     } catch {
       /* try next */
@@ -181,7 +181,7 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       try {
         execSync(
           `${runtime.runtime} run --rm -d --cidfile "${cidFile}" --label "peaks.leaseId=${leaseId}" --label "peaks.rid=${options.rid}" -v "${mount}:/work" -w /work ${image} sleep infinity`,
-          { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' }
+          { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true }
         );
       } catch (err) {
         printResult(
@@ -293,7 +293,7 @@ export function registerContainerCommand(program: Command, io: ProgramIO): void 
       try {
         const releaseRuntime = detectContainerRuntime(undefined);
         const runtimeCmd = releaseRuntime.ok ? releaseRuntime.runtime : 'docker';
-        execSync(`${runtimeCmd} rm --force "${lease.containerId}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+        execSync(`${runtimeCmd} rm --force "${lease.containerId}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
       } catch {
         dockerRmFailed = true;
       }

@@ -73,6 +73,7 @@ function runNpmPackDryRun() {
     cwd: process.cwd(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   });
 
   if (result.error) {

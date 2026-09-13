@@ -32,11 +32,11 @@ function readRegistrations(input: RunMergeBackInput): ReadonlyArray<ServiceRegis
 }
 
 function captureConflictDiff(input: RunMergeBackInput): string {
-  try { return execFileSync('git', ['diff', '--merge', '--no-color'], { cwd: input.projectRoot, encoding: 'utf8' }); } catch { return ''; }
+  try { return execFileSync('git', ['diff', '--merge', '--no-color'], { cwd: input.projectRoot, encoding: 'utf8', windowsHide: true }); } catch { return ''; }
 }
 
 function captureTranscript(input: RunMergeBackInput): ReadonlyArray<string> {
-  try { return execFileSync('git', ['merge', '--no-edit', '--no-ff', input.agentBranch], { cwd: input.projectRoot, encoding: 'utf8' }).split('\n'); }
+  try { return execFileSync('git', ['merge', '--no-edit', '--no-ff', input.agentBranch], { cwd: input.projectRoot, encoding: 'utf8', windowsHide: true }).split('\n'); }
   catch { return ['git merge --no-edit --no-ff ' + input.agentBranch]; }
 }
 
@@ -64,15 +64,15 @@ export async function runMergeBack(input: RunMergeBackInput): Promise<RunMergeBa
       continue;
     }
     try {
-      execFileSync('git', ['checkout', input.callerBranch], { cwd: input.projectRoot, stdio: 'ignore' });
-      execFileSync(plan.command[0] as string, plan.command.slice(1), { cwd: input.projectRoot, stdio: 'ignore' });
+      execFileSync('git', ['checkout', input.callerBranch], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
+      execFileSync(plan.command[0] as string, plan.command.slice(1), { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
       return { kind: 'merged', attempts, serviceKills: kills };
     } catch (error) {
       const transcript = captureTranscript(input);
       const conflictDiff = captureConflictDiff(input);
       const replay = buildConflictReplay({ originalPrompt, mergeAttemptTranscript: transcript, conflictDiff, callerBranch: input.callerBranch });
       const replayResult = await input.onConflict(replay);
-      try { execFileSync('git', ['merge', '--abort'], { cwd: input.projectRoot, stdio: 'ignore' }); } catch { /* ignore */ }
+      try { execFileSync('git', ['merge', '--abort'], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true }); } catch { /* ignore */ }
       if (!replayResult.ok) {
         return { kind: attempts >= 2 ? 'replay-exhausted' : 'replay-still-conflict', attempts, serviceKills: kills };
       }

@@ -172,6 +172,7 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
         cwd: REPO_ROOT,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
         maxBuffer: 64 * 1024 * 1024,
       }
     );

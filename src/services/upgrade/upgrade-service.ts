@@ -67,6 +67,7 @@ export const defaultSubstepExecutor: SubstepExecutor = (command, args, timeoutMs
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
+      windowsHide: true,
     });
     return {
       status: result.status,

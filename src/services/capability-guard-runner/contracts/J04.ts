@@ -13,7 +13,8 @@ export async function runJ04Contract(ctx: GuardContext): Promise<GuardRunResult>
   try {
     const stdout = execFileSync('node', [bin, 'audit', 'goal', '--help'], {
       cwd: ctx.projectRoot,
-      env: { ...process.env, PEAKS_CALLER_ID: `guard-J04-${ctx.sessionId}` }
+      env: { ...process.env, PEAKS_CALLER_ID: `guard-J04-${ctx.sessionId}` },
+      windowsHide: true
     }).toString('utf8');
     helpOk = stdout.length > 0 && !stdout.includes('unknown command');
   } catch {
@@ -26,7 +27,8 @@ export async function runJ04Contract(ctx: GuardContext): Promise<GuardRunResult>
     execFileSync('node', [bin, 'audit', 'goal', '--project', tmp, '--json'], {
       cwd: ctx.projectRoot,
       env: { ...process.env, PEAKS_CALLER_ID: `guard-J04-${ctx.sessionId}` },
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     });
   } catch (e) {
     rejectsEmpty = true;

@@ -49,6 +49,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: 30_000
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -83,10 +84,10 @@ afterEach(() => {
 function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-p3a3-auto-'));
   projects.push(project);
-  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'p3a3@test'], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'p3a3'], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe' });
+  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'p3a3@test'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'p3a3'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
   return project;
 }
 
@@ -156,7 +157,7 @@ describe('peaks sub-agent dispatch --isolation worktree auto-release (Part 3.A.3
     // ran `git worktree remove --force`); gc would add `git worktree
     // prune` but we don't run gc here — the admin table is
     // best-effort cleaned by git itself on the next `worktree list`.
-    const wtList = execFileSync('git', ['-C', project, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' });
+    const wtList = execFileSync('git', ['-C', project, 'worktree', 'list', '--porcelain'], { encoding: 'utf8', windowsHide: true });
     expect(wtList).not.toContain(wtPath);
   });
 

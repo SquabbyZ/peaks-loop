@@ -30,7 +30,9 @@ export function runCommand(command, args, options = {}) {
     let child;
 
     try {
-      child = spawn(command, args, { stdio: 'inherit', ...options });
+      // `windowsHide` is a default, not a lock: a caller that passes its own
+      // value in `options` still wins, because the spread comes after it.
+      child = spawn(command, args, { stdio: 'inherit', windowsHide: true, ...options });
     } catch (error) {
       rejectPromise(error);
       return;

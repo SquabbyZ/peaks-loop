@@ -19,7 +19,8 @@ export async function runJ01Contract(ctx: GuardContext): Promise<GuardRunResult>
     try {
       const stdout = execFileSync('node', [bin, command, input], {
         cwd: ctx.projectRoot,
-        env: { ...process.env, PEAKS_CALLER_ID: `guard-J01-${ctx.sessionId}` }
+        env: { ...process.env, PEAKS_CALLER_ID: `guard-J01-${ctx.sessionId}` },
+        windowsHide: true
       }).toString('utf8');
       const env = JSON.parse(stdout) as { ok: boolean };
       if (!env.ok) {

@@ -210,7 +210,8 @@ function resolveProjectRootFromGit(startPath: string): string | null {
     const stdout = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd: startPath,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
     });
     const trimmed = stdout.trim();
     if (trimmed.length === 0) return null;

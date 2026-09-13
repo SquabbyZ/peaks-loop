@@ -52,6 +52,7 @@ function runLs(args: readonly string[], cwd: string): { stdout: string; status: 
     const stdout = execFileSync('node', [BIN_PATH, 'slice', 'ls', ...args, '--project', cwd], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, status: 0 };
@@ -77,6 +78,7 @@ describe('peaks slice ls (slice 2026-06-27-slice-ls)', () => {
   it('AC1+AC2: --help lists the subcommand and all flags', () => {
     const out = execFileSync('node', [BIN_PATH, 'slice', '--help'], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     expect(out).toMatch(/\bcheck\b/);

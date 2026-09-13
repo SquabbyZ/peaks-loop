@@ -105,7 +105,8 @@ function runCodegraph(args: string[], projectRoot: string): string {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
     timeout: 60_000,
-    maxBuffer: 32 * 1024 * 1024
+    maxBuffer: 32 * 1024 * 1024,
+    windowsHide: true
   };
   // Use `peaks codegraph` (the peaks wrapper), which adds --project support.
   // 2026-09-10: no shell. `peaks` on Windows is a `.cmd` shim, which Node >= 20

@@ -19,6 +19,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS,
       env: { ...process.env, PEAKS_CALLER_ID: 'cross-cutting-e2e' }
     }).toString('utf8');

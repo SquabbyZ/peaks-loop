@@ -15,10 +15,10 @@ export function killVitestProcesses(runner, isWin) {
     if (win) {
       exec(
         'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"name=\'node.exe\'\\" | Where-Object { $_.CommandLine -like \'*vitest*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"',
-        { stdio: 'ignore' }
+        { stdio: 'ignore', windowsHide: true }
       );
     } else {
-      exec('pkill -f vitest 2>/dev/null', { stdio: 'ignore' });
+      exec('pkill -f vitest 2>/dev/null', { stdio: 'ignore', windowsHide: true });
     }
   } catch {
     // always ignore errors

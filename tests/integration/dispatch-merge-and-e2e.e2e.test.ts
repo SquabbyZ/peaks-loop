@@ -9,27 +9,27 @@ import { runE2EVerify } from '~/src/cli/commands/e2e-verify';
 
 function setupRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'peaks-mrg-'));
-  execSync('git init -b main', { cwd: root });
-  execSync('git config user.email t@e', { cwd: root });
-  execSync('git config user.name T', { cwd: root });
+  execSync('git init -b main', { cwd: root, windowsHide: true });
+  execSync('git config user.email t@e', { cwd: root, windowsHide: true });
+  execSync('git config user.name T', { cwd: root, windowsHide: true });
   writeFileSync(join(root, 'a.txt'), 'base\n');
-  execSync('git add a.txt && git commit -m base', { cwd: root });
+  execSync('git add a.txt && git commit -m base', { cwd: root, windowsHide: true });
   return root;
 }
 
 describe('runMergeBack', () => {
   it('fast-forwards when agent and caller share a linear history', async () => {
     const root = setupRepo();
-    execSync('git checkout -b feat/x', { cwd: root });
+    execSync('git checkout -b feat/x', { cwd: root, windowsHide: true });
     writeFileSync(join(root, 'a.txt'), 'base\nfeat\n');
-    execSync('git commit -am feat', { cwd: root });
+    execSync('git commit -am feat', { cwd: root, windowsHide: true });
     const result = await runMergeBack({
       projectRoot: root, sessionId: 's1', dispatchId: 'd1',
       callerBranch: 'main', agentBranch: 'feat/x',
       onConflict: async () => ({ ok: true }),
     });
     expect(result.kind).toBe('merged');
-    expect(execSync('git rev-parse --abbrev-ref HEAD', { cwd: root }).toString().trim()).toBe('main');
+    expect(execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, windowsHide: true }).toString().trim()).toBe('main');
   });
 });
 
@@ -74,9 +74,9 @@ describe('runE2EVerify', () => {
 describe('full pipeline smoke (spawn → merge → e2e)', () => {
   it('runs through end-to-end with no fixtures', async () => {
     const root = setupRepo();
-    execSync('git checkout -b feat/y', { cwd: root });
+    execSync('git checkout -b feat/y', { cwd: root, windowsHide: true });
     writeFileSync(join(root, 'b.txt'), 'y');
-    execSync('git add b.txt && git commit -m y', { cwd: root });
+    execSync('git add b.txt && git commit -m y', { cwd: root, windowsHide: true });
     const result = await runMergeBack({
       projectRoot: root, sessionId: 's2', dispatchId: 'd2',
       callerBranch: 'main', agentBranch: 'feat/y',

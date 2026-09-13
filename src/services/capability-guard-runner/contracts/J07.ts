@@ -22,7 +22,8 @@ export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult>
     const out = execFileSync('node', [bin, 'test', '--help'], {
       cwd: ctx.projectRoot,
       env: { ...process.env, PEAKS_CALLER_ID: `guard-J07-${ctx.sessionId}` },
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
     }).toString('utf8');
     helpOk = out.length > 0 && !out.includes('unknown command');
   } catch {

@@ -49,6 +49,7 @@ function runVerify(cwd: string): { status: number | null; stdout: string; stderr
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     return { status: 0, stdout, stderr: '' };
   } catch (error) {

@@ -40,6 +40,7 @@ function runBin(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS,
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };

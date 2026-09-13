@@ -92,16 +92,16 @@ function parseJson(captured: CapturedIo): InitEnvelope {
 // `vendor/`, i.e. one that upstream's default `**` + `/vendor/**` rule
 // silently drops from the index.
 function seedGitProject(ws: TmpWorkspace): string {
-  execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore' });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore' });
-  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', ws.path, 'init', '-q'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.email', 'peaks-test@example.com'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'config', 'user.name', 'peaks test'], { stdio: 'ignore', windowsHide: true });
 
   mkdirSync(join(ws.path, 'src'), { recursive: true });
   mkdirSync(join(ws.path, 'vendor'), { recursive: true });
   writeFileSync(join(ws.path, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
   writeFileSync(join(ws.path, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-  execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore' });
-  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', ws.path, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+  execFileSync('git', ['-C', ws.path, 'commit', '-qm', 'fixture'], { stdio: 'ignore', windowsHide: true });
 
   return ws.path;
 }

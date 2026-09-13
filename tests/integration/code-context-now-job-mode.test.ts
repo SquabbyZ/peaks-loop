@@ -57,6 +57,7 @@ function runContextNow(args: readonly string[], env: NodeJS.ProcessEnv): CliResu
     const stdout = execFileSync('node', [BIN, 'code', 'context-now', ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ...env },
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };

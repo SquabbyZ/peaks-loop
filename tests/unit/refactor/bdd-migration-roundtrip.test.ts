@@ -45,6 +45,7 @@ function migrate(source: string, options: { dryRun?: boolean } = {}): MigrateOut
     input: payload,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {

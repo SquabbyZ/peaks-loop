@@ -74,7 +74,7 @@ function runCli(args) {
   const result = spawnSync(
     process.execPath,
     ['--import', 'tsx', 'src/cli/index.ts', 'fixture', 'capture', '--json', ...args],
-    { cwd: projectRoot, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' }
+    { cwd: projectRoot, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', windowsHide: true }
   );
   return result;
 }

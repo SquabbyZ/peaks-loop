@@ -40,7 +40,7 @@ afterEach(() => {
     const pidFile = join(project, '.peaks-vm.pid');
     if (existsSync(pidFile)) {
       try {
-        execFileSync('virsh', ['destroy', readVmId(pidFile)], { stdio: 'pipe' });
+        execFileSync('virsh', ['destroy', readVmId(pidFile)], { stdio: 'pipe', windowsHide: true });
       } catch {
         /* best-effort */
       }
@@ -68,7 +68,7 @@ function checkKvmAvailable(): { ok: boolean; reason: string } {
     return { ok: false, reason: '/dev/kvm not present (KVM kernel module not loaded)' };
   }
   try {
-    execFileSync('virsh', ['--version'], { stdio: 'pipe' });
+    execFileSync('virsh', ['--version'], { stdio: 'pipe', windowsHide: true });
   } catch (err) {
     return { ok: false, reason: `virsh not on PATH: ${(err as Error).message}` };
   }
@@ -105,7 +105,7 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     writeFileSync(xmlPath, xml, 'utf8');
 
     // virsh create
-    const out = execFileSync('virsh', ['create', xmlPath], { cwd: project, stdio: 'pipe', encoding: 'utf8' });
+    const out = execFileSync('virsh', ['create', xmlPath], { cwd: project, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
     const vmId = out.trim();
     expect(vmId).toMatch(/^peaks-part41-/);
 
@@ -119,7 +119,7 @@ describe('peaks VM KVM runtime (Part 41)', () => {
 
     // Cleanup: virsh destroy (best-effort).
     try {
-      execFileSync('virsh', ['destroy', vmId], { stdio: 'pipe' });
+      execFileSync('virsh', ['destroy', vmId], { stdio: 'pipe', windowsHide: true });
     } catch {
       /* best-effort: the domain may already be gone if qemu
          failed to boot and self-destroyed */
@@ -150,14 +150,14 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     const project = makeProject();
     // Init a minimal cron schedule (not strictly required for
     // vm, but it keeps the test isolated from any other test).
-    execFileSync('node', [peaksBin, 'cron', 'init', '--project', project, '--json'], { cwd: project, stdio: 'pipe' });
+    execFileSync('node', [peaksBin, 'cron', 'init', '--project', project, '--json'], { cwd: project, stdio: 'pipe', windowsHide: true });
 
     // spawn — should produce a lease with a real VM id.
     const spawnOut = execFileSync('node', [peaksBin, 'vm', 'spawn',
       '--rid', 'rid-part41', '--role', 'rd', '--purpose', 'Part 41 e2e',
       '--hypervisor', 'kvm',
       '--project', project, '--json'
-    ], { cwd: project, stdio: 'pipe', encoding: 'utf8' });
+    ], { cwd: project, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
     const spawnEnv = JSON.parse(spawnOut) as { data: { lease: { hypervisor: string; vmId: string } } };
     expect(spawnEnv.data.lease.hypervisor).toBe('kvm');
     const vmId = spawnEnv.data.lease.vmId;
@@ -165,7 +165,7 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     // Verify the VM is in `virsh list` (best-effort; if qemu
     // failed to boot, the domain may already be gone).
     try {
-      const list = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8' });
+      const list = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8', windowsHide: true });
       // `virsh list` output is a text table; the name may be
       // truncated. We just check the prefix.
       const found = list.split('\n').some((l) => l.includes(vmId.split('-').slice(0, 3).join('-')) || l.includes(vmId.slice(0, 10)));
@@ -180,13 +180,13 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     execFileSync('node', [peaksBin, 'vm', 'release',
       '--lease-id', spawnEnv.data.lease.leaseId,
       '--project', project, '--json'
-    ], { cwd: project, stdio: 'pipe' });
+    ], { cwd: project, stdio: 'pipe', windowsHide: true });
 
     // After release, the domain should be gone (best-effort
     // check; we do NOT assert hard because the destroy command
     // may have failed silently).
     try {
-      const listAfter = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8' });
+      const listAfter = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8', windowsHide: true });
       const stillThere = listAfter.split('\n').some((l) => l.includes(vmId.slice(0, 10)));
       // Soft assertion: the contract is the release command
       // returns ok, not that the VM is gone on the wire.

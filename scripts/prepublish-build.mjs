@@ -35,7 +35,7 @@ console.log(`[prepublish-build] peaks-loop v${version} — running pnpm run buil
 // (`shell: isWindows`). PATH-aware lookup via execFile's automatic
 // `node_modules/.bin` + PATH walk.
 try {
-  execFileSync('pnpm', ['run', 'build'], { stdio: 'inherit', cwd: projectRoot });
+  execFileSync('pnpm', ['run', 'build'], { stdio: 'inherit', cwd: projectRoot, windowsHide: true });
 } catch (primaryErr) {
   if (!isWindows) {
     // POSIX: no fallback. Surface the failure.
@@ -55,7 +55,7 @@ try {
     execFileSync(
       'powershell',
       ['-ExecutionPolicy', 'Bypass', '-File', ps1],
-      { stdio: 'inherit', cwd: projectRoot },
+      { stdio: 'inherit', cwd: projectRoot, windowsHide: true },
     );
   } catch (fallbackErr) {
     console.error('[prepublish-build] .ps1 fallback failed:', fallbackErr?.message ?? fallbackErr);

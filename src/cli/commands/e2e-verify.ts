@@ -61,7 +61,7 @@ async function probeChromiumBinary(): Promise<boolean> {
   const finder = process.platform === 'win32' ? 'where' : 'which';
   for (const candidate of candidates) {
     try {
-      const result = nodeSpawn(finder, [candidate], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const result = nodeSpawn(finder, [candidate], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       const stdout = await new Promise<string>((resolve, reject) => {
         let buf = '';
         result.stdout.on('data', (chunk) => { buf += chunk.toString('utf8'); });
@@ -72,7 +72,7 @@ async function probeChromiumBinary(): Promise<boolean> {
       // Strip the first candidate found; try to launch it with --version.
       const firstLine = stdout.split(/\r?\n/)[0]?.trim();
       if (!firstLine) continue;
-      const probe = nodeSpawn(firstLine, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      const probe = nodeSpawn(firstLine, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
       const exitCode: number = await new Promise((resolve) => {
         probe.on('close', (code) => resolve(code ?? 1));
         probe.on('error', () => resolve(1));
@@ -151,7 +151,7 @@ async function runOneFixtureWithPlaywright(
         `--profile-directory=${env.profileName}`,
         `--dump-dom`,
         fixture.url,
-      ], { stdio: ['ignore', 'pipe', 'ignore'] });
+      ], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
       let html = '';
       proc.stdout.on('data', (chunk) => { html += chunk.toString('utf8'); });
       proc.on('error', () => settle({ pass: false, reason: 'chromium-spawn-failed' }));

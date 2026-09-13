@@ -77,6 +77,7 @@ import {
   fork,
   spawnSync,
   type ChildProcess,
+  type ForkOptions,
   type SpawnSyncReturns,
 } from 'node:child_process';
 import {
@@ -1064,9 +1065,16 @@ beforeAll(async () => {
   // a single `createProgram()` instance. This drops the per-spawn cost
   // from ~10s (Node startup + 60+ command registrations) to ~100ms
   // (one IPC round-trip). Real spawn count goes 24 → 1.
-  rpcChild = fork(RPC_HELPER_PATH, [], {
+  // `windowsHide` is missing from @types/node's `ForkOptions`, but `fork`
+  // forwards every option to `spawn` (`options = { __proto__: null, ...options,
+  // shell: false }; return spawn(options.execPath, args, options)`), so the flag
+  // reaches Windows. Widening the type here keeps it visible to the
+  // spawn-hygiene guard instead of dropping it to satisfy a stale .d.ts.
+  const forkOptions: ForkOptions & { windowsHide: boolean } = {
     stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-  });
+    windowsHide: true,
+  };
+  rpcChild = fork(RPC_HELPER_PATH, [], forkOptions);
   setupRpcChild(rpcChild);
   // Tiny readiness probe: send a noop `-V` request and wait for
   // the response via the normal ipcCall path. If the helper fails to

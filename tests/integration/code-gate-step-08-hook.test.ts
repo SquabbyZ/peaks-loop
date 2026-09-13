@@ -39,6 +39,7 @@ function runCli(args: readonly string[], cwd: string, stdinText?: string): RunRe
       cwd,
       stdio: [stdinText !== undefined ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       input: stdinText,
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };

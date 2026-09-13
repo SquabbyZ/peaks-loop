@@ -138,7 +138,7 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       // consistent with the slice-027 hard gate contract.
       execSync(
         `git worktree add "${wtPath}" -b "${branch}"`,
-        { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' }
+        { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true }
       );
 
       atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
@@ -245,7 +245,7 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
       // released.
       let gitWorktreeRemoveFailed = false;
       try {
-        execSync(`git worktree remove --force "${lease.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+        execSync(`git worktree remove --force "${lease.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
       } catch {
         gitWorktreeRemoveFailed = true;
       }
@@ -587,13 +587,13 @@ export function registerWorktreeLeaseCommands(auth: Command, io: ProgramIO): voi
           // already gone we still mark the lease gc.
           let gitWorktreeRemoveFailed = false;
           try {
-            execSync(`git worktree remove --force "${updated.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+            execSync(`git worktree remove --force "${updated.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
           } catch {
             gitWorktreeRemoveFailed = true;
           }
           // `git worktree prune` clears any stale admin entries. Best-effort.
           try {
-            execSync('git worktree prune', { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+            execSync('git worktree prune', { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
           } catch {
             // ignore — prune is idempotent
           }

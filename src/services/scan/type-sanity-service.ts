@@ -62,9 +62,9 @@ function isArtifactWorkspaceFile(filePath: string): boolean {
 function tryGitDiffFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
   try {
     // Combine: tracked changes vs baseRef + untracked files. Use porcelain status for untracked too.
-    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8' });
+    const trackedRaw = execFileSync('git', ['-C', projectRoot, 'diff', '--name-only', baseRef], { encoding: 'utf8', windowsHide: true });
     const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' });
+    const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8', windowsHide: true });
     const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const merged = Array.from(new Set([...tracked, ...untracked])).filter((file) => !isArtifactWorkspaceFile(file));
     return { ok: true, files: merged };

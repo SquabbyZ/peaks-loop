@@ -94,6 +94,7 @@ function runSync(): { status: number | null; stdout: string; stderr: string } {
     cwd: active.cwd,
     encoding: 'utf8',
     shell: false,
+    windowsHide: true,
   });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }

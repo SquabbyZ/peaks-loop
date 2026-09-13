@@ -28,6 +28,7 @@ function runCli(args: readonly string[], cwd: string = REPO): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS,
       env: { ...process.env, PEAKS_CALLER_ID: 'scan-commands-e2e' }
     }).toString('utf8');
@@ -76,7 +77,7 @@ function seedDiffVsScopeFixture(): { readonly project: string; readonly rid: str
   const project = mkdtempSync(join(tmpdir(), 'peaks-scan-diff-scope-'));
   projects.push(project);
   const git = (args: readonly string[]): void => {
-    execFileSync('git', [...args], { cwd: project, stdio: 'ignore' });
+    execFileSync('git', [...args], { cwd: project, stdio: 'ignore', windowsHide: true });
   };
   git(['init']);
   git(['-c', 'user.email=fixture@example.invalid', '-c', 'user.name=fixture', 'commit', '--allow-empty', '-m', 'fixture']);

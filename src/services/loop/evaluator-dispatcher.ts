@@ -104,7 +104,8 @@ function execPeaks(args: string[], cwd: string, peaksBin?: string): { stdout: st
     const stdout = execFileSync(cmd[0]!, [...cmd.slice(1), ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf8'
+      encoding: 'utf8',
+      windowsHide: true
     });
     return { stdout, exitCode: 0 };
   } catch (error) {

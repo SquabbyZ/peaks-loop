@@ -1273,6 +1273,7 @@ export async function autoUpgrade1xProjectIfPresent(options = {}) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 120_000,
+      windowsHide: true,
     });
     return {
       ran: true,

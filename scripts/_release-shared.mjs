@@ -45,8 +45,8 @@ export function resolvePnpmInvocation() {
 export function runPnpm(args, opts) {
   const inv = resolvePnpmInvocation();
   return inv
-    ? execFileSync(inv.bin, [...inv.prefixArgs, ...args], opts)
-    : execFileSync('pnpm', args, opts);
+    ? execFileSync(inv.bin, [...inv.prefixArgs, ...args], { windowsHide: true, ...opts })
+    : execFileSync('pnpm', args, { windowsHide: true, ...opts });
 }
 
 /**
@@ -83,7 +83,7 @@ export function runNpm(args, opts) {
         'refusing to spawn the npm.cmd shim through a shell.'
     );
   }
-  return execFileSync(inv.bin, [...inv.prefixArgs, ...args], opts);
+  return execFileSync(inv.bin, [...inv.prefixArgs, ...args], { windowsHide: true, ...opts });
 }
 
 /**
@@ -101,6 +101,7 @@ export function toPosixPath(p) {
 export function inspectTarball(tarball) {
   const out = execFileSync('tar', ['-xOf', toPosixPath(tarball), 'package/package.json'], {
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   }).toString('utf8');
   return JSON.parse(out);
 }

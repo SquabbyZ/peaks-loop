@@ -23,8 +23,9 @@ export function removeRegisteredWorktree(input: {
     execFileSync('git', ['worktree', 'remove', '--force', input.worktreePath], {
       cwd: input.projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
-    execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore' });
+    execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
     return { removed: !existsSync(input.worktreePath), strategy: 'git' };
   } catch (error) {
     if (process.platform !== 'win32') {
@@ -32,7 +33,7 @@ export function removeRegisteredWorktree(input: {
     }
     try {
       rmSync(windowsLongPath(input.worktreePath), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-      execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore' });
+      execFileSync('git', ['worktree', 'prune'], { cwd: input.projectRoot, stdio: 'ignore', windowsHide: true });
       return { removed: !existsSync(input.worktreePath), strategy: 'windows-long-path' };
     } catch (fallbackError) {
       return {

@@ -52,7 +52,7 @@ function writeLines(relativePath: string, count: number, root: string): void {
 }
 
 function git(cwd: string, args: readonly string[]): void {
-  execFileSync('git', [...args], { cwd, stdio: 'pipe' });
+  execFileSync('git', [...args], { cwd, stdio: 'pipe', windowsHide: true });
 }
 
 /** A throwaway repo: a small source file + an over-cap generated index, both

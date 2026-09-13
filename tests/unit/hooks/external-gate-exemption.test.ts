@@ -187,7 +187,8 @@ describe('behavior — Peaks declares its external fact-forcing gate exemption',
     delete base[VENDOR_KEY];
     const child = spawnSync(process.execPath, ['-e', `process.stdout.write(String(process.env.${VENDOR_KEY}))`], {
       env: { ...base, ...writtenEnv },
-      encoding: 'utf8'
+      encoding: 'utf8',
+      windowsHide: true
     });
     // then: the subprocess reads the glob — the environment, not the file
     expect(child.status).toBe(0);

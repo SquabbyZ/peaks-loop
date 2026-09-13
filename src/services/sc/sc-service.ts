@@ -144,7 +144,7 @@ function getCurrentCommitHash(workspaceRoot?: string): string | null {
   if (!workspaceRoot) return null;
 
   try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspaceRoot, encoding: 'utf-8' }).trim();
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspaceRoot, encoding: 'utf-8', windowsHide: true }).trim();
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }

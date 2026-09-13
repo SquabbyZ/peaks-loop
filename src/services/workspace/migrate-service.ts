@@ -486,7 +486,7 @@ async function gitMv(from: string, to: string, projectRoot: string): Promise<voi
     // command must be run from inside the project so it can locate
     // .git/ (the migrate target may be a temp dir created by tests).
     try {
-      execFileSync('git', ['mv', from, to], { cwd: projectRoot, stdio: 'pipe' });
+      execFileSync('git', ['mv', from, to], { cwd: projectRoot, stdio: 'pipe', windowsHide: true });
     } catch {
       throw error;
     }

@@ -97,7 +97,7 @@ function makeProjectRoot(prefix: string): string {
 }
 
 function git(dir: string, args: readonly string[]): void {
-  execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore' });
+  execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore', windowsHide: true });
 }
 
 /**

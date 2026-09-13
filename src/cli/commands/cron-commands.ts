@@ -175,7 +175,8 @@ export function runTask(projectRoot: string, task: ScheduleEntry): RunRecord {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
-      timeout: EXEC_TIMEOUT_MS
+      timeout: EXEC_TIMEOUT_MS,
+      windowsHide: true
     });
   } catch (err) {
     const e = err as { status?: number; stderr?: string };

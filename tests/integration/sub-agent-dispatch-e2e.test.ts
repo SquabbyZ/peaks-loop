@@ -48,6 +48,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, 'sub-agent', 'dispatch', ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -194,10 +195,10 @@ describe('peaks sub-agent dispatch rd (P1-7 e2e)', () => {
     // Initialise a real git repo so `peaks worktree spawn` (which runs
     // `git worktree add`) succeeds. commit-1 / commit-2 give it some
     // history.
-    execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe' });
-    execFileSync('git', ['-C', project, 'config', 'user.email', 'p2c@test'], { stdio: 'pipe' });
-    execFileSync('git', ['-C', project, 'config', 'user.name', 'p2c'], { stdio: 'pipe' });
-    execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe' });
+    execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
+    execFileSync('git', ['-C', project, 'config', 'user.email', 'p2c@test'], { stdio: 'pipe', windowsHide: true });
+    execFileSync('git', ['-C', project, 'config', 'user.name', 'p2c'], { stdio: 'pipe', windowsHide: true });
+    execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
 
     const sessionId = '2026-07-29-p2c-iso';
     const requestId = '2026-07-29-p2c-iso-rid';

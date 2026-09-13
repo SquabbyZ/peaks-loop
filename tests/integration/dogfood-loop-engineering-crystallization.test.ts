@@ -44,6 +44,7 @@ function git(...args: string[]): string {
   return execSync(`git ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
     encoding: 'utf8',
     cwd: process.cwd(),
+    windowsHide: true,
   }).trim();
 }
 

@@ -301,7 +301,8 @@ function diffVsHead(projectRoot: string, baseRef?: string): { added: string[]; r
   const res = spawnSync('git', args, {
     cwd: projectRoot,
     encoding: 'utf8',
-    timeout: 5000
+    timeout: 5000,
+    windowsHide: true
   });
   if (res.status !== 0 || !res.stdout) {
     return { added: [], removed: [], modified: [] };

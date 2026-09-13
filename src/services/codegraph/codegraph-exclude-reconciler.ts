@@ -248,7 +248,8 @@ export type CodegraphExcludeConfig = {
 export function readTrackedFiles(projectRoot: string): readonly string[] {
   const stdout = execFileSync('git', ['-C', projectRoot, 'ls-files'], {
     encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true
   });
 
   return stdout

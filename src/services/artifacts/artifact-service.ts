@@ -47,7 +47,7 @@ function getRemoteUrl(artifactRepo: { provider: ArtifactProvider; owner: string;
 
 function hasGit(): boolean {
   try {
-    execFileSync('git', ['--version']);
+    execFileSync('git', ['--version'], { windowsHide: true });
     return true;
   } catch {
     return false;

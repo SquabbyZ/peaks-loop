@@ -100,7 +100,8 @@ describe('PRD-002b slice 2 — no-magic-numbers rule wire-confirmation', () => {
     const candidate = join(ROOT, 'src', 'services', 'lint', 'eslint-runner.ts');
     const result = spawnSync(process.execPath, [ESLINT_BIN, '--format', 'json', '--config', CONFIG_PATH, candidate], {
       encoding: 'utf8',
-      cwd: ROOT
+      cwd: ROOT,
+      windowsHide: true
     });
     const stdout = typeof result.stdout === 'string' ? result.stdout : '';
     expect(stdout.length).toBeGreaterThan(0);

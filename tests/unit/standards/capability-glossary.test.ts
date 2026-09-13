@@ -38,7 +38,7 @@ describe("Scenario: capability-glossary", () => {
         ...ROOTS,
         `:!${SELF_PATH}`,
       ],
-      { encoding: 'utf8' },
+      { encoding: 'utf8', windowsHide: true },
     );
 
     if (result.error) {

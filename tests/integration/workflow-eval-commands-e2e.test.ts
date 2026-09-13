@@ -21,6 +21,7 @@ function runCli(args: readonly string[], cwd: string, extraEnv: NodeJS.ProcessEn
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: BIN_TIMEOUT_MS,
       env: { ...process.env, PEAKS_CALLER_ID: 'workflow-eval-commands-e2e', ...extraEnv }
     }).toString('utf8');

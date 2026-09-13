@@ -40,7 +40,7 @@ const CLI = resolve(__dirname, '../../../bin/peaks.js');
 
   it('reduction >= 40% on a 3-slice sequence', () => {
     const runPeaks = (args: string[]): string =>
-      execFileSync('node', [CLI, ...args, '--project', tempDir, '--session-id', SID, '--json'], { encoding: 'utf8' });
+      execFileSync('node', [CLI, ...args, '--project', tempDir, '--session-id', SID, '--json'], { encoding: 'utf8', windowsHide: true });
 
     // Step 1: write the project-level plans
     runPeaks(['workflow', 'plan', 'refresh', '--type', 'security', '--apply']);

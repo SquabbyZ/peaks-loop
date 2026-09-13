@@ -13,7 +13,7 @@ const CLI = join(process.cwd(), 'dist/cli/index.js');
 
 function peaks(args: string[], cwd: string, env: Record<string, string> = {}) {
   const r = spawnSync('node', [CLI, ...args, '--json'], {
-    cwd, encoding: 'utf8', env: { ...process.env, ...env },
+    cwd, encoding: 'utf8', env: { ...process.env, ...env }, windowsHide: true,
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }

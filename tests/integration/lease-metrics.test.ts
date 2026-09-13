@@ -39,6 +39,7 @@ function runCli(args: readonly string[], cwd: string): RunResult {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       timeout: 30_000
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
@@ -80,10 +81,10 @@ afterEach(() => {
 function initRepo(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-p4b-metrics-'));
   projects.push(project);
-  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.email', 'p4b@test'], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'config', 'user.name', 'p4b'], { stdio: 'pipe' });
-  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe' });
+  execFileSync('git', ['init', '-q', '-b', 'main', project], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.email', 'p4b@test'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'config', 'user.name', 'p4b'], { stdio: 'pipe', windowsHide: true });
+  execFileSync('git', ['-C', project, 'commit', '--allow-empty', '-m', 'init', '-q'], { stdio: 'pipe', windowsHide: true });
   return project;
 }
 

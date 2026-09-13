@@ -10,7 +10,7 @@ afterEach(() => { if (projectRoot) rmSync(projectRoot, { recursive: true, force:
 
 function run(args: ReadonlyArray<string>): { stdout: string; code: number } {
   try {
-    return { stdout: execFileSync('node', [BIN, ...args], { cwd: projectRoot, env: { ...process.env, PEAKS_CALLER_ID: 'baseline-cli-test' } }).toString('utf8'), code: 0 };
+    return { stdout: execFileSync('node', [BIN, ...args], { cwd: projectRoot, windowsHide: true, env: { ...process.env, PEAKS_CALLER_ID: 'baseline-cli-test' } }).toString('utf8'), code: 0 };
   } catch (e) {
     const err = e as { stdout?: Buffer | string; status?: number };
     return { stdout: (err.stdout?.toString('utf8') ?? ''), code: err.status ?? 1 };

@@ -31,7 +31,7 @@ interface CliResult {
 
 async function runPeaks(args: string[], cwd: string): Promise<CliResult> {
   try {
-    const { stdout, stderr } = await execFileAsync('node', [CLI, ...args], { cwd, env: { ...process.env, NO_COLOR: '1' } });
+    const { stdout, stderr } = await execFileAsync('node', [CLI, ...args], { cwd, env: { ...process.env, NO_COLOR: '1' }, windowsHide: true });
     return { stdout, stderr, code: 0 };
   } catch (error) {
     const e = error as { stdout?: string; stderr?: string; code?: number };

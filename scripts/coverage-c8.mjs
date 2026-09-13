@@ -46,10 +46,10 @@ function killVitestProcesses() {
     if (isWin) {
       execSync(
         'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"name=\'node.exe\'\\" | Where-Object { $_.CommandLine -like \'*vitest*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"',
-        { stdio: 'ignore' }
+        { stdio: 'ignore', windowsHide: true }
       );
     } else {
-      execSync('pkill -f vitest 2>/dev/null', { stdio: 'ignore' });
+      execSync('pkill -f vitest 2>/dev/null', { stdio: 'ignore', windowsHide: true });
     }
   } catch {
     /* ignore */
@@ -153,6 +153,7 @@ log(`Reports     → ${coverageOutDir}`);
 const c8Res = spawnSync(process.execPath, [c8Bin, ...c8Args], {
   cwd: projectRoot,
   stdio: 'inherit',
+  windowsHide: true,
 });
 
 // Sanity: did V8 emit any counters? Even if c8 exited 0 (meaning the

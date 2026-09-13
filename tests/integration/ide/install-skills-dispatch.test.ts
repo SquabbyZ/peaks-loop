@@ -36,6 +36,7 @@ async function runInstallSkills(env: Record<string, string>, projectRoot: string
         PEAKS_PROJECT_ROOT: projectRoot,
       },
       cwd: projectRoot,
+      windowsHide: true,
     });
     return { stdout, stderr, code: 0 };
   } catch (error) {

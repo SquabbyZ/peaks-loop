@@ -99,6 +99,7 @@ function runWithReporter(testFileAbsPath: string): RunResult {
       encoding: 'utf8',
       maxBuffer: 8 * 1024 * 1024,
       env: { ...process.env, NO_COLOR: '1' },
+      windowsHide: true,
     },
   );
   if (result.error) throw result.error;
