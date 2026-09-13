@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T10:28:34.072Z",
+  "updatedAt": "2026-09-13T13:50:16.538Z",
   "hot": {
     "rule": [
       {
@@ -2116,7 +2116,7 @@
       {
         "name": "compact-calibration-is-automatic-but-not-yet-accumulating",
         "kind": "project",
-        "description": "**\"由 peaks-loop 决定压缩触发点\"只差标定数据。它自动产生，但有前提，而且启动很慢。** **自动链条**（无需任何人工步骤）： peaks code auto-compactsettleOpenLifecycleRun...",
+        "description": "**\"由 peaks-loop 决定压缩触发点\"只差标定数据。数据自动产生，但今天实测下来，卡的既不是\"会不会产生\"也不是\"要等多久\"。** **自动链条**（无需任何人工步骤）： peaks code auto-compactset...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\compact-calibration-is-automatic-but-not-yet-accumulating.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
@@ -2186,12 +2186,28 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "gated-artifacts-have-shape-contracts-nobody-tells-the-producers",
+        "kind": "project",
+        "description": "**门禁查的是产物的\"形状\"，不是内容。形状契约只写在  里，生产者（子代理）看不到。于是：内容全对，仍报\"文件缺失\"。** 形状要求（实测，2026-09-13） | 产物 |  | |---|---| |  |  **和** 字面...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\gated-artifacts-have-shape-contracts-nobody-tells-the-producers.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "gateguard-vs-peaks-qa-fact-forcing-conflict",
         "kind": "project",
         "description": "> Source: peaks-loop repo, observed 2026-06-10 by user  while a colleague  was running peaks-loop 1.3.9 in .",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\gateguard-vs-peaks-qa-fact-forcing-conflict.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "harness-compaction-witness-lives-in-the-transcript",
+        "kind": "project",
+        "description": "**\"那次压缩是自动还是手动、压掉了多少 token\" 这个事实，harness 自己已经写在磁盘上了 —— 但 peaks-loop 不看它。** 每次压缩，transcript 里会出现一条 ,  的记录，带：  是 **harn...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\harness-compaction-witness-lives-in-the-transcript.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "human-nl-choice-only-tenet",
@@ -2386,6 +2402,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "peaks-loop-raised-the-compaction-point-to-the-model-ceiling",
+        "kind": "project",
+        "description": "**这个键设的是压缩点本身，不是单纯的分母 —— 所以把值写成模型窗口上限，是把 harness 调好的安全余量花掉。** 官方文档（model-config，2026-09-13 核）： > \"Models running with...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-loop-raised-the-compaction-point-to-the-model-ceiling.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "peaks-loop-release-flow-is-tag-triggered-ci-publish",
         "kind": "project",
         "description": "peaks-loop **不在本地 **。发布由  完成,触发条件只有两个: 或 GitHub UI 手动的 。 **完整链条**(2026-09-12 实发 4.0.43 走通): 1.",
@@ -2446,6 +2470,14 @@
         "kind": "project",
         "description": "** 在 Windows 上把参数截断在第一个换行处。** 2026-09-12 实测（ 打印 ）： | 参数 |  直连 |  | |---|---|---| | 3 行、16 字符 | 16 ✓ | **5 ✗**（只剩 ） | ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\pnpm-exec-truncates-multiline-args-on-windows.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "prd-handoff-frontmatter-three-consumers-disagree",
+        "kind": "project",
+        "description": "** 产出的胶囊，过不了它自己的门禁。正文没错 —— 只有两个 frontmatter 键的序列化方式对不上。** 三个消费者，三种要求 | 消费者 | 要求 | |---|---| |  门禁（ → ） | 字面量子串 ****（无...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\prd-handoff-frontmatter-three-consumers-disagree.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
