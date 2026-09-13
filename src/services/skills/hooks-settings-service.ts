@@ -197,26 +197,47 @@ function assertSafeSettingsPathCompat(scope: HookScope, ide: IdeId, root: string
   }
 }
 
-/** Machine-local sibling of the adapter's settings file (Claude Code convention). */
-const LOCAL_SETTINGS_FILE_NAME = 'settings.local.json';
-
-/** IDEs whose hook settings have a machine-local, gitignored sibling file. */
-const IDES_WITH_LOCAL_SETTINGS: ReadonlySet<IdeId> = new Set<IdeId>(['claude-code']);
-
 /**
  * Resolve the machine-local settings file an IDE may carry (e.g. Claude
  * Code's `.claude/settings.local.json`), or `undefined` when there is none.
+ *
+ * B3(b) 2026-09-13: the machine-local layer is an adapter-DECLARED capability,
+ * not a name list. It used to be two hardcoded facts here — a `Set(['claude-code'])`
+ * membership test and the filename literal `'settings.local.json'` — i.e. a
+ * module that routes per-IDE was itself naming one IDE and one IDE's file.
+ * Both now read off the adapter that owns them
+ * (`IdeSettingsLocation.localSettingsFileName`), exactly as
+ * `auto-compact-dispatcher.ts` already did for the same field.
+ *
+ * Behaviour is UNCHANGED, and that was verified rather than assumed: over all
+ * nine registered `IdeId`s, `IDES_WITH_LOCAL_SETTINGS.has(id)` was `true` for
+ * exactly the ids whose adapter declares `localSettingsFileName` (claude-code
+ * alone, `'settings.local.json'`). So the set was an exact duplicate of a
+ * declaration the adapters already carried, not an independent policy — and
+ * a new adapter that declares the field now gets this path for free instead
+ * of being silently denied it.
+ *
+ * This ALSO removes a live instance of the vendor guard's limit 1 (indirect
+ * identity: `SET.has(ide)`), which no AST check over comparisons or literals
+ * can see. The guard's header named this exact line as the example.
  *
  * Global scope resolves to `undefined`: the global settings file
  * (`~/.claude/settings.json`) is already machine-local, so nothing needs
  * relocating there.
  */
 function resolveLocalSettingsPath(scope: HookScope, ide: IdeId, projectRoot: string | undefined): string | undefined {
-  if (scope === 'global' || !IDES_WITH_LOCAL_SETTINGS.has(ide)) return undefined;
-  const root = resolveSettingsRoot(scope, projectRoot);
+  if (scope === 'global') return undefined;
   const adapter = getAdapter(ide);
-  assertSafeSettingsFile(scope, root, adapter.settings.dirName, LOCAL_SETTINGS_FILE_NAME);
-  return join(root, adapter.settings.dirName, LOCAL_SETTINGS_FILE_NAME);
+  const localFileName = adapter.settings.localSettingsFileName;
+  // `undefined` = this IDE has no machine-local layer. Note the order: a
+  // caller reaching here with an id the registry does not know still throws
+  // from `getAdapter` above, exactly as it did before — every path into this
+  // function already called `getAdapter(ide)` via `resolveSettingsPath`, so
+  // no new throw path is introduced.
+  if (localFileName === undefined) return undefined;
+  const root = resolveSettingsRoot(scope, projectRoot);
+  assertSafeSettingsFile(scope, root, adapter.settings.dirName, localFileName);
+  return join(root, adapter.settings.dirName, localFileName);
 }
 
 /**

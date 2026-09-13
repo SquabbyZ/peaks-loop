@@ -148,6 +148,42 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     expect(plan.localSettingsPath).toBe(join(tmpRoot, '.claude', 'settings.local.json'));
   });
 
+  it('when the install plan is built for an IDE with no machine-local layer, should name no local settings file', () => {
+    // The OTHER half of the branch the case above pins, and the half that had
+    // no coverage at all before this case existed.
+    //
+    // `resolveLocalSettingsPath` answers `undefined` for an IDE whose adapter
+    // declares no `localSettingsFileName` (`IdeSettingsLocation` in
+    // `src/services/ide/ide-types.ts`; only `claude-code-adapter.ts` declares
+    // one). That `undefined` is what collapses the install to a single target
+    // — the adapter's own settings file — so an IDE wrongly attributed a
+    // machine-local file would silently write a `.claude`-shaped sibling into
+    // a project that has no `.claude` directory, or (for an IDE that does have
+    // one) put a machine-local entry where a committed file belongs.
+    //
+    // It is pinned by NAME, not by accident: the two other cases that touch
+    // this function are `:148` above (claude-code, project scope → DEFINED)
+    // and the `--global` case below (claude-code, global scope → undefined
+    // because global is already machine-local). Neither reaches the
+    // adapter-declaration branch, which is exactly the branch B3(b) rewrote —
+    // so before this case a wrong answer for every non-claude IDE would have
+    // failed nothing.
+    stubPlatform('win32');
+    const tmpRoot = makeTempProjectRoot();
+    const withoutLocalLayer = ['trae', 'cursor', 'codex', 'hermes', 'openclaw'] as const;
+    for (const ide of withoutLocalLayer) {
+      const plan = planHookInstall('project', tmpRoot, { ide });
+      expect(plan.localSettingsPath, `${ide} was attributed a machine-local settings file`).toBeUndefined();
+      // One target, and it is the adapter's own settings file: the routing
+      // decision, not just the absent key.
+      expect(plan.entryTargets.every((entry) => entry.settingsPath === plan.settingsPath)).toBe(true);
+    }
+    // ...and the contrast, in the same shape, so a version of this case that
+    // passed because BOTH sides went undefined cannot be mistaken for a pass.
+    const withLocalLayer = planHookInstall('project', tmpRoot, { ide: 'claude-code' });
+    expect(withLocalLayer.localSettingsPath).toBe(join(tmpRoot, '.claude', 'settings.local.json'));
+  });
+
   it('when hooks install runs on POSIX, should still route the entry to the machine-local file', () => {
     // given: a fresh project root on Linux
     stubPlatform('linux');

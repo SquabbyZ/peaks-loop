@@ -19,13 +19,22 @@
 //   decision against an IDE id, which no verb grep can match. This guard
 //   covers identity in the THREE shapes a re-injection actually takes:
 //
-//     1. COMPARISON   `ideId !== 'claude-code'`, `adapter.id !== 'claude-code'`,
-//                     `switch (ide) { case 'trae' }`                  → `findIdentityComparisons`
+//     1. DECISION     `ideId !== 'claude-code'`, `adapter.id !== 'claude-code'`,
+//                     `switch (ide) { case 'trae' }`,
+//                     `/^claude-code$/.test(ide)`                     → `findIdentityComparisons`
 //     2. VALUE        `ide: 'claude-code'`, `return 'claude-code'`,
 //                     `resolveHookSpec('claude-code')`                → `findIdeValueLiterals`
 //     3. PATH         `join(root, '.claude', 'settings.local.json')`,
 //                     i.e. an adapter-declared settings DIRECTORY used as a
 //                     path literal                              → `findSettingsPathLiterals`
+//
+//   All three fold the literal spelling first (header, "WHAT AN ID LITERAL
+//   MEANS"), so `'claude' + '-code'`, `\`claude-code\`` and
+//   `('claude-code' as const)` count as the same id in every shape.
+//
+//   Shape 1 covers three SPELLINGS of the same decision: a binary comparison,
+//   a `case` clause, and a regex test. The last two were each the round that
+//   falsified the round before it — the guard is not a `===` grep.
 //
 //   Shapes 2 and 3 exist because shape 1 alone was measurably too narrow:
 //   QA re-injected the three original defects and only the comparison forms
@@ -34,15 +43,36 @@
 //   'claude-code'` all PASSED the shape-1-only guard.
 //
 // How it checks, and why not by splitting source text:
-//   It parses every `src/**/*.ts` file with the TypeScript compiler (the
-//   repo's own `typescript` devDependency — no new dependency) and asks the
-//   AST for the property. A line/regex scan would match ids inside comments
-//   and template strings — `src/services/runtime/vendor-adapter.ts` itself
-//   quotes `claude --compact` in prose, and `auto-compact-dispatcher.ts`
-//   names the ids in its explanatory comments. Those are documentation, not
-//   decisions, and a text scan cannot tell them apart. This is the
+//   It parses every file under `SCAN_ROOTS` (`src/**/*.{ts,js}` and
+//   `scripts/**/*.{mjs,cjs,js}`) with the TypeScript compiler (the repo's own
+//   `typescript` devDependency — no new dependency) and asks the AST for the
+//   property. A line/regex scan would match ids inside comments and template
+//   strings — `src/services/runtime/vendor-adapter.ts` itself quotes
+//   `claude --compact` in prose, and `auto-compact-dispatcher.ts` names the
+//   ids in its explanatory comments. Those are documentation, not decisions,
+//   and a text scan cannot tell them apart. This is the
 //   `guard-verifies-syntax-shape-not-the-property` lesson applied the right
 //   way round: parse, then ask for the property.
+//
+// WHAT "AN ID LITERAL" MEANS (2026-09-13 revision):
+//   Every shape asks `staticStringValue(node)` what STRING a node DENOTES,
+//   rather than whether the node happens to be a `'…'` token. `'claude-code'`,
+//   `\`claude-code\``, `'claude' + '-code'` and `('claude-code' as const)` are
+//   one id written four ways, and each revision was falsified by the spelling
+//   it left out: the id test used to be `ts.isStringLiteral` (loses 2 and 3),
+//   then an unasserted string literal (loses 4). The fold is shared by all
+//   three shapes — a fold in one shape and not its sibling is precisely how the
+//   next injection gets through (header, limit 13).
+//
+//   A REGEX LITERAL is a FIFTH form and is NOT folded into `staticStringValue`,
+//   on purpose: that fold answers "which string does this node denote", and a
+//   regex denotes a language, not a string. Folding it there would have made a
+//   regex satisfy the VALUE and PATH shapes it does not decide (a
+//   `= /\.claude\//` would have read as a hardcoded settings path). What this
+//   guard asks of a regex is `regexAlternativeIds`: which guarded ids does the
+//   pattern match as a WHOLE string? That is asked by shape 1 — the identity-
+//   decision shape — because `/^claude-code$/.test(ide)` is a CALL, not a
+//   comparison, so no amount of literal folding would have reached it.
 //
 // The guarded data is READ FROM THE DECLARATIONS, not hardcoded here:
 //   - IDE ids      ← the `IdeId` union (`src/services/ide/ide-types.ts`)
@@ -53,22 +83,25 @@
 //
 // SCOPE OF SHAPES 2 AND 3 — the registry-consumer rule
 //   Shapes 2 and 3 are enforced on the modules that CONSUME the adapter
-//   registry (`import ... from '.../ide-registry(.js)'`) and only those,
-//   minus the adapter layer. The property they assert is one sentence: *a
-//   module that routes per-IDE must not also name one IDE's id or one IDE's
-//   settings path*. A module that never asks the registry cannot be routing,
-//   and the repo legitimately contains Claude-specific modules (the `.claude`
-//   rules tree writer, the Claude settings template, the runtime-vendor
-//   adapters) that name `.claude` as their subject, not as a shortcut.
+//   registry (static import, lazy `await import`, or re-export — see
+//   `isRegistryConsumer`) and only those, minus the adapter layer. The
+//   property they assert is one sentence: *a module that routes per-IDE must
+//   not also name one IDE's id or one IDE's settings path*. A module that
+//   never names the registry cannot be routing, and the repo legitimately
+//   contains Claude-specific modules (the `.claude` rules tree writer, the
+//   Claude settings template, the runtime-vendor adapters) that name
+//   `.claude` as their subject, not as a shortcut.
 //   Enforcing shapes 2/3 over all of `src/` was measured before choosing:
 //   24 id values (8 files) and 29 settings-path literals (18 files) — a union
 //   of 23 files that would each need a debt or allowlist entry, i.e. a debt
 //   list larger than the signal, and a guard that lists its exemptions is a
 //   guard that reports nothing. The same rules scoped to registry consumers
 //   flag 1 value site and 2 path sites, all three already pinned below. The
-//   cost is stated as a limit (6, 7) rather than hidden.
-//   Shape 1 (comparison) IS global, because a comparison against an IDE id
-//   is an identity decision wherever it appears.
+//   cost is stated as a limit (6, 7) rather than hidden. Those two
+//   measurements were taken over `src/`; `scripts/**` (added 2026-09-13)
+//   contributes no registry consumer, so they still hold.
+//   Shape 1 (identity DECISIONS: comparison, `case`, regex test) IS global,
+//   because deciding an IDE's identity is the same act wherever it appears.
 //
 // ---------------------------------------------------------------------------
 // WHAT THIS GUARD DOES NOT CATCH — read before treating vendor neutrality as
@@ -79,20 +112,61 @@
 //      decide vendor identity and all pass. This is why shape 2 excludes
 //      array elements and property KEYS: an id list or an id-keyed table is
 //      the same hole as `.has(ide)` until something indexes it.
-//      Live instance: `src/services/skills/hooks-settings-service.ts:202`
-//      `!IDES_WITH_LOCAL_SETTINGS.has(ide)`.
+//      Live instance, indexed: `hasHookSpec` in
+//      `src/services/skills/hooks-codegate-superpowers.ts` —
+//      `HOOK_COMMAND_BY_IDE[ide] !== undefined`, an `IdeId`-keyed table read
+//      by the ide. NEITHER side is a literal, so no shape here sees it; it is
+//      in fact the table that makes 6 of limit 7(d)'s sites invisible too.
+//      (The instance this limit used to name —
+//      `IDES_WITH_LOCAL_SETTINGS.has(ide)` in `hooks-settings-service.ts` —
+//      was REMOVED in the 2026-09-13 revision, not by a new check but by
+//      replacing the set with the adapter's own `localSettingsFileName`
+//      declaration. Closing this hole was a source change, not a guard
+//      change: only the source knows whether an identity test has a
+//      declaration behind it.)
 //   2. A value that is an IDE id but is not NAME-reachable — for shape 1 the
 //      non-literal side may now be ANY expression, so this limit is gone for
 //      comparisons. It remains for shape 2: `const d = detectIdeFromEnv();
 //      ide = d; ide: d` is not a literal and is not a hit.
 //   3. Non-literal on both sides: `ide === SOME_CONST`, `ide === ids[0]`.
-//      The literal must appear.
-//   4. Files outside `src/**/*.ts`. `scripts/**`, `packages/**`,
-//      `examples/**`, `.mjs` sources and generated `dist/**` are not scanned.
-//      This is a REAL hole, not hypothetical: `scripts/install-skills.mjs:1061`
-//      and `:1123` contain `ideId === 'claude-code'` and that file is shipped
-//      (`package.json#files`). Excluded from this slice by explicit user
-//      decision, recorded here so it is not mistaken for coverage.
+//      The literal must appear. Unchanged by the fold: a `+` chain has to be
+//      entirely literal to fold, so `'claude' + SUFFIX` is still invisible.
+//   4. Files outside `SCAN_ROOTS`. THIS LIMIT IS ABOUT EXTENSIONS, NOT
+//      DIRECTORIES — the previous revision said "NOT scanned: `packages/**`,
+//      `examples/**`, `dist/**`", which named three directories and hid the
+//      one that actually mattered: a SHIPPED `.js` file under a SCANNED
+//      directory.
+//      Scanned, by extension:
+//        - `src/**/*.ts`, and `src/**/*.js`
+//        - `scripts/**/*.{mjs,cjs,js}`
+//      NOT scanned, and why each is not:
+//        - `src/**/*.{tsx,jsx,mts,cts}` — no such file exists under `src/`
+//          today. A new one would be invisible until this list changes.
+//        - `scripts/**/*.mts` — the two that exist
+//          (`_release-shared.d.mts`, `release-pack.d.mts`) are AMBIENT
+//          DECLARATION files: types only, no runtime code, so nothing in them
+//          can decide an identity. Scanned anyway? No: parsing `.d.mts` as
+//          TS would contribute nothing and pretending otherwise would inflate
+//          the walk without covering a decision.
+//        - `scripts/**/*.{sh,ps1}`, `src/**/*.sh` — shell, unparsed.
+//        - `packages/**` (including `packages/peaks-loop-mut/**`, a separate
+//          workspace with its own tsconfig), `examples/**`.
+//        - generated `dist/**` (its ids are copies of `src/`, so scanning it
+//          would double every count).
+//      WHY `src/**/*.js` WAS ADDED (2026-09-13): `src/` is not all-TypeScript.
+//      It holds exactly ONE `.js` file — `src/services/hooks/write-gate.js` —
+//      and that file is the Write|Edit|MultiEdit PreToolUse hook documented in
+//      `.claude/HOOKS.md`, i.e. the very handler that runs on every edit of
+//      this repo. It was outside every shape of this guard for no reason but
+//      its extension. It is clean today (verified: no id literal, no
+//      comparison against one, no settings path), so the root costs no
+//      exemption; the anti-silence test pins that the walk still reaches it.
+//      The `scripts/**` root was added in the same revision for the same
+//      class of reason: that file SHIPS (`package.json#files` lists
+//      `scripts/install-skills.mjs`) and held two live
+//      `ideId === 'claude-code'` comparisons which a `src/**`-only walk could
+//      not see even in principle. They are in `KNOWN_DEBT` — visible and
+//      ratcheted rather than unseeable.
 //   5. `src/services/ide/**` is a DIRECTORY allowlist, so it is coarse: a
 //      NEW file dropped into that directory gets a blanket exemption.
 //      `src/services/ide/hook-protocol.ts:63,65` and
@@ -107,7 +181,19 @@
 //   6. Shapes 2 and 3 do not apply outside registry consumers (see the scope
 //      block above). A module that hardcodes `ide: 'claude-code'` or a
 //      `.claude` path WITHOUT importing the registry is invisible to them.
-//      Shape 1 still covers that file's comparisons.
+//      CORRECTED 2026-09-13 — this entry used to end "Shape 1 still covers
+//      that file's comparisons", and that sentence was FALSE as written: the
+//      next revision showed that a type assertion around the literal
+//      (`ide === ('claude-code' as const)`, `as string`, `<string>`) hid the
+//      comparison from shape 1 too, so the escape needed BOTH conditions —
+//      a wrapped literal AND a non-consumer file. Shape 1 now unfolds
+//      `as`/`<T>` wrappers (`staticStringValue`), so the assertion half of
+//      that conjunction is closed and the original sentence is true again for
+//      every spelling of the literal. What remains uncovered in a
+//      non-consumer file is the VALUE/PATH shapes only: `const x =
+//      'claude-code' as const`, `const p = '.claude/settings.local.json'` —
+//      an identity assertion with no comparison and no registry import. That
+//      is a real residual and it is stated here rather than papered over.
 //      REAL INSTANCE, tested by name: `src/services/hooks/auto-compact-hook-install.ts`
 //      is on the compact path and holds `AUTO_COMPACT_HOOK_SETTINGS_PATH =
 //      '.claude/settings.local.json'` as its documented default for callers
@@ -115,26 +201,45 @@
 //      which IS covered, must pass the adapter-derived path — so this default
 //      only reaches callers that hold no adapter.
 //   7. Shape 2 (`findIdeValueLiterals`) skips these positions, deliberately
-//      and by name. Each is a real, live pattern that stays invisible; the
-//      counts are measured over today's registry consumers (adapter layer
-//      excluded), so a reader can size each gap:
+//      and by name. Each is a real, live pattern that stays invisible.
+//      COUNTED, NOT REMEMBERED: every count below was re-measured over the
+//      scanned tree at the 2026-09-13 revision (registry consumers only,
+//      adapter layer excluded) by walking the parsed tree and bucketing each
+//      `staticStringValue`-reachable id by the kind and text of its parent
+//      node. Two of the previous revision's counts were WRONG — (f) and (g)
+//      each undercounted by one site — which is why the method is stated
+//      here rather than the numbers alone:
 //        a. type positions                  `type X = 'claude-code'`
-//        b. comparison operands             owned by shape 1 (6 sites)
-//        c. `case` clauses                  owned by shape 1 (0 sites today)
+//                                           (not bucketed; excluded before
+//                                           the count by `isTypePosition`)
+//        b. comparison operands             6 sites — owned by shape 1, not
+//                                           lost: hooks-codegate-superpowers.ts
+//                                           ×4, hooks-settings-service.ts,
+//                                           hooks-commands.ts
+//        c. `case` clauses                  0 sites today — owned by shape 1
 //        d. property KEYS                   6 sites — the `HOOK_COMMAND_BY_IDE`
 //                                           table in hooks-codegate-superpowers.ts
-//        e. array elements                  1 site — `new Set<IdeId>(['claude-code'])`
-//                                           in hooks-settings-service.ts:191
-//        f. ternary branches                3 sites, all the "unknown → claude-code"
+//        e. array elements                  0 sites today. Was 1
+//                                           (`new Set<IdeId>(['claude-code'])`);
+//                                           the 2026-09-13 revision replaced it
+//                                           with the adapter declaration, so the
+//                                           bucket is EMPTY, not merely smaller
+//        f. ternary branches                4 sites, all the "unknown → claude-code"
 //                                           default: auto-compact-dispatcher.ts:99,
-//                                           auto-compact-reader.ts:96, context-audit.ts:353
-//        g. `??` / `||` right-hand sides    6 sites, same default policy
-//                                           (`detectInstalledIde(root) ?? 'claude-code'`)
+//                                           auto-compact-reader.ts (×2),
+//                                           context-audit.ts:353
+//        g. `??` / `||` right-hand sides    7 sites, same default policy
+//                                           (`detectInstalledIde(root) ?? 'claude-code'`
+//                                           ×3, `options?.ide ?? 'claude-code'` ×2,
+//                                           `opts.ideId ?? … ?? 'claude-code'` ×2 — the
+//                                           last pair is the same shape nested twice)
 //      (f) and (g) are the repo's "unknown → claude-code" DEFAULT policy; (d)
-//      and (e) are id tables. The C1 defect shape 2 exists for is the
-//      opposite of a default: a literal that OVERRIDES a known adapter id.
-//      If the default policy itself must be enforced, that is a separate
-//      check with its own scope — it is not smuggled in here.
+//      is an id table. The C1 defect shape 2 exists for is the opposite of a
+//      default: a literal that OVERRIDES a known adapter id. If the default
+//      policy itself must be enforced, that is a separate check with its own
+//      scope — it is not smuggled in here.
+//      Sites in `scripts/**` are NOT in these counts: that root has no
+//      registry consumer, so shapes 2/3 have nothing to skip there.
 //   8. Shape 3 covers only the directory names the adapters DECLARE
 //      (`dirName: '.claude'`, `'.trae'`, …). A hardcoded path to some other
 //      IDE-specific location (`~/.config/...`, an env-var name, a settings
@@ -149,10 +254,59 @@
 //      can hardcode its own id anywhere; that is where ids belong.
 //  11. `unknown` is excluded from the id set on purpose — `x === 'unknown'`
 //      is an ordinary sentinel test, not a vendor claim.
-//  12. Scope is decided by the registry IMPORT (static or dynamic). A module
-//      that reaches the registry some other way — a CommonJS `require`, a
-//      re-export from another module, or an adapter object handed in by its
-//      caller — is not recognised as a consumer and shapes 2/3 skip it.
+//  12. Scope is decided by a module NAMING the registry module — a static
+//      `import … from`, a lazy `await import(…)`, or an `export … from`
+//      re-export. Still not recognised as a consumer: a CommonJS `require`,
+//      a module that reaches the registry through a SECOND-HOP barrel
+//      (`a.ts` re-exports the registry, `b.ts` re-exports `a.ts`), and an
+//      adapter object handed in by the caller. Shapes 2/3 skip those.
+//      The re-export form was ADDED in the 2026-09-13 revision: a barrel
+//      re-exporting the registry was not a consumer, so a barrel that
+//      re-exported AND hardcoded an id was invisible — the round-3 injection
+//      that falsified the previous revision. All four spellings are covered
+//      (`export { x } from`, aliased, `export *`, `export * as ns`).
+//  13. A template literal WITH substitutions is not foldable:
+//      `` `${vendor}-code` `` and `` `${prefix}-compact` `` are invisible to
+//      every shape, as is any runtime-assembled id (`ids.join('-')`). Only
+//      fully-literal spellings fold. This is the residual of the round-3 fix;
+//      no AST-only check can decide a value that is only known at runtime.
+//  14. A REGEX LITERAL is understood only as far as `regexAlternativeIds`
+//      normalises it, and the boundary is deliberate: an id is reported when
+//      a TOP-LEVEL ALTERNATIVE, after unwrapping whole-span groups, stripping
+//      `^`/`$` anchors and unescaping escaped PUNCTUATION, EQUALS the id. So
+//      these ARE caught — `/claude-code/`, `/^claude-code$/`, `/^claude-code/`,
+//      `/claude-code$/`, `/^(claude-code|trae)$/`, `/^(?:claude-code)$/`,
+//      `/claude\-code/` (`\-` unescapes to `-`), `(/claude-code/)`
+//      (parentheses around the literal do not hide it). These are NOT caught:
+//        a. a regex assembled at runtime — `new RegExp(ide)`, or a pattern
+//           built by concatenation (same class as limit 13). NOT the same
+//           thing as `new RegExp('claude-code')`, which is a plain string
+//           literal in a value position and is owned by shape 2 (inside a
+//           consumer; outside one it is limit 6, like any other value);
+//        b. a pattern that CONTAINS an id rather than being one —
+//           `/claude-code-settings/`, `/^claude-code-/`, `/claude-cod[e]/`,
+//           `/claude_code/`. Only an alternative equal to the id counts, which
+//           is also what keeps `VENDOR_VERBS` (`/claude\s+--compact/`) and
+//           `.claude` path patterns out of this check's way;
+//        c. an alternative carrying a regex-only escape — `/claude-code\b/`:
+//           `\b` is left intact (a word boundary, not punctuation), so it does
+//           not equal the id textually. Likewise no case folding:
+//           `/CLAUDE-CODE/i` is not reported;
+//        d. character-class obfuscation — `/[c]laude-code/`;
+//        e. an alternative nested inside a group that is not a whole-span group
+//           — `/x(claude-code)/`.
+//      Note the asymmetry with (b) on purpose: a LONE `^` or `$` IS stripped,
+//      so `/^claude-code/` (prefix) and `/claude-code$/` (suffix) are reported
+//      even though they can match a longer string. A pattern anchored on the
+//      id as a whole token is an identity decision; a pattern with MORE text
+//      around the id (`/claude-code-settings/`) is not, and pretending to tell
+//      prefix-anchors from no-anchors would add a rule with no detection
+//      behind it — measured cost of the strict alternative rule is zero sites
+//      in the tree today.
+//      Residual risk, stated: a regex can still decide identity WITHOUT
+//      matching an id as an alternative — the (a)-(e) forms above, plus any
+//      `RegExp` composed from a non-literal. Those stay invisible, and this
+//      guard's answer to them is this list, not a claim of coverage.
 //
 // ---------------------------------------------------------------------------
 // AC-1 (vendor VERB strings) is enforced here too, in the same file, because
@@ -178,7 +332,7 @@
 //      CORRECT; that is the adapter's own concern (and its own tests).
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import * as ts from 'typescript';
 
@@ -190,21 +344,89 @@ function relativeToRoot(absolutePath: string): string {
   return absolutePath.slice(PROJECT_ROOT.length + 1).split(sep).join('/');
 }
 
-/** Every TypeScript file under `src/`, recursively. `fs`, not a shell (Windows). */
-function listSourceFiles(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+/**
+ * Directories the walk never enters. `dist/**` is GENERATED and every id in
+ * it is a copy of one in `src/`, so scanning it would double-count every hit;
+ * `node_modules` is not ours. Dot-directories (`.git`, `.peaks`, …) are
+ * skipped by name prefix.
+ */
+const EXCLUDED_DIR_NAMES: ReadonlySet<string> = new Set(['node_modules', 'dist', 'coverage']);
+
+/**
+ * Every file under `dir` whose name ends with one of `extensions`, recursively.
+ * `fs`, not a shell — `execSync('find …')` on this project's Windows CI runs
+ * `find.exe`, a different program.
+ *
+ * One file at a time, each independent of the others: the walk returns the
+ * complete list before anything is parsed, so a single unparseable file can
+ * never decide whether the remaining files are seen.
+ */
+function listFilesRecursively(dir: string, extensions: readonly string[], out: string[] = []): string[] {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    // A root that does not exist contributes nothing rather than aborting the
+    // walk — the anti-silence test pins what was actually reached, so a
+    // missing root fails there instead of passing quietly here.
+    return out;
+  }
+  for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      listSourceFiles(full, out);
-    } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+      if (EXCLUDED_DIR_NAMES.has(entry.name) || entry.name.startsWith('.')) continue;
+      listFilesRecursively(full, extensions, out);
+    } else if (entry.isFile() && extensions.some((ext) => entry.name.endsWith(ext))) {
       out.push(full);
     }
   }
   return out;
 }
 
+/**
+ * The roots the scan walks, and the extensions each admits.
+ *
+ * `scripts/**` is here because it SHIPS — `package.json#files` lists
+ * `scripts/install-skills.mjs` — and it held two live `ideId === 'claude-code'`
+ * decisions that a `src/**`-only walk could not see even in principle (the
+ * limit this replaces, formerly limit 4). Those two are pinned as debt below,
+ * not fixed: making them adapter-driven would also enable the env-var
+ * override for the six other platforms whose profile declares one, i.e. a
+ * behaviour change to a published script's documented contract. Visibility
+ * plus a ratchet is the honest step; the behaviour change is not this slice's.
+ *
+ * `.mjs` / `.cjs` / `.js` are parsed as JavaScript (`ScriptKind.JS`), which
+ * the TypeScript parser supports natively — no new dependency.
+ *
+ * A root that contributes zero files cannot hide: the debt entry below pins
+ * two comparison sites by exact count, so a `scripts/` walk that silently
+ * stopped working fails that test rather than reporting clean.
+ */
+const SCAN_ROOTS: readonly { readonly root: string; readonly extensions: readonly string[] }[] = [
+  // `.js` is here because `src/` is not all-TypeScript: it holds exactly one
+  // hand-written `.js`, `src/services/hooks/write-gate.js`, which is a SHIPPED
+  // PreToolUse hook (the shape gate documented in `.claude/HOOKS.md`) — and it
+  // was invisible to every shape of this guard purely because of its
+  // extension. It is clean today (no id literal, no comparison against one,
+  // no settings path), so this root costs nothing and is pinned by count in
+  // the anti-silence test; the point is that the NEXT edit to that file is
+  // seen. There is no `.tsx`/`.jsx`/`.mts`/`.cts` under `src/` today (limit 4).
+  { root: join(PROJECT_ROOT, 'src'), extensions: ['.ts', '.js'] },
+  { root: join(PROJECT_ROOT, 'scripts'), extensions: ['.mjs', '.cjs', '.js'] }
+];
+
+function scriptKindFor(absolutePath: string): ts.ScriptKind {
+  return /\.(mjs|cjs|js)$/.test(absolutePath) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+}
+
 function parseSourceFile(absolutePath: string, source: string): ts.SourceFile {
-  return ts.createSourceFile(absolutePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  return ts.createSourceFile(
+    absolutePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindFor(absolutePath)
+  );
 }
 
 /**
@@ -257,7 +479,8 @@ const IDE_IDS = ideIdsUnderGuard();
  */
 function adapterSettingsDirNames(): ReadonlySet<string> {
   const names = new Set<string>();
-  for (const absolutePath of listSourceFiles(SRC_ROOT)) {
+  // `src/` only: `dirName` is an adapter-layer field and adapters live there.
+  for (const absolutePath of listFilesRecursively(SRC_ROOT, ['.ts'])) {
     const sourceFile = parseSourceFile(absolutePath, readFileSync(absolutePath, 'utf8'));
     const visit = (node: ts.Node): void => {
       if (
@@ -295,9 +518,9 @@ export interface IdentityComparison {
   readonly line: number;
   /** The compared ID literal, so a failure names which vendor was hardcoded. */
   readonly id: string;
-  /** `subject === 'id'` / `switch (subject) { case 'id' }`. */
-  readonly form: 'comparison' | 'switch-case';
-  /** Source text of the non-literal side. */
+  /** `subject === 'id'`, `switch (subject) { case 'id' }`, or `/^id$/.test(subject)`. */
+  readonly form: 'comparison' | 'switch-case' | 'regex-literal';
+  /** Source text of the non-literal side, or the regex itself for `regex-literal`. */
   readonly subject: string;
 }
 
@@ -305,7 +528,207 @@ const lineOf = (sourceFile: ts.SourceFile, node: ts.Node): number =>
   sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 
 /**
- * Shape 1 — IDE identity COMPARISONS.
+ * The STATIC string value a node denotes, or `null` when it is not statically
+ * known. Folds the three spellings of the same literal that round-3 injection
+ * used to walk past:
+ *
+ *   'claude-code'          string literal      → `node.text`
+ *   `claude-code`          no-substitution template → `node.text`
+ *   'claude' + '-code'     `+` chain of the above  → concatenation
+ *   ('claude-code')        parenthesised form of any of the above
+ *
+ * The previous revision tested `ts.isStringLiteral(node)` directly, so an id
+ * written in any other spelling was not even a CANDIDATE. The property this
+ * guard asserts is about the id a node DENOTES, so the id is folded first and
+ * the fold is shared by all three shapes — a shape that folds while its
+ * sibling does not is how the next injection gets in.
+ *
+ * Template literals WITH substitutions (`${x}-code`) are not foldable and stay
+ * a stated limit (header, limit 3/13).
+ */
+function staticStringValue(node: ts.Node): string | null {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isParenthesizedExpression(node)) return staticStringValue(node.expression);
+  // Type wrappers are ERASED at runtime, so they do not change the value the
+  // node denotes. `ide === ('claude-code' as const)` compares against the same
+  // string `ide === 'claude-code'` does. This form was invisible until
+  // 2026-09-13: an assertion hid the literal from every shape, so a
+  // NON-consumer file (where shape 2 does not run) could re-inject an
+  // identity comparison by adding `as const` and nothing failed.
+  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) return staticStringValue(node.expression);
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticStringValue(node.left);
+    const right = staticStringValue(node.right);
+    if (left !== null && right !== null) return left + right;
+  }
+  return null;
+}
+
+/**
+ * True when an ENCLOSING node already folds to this node's string value — a
+ * parenthesis, a `+` chain, or a type wrapper. Without this, one site reports
+ * once per enclosing spelling (`('claude-code')`, `'claude-code' + ''`,
+ * `'claude-code' as const`) and silently inflates the count-pinned assertions,
+ * which are exact equalities.
+ *
+ * The enclosing node is REPORTED in place of this one (same line, same
+ * `valuePositionLabel`), so folding a wrapper never loses a site: the site is
+ * named by the outermost node that carries it. Blanket-skipping the wrapped
+ * literal without that hand-off would have been a REGRESSION, not a
+ * de-duplication — `{ ide: 'claude-code' as const }` in a consumer was caught
+ * by shape 2 before this revision and must stay caught.
+ */
+function isFoldedIntoParent(node: ts.Node): boolean {
+  const parent: ts.Node | undefined = node.parent;
+  if (parent === undefined) return false;
+  if (ts.isParenthesizedExpression(parent)) return true;
+  if (ts.isAsExpression(parent) || ts.isTypeAssertionExpression(parent)) return true;
+  return (
+    ts.isBinaryExpression(parent) &&
+    parent.operatorToken.kind === ts.SyntaxKind.PlusToken &&
+    staticStringValue(parent) !== null
+  );
+}
+
+/**
+ * The FOURTH literal form: a REGEX LITERAL, asked which guarded ids it matches
+ * EXACTLY.
+ *
+ * Deliberately NOT part of `staticStringValue`. That fold answers "which string
+ * does this node denote", and a regex denotes a LANGUAGE, not a string. Folding
+ * it there would have made a regex satisfy the VALUE and PATH shapes it does
+ * not actually decide (`const p = /\.claude\//` would have read as a hardcoded
+ * settings path). The question this guard actually asks of a regex is the one
+ * below: which ids does the pattern match as a whole string? A regex
+ * `test`/`match` against an ide IS an identity decision — the 2026-09-13 QA
+ * injection (`/^claude-code$/.test(ide)`, `ide.match(/claude-code/)`,
+ * `/^(claude-code|trae)$/.test(ide)`) was 20/20 green because neither a
+ * `RegularExpressionLiteral` nor a method call was any shape's business.
+ *
+ * A regex is a CALL, not a comparison, so this is reported by shape 1 (which
+ * owns identity decisions wherever they appear), not by a `===` scan. See
+ * limit 14 for what the normalisation below does NOT understand.
+ */
+const REGEX_LITERAL_TEXT = /^\/([\s\S]*)\/([a-z]*)$/;
+
+/** The pattern between the delimiters: `/^(a|b)$/i` → `^(a|b)$`, or `null`. */
+function regexPatternSource(text: string): string | null {
+  const match = REGEX_LITERAL_TEXT.exec(text);
+  return match === null ? null : (match[1] ?? '');
+}
+
+/** Split a pattern on top-level `|` (not inside a group, not inside `[…]`). */
+function splitTopLevelAlternatives(pattern: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+  let inCharacterClass = false;
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i] as string;
+    if (char === '\\') {
+      current += char + (pattern[i + 1] ?? '');
+      i += 1;
+      continue;
+    }
+    if (char === '[') inCharacterClass = true;
+    if (char === ']') inCharacterClass = false;
+    if (char === '(') depth += 1;
+    if (char === ')') depth -= 1;
+    if (char === '|' && depth === 0 && !inCharacterClass) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  parts.push(current);
+  return parts;
+}
+
+/** `(x)`, `(?:x)` — one whole-span group — unwrapped to `x`. */
+function unwrapWholeGroup(text: string): string {
+  if (!text.startsWith('(') || !text.endsWith(')')) return text;
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i] as string;
+    if (char === '\\') {
+      i += 1;
+      continue;
+    }
+    if (char === '(') depth += 1;
+    else if (char === ')') {
+      depth -= 1;
+      // The opening paren closed before the end → not one whole-span group
+      // (`(a)|(b)` reaches here as `(a)`+`|`+`(b)`, never as one string).
+      if (depth === 0) return i === text.length - 1 ? text.slice(1, -1).replace(/^\?:/, '') : text;
+    }
+  }
+  return text;
+}
+
+/**
+ * Structural normalisation — unwrap whole-span groups and strip `^`/`$`
+ * anchors on either end. A lone `^` or `$` counts: `/^claude-code/` names the
+ * id as its whole token even though it can match a longer string (see limit
+ * 14's note on this asymmetry). ESCAPES ARE LEFT INTACT here, because the
+ * caller still has to split on `|` and an escaped `\|` is a literal pipe, not
+ * an alternative separator. Iterated because `^(?:x)$` needs both steps.
+ */
+function structuralNormalize(text: string): string {
+  let current = text;
+  for (;;) {
+    const before = current;
+    current = unwrapWholeGroup(current);
+    if (current.startsWith('^')) current = current.slice(1);
+    if (current.endsWith('$') && !current.endsWith('\\$')) current = current.slice(0, -1);
+    if (current === before) break;
+  }
+  return current;
+}
+
+/** `\-` → `-`, `\/` → `/`; `\s`, `\d`, `\w`, `\b` keep their meaning. */
+function unescapePunctuation(text: string): string {
+  return text.replace(/\\(.)/g, (whole, escaped: string) => (/^[A-Za-z0-9]$/.test(escaped) ? whole : escaped));
+}
+
+/** The id text an alternative is keyed on: structural form, then unescaped. */
+function normalizeAlternative(text: string): string {
+  return unescapePunctuation(structuralNormalize(text));
+}
+
+/**
+ * The guarded ids a regex literal keys on, deduplicated. One regex can name
+ * several (`/^(claude-code|trae)$/` → both), which is why this returns a list
+ * where every other literal form returns a single value.
+ *
+ * The whole pattern is normalised BEFORE the split on purpose: in
+ * `/^(claude-code|trae)$/` the `|` sits inside a group, so it is not a
+ * top-level alternative until the anchors are stripped and the group is
+ * unwrapped — splitting first saw one alternative `^(claude-code|trae)$` and
+ * reported nothing. Anchors are stripped again per alternative, so the two
+ * placements (`^(a|b)$` and `^a$|^b$`) both resolve.
+ */
+function regexAlternativeIds(node: ts.Node): string[] {
+  if (!ts.isRegularExpressionLiteral(node)) return [];
+  const pattern = regexPatternSource(node.text);
+  if (pattern === null) return [];
+  const ids = new Set<string>();
+  for (const alternative of splitTopLevelAlternatives(structuralNormalize(pattern))) {
+    const normalized = normalizeAlternative(alternative);
+    if (IDE_IDS.has(normalized)) ids.add(normalized);
+  }
+  return [...ids];
+}
+
+/** The id a node denotes, when that id is one the guard enforces. */
+function ideIdOf(node: ts.Node): string | null {
+  const value = staticStringValue(node);
+  return value !== null && IDE_IDS.has(value) ? value : null;
+}
+
+/**
+ * Shape 1 — IDE identity DECISIONS: comparisons, `case` clauses, and regex
+ * tests.
  *
  * The non-literal side may be ANY expression (`ide`, `ideId`, `adapter.id`,
  * `detected.ide`, an index expression, a call). It used to have to carry a
@@ -316,6 +739,15 @@ const lineOf = (sourceFile: ts.SourceFile, node: ts.Node): number =>
  * `src/services/dispatch/dispatch-record-*.ts`); they are pinned as debt, not
  * excluded, because "the other side is called `vendor`" is exactly the kind
  * of exception that made the rule a hole.
+ *
+ * The regex branch is the fourth literal form. It is not a comparison node at
+ * all — `/^claude-code$/.test(ide)` and `ide.match(/claude-code/)` are CALLS —
+ * so a `===`-and-`case` scan could not reach them however the literal folded,
+ * which is why the fold alone was not the fix (see `regexAlternativeIds`).
+ * Rule: any regex literal whose whole-string alternative equals a guarded id.
+ * Measured over the scanned tree at the 2026-09-13 revision: ZERO such literals
+ * exist today, so this branch costs no exemption and no false positive; every
+ * hit it reports from now on is new code, which is the point.
  */
 export function findIdentityComparisons(sourceFile: ts.SourceFile): IdentityComparison[] {
   const found: IdentityComparison[] = [];
@@ -334,28 +766,35 @@ export function findIdentityComparisons(sourceFile: ts.SourceFile): IdentityComp
     });
   };
 
-  const literalId = (node: ts.Expression): string | null =>
-    ts.isStringLiteral(node) && IDE_IDS.has(node.text) ? node.text : null;
-
   const visit = (node: ts.Node): void => {
     if (ts.isBinaryExpression(node) && IDENTITY_OPERATORS.has(node.operatorToken.kind)) {
-      const leftId = literalId(node.left);
-      const rightId = literalId(node.right);
-      if (leftId !== null && !ts.isStringLiteral(node.right)) {
+      const leftId = ideIdOf(node.left);
+      const rightId = ideIdOf(node.right);
+      // `!== null` on the OTHER side (not `!isStringLiteral`) on purpose: the
+      // subject must be a non-literal EXPRESSION. Folding both sides keeps
+      // `'claude-code' === 'claude' + '-code'` a no-op, as it should be.
+      if (leftId !== null && staticStringValue(node.right) === null) {
         record(node, 'comparison', leftId, briefText(sourceFile, node.right));
       }
-      if (rightId !== null && !ts.isStringLiteral(node.left)) {
+      if (rightId !== null && staticStringValue(node.left) === null) {
         record(node, 'comparison', rightId, briefText(sourceFile, node.left));
       }
     }
-    if (ts.isSwitchStatement(node) && !ts.isStringLiteral(node.expression)) {
+    if (ts.isSwitchStatement(node) && staticStringValue(node.expression) === null) {
       for (const clause of node.caseBlock.clauses) {
         if (!ts.isCaseClause(clause)) continue;
-        const id = literalId(clause.expression);
+        const id = ideIdOf(clause.expression);
         if (id !== null) {
           record(clause, 'switch-case', id, briefText(sourceFile, node.expression));
         }
       }
+    }
+    // `isFoldedIntoParent` is deliberately NOT applied here: parentheses are
+    // not regex literals, so a parenthesised regex cannot double-report, and
+    // skipping on an enclosing node would make `(/claude-code/)` invisible —
+    // a one-character escape from this branch.
+    for (const id of regexAlternativeIds(node)) {
+      record(node, 'regex-literal', id, briefText(sourceFile, node));
     }
     ts.forEachChild(node, visit);
   };
@@ -432,15 +871,19 @@ function valuePositionLabel(sourceFile: ts.SourceFile, node: ts.Node): string {
 export function findIdeValueLiterals(sourceFile: ts.SourceFile): IdeValueLiteral[] {
   const found: IdeValueLiteral[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isStringLiteral(node) && IDE_IDS.has(node.text)) {
-      if (!isTypePosition(node) && !isExcludedValuePosition(node)) {
-        found.push({
-          file: sourceFile.fileName,
-          line: lineOf(sourceFile, node),
-          id: node.text,
-          position: valuePositionLabel(sourceFile, node)
-        });
-      }
+    const id = ideIdOf(node);
+    if (
+      id !== null &&
+      !isFoldedIntoParent(node) &&
+      !isTypePosition(node) &&
+      !isExcludedValuePosition(node)
+    ) {
+      found.push({
+        file: sourceFile.fileName,
+        line: lineOf(sourceFile, node),
+        id,
+        position: valuePositionLabel(sourceFile, node)
+      });
     }
     ts.forEachChild(node, visit);
   };
@@ -482,14 +925,17 @@ function matchesSettingsDir(text: string): string | null {
 export function findSettingsPathLiterals(sourceFile: ts.SourceFile): SettingsPathLiteral[] {
   const found: SettingsPathLiteral[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      const dirName = matchesSettingsDir(node.text);
+    // Same fold as the id checks: `join(root, '.claude', …)` and
+    // `join(root, '.' + 'claude', …)` are the same hardcoded path.
+    const text = staticStringValue(node);
+    if (text !== null && !isFoldedIntoParent(node)) {
+      const dirName = matchesSettingsDir(text);
       if (dirName !== null && !isTypePosition(node)) {
         found.push({
           file: sourceFile.fileName,
           line: lineOf(sourceFile, node),
           dirName,
-          text: node.text
+          text
         });
       }
     }
@@ -514,16 +960,29 @@ const REGISTRY_MODULE = /(^|\/)ide-registry(\.js)?$/;
  * to these files (see the SCOPE block in the header): a module that asks the
  * registry which adapter is in play must not also hardcode an id or a path.
  *
- * BOTH forms count. A static `import { getAdapter } from '…/ide-registry.js'`
- * and a lazy `await import('…/ide-registry.js')` are the same decision — the
- * first draft of this predicate only saw the static form, which silently
- * dropped `src/cli/commands/share-commands.ts` (a real registry consumer,
- * lazy-importing `getAdapter` for `peaks share`) out of scope. Scope that is
- * narrower than it claims is the one failure mode this guard's own header
- * warns about, so the dynamic form is matched too.
+ * THREE forms count — every way a module can name the registry module:
+ *   - `import … from '…/ide-registry.js'` (static)
+ *   - `await import('…/ide-registry.js')` (lazy) — the first draft saw only
+ *     the static form and silently dropped `src/cli/commands/share-commands.ts`
+ *     (a real consumer) out of scope.
+ *   - `export … from '…/ide-registry.js'` (re-export) — round-3 injection:
+ *     a barrel that re-exported the registry was not a consumer, so a barrel
+ *     that ALSO hardcoded an id or a path was invisible to shapes 2/3. The
+ *     `ExportDeclaration` node covers all four spellings at once —
+ *     `export { getAdapter } from …`, the ALIASED
+ *     `export { getAdapter as getIdeAdapter } from …`, `export * from …` and
+ *     `export * as ns from …` — because all four carry the same
+ *     `moduleSpecifier`. Patching only the `export { … } from` spelling would
+ *     have left the other three open.
+ *
+ * Scope that is narrower than it claims is the one failure mode this guard's
+ * own header warns about, which is why each of these is matched rather than
+ * documented as a gap.
  *
  * NOT matched: `require(...)` — this is an ESM tree, and a CommonJS require
- * cannot be typed through it (limit 12 in the header).
+ * cannot be typed through it (limit 12 in the header). Also NOT matched: a
+ * SECOND-HOP barrel (`a.ts` re-exports the registry, `b.ts` re-exports `a.ts`)
+ * — limit 12.
  */
 export function isRegistryConsumer(sourceFile: ts.SourceFile): boolean {
   let consumes = false;
@@ -532,6 +991,14 @@ export function isRegistryConsumer(sourceFile: ts.SourceFile): boolean {
   };
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      note(node.moduleSpecifier.text);
+    }
+    // `export … from '…'` — any of the four re-export spellings.
+    if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier !== undefined &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       note(node.moduleSpecifier.text);
     }
     // `await import('…')` / `import('…')` — a lazy registry lookup.
@@ -626,6 +1093,21 @@ const KNOWN_DEBT: readonly {
     ideValues: 0,
     settingsPaths: 0,
     reason: 'same runtime-vendor axis as dispatch-record-upgrade.ts'
+  },
+  {
+    file: 'scripts/install-skills.mjs',
+    comparisons: 2,
+    ideValues: 0,
+    settingsPaths: 0,
+    reason:
+      'B3(a): `ideId === \'claude-code\'` gates the PEAKS_CLAUDE_*_DIR env-var ' +
+      'override for the agentsDir fan-out and the skillsDir fan-out. The env ' +
+      'var name IS already declared per-platform (`IDE_SKILL_INSTALL_PROFILES[' +
+      'ide].envVar` / `.agentsEnvVar`), so an adapter-driven version is ' +
+      'available — but it would also switch ON the override for the other ' +
+      'platforms whose profile declares one (_trae / _trae-cn / …), which is a ' +
+      'behaviour change to a shipped script\'s documented 1.x-compat contract. ' +
+      'Visible and ratcheted instead: a THIRD site here fails this test'
   }
 ];
 
@@ -688,6 +1170,14 @@ export function findVendorVerbLiterals(sourceFile: ts.SourceFile): VerbLiteral[]
 
 interface ScanResult {
   readonly scannedFiles: number;
+  /**
+   * Every file the walk reached, root-relative. Carried as a LIST, not only as
+   * a count: a count cannot tell "the new root was walked" from "some other
+   * file made up the number", and the two roots this guard added (the
+   * `scripts/` directory, then the `.js` extension under `src/`) are exactly
+   * the ones a count would fail to notice silently dropping.
+   */
+  readonly scannedFileList: readonly string[];
   readonly registryConsumers: readonly string[];
   readonly comparisons: readonly IdentityComparison[];
   readonly ideValues: readonly IdeValueLiteral[];
@@ -696,7 +1186,7 @@ interface ScanResult {
 }
 
 function scanProject(): ScanResult {
-  const files = listSourceFiles(SRC_ROOT);
+  const files = SCAN_ROOTS.flatMap(({ root, extensions }) => listFilesRecursively(root, extensions));
   const comparisons: IdentityComparison[] = [];
   const ideValues: IdeValueLiteral[] = [];
   const settingsPaths: SettingsPathLiteral[] = [];
@@ -717,6 +1207,7 @@ function scanProject(): ScanResult {
   }
   return {
     scannedFiles: files.length,
+    scannedFileList: files.map(relativeToRoot),
     registryConsumers,
     comparisons,
     ideValues,
@@ -736,6 +1227,26 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     // literals, would make every assertion below vacuously green. Pin the
     // walk, the id set, the settings-dir derivation and the scope.
     expect(SCAN.scannedFiles).toBeGreaterThan(400);
+    // BOTH roots were reached. Pinned by naming a file in the second root:
+    // a count threshold alone tolerates one root silently vanishing, and the
+    // `scripts/` root is the one that was invisible until B3(a).
+    expect(
+      SCAN.comparisons.some((hit) => relativeToRoot(hit.file) === 'scripts/install-skills.mjs'),
+      'the scripts/ root was not walked'
+    ).toBe(true);
+    // The SECOND root this guard added is an EXTENSION (`src/**/*.js`), not a
+    // directory, so it is pinned by naming the one file it exists for: a walk
+    // that filtered `.ts` only would still reach `src/services/**`'s ids and
+    // sail past every other assertion here.
+    expect(SCAN.scannedFileList, 'src/**/*.js was not walked').toContain('src/services/hooks/write-gate.js');
+    expect(SCAN.scannedFileList, 'the scripts/ root was not walked').toContain('scripts/install-skills.mjs');
+    expect(SCAN.scannedFileList).toContain('src/services/context/auto-compact-reader.ts');
+    // The regex branch's measured cost, pinned as a fact: no regex literal in
+    // the scanned tree matches an id as a whole string today, so the branch
+    // introduces no exemption and no false positive. A first real site fails
+    // HERE (and in the debt ratchet) instead of appearing as an unexplained
+    // new violation.
+    expect(SCAN.comparisons.filter((hit) => hit.form === 'regex-literal')).toEqual([]);
     expect(IDE_IDS.has('claude-code')).toBe(true);
     expect(IDE_IDS.has('trae')).toBe(true);
     expect(IDE_IDS.has('opencode')).toBe(true);
@@ -875,6 +1386,183 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
     ]);
   });
 
+  it('negative control — a SYNTHESIZED id is still an id (concatenation and backtick literals)', () => {
+    // Round-3 injection: QA falsified the previous revision with
+    // `ide === 'claude' + '-code'` and `` case `claude-code`: `` — both passed.
+    // The cause was that the id test was `ts.isStringLiteral(node)`, so any
+    // literal that is not a plain `'…'` token — a `+` chain, a no-substitution
+    // template — was not even a candidate. The id a node DENOTES is what
+    // matters, so both are folded to their static string value first.
+    const fixture = [
+      `import { getAdapter } from '../ide/ide-registry.js';`,
+      `const a = ide === 'claude' + '-code';`,
+      `const b = target === \`claude-code\`;`,
+      `switch (ide) {`,
+      `  case \`claude-code\` + '':`,
+      `    break;`,
+      `}`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(findIdentityComparisons(parsed).map((h) => `${h.line}:${h.form}:${h.id}`)).toEqual([
+      '2:comparison:claude-code',
+      '3:comparison:claude-code',
+      '5:switch-case:claude-code'
+    ]);
+  });
+
+  it('negative control — a SYNTHESIZED id in a value position is caught too', () => {
+    // Same fold, applied to shape 2. Recorded once per site: a `+` chain must
+    // not also report its own sub-literals (`'claude' + '-code'` has two
+    // string children, one hit).
+    const fixture = [
+      `const c1 = { ide: 'claude' + '-code' };`,
+      `const c2 = \`claude-code\`;`
+    ].join('\n');
+    expect(
+      findIdeValueLiterals(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.position}:${h.id}`)
+    ).toEqual(["1:ide::claude-code", '2:c2 =:claude-code']);
+  });
+
+  it('negative control — a REGEX test is an identity decision (the round-4 injection)', () => {
+    // The three injections QA ran against `auto-compact-reader.ts` — a
+    // MUST_BE_COVERED consumer — and got 20/20 green on that revision. Note
+    // the shape: `.test(ide)` and `ide.match(re)` are CALLS. There is no
+    // BinaryExpression and no `case` clause in any of them, so folding the
+    // regex into a string value could not have reached them even if the fold
+    // had existed; the branch that reaches them is what makes this shape
+    // closed (see `regexAlternativeIds`).
+    const fixture = [
+      `const a = /^claude-code$/.test(ide);`,
+      `const b = ide.match(/claude-code/);`,
+      `const c = /^(claude-code|trae)$/.test(ide);`
+    ].join('\n');
+    expect(findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.form}:${h.id}`)).toEqual([
+      '1:regex-literal:claude-code',
+      '2:regex-literal:claude-code',
+      '3:regex-literal:claude-code',
+      '3:regex-literal:trae'
+    ]);
+  });
+
+  it('negative control — regex normalisation: groups, anchors, escapes and parens do not hide an id', () => {
+    const fixture = [
+      `const a = /^(?:claude-code)$/i.test(ide);`,
+      `const b = /claude\\-code/.test(ide);`,
+      `const c = (/claude-code/).test(ide);`,
+      `const d = /^(claude-code|codex|cursor)$/.test(ide);`,
+      `const e = /trae$/.test(ide);`,
+      `const f = /^codex/.test(ide);`
+    ].join('\n');
+    expect(findIdentityComparisons(parseSourceFile('fixture.ts', fixture)).map((h) => `${h.line}:${h.id}`)).toEqual([
+      '1:claude-code',
+      '2:claude-code',
+      '3:claude-code',
+      '4:claude-code',
+      '4:codex',
+      '4:cursor',
+      '5:trae',
+      '6:codex'
+    ]);
+  });
+
+  it('negative control — a regex that only CONTAINS an id, or obfuscates it, is not a hit', () => {
+    // The false-positive boundary of the alternative rule (header, limit 14):
+    // the alternative must EQUAL the id. Every one of these is a plausible
+    // non-identity pattern, and every one would be reported by a substring
+    // rule. `v1` is the important one — `/claude-code-settings/` is the shape a
+    // path/filename check takes, and reporting it would make the guard noise.
+    const fixture = [
+      `const v1 = /claude-code-settings/.test(x);`,
+      `const v2 = /^claude-code-/.test(x);`,
+      `const v3 = /claude-cod[e]/.test(x);`,
+      `const v4 = /claude\\s+--compact/.test(x);`,
+      `const v5 = /\\/\\.claude\\//.test(x);`,
+      `const v6 = /x(claude-code)/.test(x);`,
+      `const v7 = /claude-code\\b/.test(x);`,
+      `const v8 = /claude_code/.test(x);`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(findIdentityComparisons(parsed)).toEqual([]);
+    // ...and the same decision keeps regexes out of the PATH shape: a regex
+    // does not denote a string, so it must not read as a hardcoded settings
+    // path (`v5` matches `.claude` exactly and is deliberately invisible here).
+    expect(findSettingsPathLiterals(parsed)).toEqual([]);
+  });
+
+  it('negative control — a TYPE WRAPPER does not hide a comparison, even outside a consumer', () => {
+    // Defect 2 of the 2026-09-13 QA round: the escape needed TWO conditions
+    // together — a wrapped literal AND a file that is not a registry consumer
+    // (where shape 2 does not run). The same file with a plain `!==` failed,
+    // and an `as` coercion inside a CONSUMER failed via shape 2. So limit 6's
+    // "Shape 1 still covers that file's comparisons" was false as written;
+    // shape 1 now unfolds the assertion, and this case pins the non-consumer
+    // half explicitly.
+    const fixture = [
+      `const a = ide === ('claude-code' as const);`,
+      `const b = ide !== ('claude-code' as string);`,
+      `const c = ide === <string>'trae';`,
+      `const d = ('claude-code' as const) === ide;`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(isRegistryConsumer(parsed)).toBe(false);
+    expect(findIdentityComparisons(parsed).map((h) => `${h.line}:${h.id}`)).toEqual([
+      '1:claude-code',
+      '2:claude-code',
+      '3:trae',
+      '4:claude-code'
+    ]);
+  });
+
+  it('negative control — a wrapped literal is reported ONCE, at the wrapper (no regression, no double count)', () => {
+    // `isFoldedIntoParent` hands the site to the outermost folding node. That
+    // is what keeps a consumer's wrapped VALUE caught (it was caught before
+    // this revision, by the inner literal) while keeping the count-pinned
+    // assertions exact — skipping the inner literal WITHOUT the hand-off would
+    // have silently dropped the site instead of de-duplicating it.
+    const fixture = [
+      `import { getAdapter } from '../ide/ide-registry.js';`,
+      `const c1 = { ide: 'claude-code' as const };`,
+      `const c2 = ('trae' as string);`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(isRegistryConsumer(parsed)).toBe(true);
+    expect(findIdeValueLiterals(parsed).map((h) => `${h.line}:${h.position}:${h.id}`)).toEqual([
+      '2:ide::claude-code',
+      '3:c2 =:trae'
+    ]);
+  });
+
+  it('negative control — an assertion into a LITERAL TYPE is still a type position, not a value', () => {
+    // `x as 'claude-code'` narrows a type; it does not assert the id. The
+    // assertion's own expression folds to `x` (not a literal) and the type
+    // literal is excluded by `isTypePosition`, so neither shape reports it.
+    const fixture = [
+      `import { getAdapter } from '../ide/ide-registry.js';`,
+      `const a = detected as 'claude-code';`,
+      `const b: 'claude-code' = detected;`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(findIdeValueLiterals(parsed)).toEqual([]);
+    expect(findIdentityComparisons(parsed)).toEqual([]);
+  });
+
+  it('scope detector — a RE-EXPORT of the registry counts as consuming it', () => {
+    // Round-3 injection: a module re-exporting the registry was not a consumer,
+    // so shapes 2/3 skipped it — a barrel that routes per-IDE AND hardcodes an
+    // id was invisible. All three re-export forms count; the alias form and
+    // `export *` are the ones an `export { … } from`-only patch would miss.
+    const named = `export { getAdapter } from '../ide/ide-registry.js';`;
+    const aliased = `export { getAdapter as getIdeAdapter } from '../ide/ide-registry.js';`;
+    const star = `export * from '../ide/ide-registry.js';`;
+    const namespace = `export * as ide from '../ide/ide-registry.js';`;
+    const unrelated = `export * from './auto-compact-types.js';`;
+    expect(isRegistryConsumer(parseSourceFile('fixture.ts', named))).toBe(true);
+    expect(isRegistryConsumer(parseSourceFile('fixture.ts', aliased))).toBe(true);
+    expect(isRegistryConsumer(parseSourceFile('fixture.ts', star))).toBe(true);
+    expect(isRegistryConsumer(parseSourceFile('fixture.ts', namespace))).toBe(true);
+    expect(isRegistryConsumer(parseSourceFile('fixture.ts', unrelated))).toBe(false);
+  });
+
   it('negative control — shape 2 catches `ide:` / `return` / argument values, and skips the documented positions', () => {
     const fixture = [
       `const c1 = { ide: 'claude-code' };`, // property value → caught
@@ -885,13 +1573,15 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       `const p = detected === 'unknown' ? 'claude-code' : detected;`, // default policy, excluded
       `const q = detected ?? 'claude-code';`, // default policy, excluded
       `const t = typeof x === 'string' ? 'x' : 'y';`, // no id literal at all
-      `const r = ide === 'qoder';` // comparison → owned by shape 1
+      `const r = ide === 'qoder';`, // comparison → owned by shape 1
+      `const n = new RegExp('claude-code');` // regex from a LITERAL → still a value site
     ].join('\n');
     const parsed = parseSourceFile('fixture.ts', fixture);
     expect(findIdeValueLiterals(parsed).map((h) => `${h.line}:${h.position}:${h.id}`)).toEqual([
       "1:ide::claude-code",
       '2:return:trae',
-      '3:h(...):cursor'
+      '3:h(...):cursor',
+      '10:RegExp(...):claude-code'
     ]);
     // ...and the comparison in line 9 is caught by shape 1, not lost.
     expect(findIdentityComparisons(parsed).map((h) => `${h.line}:${h.id}`)).toEqual(['9:qoder']);
@@ -971,17 +1661,31 @@ describe('AC-1 — vendor verb strings live only in adapter implementations', ()
   it('the adapter implementation that owns the verb still carries it (anti-silence)', () => {
     // Pins the count in the ALLOWED side too: if the verb check silently
     // stopped recognising literals, the assertion above would go vacuously
-    // green. Exactly one such literal exists in `src/`.
+    // green.
+    //
+    // PINNED BY PROPERTY, NOT BY COORDINATE (B1). This assertion used to read
+    // `claude-code-adapter.ts:585`, and it broke TWICE inside a single slice
+    // (585 → 618) — both times fixed by mechanically editing the number. An
+    // assertion repaired by editing a number stops being read: the person who
+    // edits it never asks why it moved, and after a few rounds it guards
+    // nothing. A line number is not a property of "the verb lives in the
+    // adapter that owns it"; these two are:
+    //
+    //   1. exactly ONE verb literal exists anywhere in the scanned tree, and
+    //   2. the file carrying it is `claude-code-adapter.ts` — an ADAPTER
+    //      IMPLEMENTATION, i.e. inside one of `VERB_ALLOWED_DIRS`.
+    //
+    // Both halves of the old value are kept and neither is a coordinate: a
+    // second occurrence in the SAME file (the defect a line pin was supposed
+    // to catch) makes the array two elements long and fails, exactly as a
+    // second occurrence in any other file does.
     const allowed = SCAN.verbLiterals.filter((hit) =>
       VERB_ALLOWED_DIRS.some((dir) => relativeToRoot(hit.file).startsWith(dir))
     );
-    expect(allowed.map((hit) => `${relativeToRoot(hit.file)}:${hit.line}`)).toEqual([
-      // Re-pinned 585 → 618 in round 2 of slice
-      // 2026-09-13-auto-compact-trigger-ownership: JSDoc added above the
-      // `compact` profile (the ratchet/self-lock explanation) moved the
-      // literal. The pin's VALUE changed; its meaning did not — still exactly
-      // one vendor verb literal, still in the adapter that owns it.
-      'src/services/ide/adapters/claude-code-adapter.ts:618'
+    expect(SCAN.verbLiterals, 'more than one vendor verb literal in the tree').toHaveLength(1);
+    expect(allowed, 'the one verb literal is not in an adapter implementation').toHaveLength(1);
+    expect(allowed.map((hit) => relativeToRoot(hit.file))).toEqual([
+      'src/services/ide/adapters/claude-code-adapter.ts'
     ]);
   });
 
