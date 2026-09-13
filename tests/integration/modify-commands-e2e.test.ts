@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -257,8 +257,18 @@ describe('peaks standards lint (P2-B.2 modify e2e)', () => {
 // ============================================================================
 
 describe('peaks upgrade --detect-1x (P2-B.2 modify e2e)', () => {
-  test('empty tmp project is flagged as 1.x with read-only JSON verdict', () => {
+  test('a project whose only peaks artifact is .peaks/_runtime is flagged as 1.x', () => {
     const project = makeProject('peaks-p2b2-upg-det-');
+    // The detector's first job is to decide whether cwd is a peaks project at
+    // all, and it does that by walking up for `.peaks/_runtime`: with no such
+    // directory `projectRoot` stays null, the two project-level signals are
+    // skipped wholesale, and a bare tmp dir reports `isOneX:false,
+    // signals:[]` (src/services/upgrade/1x-detector-service.ts:38-50, 67-93).
+    // The detector predates this test by six weeks and is mirrored line-for-line
+    // in scripts/install-skills.mjs:1172-1187 (see its
+    // "cwd is not a peaks project (no .peaks/_runtime/)" branch at :1266), so
+    // the fixture — not the product — was what never matched.
+    mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
     const result = runCli(['upgrade', '--to', '2.0', '--project', project, '--detect-1x', '--json'], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope<{
@@ -272,8 +282,10 @@ describe('peaks upgrade --detect-1x (P2-B.2 modify e2e)', () => {
     expect(envelope.data.isOneX).toBe(true);
     expect(Array.isArray(envelope.data.signals)).toBe(true);
     expect(envelope.data.projectRoot.length).toBeGreaterThan(0);
-    // Read-only probe — no files should be written.
-    expect(existsSync(join(project, '.peaks'))).toBe(false);
+    // Read-only probe: it may READ the fixture, but it must not CREATE the
+    // migration state it is only supposed to report on.
+    expect(existsSync(join(project, '.peaks', 'preferences.json'))).toBe(false);
+    expect(readdirSync(join(project, '.peaks', '_runtime'))).toHaveLength(0);
   });
 
   test('on the real repo the verdict classifies non-1x state without writes', () => {

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -8,6 +8,24 @@ const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
 const BIN_TIMEOUT_MS = 120_000;
 const REQUEST_ID = '2026-07-25-p2-b4-adapter-e2e';
+
+/**
+ * The unicode capability tier is ANSI-colored whether or not stdout is a TTY
+ * ("still ANSI-colored; only `ascii` is color-free" —
+ * `src/services/skills/skill-statusline-renderer.ts:414-417`), so the brand
+ * assertions below strip SGR rather than loosening what they match.
+ *
+ * The `⛰` / `🏔` mountain glyphs they used to name were deliberately removed
+ * in the 2026-07-22 ice-cola a11y pass: `BRAND` is the plain-ASCII `Peaks`
+ * (`src/services/skills/statusline-palette.ts:10-16`), and the rendered prefix
+ * is `Peaks <glyph> [...]` — brand first, glyph second.
+ */
+const ANSI_ESC = String.fromCharCode(27);
+const ANSI_SGR = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, 'g');
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_SGR, '');
+}
 
 interface RunResult {
   readonly stdout: string;
@@ -303,12 +321,39 @@ describe('peaks skill presence:clear (P2-B.4 adapter/distribution e2e)', () => {
     }>>(result);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('skill.presence:clear');
-    expect(envelope.data).toMatchObject({ active: false, removed: true });
+    // `removed` reports whether the DEPRECATED single-slot marker file
+    // (`.peaks/_runtime/active-skill.json` / `.peaks/.active-skill.json`, both
+    // pre-4.0.11) was actually unlinked — it is not "was a marker cleared".
+    // Since 4.0.11 the live marker is the sid-scoped lease under
+    // `.peaks/_runtime/<sid>/leases/`, and `clearSkillPresence` deliberately
+    // does not touch it (workflow leases terminalize through
+    // `terminalizeWorkflow`): `clearSkillPresence` @
+    // src/services/skills/skill-presence-service.ts:731-775. A project that
+    // never carried a legacy file therefore clears nothing — the `active:false`
+    // below is the assertion that carries the "marker is gone" meaning.
+    expect(envelope.data).toMatchObject({ active: false, removed: false });
 
     const after = parseJson<CliEnvelope<{ active: boolean }>>(
       runCli(['skill', 'presence', '--project', project, '--json'], project)
     );
     expect(after.data.active).toBe(false);
+  }, BIN_TIMEOUT_MS);
+
+  test('removes a planted pre-4.0.11 single-slot marker and reports removed:true', () => {
+    // The other half of the `removed` contract: the shim's own job. Planted so
+    // `removed` is exercised in both directions rather than only ever read as
+    // `false`.
+    const project = makeProject('peaks-p2b4-presence-clear-legacy-');
+    initWorkspace(project);
+    const legacyMarker = join(project, '.peaks', '_runtime', 'active-skill.json');
+    mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(legacyMarker, '{"skill":"peaks-rd"}\n', 'utf8');
+
+    const result = runCli(['skill', 'presence:clear', '--project', project, '--json'], project);
+    expect(result.code).toBe(0);
+    const envelope = parseJson<CliEnvelope<{ active: boolean; removed: boolean }>>(result);
+    expect(envelope.data).toMatchObject({ active: false, removed: true });
+    expect(existsSync(legacyMarker)).toBe(false);
   }, BIN_TIMEOUT_MS);
 });
 
@@ -448,7 +493,9 @@ describe('peaks statusline render (P2-B.4 adapter/distribution e2e)', () => {
     expectRegisteredHelp(['statusline', 'render'], 'peaks statusline render [options]', project);
     const result = runCli(['statusline', 'render', '--project', project], project);
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toMatch(/^⛰ Peaks/);
+    // Brand prefix only; the line is ANSI-colored (see `stripAnsi` above) and
+    // the mountain glyph now follows the brand instead of preceding it.
+    expect(stripAnsi(result.stdout).trim()).toMatch(/^Peaks/);
   });
 });
 
@@ -468,7 +515,8 @@ describe('peaks statusline default (P2-B.4 adapter/distribution e2e)', () => {
     const envelope = parseJson<{ ok: boolean; command: string; data: { text: string } }>(result);
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('statusline.render');
-    expect(envelope.data.text).toMatch(/^⛰ Peaks/);
+    // `data.text` carries the same SGR bytes as the raw render path.
+    expect(stripAnsi(envelope.data.text)).toMatch(/^Peaks/);
   });
 });
 

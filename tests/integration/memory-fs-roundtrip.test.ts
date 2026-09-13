@@ -31,9 +31,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   ensureMemoryBootstrap,
   executeProjectMemoryExtract,
+  HOT_MEMORY_KINDS,
   readMemoryIndex,
   readProjectMemories,
   readProjectMemoryBody,
+  WARM_MEMORY_KINDS,
   type ExtractedProjectMemory,
   type ProjectMemoryKind
 } from '../../src/services/memory/project-memory-service/index.js';
@@ -202,8 +204,11 @@ describe('project memory filesystem round-trip', () => {
     expect(existsSync(indexPath)).toBe(true);
     const parsed = JSON.parse(readFileSync(indexPath, 'utf8'));
     expect(parsed.version).toBe(1);
-    // Hot + warm together cover the 8-kind union with empty arrays.
+    // Hot + warm together cover the full kind union with empty arrays.
+    // Derived from the declaration (not a literal count) so growing the union
+    // cannot leave this assertion behind again — the 8 it used to hardcode was
+    // the pre-`memory-vocab-and-rotate` size; the union is now 21.
     const totalKeys = Object.keys(parsed.hot).length + Object.keys(parsed.warm).length;
-    expect(totalKeys).toBe(8);
+    expect(totalKeys).toBe(HOT_MEMORY_KINDS.length + WARM_MEMORY_KINDS.length);
   });
 });

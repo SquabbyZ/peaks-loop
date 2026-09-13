@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { afterEach, describe, expect, test } from 'vitest';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const REPO = resolve(__dirname, '../..');
 const BIN_TIMEOUT_MS = 120_000;
-const EXISTING_RID = '2026-07-25-p1-7-sub-agent-dispatch-e2e';
-const EXISTING_SESSION = '2026-07-25-session-6da9d9';
 
 interface RunResult {
   readonly stdout: string;
@@ -23,10 +23,10 @@ interface CliEnvelope<T> {
   readonly nextActions: readonly string[];
 }
 
-function runCli(args: readonly string[]): RunResult {
+function runCli(args: readonly string[], cwd: string = REPO): RunResult {
   try {
     const stdout = execFileSync('node', [BIN, ...args], {
-      cwd: REPO,
+      cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: BIN_TIMEOUT_MS,
       env: { ...process.env, PEAKS_CALLER_ID: 'scan-commands-e2e' }
@@ -48,6 +48,49 @@ function runCli(args: readonly string[]): RunResult {
 
 function parseEnvelope<T>(result: RunResult): CliEnvelope<T> {
   return JSON.parse(result.stdout) as CliEnvelope<T>;
+}
+
+const projects: string[] = [];
+
+afterEach(() => {
+  for (const project of projects) {
+    rmSync(project, { recursive: true, force: true });
+  }
+  projects.length = 0;
+});
+
+/**
+ * Build the git-backed tmp project `scan diff-vs-scope` needs, holding the
+ * session-scoped RD artifact it resolves.
+ *
+ * The previous fixture pointed at
+ * `.peaks/_runtime/2026-07-25-session-6da9d9/rd/requests/001-…md` inside THIS
+ * repository: `.gitignore:9` excludes that tree, the session had been pruned,
+ * and CI never has it — so the test was red for a reason no product change
+ * could fix. Everything here is created by the test. `git init` + one commit is
+ * what makes `gitAvailable` true, and the artifact is written by the product's
+ * own `request init --apply` rather than hand-built, so the fixture cannot
+ * drift from the artifact layout.
+ */
+function seedDiffVsScopeFixture(): { readonly project: string; readonly rid: string; readonly sessionId: string } {
+  const project = mkdtempSync(join(tmpdir(), 'peaks-scan-diff-scope-'));
+  projects.push(project);
+  const git = (args: readonly string[]): void => {
+    execFileSync('git', [...args], { cwd: project, stdio: 'ignore' });
+  };
+  git(['init']);
+  git(['-c', 'user.email=fixture@example.invalid', '-c', 'user.name=fixture', 'commit', '--allow-empty', '-m', 'fixture']);
+
+  const rid = 'scan-diff-vs-scope-fixture';
+  const sessionId = '2026-09-13-session-fixture0';
+  const bound = runCli(['workspace', 'init', '--project', project, '--session-id', sessionId, '--json'], project);
+  expect(bound.code).toBe(0);
+  const created = runCli([
+    'request', 'init', '--role', 'rd', '--id', rid,
+    '--project', project, '--session-id', sessionId, '--apply', '--json'
+  ], project);
+  expect(created.code).toBe(0);
+  return { project, rid, sessionId };
 }
 
 describe('peaks scan archetype', () => {
@@ -167,11 +210,12 @@ describe('peaks scan orphan', () => {
 });
 
 describe('peaks scan diff-vs-scope', () => {
-  test('returns a structured scope verdict for an existing RD request', () => {
+  test('returns a structured scope verdict for a self-constructed RD request', () => {
+    const { project, rid, sessionId } = seedDiffVsScopeFixture();
     const result = runCli([
-      'scan', 'diff-vs-scope', '--rid', EXISTING_RID, '--project', REPO,
-      '--session-id', EXISTING_SESSION, '--json'
-    ]);
+      'scan', 'diff-vs-scope', '--rid', rid, '--project', project,
+      '--session-id', sessionId, '--json'
+    ], project);
     const envelope = parseEnvelope<{
       ok: boolean;
       rdArtifactPath: string;
@@ -184,7 +228,7 @@ describe('peaks scan diff-vs-scope', () => {
 
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('scan.diff-vs-scope');
-    expect(envelope.data.rdArtifactPath).toContain(EXISTING_RID);
+    expect(envelope.data.rdArtifactPath).toContain(rid);
     expect(envelope.data.gitAvailable).toBe(true);
     expect(Array.isArray(envelope.data.changedFiles)).toBe(true);
     expect(Array.isArray(envelope.data.violations)).toBe(true);

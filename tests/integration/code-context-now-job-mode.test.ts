@@ -125,7 +125,11 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
     expect(env.ok).toBe(true);
     expect(env.data.action).toBe('red-line');
     expect(env.data.jobMode).toBe(true);
-    expect(env.data.next).toMatch(/auto-compact-hook/);
+    // The red-line `next` hop is the `peaks code auto-compact` verb. It used to
+    // be the retired `peaks session auto-compact-hook` CLI, removed in
+    // `553409ce` ("retire peaks session auto-compact-hook CLI"); the assertion
+    // outlived the verb it named.
+    expect(env.data.next).toMatch(/peaks code auto-compact/);
   });
 
   test('AC-15c: ratio=0.40 (no job-shape.json, no --enforce-job-mode) → action=ok (advisory)', () => {

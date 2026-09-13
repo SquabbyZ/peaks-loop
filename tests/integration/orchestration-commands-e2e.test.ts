@@ -6,8 +6,14 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 const BIN = resolve(__dirname, '../../bin/peaks.js');
 const BIN_TIMEOUT_MS = 120_000;
-const EXISTING_RID = '2026-07-25-p1-7-sub-agent-dispatch-e2e';
-const EXISTING_SESSION = '2026-07-25-session-6da9d9';
+// The rid + session these tests operate on are CREATED BY THE TESTS in a tmp
+// project (see `seedRequestArtifact`), never discovered on disk. They used to
+// be `EXISTING_RID`/`EXISTING_SESSION` pointing at
+// `.peaks/_runtime/2026-07-25-session-6da9d9/…`, which `.gitignore` excludes
+// and which had already been pruned — so five tests here were red for a reason
+// that had nothing to do with the product.
+const FIXTURE_RID = 'orchestration-e2e-fixture-rid';
+const FIXTURE_SESSION = '2026-09-13-session-fixture0';
 
 interface RunResult {
   readonly stdout: string;
@@ -62,7 +68,33 @@ function makeProject(prefix: string): string {
  *  rotate-now / subagent-cleanup) resolve the same session-id used elsewhere.
  */
 function bindSession(project: string): void {
-  runCli(['workspace', 'init', '--project', project, '--session-id', EXISTING_SESSION, '--json'], project);
+  runCli(['workspace', 'init', '--project', project, '--session-id', FIXTURE_SESSION, '--json'], project);
+}
+
+/**
+ * Create the session-scoped RD artifact the request/scan/memory cases read,
+ * using the product's own writer rather than a hand-built directory: bind the
+ * session, then `peaks request init --apply`. Returns the artifact path so a
+ * caller can hand it to `memory extract`.
+ *
+ * Self-constructed on purpose. The previous fixture was a hardcoded pointer at
+ * `.peaks/_runtime/2026-07-25-session-6da9d9/rd/requests/001-…md` — gitignored,
+ * single-use, already pruned locally and absent in CI, so every test that read
+ * it was red for a reason no product change could fix.
+ */
+function seedRequestArtifact(project: string): string {
+  bindSession(project);
+  const created = runCli([
+    'request', 'init', '--role', 'rd', '--id', FIXTURE_RID,
+    '--project', project, '--session-id', FIXTURE_SESSION,
+    '--apply', '--json'
+  ], project);
+  expect(created.code).toBe(0);
+  const envelope = parseEnvelope(created);
+  expect(envelope.ok).toBe(true);
+  const path = (envelope.data as { path?: string }).path;
+  expect(typeof path).toBe('string');
+  return path as string;
 }
 
 afterEach(() => {
@@ -80,7 +112,7 @@ describe('peaks slice decompose (P2-B.3 orchestration e2e)', () => {
   test('on a tmp project without a PRD body returns a structured SLICE_DECOMPOSE_FAILED envelope', () => {
     const project = makeProject('peaks-p2b3-slice-decompose-');
     const result = runCli(
-      ['slice', 'decompose', EXISTING_RID, '--project', project, '--granularity', 'auto', '--json'],
+      ['slice', 'decompose', FIXTURE_RID, '--project', project, '--granularity', 'auto', '--json'],
       project
     );
     // Structured error envelope is the contract — never a free-form crash.
@@ -89,7 +121,7 @@ describe('peaks slice decompose (P2-B.3 orchestration e2e)', () => {
     expect(envelope.command).toMatch(/^slice\.decompose/);
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('SLICE_DECOMPOSE_FAILED');
-    expect((envelope.data as { rid?: string }).rid).toBe(EXISTING_RID);
+    expect((envelope.data as { rid?: string }).rid).toBe(FIXTURE_RID);
   });
 });
 
@@ -97,7 +129,7 @@ describe('peaks slice pick (P2-B.3 orchestration e2e)', () => {
   test('with no decomposition file present returns a structured SLICE_PICK_FAILED envelope', () => {
     const project = makeProject('peaks-p2b3-slice-pick-');
     const result = runCli(
-      ['slice', 'pick', EXISTING_RID, '--project', project, '--json'],
+      ['slice', 'pick', FIXTURE_RID, '--project', project, '--json'],
       project
     );
     expect(result.stdout.length).toBeGreaterThan(0);
@@ -105,7 +137,7 @@ describe('peaks slice pick (P2-B.3 orchestration e2e)', () => {
     expect(envelope.command).toMatch(/^slice\.pick/);
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('SLICE_PICK_FAILED');
-    expect((envelope.data as { rid?: string }).rid).toBe(EXISTING_RID);
+    expect((envelope.data as { rid?: string }).rid).toBe(FIXTURE_RID);
   });
 });
 
@@ -113,7 +145,7 @@ describe('peaks slice plan (P2-B.3 orchestration e2e)', () => {
   test('without a picked file returns a structured SLICE_PLAN_FAILED envelope (no apply path exercised)', () => {
     const project = makeProject('peaks-p2b3-slice-plan-');
     const result = runCli(
-      ['slice', 'plan', EXISTING_RID, '--project', project, '--json'],
+      ['slice', 'plan', FIXTURE_RID, '--project', project, '--json'],
       project
     );
     expect(result.stdout.length).toBeGreaterThan(0);
@@ -122,7 +154,7 @@ describe('peaks slice plan (P2-B.3 orchestration e2e)', () => {
     expect(envelope.ok).toBe(false);
     expect(envelope.code).toBe('SLICE_PLAN_FAILED');
     const data = envelope.data as { rid?: string; pickedPath?: string };
-    expect(data.rid).toBe(EXISTING_RID);
+    expect(data.rid).toBe(FIXTURE_RID);
     expect(data.pickedPath ?? '').toContain('picked.json');
   });
 });
@@ -191,8 +223,8 @@ describe('peaks job init (P2-B.3 orchestration e2e)', () => {
     const project = makeProject('peaks-p2b3-job-init-');
     const result = runCli([
       'job', 'init', '--job-id', 'p2b3-fixture-job',
-      '--slice-list', `${EXISTING_RID},rid-fake`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID},rid-fake`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
     expect(result.code).toBe(0);
@@ -212,8 +244,8 @@ describe('peaks job status (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     const init = runCli([
       'job', 'init', '--job-id', 'p2b3-status-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
     expect(init.code).toBe(0);
@@ -232,7 +264,7 @@ describe('peaks job status (P2-B.3 orchestration e2e)', () => {
       mainLoopStrategy?: string;
     };
     expect(data.total).toBeGreaterThan(0);
-    expect(data.currentSlice).toBe(EXISTING_RID);
+    expect(data.currentSlice).toBe(FIXTURE_RID);
     expect(data.mainLoopStrategy).toBeTruthy();
   });
 });
@@ -266,8 +298,8 @@ describe('peaks job checkpoint (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     const init = runCli([
       'job', 'init', '--job-id', 'p2b3-checkpoint-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
     expect(init.code).toBe(0);
@@ -275,7 +307,7 @@ describe('peaks job checkpoint (P2-B.3 orchestration e2e)', () => {
     const result = runCli([
       'job', 'checkpoint',
       '--job-id', 'p2b3-checkpoint-job',
-      '--slice-id', EXISTING_RID,
+      '--slice-id', FIXTURE_RID,
       '--state', 'done',
       '--commit-sha', 'deadbeefcafebabe1234567890abcdef00000000',
       '--reason', 'p2b3 orchestration e2e fixture',
@@ -286,7 +318,7 @@ describe('peaks job checkpoint (P2-B.3 orchestration e2e)', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('checkpoint');
     const data = envelope.data as { sliceId?: string; status?: string };
-    // D7: the job was seeded with `--slice-list <EXISTING_RID>`, so EXISTING_RID
+    // D7: the job was seeded with `--slice-list <FIXTURE_RID>`, so FIXTURE_RID
     // is the slice's LABEL. `--slice-id` accepts it as an alias for slice-001
     // and the envelope reports the canonical id that was actually updated.
     expect(data.sliceId).toBe('slice-001');
@@ -300,8 +332,8 @@ describe('peaks job rotate-now (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-rotate-job',
-      '--slice-list', `${EXISTING_RID},rid-a,rid-b`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID},rid-a,rid-b`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
@@ -325,15 +357,15 @@ describe('peaks job block (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-block-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
     const result = runCli([
       'job', 'block',
       '--job-id', 'p2b3-block-job',
-      '--slice-id', EXISTING_RID,
+      '--slice-id', FIXTURE_RID,
       '--reason', 'p2b3 block fixture',
       '--project', project, '--json'
     ], project);
@@ -342,7 +374,7 @@ describe('peaks job block (P2-B.3 orchestration e2e)', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.command).toBe('block');
     const data = envelope.data as { blocked?: string; reason?: string };
-    // D7: EXISTING_RID is the slice's LABEL (see the checkpoint case above);
+    // D7: FIXTURE_RID is the slice's LABEL (see the checkpoint case above);
     // the envelope reports the canonical sliceId that was actually blocked.
     expect(data.blocked).toBe('slice-001');
     expect(data.reason).toBe('p2b3 block fixture');
@@ -355,8 +387,8 @@ describe('peaks job continue (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-continue-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
@@ -370,7 +402,7 @@ describe('peaks job continue (P2-B.3 orchestration e2e)', () => {
     expect(envelope.command).toBe('continue');
     const data = envelope.data as { remaining?: number; next?: string };
     expect(data.remaining).toBeGreaterThan(0);
-    expect(data.next).toBe(EXISTING_RID);
+    expect(data.next).toBe(FIXTURE_RID);
   });
 });
 
@@ -380,8 +412,8 @@ describe('peaks job resume (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-resume-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
@@ -405,8 +437,8 @@ describe('peaks job handoff (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-handoff-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
@@ -430,8 +462,8 @@ describe('peaks job subagent-cleanup (P2-B.3 orchestration e2e)', () => {
     bindSession(project);
     runCli([
       'job', 'init', '--job-id', 'p2b3-sa-job',
-      '--slice-list', `${EXISTING_RID}`,
-      '--project', project, '--session-id', EXISTING_SESSION,
+      '--slice-list', `${FIXTURE_RID}`,
+      '--project', project, '--session-id', FIXTURE_SESSION,
       '--json'
     ], project);
 
@@ -468,13 +500,15 @@ describe('peaks job rotation (P2-B.3 orchestration e2e)', () => {
 // ============================================================================
 
 describe('peaks memory extract (P2-B.3 orchestration e2e)', () => {
-  test('dry-run on the real repo reports a structured extract verdict (apply:false)', () => {
+  test('dry-run on a self-constructed artifact reports a structured extract verdict (apply:false)', () => {
+    const project = makeProject('peaks-p2b3-mem-extract-');
+    const artifactPath = seedRequestArtifact(project);
     const result = runCli([
       'memory', 'extract',
-      '--project', process.cwd(),
-      '--artifact', join(process.cwd(), '.peaks/_runtime/2026-07-25-session-6da9d9/rd/requests/001-2026-07-25-p1-7-sub-agent-dispatch-e2e.md'),
+      '--project', project,
+      '--artifact', artifactPath,
       '--dry-run', '--json'
-    ], process.cwd());
+    ], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -600,13 +634,15 @@ describe('peaks memory prune (P2-B.3 orchestration e2e)', () => {
 // ============================================================================
 
 describe('peaks request lint (P2-B.3 orchestration e2e)', () => {
-  test('scans the existing rid artifact and reports findings with structured envelope', () => {
+  test('scans the fixture rid artifact and reports findings with structured envelope', () => {
+    const project = makeProject('peaks-p2b3-req-lint-');
+    seedRequestArtifact(project);
     const result = runCli([
-      'request', 'lint', EXISTING_RID, '--role', 'rd',
-      '--project', process.cwd(),
-      '--session-id', EXISTING_SESSION,
+      'request', 'lint', FIXTURE_RID, '--role', 'rd',
+      '--project', project,
+      '--session-id', FIXTURE_SESSION,
       '--json'
-    ], process.cwd());
+    ], project);
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -619,20 +655,22 @@ describe('peaks request lint (P2-B.3 orchestration e2e)', () => {
       findings: ReadonlyArray<{ line: number; reason: string; severity: string }>;
     };
     expect(data.role).toBe('rd');
-    expect(data.requestId).toBe(EXISTING_RID);
+    expect(data.requestId).toBe(FIXTURE_RID);
     expect(data.totalLines).toBeGreaterThan(0);
     expect(Array.isArray(data.findings)).toBe(true);
   });
 });
 
 describe('peaks request repair-status (P2-B.3 orchestration e2e)', () => {
-  test('reports cycle count and atCap verdict for the existing rid', () => {
+  test('reports cycle count and atCap verdict for the fixture rid', () => {
+    const project = makeProject('peaks-p2b3-req-repair-');
+    seedRequestArtifact(project);
     const result = runCli([
-      'request', 'repair-status', EXISTING_RID,
-      '--project', process.cwd(),
-      '--session-id', EXISTING_SESSION,
+      'request', 'repair-status', FIXTURE_RID,
+      '--project', project,
+      '--session-id', FIXTURE_SESSION,
       '--json'
-    ], process.cwd());
+    ], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -647,7 +685,7 @@ describe('peaks request repair-status (P2-B.3 orchestration e2e)', () => {
       blocked: boolean;
       entries: readonly unknown[];
     };
-    expect(data.requestId).toBe(EXISTING_RID);
+    expect(data.requestId).toBe(FIXTURE_RID);
     expect(data.maxCycles).toBe(3);
     expect(data.atCap).toBe(false);
     expect(Array.isArray(data.entries)).toBe(true);
@@ -656,10 +694,12 @@ describe('peaks request repair-status (P2-B.3 orchestration e2e)', () => {
 
 describe('peaks request list (P2-B.3 orchestration e2e)', () => {
   test('lists per-request artifacts under the session scoped to role=rd', () => {
+    const project = makeProject('peaks-p2b3-req-list-');
+    seedRequestArtifact(project);
     const result = runCli([
-      'request', 'list', '--project', process.cwd(),
-      '--session-id', EXISTING_SESSION, '--role', 'rd', '--json'
-    ], process.cwd());
+      'request', 'list', '--project', project,
+      '--session-id', FIXTURE_SESSION, '--role', 'rd', '--json'
+    ], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -677,13 +717,15 @@ describe('peaks request list (P2-B.3 orchestration e2e)', () => {
 });
 
 describe('peaks request show (P2-B.3 orchestration e2e)', () => {
-  test('shows the existing rid artifact with a structured envelope', () => {
+  test('shows the fixture rid artifact with a structured envelope', () => {
+    const project = makeProject('peaks-p2b3-req-show-');
+    seedRequestArtifact(project);
     const result = runCli([
-      'request', 'show', EXISTING_RID, '--role', 'rd',
-      '--project', process.cwd(),
-      '--session-id', EXISTING_SESSION,
+      'request', 'show', FIXTURE_RID, '--role', 'rd',
+      '--project', project,
+      '--session-id', FIXTURE_SESSION,
       '--json'
-    ], process.cwd());
+    ], project);
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -695,9 +737,9 @@ describe('peaks request show (P2-B.3 orchestration e2e)', () => {
       state: string;
     };
     expect(data.role).toBe('rd');
-    expect(data.requestId).toBe(EXISTING_RID);
+    expect(data.requestId).toBe(FIXTURE_RID);
     expect(data.state.length).toBeGreaterThan(0);
-    expect(data.path).toContain(EXISTING_RID);
+    expect(data.path).toContain(FIXTURE_RID);
   });
 });
 
@@ -707,7 +749,7 @@ describe('peaks request delete (P2-B.3 orchestration e2e)', () => {
     // documented subcommand is NOT registered so a future addition gets
     // surfaced as a structured verdict rather than a silent delete.
     const result = runCli([
-      'request', 'delete', EXISTING_RID,
+      'request', 'delete', FIXTURE_RID,
       '--project', process.cwd(),
       '--json'
     ], process.cwd());

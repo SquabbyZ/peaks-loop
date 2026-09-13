@@ -208,27 +208,39 @@ describe('peaks release plan (P2-B.6 misc e2e)', () => {
 // ============================================================================
 
 describe('peaks codegraph affected (P2-B.6 misc e2e)', () => {
-  test('returns a structured CLI error envelope when CodeGraph is not initialized in this repo', () => {
-    // Upstream CodeGraph is a sidecar binary not bundled in peaks-loop;
-    // the contract is either ok:true (when initialized) or a structured
-    // CLI error envelope on stderr.
+  test('--json is the documented upstream passthrough, not a peaks envelope', () => {
+    // `--json` on THIS subcommand is declared as "forward JSON output flag to
+    // upstream codegraph" (src/cli/commands/codegraph-commands.ts:713-718) and
+    // the handler re-emits every upstream stdout line so the wrapper is
+    // transparent (:562-568). The RESULT ENVELOPE flag is the global
+    // `--peaks-json`, which is what `asJson` is bound to. So a successful run
+    // yields upstream's own JSON shape — an earlier version of this test read
+    // it as a ResultEnvelope and failed on `envelope.command`.
+    //
+    // Upstream CodeGraph is a sidecar binary not bundled in peaks-loop, so the
+    // upstream-shape assertion is guarded by "did anything come back at all".
     const result = runCli(
       ['codegraph', 'affected', 'src/index.ts', '--project', REPO, '--json'],
       REPO
     );
-    // Either the CLI emits a JSON envelope (initialised or structured error),
-    // or — when codegraph is genuinely absent — a plain text error on stderr.
-    // We accept both shapes as long as some form of error reporting appears.
     const combined = result.stdout + result.stderr;
-    if (result.stdout.trim().length > 0) {
-      const envelope = parseEnvelope(result);
-      expect(['codegraph.affected', 'cli']).toContain(envelope.command);
-      expect(typeof envelope.ok).toBe('boolean');
-      if (!envelope.ok) {
-        expect(envelope.code).toBeTruthy();
-      }
-    } else {
+    if (result.stdout.trim().length === 0) {
+      // The sidecar binary is genuinely absent — a plain-text error is the
+      // only thing that can appear.
       expect(combined.length).toBeGreaterThan(0);
+      return;
+    }
+    const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+    const isEnvelope = typeof payload['ok'] === 'boolean' && typeof payload['command'] === 'string';
+    if (isEnvelope) {
+      // peaks itself failed (e.g. the upstream binary could not be spawned);
+      // the wrapper's own errors ARE structured.
+      expect(payload['ok']).toBe(false);
+      expect(payload['code']).toBeTruthy();
+    } else {
+      // The documented transparent passthrough: upstream's own shape.
+      expect(Array.isArray(payload['changedFiles'])).toBe(true);
+      expect(Array.isArray(payload['affectedTests'])).toBe(true);
     }
   });
 });
@@ -514,8 +526,19 @@ describe('peaks ecc status (P2-B.6 misc e2e)', () => {
     expect(envelope.command).toBe('ecc.status');
     // Either installed (ok:true) or NO_CACHE (ok:false) — both are valid first-run contracts.
     if (envelope.ok) {
-      const data = envelope.data as { installed?: boolean; sha?: string | null };
-      expect(data.installed).toBe(true);
+      // On the success branch `ok:true` IS the "installed" signal, and the
+      // payload is the cached ECC manifest printed verbatim
+      // (src/cli/commands/ecc-commands.ts:106-113). It has never carried an
+      // `installed` field — only the NO_CACHE branch below synthesises one
+      // (:91-98). Asserting `installed === true` here was over-specification.
+      const data = envelope.data as {
+        version?: string;
+        sha?: string | null;
+        fetchedAt?: string;
+        agents?: readonly unknown[];
+      };
+      expect(typeof data.version).toBe('string');
+      expect(Array.isArray(data.agents)).toBe(true);
     } else {
       expect(envelope.code).toBe('NO_CACHE');
       const data = envelope.data as { installed?: boolean };

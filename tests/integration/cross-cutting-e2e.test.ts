@@ -81,6 +81,41 @@ afterEach(() => {
   projects.length = 0;
 });
 
+/**
+ * Build the peaks-loop repo shape `peaks release canary` requires.
+ *
+ * Since rid-010 the canary action runs the 4-layer version precheck before it
+ * transitions anything (`release-commands.ts:167-205` → `executeCanaryAction`
+ * → `runAllLayers`), and two of those layers read a real repo layout:
+ * `rootVsShared` compares root `package.json#version` against
+ * `packages/peaks-loop-shared/dist/version.js`, and `workspaceLockstep` wants
+ * `peaks-loop-shared` workspace-linked with a clean semver
+ * (`version-precheck-service.ts:152-219`, `:328-394`). A bare tmp dir therefore
+ * can never reach canary — it fails closed with `PRECHECK_BLOCKER` before the
+ * lifecycle is touched, which is the precheck working, not the release
+ * lifecycle regressing. Three files, all written by this test; no git needed
+ * (the tag-collision layer degrades to a warning outside a repository).
+ */
+function seedCanaryPrecheckFixture(project: string, version: string): void {
+  const sharedDir = join(project, 'packages', 'peaks-loop-shared');
+  mkdirSync(join(sharedDir, 'dist'), { recursive: true });
+  writeFileSync(
+    join(project, 'package.json'),
+    `${JSON.stringify(
+      { name: 'p2d-release-fixture', version, private: true, dependencies: { 'peaks-loop-shared': 'workspace:*' } },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+  writeFileSync(
+    join(sharedDir, 'package.json'),
+    `${JSON.stringify({ name: 'peaks-loop-shared', version, private: true }, null, 2)}\n`,
+    'utf8'
+  );
+  writeFileSync(join(sharedDir, 'dist', 'version.js'), `export const CLI_VERSION = "${version}";\n`, 'utf8');
+}
+
 // ============================================================================
 // peaks release lifecycle (P2-D cross-cutting e2e)
 // plan -> canary(10) -> canary(50) -> rollback -> hotfix (no npmjs touches)
@@ -91,6 +126,9 @@ describe('peaks release lifecycle (P2-D cross-cutting e2e)', () => {
     const project = makeProject('peaks-p2d-release-');
     const version = '4.0.0-p2d-fixture';
     const hotfixVersion = '4.0.1-p2d-fixture';
+    // Only `release canary` consults the precheck; plan / rollback / hotfix /
+    // watch do not, so the fixture only has to satisfy the version it canaries.
+    seedCanaryPrecheckFixture(project, version);
 
     // plan
     const planned = parseEnvelope(runCli(

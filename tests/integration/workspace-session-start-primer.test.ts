@@ -17,6 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command } from 'commander';
 
+import { registerSessionCommand } from '~/src/cli/commands/core/session-command';
 import {
   registerPrimerCommand,
   runPrimerAction
@@ -45,6 +46,14 @@ describe("workspace-session-start-primer — `peaks session primer` subcommand",
   it("commander registration: 'session primer' is a CHILD of the 'session' group (M-4 fix)", () => {
     const program = new Command();
     const io = makeStdio();
+    // Assembly order is part of this contract, not incidental: the real
+    // program registers the `session` group (via autoRegisterAllCommands →
+    // registerSessionCommand) BEFORE `registerPrimerCommand`
+    // (src/cli/program.ts:221,229), and `registerPrimerCommand` asserts that
+    // precondition on purpose — it exists to stop the duplicate-group
+    // regression (`cannot add command 'session' as already have one`).
+    // Calling it on a bare `new Command()` never satisfied the precondition.
+    registerSessionCommand(program, io);
     registerPrimerCommand(program, io);
     // The 'session' command itself must exist as a top-level group.
     const sessionCmd = program.commands.find((c) => c.name() === 'session');

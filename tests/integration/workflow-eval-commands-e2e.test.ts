@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -16,13 +16,13 @@ interface RunResult {
   readonly code: number;
 }
 
-function runCli(args: readonly string[], cwd: string): RunResult {
+function runCli(args: readonly string[], cwd: string, extraEnv: NodeJS.ProcessEnv = {}): RunResult {
   try {
     const stdout = execFileSync('node', [BIN, ...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: BIN_TIMEOUT_MS,
-      env: { ...process.env, PEAKS_CALLER_ID: 'workflow-eval-commands-e2e' }
+      env: { ...process.env, PEAKS_CALLER_ID: 'workflow-eval-commands-e2e', ...extraEnv }
     }).toString('utf8');
     return { stdout, stderr: '', code: 0 };
   } catch (error: unknown) {
@@ -248,8 +248,49 @@ describe('peaks verdict aggregate (P2-B.5 verdict e2e)', () => {
 // ============================================================================
 
 describe('peaks sop list (P2-B.5 sop e2e)', () => {
-  test('global registry returns a structured sops[] envelope with at least one sop', () => {
-    const result = runCli(['sop', 'registry', '--json'], REPO);
+  test('a registry written by `sop register` is enumerated as a structured sops[] envelope', () => {
+    // `sop registry` reads a `sops/registry.json` that `sop register` WRITES.
+    // Committing a manifest is not enough: this repo commits
+    // `.peaks/sops/wechat-post-publish/sop.json` but has never run `sop
+    // register`, so `.peaks/sops/registry.json` does not exist and the command
+    // correctly returns `{sops: [], gateCount: 0}` for an absent registry
+    // (sop-registry-service.ts:55-65). The old assertion assumed the
+    // developer's PERSONAL `~/.peaks` SOP library was populated — red on every
+    // clean machine and in CI by construction.
+    //
+    // The fixture therefore drives the real writer end to end instead of
+    // hand-building JSON: `PEAKS_HOME` redirects the global layer into a tmp
+    // dir (sop-paths.ts:23-26, the documented test seam), a lint-clean manifest
+    // is planted there, and `sop register` produces the registry the command
+    // then reads. The real `~/.peaks` is never touched.
+    const home = mkdtempSync(join(tmpdir(), 'peaks-p2b5-sop-home-'));
+    projects.push(home);
+    const sopId = 'p2-b5-fixture-sop';
+    const manifestDir = join(home, 'sops', sopId);
+    mkdirSync(manifestDir, { recursive: true });
+    writeFileSync(
+      join(manifestDir, 'sop.json'),
+      `${JSON.stringify(
+        {
+          id: sopId,
+          name: 'P2-B.5 fixture SOP',
+          description: 'integration fixture: a lint-clean manifest so `sop register` writes a real registry',
+          phases: ['draft', 'review'],
+          gates: [
+            { id: 'draft-exists', phase: 'review', check: { type: 'file-exists', path: 'posts/draft.md' } }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+
+    const registered = runCli(['sop', 'register', '--id', sopId, '--json'], REPO, { PEAKS_HOME: home });
+    expect(registered.code).toBe(0);
+    expect(parseEnvelope(registered).ok).toBe(true);
+
+    const result = runCli(['sop', 'registry', '--json'], REPO, { PEAKS_HOME: home });
     expect(result.code).toBe(0);
     const envelope = parseEnvelope(result);
     expect(envelope.ok).toBe(true);
@@ -260,7 +301,7 @@ describe('peaks sop list (P2-B.5 sop e2e)', () => {
     expect((data.sops ?? []).length).toBeGreaterThan(0);
     const first = data.sops?.[0];
     expect(first).toBeDefined();
-    expect(first?.id).toBeTruthy();
+    expect(first?.id).toBe(sopId);
   });
 });
 
