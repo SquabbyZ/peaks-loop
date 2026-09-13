@@ -45,7 +45,8 @@ LLM senses context pressure
   │   │     ├─ Job mode → MUST auto-compact now
   │   │     └─ non-Job  → wait for next idle turn, then compact
   │   ├─ 0.85 ≤ ratio < 0.95 → pre-compact zone; auto-compact MUST fire
-  │   └─ ratio ≥ 0.95       → red-line; synchronous gate (Karpathy §4)
+  │   └─ ratio ≥ 0.95       → red-line; compact REQUESTED, dispatch NOT blocked (Karpathy §4)
+  │                                 keep working, re-probe, do not stall
   ├─► Check statusline compact bar (signal #4)
   │   ├─ queued / preparing / compacting / verifying → wait
   │   ├─ failed → read failure reason, do NOT spawn new session

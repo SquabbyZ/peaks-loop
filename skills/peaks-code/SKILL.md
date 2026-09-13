@@ -203,7 +203,7 @@ Before the first planning action, run `peaks fresh-context preflight --prompt "<
 |---|---|---|
 | `< 0.85` | normal | skip — LLM keeps working |
 | `0.85 ≤ ratio < 0.95` | **pre-compact zone** | `peaks code auto-compact` fires **automatically** (deferred only when in-flight sub-agent batch is running; fires the moment the batch lands). The LLM does not prompt the user. |
-| `ratio ≥ 0.95` | **red-line (Karpathy §4)** | synchronous gate — `peaks code auto-compact` invoked immediately; `peaks code context-now` returns `action: 'red-line'` and refuses to advance until ratio drops below 0.85. **Karpathy §4 automatic exception** — LLM cannot opt out. |
+| `ratio ≥ 0.95` | **red-line (Karpathy §4)** | `peaks code auto-compact` invoked immediately; `peaks code context-now` returns `action: 'red-line'`. **Since 4.0.47 the red line REQUESTS the compaction and says it is waiting — it does NOT block sub-agent dispatch, and it does not refuse to advance.** Keep working and re-probe with `peaks code context-now`; the harness performs the compaction, and nothing peaks-loop can do lowers the ratio on its own, so blocking here was a deadlock rather than a gate. If the ratio keeps climbing and no compaction lands, report that and hand control back — do not stall. `--bypass-red-line` is a no-op. |
 
 **Probe primitive (single source of truth):** `peaks code context-now --json`. Do NOT use `peaks context check --prompt-size` (deprecated, will silently under-report ratio). Returns `{ ratio, action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' }` — Code reads `action` and dispatches `peaks code auto-compact` on `auto-compact-now` or `red-line` without user confirmation.
 
