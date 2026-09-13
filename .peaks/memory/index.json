@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T16:24:11.444Z",
+  "updatedAt": "2026-09-13T20:26:08.861Z",
   "hot": {
     "rule": [
       {
@@ -412,6 +412,14 @@
         "kind": "feedback",
         "description": "**用注入验证守卫时，探针本身出错的表现，与\"守卫工作正常\"**输出完全一样**。** 2026-09-13 实测（peaks-loop vendor 守卫的收口轮）：RD 的注入探针用  启动。在 Windows 上，不经 shel...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+        "kind": "feedback",
+        "description": "**\"看起来验证过了\"和\"验证过了\"在输出上可以完全一致。分开它们的只有一个动作：让下一个人重新量一遍 —— 而不是让他相信上一轮的报告。** 实测：同一晚四次 | # | 结论 | 证据的瑕 | |---|---|---| | 1 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
@@ -2058,10 +2066,26 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "a-lone-ts6053-is-an-abort-not-a-clean-tree",
+        "kind": "project",
+        "description": "** 报 （\"File not found\"）时不编译任何东西 —— 它直接中止。所以一次报出 1 个错误的运行，不是\"几乎干净\"，是\"没跑\"。** 实测（2026-09-14） 某个 RD 子代理在并发环境下首次  得到 **单独一...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-lone-ts6053-is-an-abort-not-a-clean-tree.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "a-probe-that-samples-one-point-reports-green-for-the-whole-space",
         "kind": "project",
         "description": "**一个探针在它看过的地方确实有效，于是它看起来在工作 —— 而\"它没看过哪里\"从来不是判决的一部分。** 实测（2026-09-13，切片 2 容差守卫） 守卫的锐度闸门是 **peaks-loop 比例**的函数，而残差里的信号强...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-probe-that-samples-one-point-reports-green-for-the-whole-space.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "a-sweeps-scope-is-the-deliverable-not-its-findings",
+        "kind": "project",
+        "description": "**当契约写的是\"处理所有 X\"时，真正被检验的是枚举的边界，而不是命中列表的内容。命中列表即使全对，只要有一个根没走，结论就是错的。** 实测（2026-09-14，同一切片连续三轮） 一个把审计产物路径改成 rid 作用域的切片，...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-sweeps-scope-is-the-deliverable-not-its-findings.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
@@ -2608,6 +2632,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-10-runtime-detached-design.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "the-prd-handoff-capsule-is-a-single-slot-per-session",
+        "kind": "project",
+        "description": "** 没有 rid，是每个 session 一个槽。而  每次调用都会把它覆盖 —— 于是同一个 session 里的多个切片共用一份胶囊，而它只写着其中一个 rid。** 实测（2026-09-14） 一个四切片 job 里，逐片探...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\the-prd-handoff-capsule-is-a-single-slot-per-session.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "token-encrypted-storage-decision",
