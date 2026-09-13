@@ -62,9 +62,16 @@ export type PipelineVerification = {
   };
   violations: string[];
   nextActions: string[];
-  /** Form of the security/performance findings artifacts Gate C accepted
-   * (slice 025). `'suffixed'` for the new per-rid form, `'legacy'` for the
-   * pre-slice-025 non-suffixed form, `'none'` when neither was found. */
+  /** Form of the security/performance evidence the RD gates accepted
+   * (slice 025). `'suffixed'` when the current contract's path served the
+   * file, `'legacy'` when a deprecated fallback did, `'none'` when neither
+   * gate passed. The per-rid `<rid>.md` suffix the union was named after was
+   * retired with `qa/security-findings-<rid>.md` (v2.11.0 D1/D4); the evidence
+   * now lives at `audit/security-<rid>.md` / `audit/perf-<rid>.md`
+   * (rid-scoped since slice `2026-09-14-audit-artifact-rid-scoping`) with
+   * `audit/security.md` / `audit/perf.md` and
+   * `rd/security-review.md` / `rd/perf-baseline.md` as the declared legacy
+   * fallbacks (rid 2026-09-14-verify-pipeline-contract-drift). */
   acceptedForm?: 'suffixed' | 'legacy' | 'none';
   /** `gateC` is the pre-computed verdict string (AC7 dogfood shape). */
   gateC?: 'pass' | 'fail';

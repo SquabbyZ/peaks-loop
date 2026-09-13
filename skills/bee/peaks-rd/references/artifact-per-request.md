@@ -99,8 +99,8 @@ For each slice in this request:
 |---|---|---|---|
 | `.peaks/_runtime/<sessionId>/prd/handoff.md` | per-slice — immutable peaks-prd source of truth (v2.11.0+) | RD, QA, all sub-agents | Goals, non-goals, acceptance criteria, architecture, slice graph, mock strategy, cross-cutting decisions. sha256-hashed in frontmatter; sub-agents verify the hash before reading. |
 | `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` | per-slice — one request, one planning artifact | QA, SC, the lint gate | Red-line scope, in-scope / out-of-scope, unit-test requirements, **Implementation evidence** (file list, `pnpm test` output, git diff excerpts), MCP usage, handoff, status. **This is the file the lint gate checks for placeholders.** |
-| `.peaks/_runtime/<sessionId>/rd/code-review.md` | per-session — the engineering review | QA, the human reviewer | Code review findings + fixes. |
-| `.peaks/_runtime/<sessionId>/rd/security-review.md` | per-session — the security review | QA | Security review findings + fixes. |
+| `.peaks/_runtime/<sessionId>/rd/code-review-<rid>.md` | per-slice — the engineering review | QA, the human reviewer | Code review findings + fixes. |
+| `.peaks/_runtime/<sessionId>/audit/security-<rid>.md` | per-slice — the independent security audit | QA | Security audit findings + verdict. |
 
 > **v2.11.0 change (Group A):** `rd/tech-doc.md` is removed. The per-slice source of truth moves to the immutable peaks-prd handoff (`prd/handoff.md`); the per-slice planning record is `rd/requests/<rid>.md`. The "per-session" content category is no longer RD's responsibility — it lives upstream in the PRD handoff.
 

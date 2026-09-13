@@ -122,6 +122,8 @@ export async function verifyPipeline(options: {
     rdGates,
     rdEvidenceDir,
     options.projectRoot,
+    options.rid,
+    requestType,
     violations,
     nextActions,
     { anyEvidenceResolved: false, allResolvedPathsCanonical: true }
@@ -151,20 +153,15 @@ export async function verifyPipeline(options: {
     qaGates[0]!.detail = 'not found';
   }
 
-  // Check QA evidence files.
-  // v2.18.1 bug #5 fix: when no RD/QA artifact is on disk yet
-  // (resolvedChangeId is empty), fall back to the current session id
-  // from the binding-store instead of `rdEvidenceDir` (= the rid). The
-  // session axis `.peaks/_runtime/<sessionId>/qa/...` is the canonical
-  // v2.17.0 home; the legacy `_runtime/change/<sessionId>/qa/...` probe
-  // should only fire for pre-v2.17.0 workspaces, not as a default for
-  // new requests.
-  const changeIdForResolver = resolvedChangeId || getSessionIdCanonical(options.projectRoot) || rdEvidenceDir;
+  // Check QA evidence files. (The v2.18.1 bug #5 `changeIdForResolver`
+  // fallback — current session id when no RD/QA artifact is on disk yet —
+  // was dropped by rid 2026-09-14-verify-pipeline-contract-drift along with
+  // the security/perf findings branch that was its only consumer.)
   const qaTracker = resolveQaEvidencePaths(
     qaGates,
     options.projectRoot,
     rdEvidenceDir,
-    changeIdForResolver,
+    requestType,
     options.rid,
     violations,
     nextActions,
@@ -272,21 +269,28 @@ export async function verifyPipeline(options: {
     && RD_QA_HANDOFF_STATES.has(rdState) && QA_COMPLETE_STATES.has(qaState);
 
   // Slice 025 — derive the `acceptedForm` and `gateC` verdict. The form is
-  // 'suffixed' if both the security + perf gates passed via the new
-  // per-rid path; 'legacy' if either was consumed via the legacy fallback;
-  // 'none' if neither passed.
-  const secGate = qaGates.find((g) => g.name === 'security-findings');
-  const perfGate = qaGates.find((g) => g.name === 'performance-findings');
-  const secForm: 'suffixed' | 'legacy' = secGate?.detail?.includes(`-${options.rid}.md`) ? 'suffixed' : 'legacy';
-  const perfForm: 'suffixed' | 'legacy' = perfGate?.detail?.includes(`-${options.rid}.md`) ? 'suffixed' : 'legacy';
+  // 'suffixed' when the contract's current path served the file and 'legacy'
+  // when the deprecated fallback did; 'none' if neither gate passed.
+  //
+  // rid 2026-09-14-verify-pipeline-contract-drift: the two gates moved from the
+  // QA phase to the RD phase, because that is where the current contract puts
+  // the evidence (`AUDIT_SECURITY` / `AUDIT_PERF` at `rd:qa-handoff`). The
+  // `-<rid>.md` suffix that used to distinguish the forms is a real one again
+  // after slice `2026-09-14-audit-artifact-rid-scoping` rid-scoped the audit
+  // paths; the resolver marks which form served the file with
+  // `[LEGACY_EVIDENCE_PATH]`.
+  const secGate = rdGates.find((g) => g.name === 'security-review');
+  const perfGate = rdGates.find((g) => g.name === 'perf-baseline');
+  const formOf = (gate: PipelineGate | undefined): 'suffixed' | 'legacy' =>
+    gate?.passed === true && !gate.detail.includes('LEGACY_EVIDENCE_PATH') ? 'suffixed' : 'legacy';
+  const secForm = formOf(secGate);
+  const perfForm = formOf(perfGate);
   const acceptedForm: 'suffixed' | 'legacy' | 'none' =
     !secGate?.passed && !perfGate?.passed
       ? 'none'
-      : (secForm === 'suffixed' && perfForm === 'suffixed')
-        ? 'suffixed'
-        : (secForm === 'legacy' || perfForm === 'legacy')
-          ? 'legacy'
-          : 'suffixed';
+      : (secForm === 'legacy' || perfForm === 'legacy')
+        ? 'legacy'
+        : 'suffixed';
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
   const gateH: 'pass' | 'fail' = allFeedbackGatesPassed ? 'pass' : 'fail';
 

@@ -48,18 +48,36 @@ export type ArtifactPrerequisite = {
    */
   headingMustContain?: ReadonlyArray<string>;
   /**
-   * Slice v2.12.0 Group B Tier 5: optional legacy path that satisfies
-   * the same gate. When `relativePath` does not resolve on disk, the
-   * resolver tries this fallback path before reporting the prereq as
-   * missing. Use this for 1-minor-release back-compat windows where
-   * an old artifact location is still accepted alongside the new one.
-   * v2.13.0 should remove all `legacyRelativePath` entries.
+   * The immediately previous location of this artifact. When
+   * `relativePath` does not resolve on disk, the resolver tries this
+   * path before reporting the prereq as missing.
+   *
+   * This field is a published surface, not just a private hint:
+   * `verify-pipeline`'s `contractEvidencePaths()`
+   * (`src/services/workflow/pipeline-verify-gate-support.ts`) reads it
+   * to build its probe list, so it must keep meaning "the one path a
+   * previous release wrote". Do not repurpose it as a general list —
+   * add older tiers to `legacyRelativePaths` instead.
    *
    * Body checks (`mustContain` / `mustContainAny` /
    * `headingMustContain`) apply to whichever path resolved — the
-   * gate does not distinguish which path served the file.
+   * gate does not distinguish which path served the file. That is
+   * deliberate: a legacy hit must keep the gate open, or existing
+   * sessions would fail the transition on upgrade.
    */
   legacyRelativePath?: string;
+  /**
+   * Further, older locations, tried **in declared order** after
+   * `legacyRelativePath`. Slice `2026-09-14-audit-artifact-rid-scoping`
+   * added this because the two audit artifacts have a two-release
+   * history behind their rid-scoped path: the pre-rid-scoping
+   * `audit/security.md` (v2.12.0) and, behind it, the v2.11.x
+   * `rd/security-review.md`. Three sessions on disk
+   * (`2026-09-06-session-a87ca4`, `2026-09-10-session-528a63`,
+   * `2026-09-12-session-e37ef0`) hold their security evidence only at
+   * the last of those, so the oldest tier still has to resolve.
+   */
+  legacyRelativePaths?: ReadonlyArray<string>;
 };
 
 export type PrerequisiteCheckResult = {
@@ -90,8 +108,17 @@ const BUG_ANALYSIS: ArtifactPrerequisite = {
   description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
   mustContain: ['## Root cause', '## Fix approach']
 };
+// Slice `2026-09-14-audit-artifact-rid-scoping`: the rid is part of the
+// filename (`code-review-<rid>.md`). A fixed per-session path cannot hold
+// two slices' evidence at once — the second slice's write silently
+// destroyed the first slice's on 2026-09-13, and the gate stayed green
+// because it only checks that *some* file is there, not whose it is.
+// The bare path stays accepted (see `legacyRelativePath`) so sessions
+// written before this change — and any writer still emitting it — keep
+// passing.
 const CODE_REVIEW: ArtifactPrerequisite = {
-  relativePath: 'rd/code-review.md',
+  relativePath: 'rd/code-review-<rid>.md',
+  legacyRelativePath: 'rd/code-review.md',
   description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)',
   mustContain: ['## Findings', 'CRITICAL']
 };
@@ -117,25 +144,33 @@ const PERF_BASELINE: ArtifactPrerequisite = {
 // are dispatched as pre-RD audit runs that consume the public PRD
 // handoff (`prd/handoff.md`) — see `AUDIT_REQUIRES_HANDOFF` below.
 //
-// Back-compat: the canonical location is `audit/security.md` (and
-// `audit/perf.md`); the legacy `rd/security-review.md` (and
-// `rd/perf-baseline.md`) path is also accepted via `legacyRelativePath`
-// for the 1-minor-release window. v2.13.0 hard-deletes the legacy paths.
+// Back-compat: the canonical location is `audit/security-<rid>.md`
+// (and `audit/perf-<rid>.md`); the pre-rid-scoping `audit/security.md`
+// (and `audit/perf.md`) plus the older `rd/security-review.md` (and
+// `rd/perf-baseline.md`) are accepted via `legacyRelativePaths`, in
+// that order, for the back-compat window.
 const AUDIT_SECURITY: ArtifactPrerequisite = {
-  relativePath: 'audit/security.md',
-  legacyRelativePath: 'rd/security-review.md',
+  relativePath: 'audit/security-<rid>.md',
+  // Two legacy tiers behind the rid-scoped path: the pre-rid-scoping
+  // v2.12.0 location, then the v2.11.x one. Both are live on disk.
+  legacyRelativePath: 'audit/security.md',
+  legacyRelativePaths: ['rd/security-review.md'],
   description:
-    'Independent security audit output (peaks-security-audit skill, v2.12.0+). Replaces the v2.11.x rd/security-review.md slot for fanout-trigger request types. The legacy path is accepted during the 1-minor-release back-compat window via legacyRelativePath.',
+    'Independent security audit output (peaks-security-audit skill, v2.12.0+). Replaces the v2.11.x rd/security-review.md slot for fanout-trigger request types. The rid is part of the filename so two slices in one session do not collide; the bare and rd/-prefixed legacy locations are accepted during the back-compat window via legacyRelativePaths.',
   // New canonical path writes a "## Verdict" header on the audit
   // envelope. The legacy rd/security-review.md writes a "## Findings"
   // header. Both pass the gate.
   mustContainAny: ['## Verdict', '## Findings']
 };
 const AUDIT_PERF: ArtifactPrerequisite = {
-  relativePath: 'audit/perf.md',
-  legacyRelativePath: 'rd/perf-baseline.md',
+  relativePath: 'audit/perf-<rid>.md',
+  // Same two-tier history as AUDIT_SECURITY. This is the pair that
+  // produced the 2026-09-13 evidence: `audit/perf.md` was overwritten by
+  // the second slice and the first slice's audit is unrecoverable.
+  legacyRelativePath: 'audit/perf.md',
+  legacyRelativePaths: ['rd/perf-baseline.md'],
   description:
-    'Independent perf audit output (peaks-perf-audit skill, v2.12.0+). Replaces the v2.11.x rd/perf-baseline.md slot for fanout-trigger request types. The legacy path is accepted during the 1-minor-release back-compat window via legacyRelativePath.',
+    'Independent perf audit output (peaks-perf-audit skill, v2.12.0+). Replaces the v2.11.x rd/perf-baseline.md slot for fanout-trigger request types. The rid is part of the filename so two slices in one session do not collide; the bare and rd/-prefixed legacy locations are accepted during the back-compat window via legacyRelativePaths.',
   // New schema writes "## Baseline" header; the legacy schema writes
   // "## Results". Both pass the gate, as does the explicit
   // no-perf-surface stub (slices whose surface is purely logic /
@@ -160,6 +195,16 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // failure. The hard-fail behavior for `passed: false` is preserved
 // (the body still has to carry `"passed": true` when present).
 // v2.14.0 will remove `backCompat` and re-elevate missing → throw.
+//
+// Slice `2026-09-14-audit-artifact-rid-scoping` deliberately does NOT
+// rid-scope this path, unlike the four audit/review artifacts above. The
+// repo's own producer/reader constant is `mutReportPath()` in
+// `packages/peaks-loop-mut/src/services/mut/report-loader.ts`, which names
+// `mut/mut-report.json`, and `peaks mut run`'s `--out` is supplied by the
+// caller. A `<rid>`-templated requirement here would be a name no producer
+// in the repo can write — a gate that exists only in prose, sitting behind
+// `backCompat: true` so it gates nothing at all. If mut ever gains a
+// rid-scoped producer, the constant and this path move together.
 const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
   relativePath: 'mut/mut-report.json',
   description:
@@ -208,7 +253,8 @@ const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
 // header remains a substring match (it is the file's own gate header, not
 // a structural section anchor).
 const KARPATHY_REVIEW: ArtifactPrerequisite = {
-  relativePath: 'rd/karpathy-review.md',
+  relativePath: 'rd/karpathy-review-<rid>.md',
+  legacyRelativePath: 'rd/karpathy-review.md',
   description:
     'RD-side karpathy review (peaks-rd 5-way fanout) — must contain a "## Karpathy-Gate" header AND the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution) as actual markdown headings. Per karpathy §1 / §3.',
   mustContain: ['## Karpathy-Gate'],
@@ -434,6 +480,64 @@ async function resolvePrerequisiteAbsolutePath(
   return match ? join(dir, match) : null;
 }
 
+/**
+ * The contract's BODY checks for one prerequisite, applied to `body`. Returns
+ * one human-readable message per failed check, empty when the body satisfies
+ * the contract.
+ *
+ * Exported because this contract has a SECOND enforcer: `peaks workflow
+ * verify-pipeline` probes the same table for the paths it checks
+ * (`pipeline-verify-gate-support.ts`), and a resolver that probed only
+ * `existsSync` passed files this function rejects — a guard laxer than the
+ * contract it claims to read. Both callers now share this one implementation,
+ * so the checker cannot drift from the table again.
+ */
+export function prerequisiteBodyViolations(
+  prerequisite: ArtifactPrerequisite,
+  body: string
+): string[] {
+  const violations: string[] = [];
+  const lowered = body.toLowerCase();
+  if (prerequisite.mustContain && prerequisite.mustContain.length > 0) {
+    const missingMarkers = prerequisite.mustContain.filter((marker) => !lowered.includes(marker.toLowerCase()));
+    if (missingMarkers.length > 0) {
+      violations.push(`${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`);
+    }
+  }
+  if (prerequisite.headingMustContain && prerequisite.headingMustContain.length > 0) {
+    // Slice 2.6.1.F: a line beginning with `#`, `##`, or `###` followed by
+    // the marker (case-insensitive). Fenced code blocks are NOT excluded
+    // here — a "heading" inside a code fence is rare and, when present,
+    // should still be reported as missing to keep the contract strict.
+    const headingLines = body
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^#{1,3}\s+/.test(line));
+    const loweredHeadings = headingLines.map((h) => h.toLowerCase());
+    const missingHeadings = prerequisite.headingMustContain.filter(
+      (marker) => !loweredHeadings.some((h) => h.includes(marker.toLowerCase()))
+    );
+    if (missingHeadings.length > 0) {
+      violations.push(`${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`);
+    }
+  }
+  if (prerequisite.mustContainAny && prerequisite.mustContainAny.length > 0) {
+    const hitAny = prerequisite.mustContainAny.some((marker) => lowered.includes(marker.toLowerCase()));
+    if (!hitAny) {
+      violations.push(`${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`);
+    }
+  }
+  return violations;
+}
+
+/** True when `prerequisite` declares any body check at all. Guards the read so
+ *  a prereq with no body contract is never opened (unchanged behaviour). */
+function hasBodyChecks(prerequisite: ArtifactPrerequisite): boolean {
+  return (prerequisite.mustContain?.length ?? 0) > 0
+    || (prerequisite.headingMustContain?.length ?? 0) > 0
+    || (prerequisite.mustContainAny?.length ?? 0) > 0;
+}
+
 export async function checkPrerequisites(options: CheckPrerequisitesOptions): Promise<PrerequisiteCheckResult> {
   const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
   if (requirements.length === 0) {
@@ -480,47 +584,10 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
       missing.push({ path: relative, description: prerequisite.description });
       continue;
     }
-    if (prerequisite.mustContain && prerequisite.mustContain.length > 0) {
+    if (hasBodyChecks(prerequisite)) {
       const body = await readFile(absolute, 'utf8');
-      const lowered = body.toLowerCase();
-      const missingMarkers = prerequisite.mustContain.filter((marker) => !lowered.includes(marker.toLowerCase()));
-      if (missingMarkers.length > 0) {
-        missing.push({
-          path: relative,
-          description: `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
-        });
-      }
-    }
-    if (prerequisite.headingMustContain && prerequisite.headingMustContain.length > 0) {
-      const body = await readFile(absolute, 'utf8');
-      // Slice 2.6.1.F: a line beginning with `#`, `##`, or `###` followed by
-      // the marker (case-insensitive). Fenced code blocks are NOT excluded
-      // here — a "heading" inside a code fence is rare and, when present,
-      // should still be reported as missing to keep the contract strict.
-      const headingLines = body
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => /^#{1,3}\s+/.test(line));
-      const loweredHeadings = headingLines.map((h) => h.toLowerCase());
-      const missingHeadings = prerequisite.headingMustContain.filter(
-        (marker) => !loweredHeadings.some((h) => h.includes(marker.toLowerCase()))
-      );
-      if (missingHeadings.length > 0) {
-        missing.push({
-          path: relative,
-          description: `${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`
-        });
-      }
-    }
-    if (prerequisite.mustContainAny && prerequisite.mustContainAny.length > 0) {
-      const body = await readFile(absolute, 'utf8');
-      const lowered = body.toLowerCase();
-      const hitAny = prerequisite.mustContainAny.some((marker) => lowered.includes(marker.toLowerCase()));
-      if (!hitAny) {
-        missing.push({
-          path: relative,
-          description: `${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`
-        });
+      for (const description of prerequisiteBodyViolations(prerequisite, body)) {
+        missing.push({ path: relative, description });
       }
     }
   }
@@ -575,12 +642,13 @@ function emitPrereqTransitionEvent(opts: {
  * (e.g. `001-<rid>.md`) at every tier. Returns the matched absolute
  * path, or null when nothing matches.
  *
- * v2.12.0 Group B Tier 5: if `prerequisite.legacyRelativePath` is set
- * and neither primary session-root tier resolved, the resolver tries
- * the legacy relative path at BOTH session roots before declaring the
- * prereq missing. This is the 1-minor-release back-compat mechanism
- * for artifacts that moved location (e.g. `rd/security-review.md` →
- * `audit/security.md`).
+ * Back-compat: once neither primary session-root tier resolved, the
+ * resolver walks `prerequisite.legacyRelativePaths` in declared order
+ * and tries each at BOTH session roots before declaring the prereq
+ * missing. This covers both artifacts that moved location
+ * (`rd/security-review.md` → `audit/security.md`) and ones that later
+ * gained a rid in the filename (`audit/security.md` →
+ * `audit/security-<rid>.md`, slice `2026-09-14-audit-artifact-rid-scoping`).
  */
 async function resolvePrerequisiteAbsolutePathWithFallback(
   canonicalSessionRoot: string | null,
@@ -595,13 +663,19 @@ async function resolvePrerequisiteAbsolutePathWithFallback(
     const found = await resolvePrerequisiteAbsolutePath(root, prerequisite, requestId);
     if (found !== null) return found;
   }
-  // Second pass: if a legacyRelativePath is declared, try it at every
-  // root. Only the relativePath is swapped — the same numbered-prefix
+  // Second pass: the single previous location, then any further older
+  // ones, at every root — newest first, so a session that somehow holds
+  // both a pre-rid and a v2.11.x file resolves to the newer shape.
+  // Only the relativePath is swapped — the same numbered-prefix
   // tolerance applies via the shared resolver.
-  if (prerequisite.legacyRelativePath !== undefined) {
+  const legacyTiers: Array<string> = [
+    ...(prerequisite.legacyRelativePath !== undefined ? [prerequisite.legacyRelativePath] : []),
+    ...(prerequisite.legacyRelativePaths ?? [])
+  ];
+  for (const legacy of legacyTiers) {
     const legacyPrereq: ArtifactPrerequisite = {
       ...prerequisite,
-      relativePath: prerequisite.legacyRelativePath
+      relativePath: legacy
     };
     for (const root of roots) {
       if (root === null) continue;

@@ -9,6 +9,7 @@ import { isDirectory } from 'peaks-loop-shared/fs';
 // is no longer read. Path-safety helpers now live at
 // `shared/path-safety.ts` if this module ever needs them.
 import { verifyPipeline } from '../workflow/pipeline-verify-service.js';
+import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { findMockViolations } from '../audit/enforcers/mock-placement.js';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import type { SliceCheckOptions, SliceCheckResult, SliceCheckStage } from './slice-check-types.js';
@@ -290,20 +291,29 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   };
 }
 
+// Slice `2026-09-14-audit-artifact-rid-scoping`: the evidence filenames
+// carry the rid now. Candidate order is canonical-first, then the
+// back-compat tiers — the same order `artifact-prerequisites.ts` resolves
+// in, so this boundary gate and the transition gate agree on which file is
+// a slice's evidence. `<rid>` is substituted at probe time.
 const REVIEW_FILES = [
-  { name: 'code-review', path: 'rd/code-review.md', label: 'code-review' },
+  {
+    name: 'code-review',
+    paths: ['rd/code-review-<rid>.md', 'rd/code-review.md'],
+    label: 'code-review'
+  },
   // v2.12.0 collapse: security + perf moved to standalone audit skills.
-  // `slice check` accepts EITHER the v2.11.x legacy path OR the v2.12.0
-  // canonical audit path during the 1-minor-release back-compat window
-  // (v2.13.0 hard-deletes the legacy paths — see CHANGELOG [2.12.0]).
+  // `slice check` accepts the rid-scoped audit path, the bare v2.12.0 path
+  // OR the v2.11.x legacy path during the 1-minor-release back-compat
+  // window (v2.13.0 hard-deletes the legacy paths — see CHANGELOG [2.12.0]).
   {
     name: 'security-review',
-    paths: ['audit/security.md', 'rd/security-review.md'],
+    paths: ['audit/security-<rid>.md', 'audit/security.md', 'rd/security-review.md'],
     label: 'security-review'
   },
   {
     name: 'perf-baseline',
-    paths: ['audit/perf.md', 'rd/perf-baseline.md'],
+    paths: ['audit/perf-<rid>.md', 'audit/perf.md', 'rd/perf-baseline.md'],
     label: 'perf-baseline'
   }
 ] as const;
@@ -342,11 +352,11 @@ async function runReviewFanout(
   const found: Array<{ name: string; path: string; bytes: number; scope: string }> = [];
   for (const review of REVIEW_FILES) {
     let hit: { abs: string; scope: string; bytes: number } | null = null;
-    // v2.12.0 back-compat: each entry may list multiple candidate paths.
-    // First hit (in declared order) wins; canonical paths come first so
-    // v2.12.0+ slices preferentially report the new path even when both
-    // are present during migration.
-    const candidates = 'path' in review ? [review.path] : review.paths;
+    // Back-compat: each entry lists multiple candidate paths. First hit (in
+    // declared order) wins; canonical paths come first so a current slice
+    // preferentially reports its own rid-scoped evidence even when a legacy
+    // file is also present during migration.
+    const candidates = review.paths.map((candidate) => candidate.replace('<rid>', rid));
     for (const candidate of candidates) {
       for (const scope of scopes) {
         const abs = join(projectRoot, '.peaks', scope, candidate);
@@ -431,6 +441,14 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     throw new Error('No --rid supplied. Pass --rid <id> on the CLI to identify which slice to check.');
   }
   const rid = options.rid;
+  // The rid becomes a filename in `runReviewFanout`'s candidate list and a
+  // directory segment in its `scopes` — both joined onto the project root. The
+  // rid is the repo's own request-id shape, and `request-artifact-service.ts`
+  // already refuses anything else; apply the same guard here rather than
+  // probing paths a hostile `--rid` steers.
+  if (!REQUEST_ID_PATTERN.test(rid)) {
+    throw new Error(`Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`);
+  }
 
   const totalStart = Date.now();
   const stages: SliceCheckStage[] = [];

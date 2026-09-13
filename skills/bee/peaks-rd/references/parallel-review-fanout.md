@@ -4,8 +4,10 @@
 
 **v2.12.0 collapse (Group A — Tier 1+2+3):** the previous 4-way fan-out (slice 004) plus the appended `karpathy-reviewer` (slice 5/6) totalled **5 sub-agents**. The `security-reviewer` and `perf-baseline-reviewer` slots moved out of the RD fan-out into two new standalone audit skills:
 
-- `peaks-security-audit` — CLI: `peaks security-audit run`. Writes `.peaks/_runtime/<sessionId>/audit/security.md`. Required RD-side prereq `AUDIT_SECURITY`.
-- `peaks-perf-audit` — CLI: `peaks perf-audit run`. Writes `.peaks/_runtime/<sessionId>/audit/perf.md`. Required RD-side prereq `AUDIT_PERF`.
+- `peaks-security-audit` — CLI: `peaks security-audit run`. Writes `.peaks/_runtime/<sessionId>/audit/security-<rid>.md`. Required RD-side prereq `AUDIT_SECURITY`.
+- `peaks-perf-audit` — CLI: `peaks perf-audit run`. Writes `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`. Required RD-side prereq `AUDIT_PERF`.
+
+The rid is part of the filename (slice `2026-09-14-audit-artifact-rid-scoping`): every slice in a session shares `.peaks/_runtime/<sessionId>/audit/`, so a ridless name means the second slice's audit silently replaces the first slice's. The ridless locations are still read as fallbacks.
 
 Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and the project-scoped audit templates under `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`. The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq. The 1-minor-release back-compat window (`v2.12.0`) keeps the old `rd/{security-review,perf-baseline}.md` paths readable via `mustContainAny` — see `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (8 cases) and `tests/unit/artifact-prerequisites-typed.test.ts`.
 
@@ -44,14 +46,14 @@ Note: sub-agent 1 (code-reviewer) and sub-agent 3 (karpathy-reviewer) write to `
 - Read the git diff for this slice (`git diff main...HEAD` or equivalent).
 - Read `.peaks/_runtime/<sessionId>/prd/handoff.md` for slice intent (v2.11.0: the immutable peaks-prd handoff replaces `rd/tech-doc.md`). Verify the handoff hash matches the dispatched value before proceeding.
 - Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
-- Output: `.peaks/_runtime/<sessionId>/rd/code-review.md` with sections: Summary, Findings, Required Fixes, Recommended, Verdict.
+- Output: `.peaks/_runtime/<sessionId>/rd/code-review-<rid>.md` with sections: Summary, Findings, Required Fixes, Recommended, Verdict. (Rid in the filename — a ridless `rd/code-review.md` is shared by every slice in the session and gets overwritten by the next one; it is still read as a fallback.)
 - Required for Gate B3.
 - **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:** the code-reviewer dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`). Fallback order is **native plugin → cache-backed generic agent → inline**:
   1. **Native plugin** (`detectEcc` state `ready`): invoke the Agent tool with `subagent_type: "ecc:code-reviewer"` (plugin `ecc` + agent `code-reviewer`; see `DEFAULT_NATIVE_ECC_AGENT_ID`); it returns the structured envelope `{ passed, violations[], gateAction }`.
   2. **Cache-backed generic agent** (`detectEcc` state `ready-via-cache` — plugin or its review agent absent, but a materialized ECC agent exists under `~/.peaks/agents/ecc/`): resolve the agent's REAL name first — `resolveMaterializedAgentName(['code-reviewer', 'code-review'])` from `peaks-loop-mut` (upstream ships `code-reviewer.md`; a hardcoded `code-review.md` never resolves). Read `~/.peaks/agents/ecc/<resolved>.md`, pass the name through as `detectEcc({ ..., cacheAgentName: resolved })`, build the prompt with `buildCacheBackedEccPrompt({ rid, instructions, diff })` (agent body + diff + `ECC_OUTPUT_CONTRACT`), dispatch a **generic** sub-agent, and validate its reply with `isEccEnvelope`. No ECC plugin required. If the cache is empty, run `peaks ecc install` first (dynamic acquisition); if that fails offline, degrade to inline.
   3. **Inline** (`detectEcc` states `plugin-missing` / `agent-missing` / `dispatch-failed` / `envelope-malformed`): fall back to inline review — TXT note `code-review-ecc-degraded-to-inline`.
 
-  In all dispatchable cases the envelope is rendered by the SAME bridge adapter (`adaptEccEnvelopeToRdCodeReview`) into the canonical `rd/code-review.md` markdown shape that Gate B3 reads (`mustContain: ['## Findings', 'CRITICAL']`). The materialized copy lives under `~/.peaks/agents/ecc/` — peaks-loop NEVER writes into `~/.claude/`.
+  In all dispatchable cases the envelope is rendered by the SAME bridge adapter (`adaptEccEnvelopeToRdCodeReview`) into the canonical `rd/code-review-<rid>.md` markdown shape that Gate B3 reads (`mustContain: ['## Findings', 'CRITICAL']`). The materialized copy lives under `~/.peaks/agents/ecc/` — peaks-loop NEVER writes into `~/.claude/`.
 
 **Sub-agent 2 — qa-test-cases-writer (always runs for feature / refactor / bugfix):**
 - Read the git diff and the PRD acceptance criteria.
@@ -63,7 +65,7 @@ Note: sub-agent 1 (code-reviewer) and sub-agent 3 (karpathy-reviewer) write to `
 **Sub-agent 3 — karpathy-reviewer (always runs for feature / refactor / bugfix — the hard gate):**
 - Inspect the diff + handoff against the 4 Karpathy-guidelines.
 - Read `.peaks/_runtime/<sessionId>/prd/handoff.md` (v2.11.0: architecture summary — the immutable peaks-prd handoff replaces `rd/tech-doc.md`).
-- Output: `.peaks/_runtime/<sessionId>/rd/karpathy-review.md` containing a `## Karpathy-Gate` header and the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution).
+- Output: `.peaks/_runtime/<sessionId>/rd/karpathy-review-<rid>.md` containing a `## Karpathy-Gate` header and the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). (Rid in the filename, same reason as the code review; the ridless `rd/karpathy-review.md` is still read as a fallback.)
 - Required for the `KARPATHY_REVIEW` prereq. The transition CLI gate reads those markers and refuses `rd:qa-handoff` when the file is missing or the markers are absent.
 - See `references/rd-fanout-contracts.md` §"karpathy-reviewer contract" for the JSON envelope shape + file format.
 

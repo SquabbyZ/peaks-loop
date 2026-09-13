@@ -509,7 +509,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     workflow
       .command('skip')
-      .description('Skip specific gates for a request (RD/QA). Use --dry-run to preview without writing. Allowed gate names: QA / RD (phase shortcuts) or specific gate names (rd-request-exists, tech-doc, code-review, security-review, qa-request-exists, test-cases, test-report, security-findings, performance-findings). Three rules apply: (1) only docs/config/chore slices can skip; (2) skip is one-time per rid; (3) script callers must also pass --i-have-reviewed.')
+      .description('Skip specific gates for a request (RD/QA). Use --dry-run to preview without writing. Allowed gate names: QA / RD (phase shortcuts) or specific gate names (rd-request-exists, prd-handoff, bug-analysis, code-review, security-review, perf-baseline, qa-request-exists, test-cases, test-report). Three rules apply: (1) only docs/config/chore slices can skip; (2) skip is one-time per rid; (3) script callers must also pass --i-have-reviewed.')
       .requiredOption('--rid <rid>', 'request identifier')
       .requiredOption('--project <path>', 'project root path')
       .requiredOption('--gates <list>', 'comma-separated gate names (e.g. "QA" or "QA,slice-check" or "code-review,security-review")')

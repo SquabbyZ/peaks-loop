@@ -70,18 +70,18 @@ describe('registerEvidenceCommands', () => {
     expect(envelope.ok).toBe(true);
     expect(process.exitCode === undefined || process.exitCode === 0).toBe(true);
 
-    // 1. rd/code-review.md — ## Findings + CRITICAL
-    const codeReview = readRel(ws, '.peaks', '_runtime', SID, 'rd', 'code-review.md');
+    // 1. rd/code-review-<rid>.md — ## Findings + CRITICAL
+    const codeReview = readRel(ws, '.peaks', '_runtime', SID, 'rd', `code-review-${RID}.md`);
     expect(codeReview).toContain('## Findings');
     expect(codeReview).toContain('CRITICAL');
 
-    // 2. rd/security-review.md — ## Findings + CRITICAL
-    const securityReview = readRel(ws, '.peaks', '_runtime', SID, 'rd', 'security-review.md');
+    // 2. audit/security-<rid>.md — ## Findings + CRITICAL (the gate's rid-scoped AUDIT_SECURITY slot)
+    const securityReview = readRel(ws, '.peaks', '_runtime', SID, 'audit', `security-${RID}.md`);
     expect(securityReview).toContain('## Findings');
     expect(securityReview).toContain('CRITICAL');
 
-    // 3. rd/karpathy-review.md — ## Karpathy-Gate + 4 guideline headings
-    const karpathy = readRel(ws, '.peaks', '_runtime', SID, 'rd', 'karpathy-review.md');
+    // 3. rd/karpathy-review-<rid>.md — ## Karpathy-Gate + 4 guideline headings
+    const karpathy = readRel(ws, '.peaks', '_runtime', SID, 'rd', `karpathy-review-${RID}.md`);
     expect(karpathy).toContain('## Karpathy-Gate');
     expect(hasHeading(karpathy, 'Think Before Coding')).toBe(true);
     expect(hasHeading(karpathy, 'Simplicity First')).toBe(true);
@@ -91,8 +91,8 @@ describe('registerEvidenceCommands', () => {
     // 4. rd/tech-doc.md
     expect(existsSync(rel(ws, '.peaks', '_runtime', SID, 'rd', 'tech-doc.md'))).toBe(true);
 
-    // 5. audit/perf.md — ## Results (and the N/A — no perf surface escape hatch)
-    const perf = readRel(ws, '.peaks', '_runtime', SID, 'audit', 'perf.md');
+    // 5. audit/perf-<rid>.md — ## Results (and the N/A — no perf surface escape hatch)
+    const perf = readRel(ws, '.peaks', '_runtime', SID, 'audit', `perf-${RID}.md`);
     expect(perf).toContain('## Results');
     expect(perf).toContain('N/A — no perf surface');
 
@@ -121,21 +121,21 @@ describe('registerEvidenceCommands', () => {
     expect(qaRequest).toContain('- overall: pass');
     expect(/<[A-Za-z][^>]*>/.test(qaRequest)).toBe(false);
 
-    // 11. prd/handoff.md — schemaVersion: 2 (unquoted) + sha256 handoff hash
+    // 11. prd/handoff.md — the one canonical frontmatter: a PLAIN `schemaVersion: 2`
+    // plus a PLAIN `sha256:` line whose value is sha256(BODY). That is what the
+    // `AUDIT_REQUIRES_HANDOFF` gate and both audit loaders read; the generator
+    // used to emit `handoffHash: sha256:<hex>` with no `^sha256:` line and hash
+    // `frontmatter + body`, which the gate accepted and the loaders refused.
     const handoff = readRel(ws, '.peaks', '_runtime', SID, 'prd', 'handoff.md');
     expect(handoff).toContain('schemaVersion: 2');
-    expect(handoff).toContain('sha256:');
-    const hashMatch = handoff.match(/^handoffHash:\s*sha256:([0-9a-f]{64})$/m);
-    expect(hashMatch).not.toBeNull();
-    const storedHash = hashMatch![1]!;
+    const shaMatch = handoff.match(/^sha256:\s*([0-9a-f]{64})$/m);
+    expect(shaMatch).not.toBeNull();
 
-    // Recompute the hash over (frontmatter with the handoffHash line emptied) + body
-    // and confirm it matches the stored value (the reference prototype's algorithm).
+    // Recompute over the BODY only — the range every consumer re-hashes.
     const fmMatch = handoff.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     expect(fmMatch).not.toBeNull();
-    const emptiedFm = fmMatch![1]!.replace(/^handoffHash:\s*sha256:[0-9a-f]*$/m, 'handoffHash: sha256:');
-    const recomputed = createHash('sha256').update(`---\n${emptiedFm}\n---\n${fmMatch![2]!}`, 'utf8').digest('hex');
-    expect(recomputed).toBe(storedHash);
+    const recomputed = createHash('sha256').update(fmMatch![2]!, 'utf8').digest('hex');
+    expect(recomputed).toBe(shaMatch![1]!);
   });
 
   it('evidence generate writes the qa request to an existing numbered filename when present', async () => {

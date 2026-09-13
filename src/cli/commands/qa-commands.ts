@@ -31,6 +31,7 @@ import { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import { archiveScreenshots } from '../../services/qa/screenshot-archive-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { getSessionId } from '../../services/session/session-manager.js';
 
 import {
@@ -401,6 +402,12 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
     try {
       const projectRoot = resolve(options.project);
       const sid = options.sessionId?.trim() || getSessionId(projectRoot) || 'ad-hoc';
+      // Sid axis. Guarded after resolution so the flag value and the session
+      // binding are both covered. `archiveScreenshots` cannot do this itself:
+      // it only ever sees a fully-resolved `targetDir`.
+      if (isUnsafePathInput(sid)) {
+        throw new Error(`Invalid session id: ${sid} (must be a single path segment)`);
+      }
       const targetDir = join(projectRoot, '.peaks', '_runtime', sid, 'qa', 'screenshots');
       const envelope = archiveScreenshots({ sourceDir: options.source, targetDir });
       printResult(

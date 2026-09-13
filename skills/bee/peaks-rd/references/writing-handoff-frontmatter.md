@@ -35,9 +35,9 @@ nextActions:
 gateEvidence:
   projectScan: .peaks/project-scan/project-scan.md
   prdHandoff: .peaks/_runtime/<sessionId>/prd/handoff.md
-  codeReview: .peaks/_runtime/<sessionId>/rd/code-review.md
-  securityReview: .peaks/_runtime/<sessionId>/rd/security-review.md
-  perfBaseline: .peaks/_runtime/<sessionId>/rd/perf-baseline.md
+  codeReview: .peaks/_runtime/<sessionId>/rd/code-review-<rid>.md
+  securityReview: .peaks/_runtime/<sessionId>/audit/security-<rid>.md
+  perfBaseline: .peaks/_runtime/<sessionId>/audit/perf-<rid>.md
 schemaVersion: '2.0'
 ---
 ```

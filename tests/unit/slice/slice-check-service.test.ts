@@ -281,3 +281,94 @@ describe('Scenario: a11y — the pre-existing count is surfaced, not hidden', ()
     expect(stage.detail).toContain('baseline');
   }, 120_000);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// rid=2026-09-14-audit-artifact-rid-scoping, repair cycle 1.
+//
+// QA measured this: when slice `2026-09-14-audit-artifact-rid-scoping` made
+// the rid-scoped evidence names canonical, the `review-fanout` stage of
+// `peaks slice check` kept probing ONLY the pre-rid names. Measured on a tree
+// holding exactly the evidence that slice made canonical:
+//
+//   review-fanout => fail | Missing or empty: code-review, security-review, perf-baseline.
+//
+// `peaks slice check` is a registered CLI verb whose help text promises
+// "exit 0 only if every stage passes or is skipped", and it runs after the
+// peaks-code micro-loop — so it rejected work that satisfied its own gate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Scenario: behavior — the review-fanout stage reads rid-scoped evidence', () => {
+  const EVIDENCE_RID = '2026-09-14-audit-artifact-rid-scoping';
+
+  let ws: TmpWorkspace;
+  beforeEach(() => {
+    ws = useTmpWorkspace('peaks-slice-check-fanout-');
+  });
+  afterEach(() => {
+    cleanupTmpWorkspace();
+  });
+
+  /** Write evidence at `.peaks/<rid>/<relativePath>` — the scope the stage probes. */
+  function writeEvidence(relativePath: string, body: string): void {
+    const absolute = join(ws.peaksDir, EVIDENCE_RID, relativePath);
+    mkdirSync(join(absolute, '..'), { recursive: true });
+    writeFileSync(absolute, body, 'utf8');
+  }
+
+  function fanoutStageOf(stages: readonly SliceCheckStage[]): SliceCheckStage {
+    const stage = stages.find((s) => s.name === 'review-fanout');
+    if (stage === undefined) throw new Error('slice check produced no review-fanout stage');
+    return stage;
+  }
+
+  function writeRidScopedEvidence(): void {
+    writeEvidence(`rd/code-review-${EVIDENCE_RID}.md`, '# Code review\n\n## Findings\n\nCRITICAL: none.\n');
+    writeEvidence(`audit/security-${EVIDENCE_RID}.md`, '# Security audit\n\n## Verdict\n\npass\n');
+    writeEvidence(`audit/perf-${EVIDENCE_RID}.md`, '# Performance audit\n\n## Baseline\n\n| m | b | a |\n');
+  }
+
+  it('when only the rid-scoped evidence exists, should pass the review-fanout stage', async () => {
+    // given: exactly the layout the peaks-rd SKILL now instructs the LLM to
+    //        write — every evidence file carries the rid, none the bare name
+    writeRidScopedEvidence();
+    // when: the boundary gate runs
+    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    // then: it passes. Pre-repair this same tree reported
+    //       "Missing or empty: code-review, security-review, perf-baseline".
+    const stage = fanoutStageOf(result.stages);
+    expect(stage.status).toBe('pass');
+    // and it passes for the right reason: each artifact resolved to THIS
+    // rid's file, not to some other name that happened to exist.
+    const found = stage.data?.found as ReadonlyArray<{ name: string; path: string }> | undefined;
+    for (const name of ['code-review', 'security-review', 'perf-baseline']) {
+      expect(found?.find((entry) => entry.name === name)?.path).toContain(EVIDENCE_RID);
+    }
+  }, 120_000);
+
+  it('when a slice produced no evidence at all, should still fail the review-fanout stage', async () => {
+    // given: nothing on disk — the clean control group proving the stage can
+    //        still reject, rather than having been loosened into always-pass
+    mkdirSync(ws.peaksDir, { recursive: true });
+    // when: the boundary gate runs
+    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    // then: all three are named missing
+    const stage = fanoutStageOf(result.stages);
+    expect(stage.status).toBe('fail');
+    expect(stage.data?.missing).toEqual(['code-review', 'security-review', 'perf-baseline']);
+  }, 120_000);
+
+  it('when a stale bare file sits beside this rid evidence, should resolve the rid-scoped one', async () => {
+    // given: a bare `rd/code-review.md` from a sibling slice, plus this rid's
+    //        own files. Ordering matters — the sibling's file must not win.
+    writeEvidence('rd/code-review.md', '# Code review (sibling slice)\n\n## Findings\n\nCRITICAL: none.\n');
+    writeRidScopedEvidence();
+    // when: the boundary gate runs
+    const result = await sliceCheck({ projectRoot: ws.path, rid: EVIDENCE_RID, refreshFanout: false, skipTests: true });
+    // then: the reported path for code-review is this rid's own file
+    const stage = fanoutStageOf(result.stages);
+    expect(stage.status).toBe('pass');
+    const found = stage.data?.found as ReadonlyArray<{ name: string; path: string }> | undefined;
+    expect(found?.find((entry) => entry.name === 'code-review')?.path)
+      .toContain(`code-review-${EVIDENCE_RID}.md`);
+  }, 120_000);
+});

@@ -12,6 +12,7 @@ import { ensureSession, getSessionIdCanonical } from '../session/session-manager
 // live at `shared/path-safety.ts` if this module ever needs them.
 import { getNextNumber, buildNumberedFilename, slugifyDescription } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
 import { scanFileSize } from '../scan/file-size-scan.js';
@@ -81,7 +82,14 @@ export type CreateRequestArtifactResult = {
   scopeDir: string;
 };
 
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/**
+ * F-1 (slice 025 security): reject rids that contain path separators, null
+ * bytes, or traversal sequences. A request id is a single path segment, so
+ * anything that builds a filename from one must test it against this first —
+ * it is exported so those call sites reuse it instead of re-declaring a copy
+ * that can drift.
+ */
+export const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const VALID_ROLES: ReadonlySet<RequestArtifactRole> = new Set(['prd', 'ui', 'rd', 'qa', 'sc']);
 
 function defaultClock(): string {
@@ -120,6 +128,13 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // in the artifact body's frontmatter (under `- change-id:`) for
   // human navigation; it is no longer a filesystem path key.
   const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
+  // Sid axis. The rid axis is guarded three times above (`REQUEST_ID_PATTERN`
+  // at :110, and again in the numbered-filename path); the session id was
+  // never checked, so `--session-id ../../x` wrote the artifact outside the
+  // project root under an `ok: true` envelope.
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   // Slice 2026-06-29-change-id-root-removal: the `current-change`
   // binding file is gone. Resolution order for the change-id (file
   // body metadata) is now:
@@ -263,17 +278,12 @@ export type ShowRequestArtifactResult = RequestArtifactSummary & {
 };
 
 function extractMetadata(markdown: string): { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } {
-  let state = 'unknown';
+  const state = readArtifactState(markdown) ?? 'unknown';
   let createdAt: string | undefined;
   let requestType: RequestType = DEFAULT_REQUEST_TYPE;
   let sessionId: string | undefined;
   for (const rawLine of markdown.split(/\r?\n/)) {
     const line = rawLine.trim();
-    const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(line);
-    if (stateMatch !== null && stateMatch[1] !== undefined) {
-      state = stateMatch[1];
-      continue;
-    }
     const createdMatch = /^-\s*created:\s*(.+?)\s*$/.exec(line);
     if (createdMatch !== null && createdMatch[1] !== undefined) {
       createdAt = createdMatch[1];
@@ -493,6 +503,7 @@ import {
   FileSizeViolationError,
   LintGateError,
   PrerequisitesNotSatisfiedError,
+  readArtifactState,
   TypeSanityViolationError,
   updateStatusBlock,
   type RequestArtifactState,

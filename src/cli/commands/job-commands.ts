@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import { writeJobProgress, readJobProgress, tryReadJobProgress } from '../../services/job/job-progress-store.js';
@@ -84,6 +85,13 @@ function resolveJobStateRoot(opts: any, jobId?: string): { rootDir: string; sess
   const sessionId = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
   if (!sessionId) {
     throw new Error('NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-code session via peaks workspace init');
+  }
+  // Sid axis — the sibling of the jobId guard in `JobStateStore.jobDir`. A
+  // caller-supplied `--session-id` reaches this join unmodified, so a
+  // traversal value lands `job/<id>/state.json` outside every project root
+  // while the envelope still reads `ok: true`.
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
   const rootDir = join(project, '.peaks', '_runtime', sessionId, 'job');
   if (jobId && !existsSync(join(rootDir, jobId, 'state.json'))) {

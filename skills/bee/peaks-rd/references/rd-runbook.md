@@ -131,9 +131,13 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     writes). Falls back to empty diff if git is unavailable (degraded mode).
 
 # 1.z Karpathy scan (Slice 5/6 + Slice 6/6 — `peaks scan karpathy` + karpathy-reviewer sub-agent)
-#     After the slice is implemented, scan `rd/karpathy-review.md` for the
+#     After the slice is implemented, scan `rd/karpathy-review-<rid>.md` for the
 #     4 Karpathy guidelines (Think / Simplicity / Surgical / Goal) and verify
 #     the hard Karpathy-Gate (KARPATHY_REVIEW prereq in artifact-prerequisites.ts).
+#     NOTE: `peaks scan karpathy` itself has no rid and probes the ridless
+#     back-compat name `rd/karpathy-review.md`; it reports `block` for a slice
+#     that wrote only the rid-scoped name. `peaks request transition` is the
+#     authoritative gate.
 #     The structural scanner covers regex / file-presence checks; the semantic
 #     review is owned by the karpathy-reviewer sub-agent.
 #
@@ -142,7 +146,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #       peaks scan karpathy --project <path> --format json         # machine-readable
 #       peaks scan karpathy --project <path> --scope all           # full audit (gateAction: block if missing)
 #     Required output before `peaks request transition --state qa-handoff`:
-#       - `rd/karpathy-review.md` exists with `## Karpathy-Gate` header
+#       - `rd/karpathy-review-<rid>.md` exists with `## Karpathy-Gate` header
 #       - 4 title-case section headers present (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution)
 #       - `gateAction: pass` (or `warn` with documented justification)
 #
@@ -153,7 +157,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     which is the project-internal draft at
 #     `skills/peaks-rd/references/karpathy-reviewer-prompt.md` plus a
 #     `rd/karpathy-reviewer-agent-handoff.md` install guide.
-#     Hard gate: missing karpathy-reviewer sub-agent OR missing rd/karpathy-review.md
+#     Hard gate: missing karpathy-reviewer sub-agent OR missing rd/karpathy-review-<rid>.md
 #     → `peaks request transition --state qa-handoff` returns `code: PREREQUISITES_MISSING`.
 #     Escape hatch (assisted mode): `--allow-incomplete --confirm`.
 
@@ -163,8 +167,8 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
 #    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-code-test to run the full suite standalone)
-#    Peaks-Loop Gate B3: code review evidence → .peaks/_runtime/<sessionId>/rd/code-review.md
-#    Peaks-Loop Gate B4: security review evidence → .peaks/_runtime/<sessionId>/rd/security-review.md
+#    Peaks-Loop Gate B3: code review evidence → .peaks/_runtime/<sessionId>/rd/code-review-<rid>.md
+#    Peaks-Loop Gate B4: security review evidence → .peaks/_runtime/<sessionId>/audit/security-<rid>.md
 #    Peaks-Loop Gate B5 (NEW): RD artifact body has no unfilled placeholders.
 peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
 #    Peaks-Loop Gate B6 (NEW): declared --type still matches the actual diff after implementation.

@@ -11,7 +11,7 @@
 | config | (none) | `qa/test-reports/<rid>.md` |
 | docs / chore | (none) | (none) |
 
-Security and performance evidence surface under `rd/security-review.md` and `rd/perf-baseline.md` (peaks-rd's audit fan-out) and are referenced by reference from the QA test report body. The pre-v2.11.0 `qa/security-findings.md` / `qa/performance-findings.md` files are no longer required; existing ones are kept for auditability but ignored by the gate.
+Security and performance evidence surface under `audit/security-<rid>.md` and `audit/perf-<rid>.md` (the independent `peaks-security-audit` / `peaks-perf-audit` skills, v2.12.0+; slice `2026-09-14-audit-artifact-rid-scoping` put the rid in the filename so two slices in one session cannot overwrite each other's evidence) and are referenced by reference from the QA test report body. The older `rd/security-review.md` / `rd/perf-baseline.md` and the ridless `audit/security.md` / `audit/perf.md` remain accepted back-compat tiers. The pre-v2.11.0 `qa/security-findings.md` / `qa/performance-findings.md` files are no longer required; existing ones are kept for auditability but ignored by the gate.
 
 **Peaks-Loop Gate A — After test-case generation:**
 ```bash
@@ -29,18 +29,18 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 
 **Peaks-Loop Gate A3 — Security review referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
 ```bash
-# peaks-qa does NOT own a qa/security-findings.md. peaks-rd's audit fan-out
-# produces rd/security-review.md; QA references it by path in the test report body.
-grep -E "rd/security-review\\.md|security-review" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md 2>&1
+# peaks-qa does NOT own a qa/security-findings.md. The security audit produces
+# audit/security-<rid>.md; QA references it by path in the test report body.
+grep -E "audit/security|rd/security-review|security-review" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md 2>&1
 # Expected: at least one reference to the rd-side security review.
 # Empty → BLOCKED: the test report must cite where security evidence lives.
 ```
 
 **Peaks-Loop Gate A4 — Performance baseline referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
 ```bash
-# peaks-qa does NOT own a qa/performance-findings.md. peaks-rd's audit fan-out
-# produces rd/perf-baseline.md; QA references it by path in the test report body.
-grep -E "rd/perf-baseline\\.md|perf-baseline" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md 2>&1
+# peaks-qa does NOT own a qa/performance-findings.md. The perf audit produces
+# audit/perf-<rid>.md; QA references it by path in the test report body.
+grep -E "audit/perf|rd/perf-baseline|perf-baseline" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md 2>&1
 # Expected: at least one reference to the rd-side perf baseline.
 # Empty → BLOCKED: the test report must cite where perf evidence lives.
 ```

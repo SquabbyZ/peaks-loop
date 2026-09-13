@@ -104,9 +104,9 @@ Project-level security + perf plans live at `.peaks/_runtime/<sessionId>/qa/secu
 
 ## QA fan-out (业务 only — v2.11.0 D1)
 
-When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out only the **business verification** sub-agent: `qa-business`. Security and performance review are **NOT** peaks-qa's responsibility in v2.11.0 — they are owned by peaks-rd's 4-way audit fan-out (code-review + security-review + perf-baseline + karpathy-review) and the rd-side evidence files (`rd/security-review.md`, `rd/perf-baseline.md`). peaks-qa reads those files by reference; it does NOT re-do them.
+When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out only the **business verification** sub-agent: `qa-business`. Security and performance review are **NOT** peaks-qa's responsibility in v2.11.0 — they are owned by peaks-rd's 4-way audit fan-out (code-review + security-review + perf-baseline + karpathy-review) and the rd-side evidence files (`audit/security-<rid>.md`, `audit/perf-<rid>.md`). peaks-qa reads those files by reference; it does NOT re-do them.
 
-> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `rd/security-review.md` + `rd/perf-baseline.md`。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
+> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `audit/security-<rid>.md` + `audit/perf-<rid>.md`。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
 
 If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`. Subdivision must stay ≤ 2 levels deep (RL-4).
 
@@ -128,7 +128,7 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 - verify API behavior and frontend behavior when either surface exists;
 - generate a validation report with commands, browser evidence, findings, and residual risks.
 
-**Out of scope (v2.11.0 D1/D4):** peaks-qa does **not** own security review or performance review. Those are owned by peaks-rd's audit fan-out (sub-agents `security-review` and `perf-baseline`) and the rd-side evidence files. peaks-qa reads `rd/security-review.md` and `rd/perf-baseline.md` by reference; it does NOT produce `qa/security-findings.md` or `qa/performance-findings.md` of its own.
+**Out of scope (v2.11.0 D1/D4):** peaks-qa does **not** own security review or performance review. Those are owned by peaks-rd's audit fan-out (sub-agents `security-review` and `perf-baseline`) and the rd-side evidence files. peaks-qa reads `audit/security-<rid>.md` and `audit/perf-<rid>.md` by reference; it does NOT produce `qa/security-findings.md` or `qa/performance-findings.md` of its own.
 
 ## Mandatory per-request artifact
 
@@ -148,7 +148,7 @@ See `references/qa-runbook.md` for the full 10-step runbook (steps #0–#9) with
 
 You cannot declare a phase complete from memory. CLI enforcement: the gates below are ALSO enforced by `peaks request transition`, which fails with `code: PREREQUISITES_MISSING` if any are absent. Per-type required files: feature / refactor → test-cases + test-reports + security-findings + performance-findings; bugfix → test-cases + test-reports + security-findings (perf optional); config → security-findings only; docs / chore → none.
 
-Gate index: A (test-cases), A2 (tests executed), A3 (security reference — v2.11.0: read rd/security-review.md), A4 (performance reference — v2.11.0: read rd/perf-baseline.md), B (test-reports with results), C (all 3 QA files present before verdict: test-cases + test-reports + requests — security/perf evidence live under rd/), D (browser screenshots), E (acceptance coverage scan), F (QA artifact lint).
+Gate index: A (test-cases), A2 (tests executed), A3 (security reference — v2.12.0+: read audit/security-<rid>.md), A4 (performance reference — v2.12.0+: read audit/perf-<rid>.md), B (test-reports with results), C (all 3 QA files present before verdict: test-cases + test-reports + requests — security/perf evidence live under audit/), D (browser screenshots), E (acceptance coverage scan), F (QA artifact lint).
 
 → see `references/qa-transition-gates.md` for the full per-gate contract + `ls` / `grep` shell snippets.
 
@@ -194,7 +194,7 @@ Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<ses
 
 ## Mandatory validation gates
 
-QA cannot pass a change until the report contains evidence for every applicable gate. The 9 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 8 library version regressions, 9 validation report, 10 acceptance coverage) are mapped to Peaks-Loop Gates A/A2/B/C/D/E/F. **v2.11.0 D1/D4 trim:** Gates A3 (security) and A4 (performance) are no longer peaks-qa's responsibility — security review and performance baseline live under peaks-rd's audit fan-out (rd/security-review.md + rd/perf-baseline.md) and are cited by reference from the test report.
+QA cannot pass a change until the report contains evidence for every applicable gate. The 9 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 8 library version regressions, 9 validation report, 10 acceptance coverage) are mapped to Peaks-Loop Gates A/A2/B/C/D/E/F. **v2.11.0 D1/D4 trim:** Gates A3 (security) and A4 (performance) are no longer peaks-qa's responsibility — security review and performance baseline live under peaks-rd's audit fan-out (audit/security-<rid>.md + audit/perf-<rid>.md) and are cited by reference from the test report.
 
 If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 

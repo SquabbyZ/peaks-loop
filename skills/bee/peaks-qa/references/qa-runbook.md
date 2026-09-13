@@ -36,8 +36,8 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 # 5. EXECUTE tests against the actual implementation — Peaks-Loop Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.
 #    NOTE (v2.11.0 D1/D4): Security review + performance check are NOT run by peaks-qa.
-#    They are owned by peaks-rd's audit fan-out and surface as rd/security-review.md and
-#    rd/perf-baseline.md under .peaks/_runtime/<sessionId>/rd/. Read them by reference;
+#    They are owned by the independent audit skills and surface as audit/security-<rid>.md
+#    and audit/perf-<rid>.md under .peaks/_runtime/<sessionId>/audit/. Read them by reference;
 #    do NOT re-do them or create qa/security-findings.md / qa/performance-findings.md.
 
 # 6. write test-report — MANDATORY, write to .peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md

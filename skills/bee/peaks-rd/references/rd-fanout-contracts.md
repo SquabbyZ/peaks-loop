@@ -11,9 +11,9 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > skills consumed at pre-RD / pre-QA time:
 >
 > - `peaks-security-audit` — CLI: `peaks security-audit run`. Output:
->   `audit/security.md`. Required RD-side prereq: `AUDIT_SECURITY`.
+>   `audit/security-<rid>.md`. Required RD-side prereq: `AUDIT_SECURITY`.
 > - `peaks-perf-audit` — CLI: `peaks perf-audit run`. Output:
->   `audit/perf.md`. Required RD-side prereq: `AUDIT_PERF`.
+>   `audit/perf-<rid>.md`. Required RD-side prereq: `AUDIT_PERF`.
 >
 > Both audit skills consume the immutable peaks-prd handoff
 > (`prd/handoff.md`) and the project-scoped audit templates under
@@ -29,7 +29,7 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > **Karpathy pointer (Slice 1/6):** Each of the 3 sub-agents below operates under the 4 Karpathy guidelines. The canonical reference is `andrej-karpathy-skills:karpathy-guidelines` (full text) and `peaks-rd/SKILL.md` §"Karpathy enforcement". The dispatch primitive also injects the verbatim context block from `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" into every sub-agent prompt. Sub-agents MUST NOT silently drop the block.
 
 - **Sub-agent 1 — code-reviewer** runs `code-review` against the diff and
-  writes `rd/code-review.md`. **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:**
+  writes `rd/code-review-<rid>.md`. **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:**
   the dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`)
   with fallback order **native plugin → cache-backed generic agent → inline**:
   - `detectEcc` state `ready` → `Agent({ subagent_type: 'ecc:code-reviewer', ... })`
@@ -58,22 +58,22 @@ end of implementation, RD fires 3 sub-agents in parallel via
   writer's only write target is `qa/test-cases/<rid>.md`.
 - **Sub-agent 3 — karpathy-reviewer** (Slice 5/6 — hard gate) inspects
   the diff + handoff against the 4 Karpathy-guidelines and writes
-  `rd/karpathy-review.md` (v2.11.0: the immutable peaks-prd handoff
+  `rd/karpathy-review-<rid>.md` (v2.11.0: the immutable peaks-prd handoff
   at `prd/handoff.md` replaces `rd/tech-doc.md`). The file MUST
   contain a `## Karpathy-Gate` header and at least one of the 4
   guideline section markers; the transition CLI gate reads those
   markers and refuses `rd:qa-handoff` when the file is missing or
   the markers are absent. The sub-agent returns a JSON envelope
   `{ passed, violations, gateAction }` (see contract below). Do NOT
-  modify code; the writer's only write target is `rd/karpathy-review.md`.
+  modify code; the writer's only write target is `rd/karpathy-review-<rid>.md`.
 
 > **Removed from v2.12.0 fan-out (back-compat window only):**
 > - ~~Sub-agent — security-reviewer~~ — moved to standalone
->   `peaks-security-audit` skill; output `audit/security.md`. The legacy
+>   `peaks-security-audit` skill; output `audit/security-<rid>.md`. The legacy
 >   path `.peaks/_runtime/<sessionId>/rd/security-review.md` remains
 >   readable via `mustContainAny` for the v2.12.0 1-minor-release window.
 > - ~~Sub-agent — perf-baseline-reviewer~~ — moved to standalone
->   `peaks-perf-audit` skill; output `audit/perf.md`. The legacy path
+>   `peaks-perf-audit` skill; output `audit/perf-<rid>.md`. The legacy path
 >   `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` remains readable
 >   via `mustContainAny` for the v2.12.0 1-minor-release window.
 >
@@ -103,7 +103,7 @@ on the produced artifacts, and only then attempts
 `peaks request transition --state qa-handoff`. The aggregation step
 runs 3 ls checks: Gate B3 (code-review file), Gate C2 (qa-test-cases
 pre-draft, the 2nd sub-agent's deliverable), and the KARPATHY_REVIEW
-prereq (the 3rd sub-agent's `rd/karpathy-review.md`). The audit
+prereq (the 3rd sub-agent's `rd/karpathy-review-<rid>.md`). The audit
 prereqs (`AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF`)
 are NOT fan-out outputs — they are produced by the standalone audit
 skills and consumed by the CLI gate. A failure in any of the 3
@@ -140,7 +140,7 @@ karpathy §1 Think Before Coding + §3 Surgical Changes.
   any violation is detected, `gateAction` is `warn`. When clean,
   `gateAction` is `pass`.
 
-**File write**: the sub-agent writes ONLY `rd/karpathy-review.md`,
+**File write**: the sub-agent writes ONLY `rd/karpathy-review-<rid>.md`,
 formatted as:
 
 ```md
@@ -208,9 +208,9 @@ failing the gate.
 
 | Request type | Required RD evidence (under `.peaks/_runtime/<sessionId>/`) |
 |---|---|
-| feature / refactor | `prd/handoff.md` (immutable) + `audit/security.md` (peaks-security-audit) + `audit/perf.md` (peaks-perf-audit) + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` |
-| bugfix | `prd/handoff.md` (immutable) + `audit/security.md` (peaks-security-audit) + `audit/perf.md` (peaks-perf-audit, perf-shaped only) + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` |
-| config | `audit/security.md` (peaks-security-audit) |
+| feature / refactor | `prd/handoff.md` (immutable) + `audit/security-<rid>.md` (peaks-security-audit) + `audit/perf-<rid>.md` (peaks-perf-audit) + `rd/code-review-<rid>.md` + `rd/karpathy-review-<rid>.md` + `qa/test-cases/<rid>.md` |
+| bugfix | `prd/handoff.md` (immutable) + `audit/security-<rid>.md` (peaks-security-audit) + `audit/perf-<rid>.md` (peaks-perf-audit, perf-shaped only) + `rd/code-review-<rid>.md` + `rd/karpathy-review-<rid>.md` + `qa/test-cases/<rid>.md` |
+| config | `rd/security-review.md` (genuinely ridless — `SECURITY_REVIEW.relativePath` carries no `<rid>`) |
 | docs / chore | (no extra evidence required) |
 
 Always required (in addition to the type-specific row):
@@ -225,6 +225,6 @@ DO NOT attempt the qa-handoff transition; CLI will reject with
 >
 > **v2.12.0 change (Group A — Tier 4+5):** `rd/security-review.md` and
 > `rd/perf-baseline.md` are removed from the required-evidence matrix;
-> `audit/security.md` (peaks-security-audit) + `audit/perf.md`
+> `audit/security-<rid>.md` (peaks-security-audit) + `audit/perf-<rid>.md`
 > (peaks-perf-audit) replace them. The `AUDIT_REQUIRES_HANDOFF` prereq
 > enforces the immutable handoff consumption by the audit skills.

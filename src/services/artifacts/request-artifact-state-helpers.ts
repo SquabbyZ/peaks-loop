@@ -112,21 +112,111 @@ export class FileSizeViolationError extends Error {
   }
 }
 
+/**
+ * The `- state:` line the artifact templates and `request transition` write.
+ * Anchored on both ends so a prose mention (`state: qa-block`, without the
+ * leading dash) is not read as the field, and anchored at column 0 because
+ * every writer of this field (`updateStatusBlock`, `request init`) emits it
+ * as a top-level line — an indented match is a nested list item, not the
+ * field. `locateArtifactState` applies it only outside fenced code regions.
+ */
+const STATE_LINE_RE = /^-\s*state:\s*(.+?)\s*$/;
+
+/** A fenced-code delimiter line: three or more backticks or tildes. */
+const FENCE_LINE_RE = /^(`{3,}|~{3,})/;
+
+export interface ArtifactStateLocation {
+  /** Index of the authoritative `- state:` line, or -1 when the document has none. */
+  stateLineIndex: number;
+  /** The authoritative state, or null when `stateLineIndex` is -1. */
+  state: string | null;
+}
+
+/**
+ * The ONE rule for "which `state:` line is this artifact's state": the LAST
+ * one. A request artifact is an append-only log — each QA round appends a
+ * section ending in its own `## Status`, and `request transition` rewrites the
+ * newest state line in place — so the last line is the current round and the
+ * earlier ones are history.
+ *
+ * Every reader (`verify-pipeline`, `request show`, the resume detector) and the
+ * writer (`updateStatusBlock`) MUST go through this. The 2026-09-14 defect was
+ * three readers disagreeing about one file: `verify-pipeline` and the resume
+ * detector took the first match, `request show` took the last, so an artifact
+ * appended to more than once read as its first round to the checker and the
+ * resume detector while reading as its last round to the viewer and the writer.
+ *
+ * Scoping the search to the last `## Status` block was evaluated as an
+ * alternative and rejected — as a SECOND locator, not as a broken rule. It is
+ * well defined on the specimen that motivated this slice (four blocks) and
+ * returns `verdict-issued`, the right answer; and a trailing appended
+ * `- state:` line does not defeat it the way it defeats this rule — on that
+ * input the two rules disagree, and the one the block rule then disagrees with
+ * is the writer. `updateStatusBlock` rewrites the last `- state:` line wherever
+ * it sits and never moves it into the newest block, so a block-scoped reader
+ * parts company with the writer as soon as those two positions differ: the
+ * writer writes the appended line while the block reader keeps reporting the
+ * block's own line. That is this slice's reader-vs-writer divergence on a new
+ * axis. Sharing the writer's locator makes the agreement structural, not
+ * accidental.
+ *
+ * Known boundary of this rule, pinned in
+ * `request-artifact-state-authority.test.ts` rather than hidden: a process that
+ * appends a bare `- state:` line takes over the field — consistent with the
+ * writer being its only sanctioned producer.
+ *
+ * Two narrowings keep that boundary to lines the writer could have produced.
+ * A line inside a fenced code region is skipped, and the line must start at
+ * column 0. Neither is defensive decoration: a document that *describes* the
+ * state machine quotes `- state: qa-block` inside a fence, and this job's own
+ * `qa/requests/*.md` artifacts do exactly that — under the unfenced rule the
+ * quoted example was an input to the transition checker, and it survived only
+ * because the quoted copies happened not to be last. Both narrowings were
+ * measured against every `*.md` under `.peaks/` (833 files) and change no
+ * artifact's answer, and the writer already satisfies both by construction
+ * (`updateStatusBlock` writes `- state: <state>` at column 0), so reader and
+ * writer stay the same locator.
+ *
+ * Fuller record: the slice-3 section of this session's `rd/tech-doc.md` and
+ * the repair-round section of `rd/repair2-meta-integrity-fixes.md`.
+ */
+export function locateArtifactState(lines: ReadonlyArray<string>): ArtifactStateLocation {
+  let stateLineIndex = -1;
+  let state: string | null = null;
+  let fence: string | null = null;
+  for (const [index, raw] of lines.entries()) {
+    const fenceMatch = FENCE_LINE_RE.exec(raw.trim());
+    if (fence === null) {
+      if (fenceMatch !== null) {
+        fence = fenceMatch[1]![0]!;
+        continue;
+      }
+    } else {
+      if (fenceMatch !== null && fenceMatch[1]![0] === fence) fence = null;
+      continue;
+    }
+    const match = STATE_LINE_RE.exec(raw);
+    if (match?.[1] !== undefined) {
+      stateLineIndex = index;
+      state = match[1];
+    }
+  }
+  return { stateLineIndex, state };
+}
+
+/** `locateArtifactState` over a whole document. Null when there is no `- state:` line. */
+export function readArtifactState(markdown: string): string | null {
+  return locateArtifactState(markdown.split(/\r?\n/)).state;
+}
+
 export function updateStatusBlock(markdown: string, newState: RequestArtifactState, timestamp: string, reason?: string): { updated: string; previousState: string } {
   const lines = markdown.split(/\r?\n/);
-  let previousState = 'unknown';
-  let stateLineIndex = -1;
+  const { stateLineIndex, state } = locateArtifactState(lines);
+  const previousState = state ?? 'unknown';
   let lastUpdateLineIndex = -1;
 
   for (const [index, raw] of lines.entries()) {
-    const trimmed = raw.trim();
-    const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(trimmed);
-    if (stateMatch !== null && stateMatch[1] !== undefined) {
-      previousState = stateMatch[1];
-      stateLineIndex = index;
-      continue;
-    }
-    if (/^-\s*last update:\s*/.test(trimmed)) {
+    if (/^-\s*last update:\s*/.test(raw.trim())) {
       lastUpdateLineIndex = index;
     }
   }

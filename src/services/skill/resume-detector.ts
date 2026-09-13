@@ -32,6 +32,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readArtifactState } from '../artifacts/request-artifact-state-helpers.js';
 
 export type ResumeKind = 'fresh' | 'complete' | 'resume' | 'in-flight';
 
@@ -278,11 +279,21 @@ function classifyTerminalGates(
   // RD qa-handoff → deepest gate is C. If the review artifacts are
   // missing the state is inconsistent; fall back to rd-review-fanout.
   if (ctx.primaryRd !== null && ctx.primaryRd.state === 'qa-handoff') {
-    const codeReviewPath = join(sessionDir, 'rd', 'code-review.md');
-    const securityReviewPath = join(sessionDir, 'rd', 'security-review.md');
+    // Slice `2026-09-14-audit-artifact-rid-scoping`: the fan-out evidence
+    // filenames carry the rid. Probe the canonical rid-scoped name first and
+    // the pre-rid names behind it — the same order the transition gate
+    // resolves in, so an inconsistent-looking slice here means the fan-out
+    // never ran, not that it wrote to a name this reader does not know.
+    const rid = ridOf(ctx.primaryRd.filename);
     const missing: string[] = [];
-    if (!existsSync(codeReviewPath)) missing.push('rd/code-review.md');
-    if (!existsSync(securityReviewPath)) missing.push('rd/security-review.md');
+    const codeReviewCandidates = [`rd/code-review-${rid}.md`, 'rd/code-review.md'];
+    const securityCandidates = [`audit/security-${rid}.md`, 'audit/security.md', 'rd/security-review.md'];
+    if (!codeReviewCandidates.some((rel) => existsSync(join(sessionDir, rel)))) {
+      missing.push(codeReviewCandidates[0]!);
+    }
+    if (!securityCandidates.some((rel) => existsSync(join(sessionDir, rel)))) {
+      missing.push(securityCandidates[0]!);
+    }
     if (missing.length > 0) {
       return {
         kind: 'resume',
@@ -407,11 +418,22 @@ function readRequestStates(sessionDir: string, role: 'prd' | 'rd' | 'qa'): Reque
     });
 }
 
+/** Empty string (not 'unknown') when the artifact has no state line — `primaryPrd.state.length > 0` below depends on that. */
 function extractState(content: string): string {
-  const match = /^-\s*state:\s*(\S+)|^state:\s*(\S+)/m.exec(content);
-  if (match === null) return '';
-  const captured = match[1] ?? match[2] ?? '';
-  return captured.trim();
+  return readArtifactState(content) ?? '';
+}
+
+/**
+ * The `<rid>` embedded in a request filename: drop the `.md` suffix and the
+ * zero-padded `NNN-` prefix `request init` writes.
+ *
+ * Uses the same `^0\d{2}-` rule as the request loader
+ * (`request-artifact-service.ts`: "Only strip 3-digit zero-padded prefixes").
+ * A looser `^\d+-` would eat the leading year of every real rid, which is
+ * itself date-shaped (`2026-09-14-<slug>`).
+ */
+function ridOf(filename: string): string {
+  return filename.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
 }
 
 function hasAbandonedTransitionNote(content: string): boolean {

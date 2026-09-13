@@ -153,8 +153,9 @@ peaks request transition <rid> --role rd --state implemented --project <repo> --
 
 # 5. Peaks-Loop Code review + security review BEFORE qa-handoff transition.
 #    Produce the evidence files the CLI gate enforces:
-#      - .peaks/_runtime/<id>/rd/code-review.md     (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
-#      - .peaks/_runtime/<id>/rd/security-review.md (required for feature/bugfix/refactor/config)
+#      - .peaks/_runtime/<id>/rd/code-review-<rid>.md  (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
+#      - .peaks/_runtime/<id>/audit/security-<rid>.md  (required for feature/bugfix/refactor; the ridless rd/security-review.md is the config-type requirement)
+#      The pre-rid names remain accepted back-compat tiers, but writing one re-opens the two-slices-one-session collision (slice 2026-09-14-audit-artifact-rid-scoping).
 #    Then transition. If --type is docs/chore the gate is empty and the transition is unguarded.
 peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json
 

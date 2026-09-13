@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { JobStateSchema, type JobState } from './job-types.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export interface JobInitInput {
   jobId: string;
@@ -21,6 +22,12 @@ export class JobStateStore {
   constructor(private readonly rootDir: string) {}
 
   private jobDir(jobId: string): string {
+    // JobId axis. This is the only join the store performs, so one guard here
+    // covers every `peaks job *` subcommand — ten CLI call sites hand the
+    // store a caller-supplied `--job-id` and none of them checked it.
+    if (isUnsafePathInput(jobId)) {
+      throw new Error(`Invalid job id: ${jobId} (must be a single path segment)`);
+    }
     return join(this.rootDir, jobId);
   }
 

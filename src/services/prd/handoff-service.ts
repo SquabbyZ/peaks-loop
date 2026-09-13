@@ -24,8 +24,9 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml } from 'yaml';
 
+import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
 import type {
   Handoff,
   HandoffFrontmatter,
@@ -175,10 +176,11 @@ function parseHandoffContent(content: string): Handoff {
 }
 
 function serializeHandoff(handoff: Handoff): string {
-  const yamlStr = stringifyYaml(
-    handoff.frontmatter as unknown as Record<string, unknown>
-  ).trimEnd();
-  return `---\n${yamlStr}\n---\n${handoff.body}`;
+  // The one canonical frontmatter rendering, shared with
+  // `handoff-auto-regen.ts`. `yaml.stringify` used to render this block and
+  // emitted `schemaVersion: "2"` + a bare `handoffHash:`, which the
+  // `AUDIT_REQUIRES_HANDOFF` gate and both audit loaders all reject.
+  return `${serializeHandoffFrontmatter(handoff.frontmatter)}${handoff.body}`;
 }
 
 /**
@@ -193,14 +195,34 @@ function serializeHandoff(handoff: Handoff): string {
  * readable handoff was satisfied by a handoff the parser would not read, and
  * `peaks prd handoff verify` exited 1 on a healthy file.
  *
- * Quoting the writer instead is NOT a fix: it would delete the very substring
- * the prereq pins, turning a broken read into a broken gate. The tolerant read
- * is the only change that satisfies both consumers.
+ * Slice `2026-09-14-handoff-writer-gate-divergence` then fixed the other half:
+ * the writer no longer emits the quoted form at all (see
+ * `handoff-frontmatter.ts`). This tolerance stays because handoffs already on
+ * disk were written by the old writer and by hand; the writer fix must not
+ * retroactively make them unreadable.
  */
 function isSchemaVersion2(value: unknown): boolean {
   return value === HANDOFF_SCHEMA_VERSION || value === 2;
 }
 
+/**
+ * The READER's shape check — deliberately looser than `verifyHandoff`:
+ * `handoffHash` must be a string, and nothing about its VALUE is validated here.
+ *
+ * The accepted-but-unverifiable shape, stated rather than left to be
+ * discovered: a capsule carrying `handoffHash: sha256:<hex>` — the form the
+ * pre-fix writer and this session's hand-corrected capsules use — is READ by
+ * `readHandoff` and can NEVER pass `verifyHandoff`. The verifier compares the
+ * value to `sha256OfBody(body)` byte for byte (`:127-135`) and no prefix
+ * normalization exists anywhere in this module, so the leading `sha256:`
+ * guarantees `hash-mismatch`. ONLY the bare-hex form verifies, which is what
+ * every writer now emits (`handoff-frontmatter.ts`).
+ *
+ * So `readHandoff` succeeding is NOT evidence that a capsule is verifiable —
+ * the tolerance above exists so old capsules stay READABLE, not so they become
+ * acceptable. Request §三 bullet 3 asked for exactly this confirmation
+ * (rid `2026-09-14-handoff-writer-gate-divergence`).
+ */
 function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;

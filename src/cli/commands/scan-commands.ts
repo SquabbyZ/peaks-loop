@@ -514,7 +514,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       });
       const nextActions: string[] = [];
       if (report.gateAction === 'block') {
-        nextActions.push('Karpathy review file missing under scope=all. Per karpathy §1 Think Before Coding, create rd/karpathy-review.md before requesting qa-handoff.');
+        nextActions.push('Karpathy review file missing under scope=all. Per karpathy §1 Think Before Coding, the rd:qa-handoff gate wants rd/karpathy-review-<rid>.md; this scanner has no rid and reads only the back-compat name rd/karpathy-review.md, so it cannot go green on the rid-scoped name alone. `peaks request transition --state qa-handoff` is the authoritative gate.');
       } else if (report.gateAction === 'warn') {
         nextActions.push(`Karpathy review emitted ${report.totalViolations} violation(s). Review the warnings and re-run after cleanup (karpathy §3 Surgical Changes).`);
       } else {

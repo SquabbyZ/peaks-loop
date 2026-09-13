@@ -15,7 +15,9 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { showRequestArtifact, type RequestArtifactRole } from '../artifacts/request-artifact-service.js';
+import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
 import { sha256OfBody } from './handoff-service.js';
+import type { HandoffFrontmatter } from './handoff-types.js';
 import { normalizePath } from '../../shared/path-utils.js';
 
 export type HandoffAutoRegenResult =
@@ -52,28 +54,26 @@ export async function autoRegenPrdHandoff(opts: {
   const body = artifact.content;
   const sha256 = sha256OfBody(body);
   // v2.13.3 AC-4 — align with `AUDIT_REQUIRES_HANDOFF` prereq which
-  // pins `mustContain: ['schemaVersion: 2', 'sha256:']`. The previous
-  // field name `handoffHash` made peaks-loop write a handoff that the
-  // own prereq resolver would reject with "missing section(s): sha256:".
-  // Primary field is now `sha256`; `handoffHash` is kept as a literal
-  // alias for back-compat with any consumer (UI / external scripts)
-  // that still reads the old key.
-  const frontmatter = [
-    '---',
-    `requestId: ${opts.requestId}`,
-    `sessionId: ${opts.sessionId}`,
-    'schemaVersion: 2',
-    `sha256: ${sha256}`,
-    `handoffHash: ${sha256}`,
-    `writtenAt: ${new Date().toISOString()}`,
-    'goals: []',
-    'acceptanceCriteria: []',
-    'preservedBehavior: []',
-    `handoffPath: ${normalizePath(handoffPath.replace(opts.projectRoot, '')).replace(/^\//, '')}`,
-    '---',
-    ''
-  ].join('\n');
-  const content = `${frontmatter}${body}`;
+  // pins `mustContain: ['schemaVersion: 2', 'sha256:']`. Primary field is
+  // `sha256`; `handoffHash` is kept as a literal alias for the readers that
+  // still use the old key.
+  //
+  // Slice `2026-09-14-handoff-writer-gate-divergence`: this block used to be
+  // hand-rolled here while `handoff-service.serializeHandoff` rendered the
+  // SAME contract a second, incompatible way. Both now go through
+  // `serializeHandoffFrontmatter`, so the two producers cannot drift again.
+  const frontmatter: HandoffFrontmatter = {
+    requestId: opts.requestId,
+    sessionId: opts.sessionId,
+    schemaVersion: '2',
+    handoffHash: sha256,
+    writtenAt: new Date().toISOString(),
+    goals: [],
+    acceptanceCriteria: [],
+    preservedBehavior: [],
+    handoffPath: normalizePath(handoffPath.replace(opts.projectRoot, '')).replace(/^\//, '')
+  };
+  const content = `${serializeHandoffFrontmatter(frontmatter)}${body}`;
   mkdirSync(dirname(handoffPath), { recursive: true });
   writeFileSync(handoffPath, content, 'utf8');
   const recomputed = createHash('sha256').update(body, 'utf8').digest('hex');

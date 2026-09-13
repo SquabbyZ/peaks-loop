@@ -36,6 +36,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
+import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 
 /**
  * 5-state detection result. Mirrors `detectEcc` in `services/code-review/ecc-bridge.ts`.
@@ -353,6 +354,12 @@ export function writeSecurityAuditArtifact(
   rid: string,
   body: string
 ): string {
+  // The rid is a filename below, and the write is tmp+rename, so an
+  // unvalidated rid can OVERWRITE an arbitrary `.md` rather than merely create
+  // one. Guarded here (not only at the CLI boundary) so no caller can skip it.
+  if (!REQUEST_ID_PATTERN.test(rid)) {
+    throw new Error(`Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`);
+  }
   const targetDir = join(
     projectRoot,
     '.peaks',

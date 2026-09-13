@@ -25,6 +25,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import type { PolyrepoDispatch, PolyrepoManifest } from './polyrepo-types.js';
 
 export interface DispatchOptions {
@@ -70,6 +71,17 @@ function ensureDirFor(file: string): void {
 export function dispatchArtifact(opts: DispatchOptions): DispatchResult {
   const warnings: string[] = [];
   const perChild: ChildDispatchResult[] = [];
+
+  // `sid` becomes a path segment in every child (`childArtifactPath`). It has no
+  // pinned format (`--sid` is a free-form override), so it gets the repo's
+  // segment check — the same `isUnsafePathInput` `peaks evidence generate` and
+  // `peaks verdict aggregate` apply to their session id. Guard before the first
+  // mkdir so a rejected dispatch leaves nothing behind. Measured before this
+  // line existed: `--sid '../../../../../../PWNED-SID-ESCAPE'` wrote
+  // `<parent-of-fixture>/PWNED-SID-ESCAPE/prd/src.md`, above every project root.
+  if (isUnsafePathInput(opts.sid)) {
+    throw new Error(`Invalid session id: ${opts.sid} (must be a single path segment)`);
+  }
 
   // Validate targets against the manifest.
   const knownIds = new Set(opts.manifest.children.map((c) => c.id));

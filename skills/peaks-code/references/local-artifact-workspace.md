@@ -53,7 +53,7 @@ Files written into these directories during the workflow (not pre-created — th
 - `rd/project-scan.md` (Code step 0.6)
 - `rd/tech-doc.md` (feature/refactor planning; required by `rd → implemented` gate)
 - `rd/bug-analysis.md` (bugfix planning; required by `rd → implemented` gate for `--type bugfix`)
-- `rd/code-review.md`, `rd/security-review.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; security-review only for config)
+- `rd/code-review-<rid>.md`, `audit/security-<rid>.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; the `config` type instead requires the ridless `rd/security-review.md`)
 - `rd/mock-plan.md` (frontend-only mode)
 - `ui/design-draft.md` (UI step)
 - `system/existing-system.md` (Code step 0.7; legacy projects only)

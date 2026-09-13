@@ -12,12 +12,18 @@
 sid=$(peaks session info --active --project "$(git rev-parse --show-toplevel)" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['sessionId'])")
 
 # 2. Enumerate the session's artifact tree (one `find` call, no new CLI)
-find ".peaks/$sid/" -type f 2>/dev/null | sort
+find ".peaks/_runtime/$sid/" -type f 2>/dev/null | sort
 
 # 3. For each role request artifact present, read its `state:` field
-#    (one-pass grep; only files that exist)
-for f in .peaks/$sid/prd/requests/*.md .peaks/$sid/rd/requests/*.md .peaks/$sid/qa/requests/*.md; do
-  [ -f "$f" ] && echo "$f: $(grep -m1 '^state:' "$f" | awk '{print $2}')"
+#    (only files that exist). Artifacts are append-only: every round appends its
+#    own `## Status` block and `request transition` rewrites the NEWEST
+#    `- state:` line in place, so the LAST match is the current state and the
+#    earlier ones are history. Reading the FIRST match returns a superseded
+#    round — that was the 2026-09-14 defect. The leading `-` is part of the
+#    field: an unanchored `^state:` matches nothing (artifacts write
+#    `- state:`), so it reported an empty state, silently.
+for f in .peaks/_runtime/$sid/prd/requests/*.md .peaks/_runtime/$sid/rd/requests/*.md .peaks/_runtime/$sid/qa/requests/*.md; do
+  [ -f "$f" ] && echo "$f: $(grep '^-[[:space:]]*state:' "$f" | tail -n1 | sed 's/^-[[:space:]]*state:[[:space:]]*//; s/[[:space:]]*$//')"
 done
 
 # 4. Compute "deepest completed gate" by file-presence + state mapping
@@ -28,7 +34,7 @@ done
 
 | Files present | State | Deepest completed gate | Resume point (if any) |
 |---|---|---|---|
-| only `.peaks/$sid/.session.json` | (no slice) | (none) | fresh — skip to Step 1 |
+| only `.peaks/_runtime/$sid/session.json` | (no slice) | (none) | fresh — skip to Step 1 |
 | `prd/requests/<rid>.md` | `state: handed-off` | Gate B (swarm converged) | resume at Step 3 (swarm) — but if swarm already ran and produced `rd/tech-doc.md` / `qa/test-cases/<rid>.md`, drop to deepest |
 | `rd/requests/<rid>.md` | `state: qa-handoff` | Gate C (RD done) | resume at Step 6 (QA validation) |
 | `qa/requests/<rid>.md` | `state: verdict-issued` | Gate D (QA done) | resume at Step 10 (TXT handoff) |
@@ -39,8 +45,8 @@ done
 | Missing file | Resume at |
 |---|---|
 | `rd/tech-doc.md` (for `feature`/`refactor`) or `rd/bug-analysis.md` (for `bugfix`) | Step 3b (RD planning) |
-| `rd/code-review.md` or `rd/security-review.md` | Step 5 (RD review fan-out) |
-| `rd/perf-baseline.md` (for `feature`/`refactor`) | Step 5 (perf baseline) |
+| `rd/code-review-<rid>.md` or `audit/security-<rid>.md` | Step 5 (RD review fan-out) |
+| `audit/perf-<rid>.md` (for `feature`/`refactor`) | Step 5 (perf baseline) |
 | `qa/test-cases/<rid>.md` | Step 6 (QA test-case generation) |
 | `qa/test-reports/<rid>.md` or `qa/security-findings.md` or `qa/performance-findings.md` | Step 6 (QA execution) |
 | `txt/handoff.md` | Step 10 (TXT handoff) |

@@ -110,7 +110,7 @@ export async function scanKarpathy(options: KarpathyScanOptions): Promise<Karpat
         warnings: [
           `Karpathy review file missing: ${reviewRel}`,
           'Per karpathy §1 Think Before Coding: state your assumptions. Without a review file, no 5-way fanout evidence is available.',
-          'Per karpathy §3 Surgical Changes: touch only what the request requires. Create a minimal rd/karpathy-review.md stub before requesting qa-handoff.'
+          'Per karpathy §3 Surgical Changes: touch only what the request requires. The rd:qa-handoff gate is satisfied by rd/karpathy-review-<rid>.md; this scanner has no rid and reads only the back-compat name rd/karpathy-review.md, so a rid-scoped-only slice still reads as missing here. `peaks request transition --state qa-handoff` is the authoritative gate.'
         ]
       };
     }
@@ -275,6 +275,6 @@ export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title
 
   lines.push('### Karpathy-Gate');
   lines.push('');
-  lines.push('Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding / §3 Surgical Changes, the hard Karpathy-Gate requires `rd/karpathy-review.md` to be present with all 4 guideline sections before `peaks request transition --state qa-handoff`.');
+  lines.push('Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding / §3 Surgical Changes, the hard Karpathy-Gate requires `rd/karpathy-review-<rid>.md` to be present with all 4 guideline sections before `peaks request transition --state qa-handoff`. (`rd/karpathy-review.md` is the accepted back-compat tier, and the only name this scanner probes.)');
   return lines.join('\n');
 }

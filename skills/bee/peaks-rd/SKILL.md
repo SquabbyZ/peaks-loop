@@ -172,16 +172,18 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 **v2.12.0 collapse (Group A — Tier 1+2+3):** the previous 5-way fan-out (slice 004 4-way + slice 5/6 `karpathy-reviewer` addition) totalled **5 sub-agents**. The `security-reviewer` and `perf-baseline-reviewer` slots moved out of the RD 3-way fan-out into two new standalone audit skills:
 
-- `peaks-security-audit` — CLI: `peaks security-audit run`. Writes `audit/security.md` (under `.peaks/_runtime/<sessionId>/audit/security.md`). Required RD-side prereq `AUDIT_SECURITY`.
-- `peaks-perf-audit` — CLI: `peaks perf-audit run`. Writes `audit/perf.md` (under `.peaks/_runtime/<sessionId>/audit/perf.md`). Required RD-side prereq `AUDIT_PERF`.
+- `peaks-security-audit` — CLI: `peaks security-audit run`. Writes `audit/security-<rid>.md` (under `.peaks/_runtime/<sessionId>/audit/security-<rid>.md`). Required RD-side prereq `AUDIT_SECURITY`.
+- `peaks-perf-audit` — CLI: `peaks perf-audit run`. Writes `audit/perf-<rid>.md` (under `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`). Required RD-side prereq `AUDIT_PERF`.
+
+  **The rid is part of the filename** (slice `2026-09-14-audit-artifact-rid-scoping`). Two slices run in the same session share `.peaks/_runtime/<sessionId>/audit/`, so a ridless filename makes the second slice's write silently destroy the first slice's audit — which is what happened to `audit/perf.md` on 2026-09-13, irrecoverably. The bare `audit/security.md` / `audit/perf.md` (and the older `rd/security-review.md` / `rd/perf-baseline.md`) are still **read** as back-compat fallbacks, but never write there.
 
 Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and the project-scoped audit templates under `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`. The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq. The 1-minor-release back-compat window (v2.12.0) keeps the old `rd/security-review.md` and `rd/perf-baseline.md` paths readable via `mustContainAny` — see `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
 
 **Current 3-way fan-out** (always runs for feature / refactor / bugfix; no fan-out for config / docs / chore):
 
-1. `code-reviewer` — writes `rd/code-review.md` (Gate B3).
+1. `code-reviewer` — writes `rd/code-review-<rid>.md` (Gate B3). **Not** `rd/code-review.md`: the ridless name is shared by every slice in the session, so slice 2 would overwrite slice 1's review (it did on 2026-09-13). The ridless path is still read as a back-compat fallback.
 2. `qa-test-cases-writer` — writes `qa/test-cases/<rid>.md` (Gate C2).
-3. `karpathy-reviewer` — writes `rd/karpathy-review.md` (the **hard Karpathy-Gate**, KARPATHY_REVIEW prereq).
+3. `karpathy-reviewer` — writes `rd/karpathy-review-<rid>.md` (the **hard Karpathy-Gate**, KARPATHY_REVIEW prereq). Same rule: the ridless `rd/karpathy-review.md` is read but never written.
 
 Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) lives in **`references/parallel-review-fanout.md`**. Read that file before issuing any 3-way fan-out.
 
@@ -269,11 +271,11 @@ Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. 
 
 Do not bypass the parallel review fan-out when the slice has a code-review / qa-test-cases / karpathy-review surface — see `## Parallel review fan-out` above. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
 
-**Security / perf audit boundary (v2.12.0):** security and perf audit run as standalone audit skills (`peaks-security-audit`, `peaks-perf-audit`) whose outputs land at `audit/security.md` / `audit/perf.md`. RD does **not** dispatch `security-reviewer` or `perf-baseline-reviewer` sub-agents. See `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
+**Security / perf audit boundary (v2.12.0):** security and perf audit run as standalone audit skills (`peaks-security-audit`, `peaks-perf-audit`) whose outputs land at `audit/security-<rid>.md` / `audit/perf-<rid>.md`. RD does **not** dispatch `security-reviewer` or `perf-baseline-reviewer` sub-agents. See `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
 
 ## Karpathy cost self-review (slice 2026-07-30-karpathy-cost-self-review)
 
-The `karpathy-reviewer` sub-agent now reports its own runtime cost in the JSON envelope at `rd/karpathy-review.md` (fields `evaluationCost` + `costRatio`; see `agents/karpathy-reviewer.md` §4). The **orchestrator-side** command `peaks job karpathy-cost-check --review-file <path>` reads that envelope and decides whether to downgrade a `'block'` gateAction to `'warn'` when `costRatio > 10`. **24h-mode is the override** — the check is entirely skipped when `peaks session 24h-mode state` reports `24H_ACTIVE`.
+The `karpathy-reviewer` sub-agent now reports its own runtime cost in the JSON envelope at `rd/karpathy-review-<rid>.md` (fields `evaluationCost` + `costRatio`; see `agents/karpathy-reviewer.md` §4). The **orchestrator-side** command `peaks job karpathy-cost-check --review-file <path>` reads that envelope and decides whether to downgrade a `'block'` gateAction to `'warn'` when `costRatio > 10`. **24h-mode is the override** — the check is entirely skipped when `peaks session 24h-mode state` reports `24H_ACTIVE`.
 
 The main RD loop MUST call `peaks job karpathy-cost-check` after every `peaks request transition --state qa-handoff` and before the next-slice work begins. If the decision kind is `downgraded`, the LLM MUST honor the downgraded `warn` and proceed to the next slice; the `'block'` was an artifact of the reviewer's own cost, not the slice's quality. If the decision kind is `reported` (costRatio > 50, gate not `'block'`), the LLM MAY continue; the sediment will be appended by `peaks memory extract` at handoff time. The full design lives in `.peaks/memory/2026-07-30-karpathy-evaluation-cost-self-review-design.md` (sediment locked 2026-07-30).
 

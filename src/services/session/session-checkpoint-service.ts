@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { emitObservabilityEvent } from '../observability/observability-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 const CHECKPOINTS_DIR = 'checkpoints';
 const CHECKPOINT_FILENAME_EXT = '.json';
@@ -136,6 +137,13 @@ export function writeCheckpoint(
   projectRoot: string,
   options: CheckpointOptions
 ): CheckpointWriteResult {
+  // Sid axis, placed before the first read and the first `mkdir`. Both
+  // `peaks session checkpoint --session-id` and `peaks compact force
+  // --session-id` reach this same function, so one guard closes both measured
+  // surfaces — they were never two joins.
+  if (isUnsafePathInput(options.sessionId)) {
+    throw new Error(`Invalid session id: ${options.sessionId} (must be a single path segment)`);
+  }
   const now = (options.now ?? (() => new Date()))();
   const createdAt = now.toISOString();
   const lastActivity = readSessionLastActivity(projectRoot, options.sessionId) || createdAt;

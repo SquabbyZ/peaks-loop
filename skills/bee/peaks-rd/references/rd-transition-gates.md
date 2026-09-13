@@ -10,9 +10,11 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 >
 > | Type | rd:implemented requires | rd:qa-handoff also requires |
 > |---|---|---|
-> | feature / refactor | `rd/tech-doc.md` | `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` (filled Results table, or `N/A — no perf surface` in Notes) + **`qa/test-cases/<rid>.md`** (added in slice 004; pre-drafted by the 4th sub-agent in the parallel fan-out) |
-> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review.md` + `rd/security-review.md` + **`qa/test-cases/<rid>.md`**; `rd/perf-baseline.md` only when the bug is performance-shaped (matches the L449-452 "When this applies" criteria) |
-> | config | (none) | `rd/security-review.md` only |
+> | feature / refactor | `rd/tech-doc.md` | `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + `audit/perf-<rid>.md` (filled Results table, or `N/A — no perf surface` in Notes) + **`qa/test-cases/<rid>.md`** (added in slice 004; pre-drafted by the 4th sub-agent in the parallel fan-out) |
+> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review-<rid>.md` + `audit/security-<rid>.md` + **`qa/test-cases/<rid>.md`**; `audit/perf-<rid>.md` only when the bug is performance-shaped (matches the L449-452 "When this applies" criteria) |
+> | config | (none) | `rd/security-review.md` only — this one is genuinely ridless (`SECURITY_REVIEW.relativePath` carries no `<rid>`) |
+>
+> The `<rid>`-bearing names are the ones `peaks request transition` resolves first; the pre-rid names (`rd/code-review.md`, `rd/security-review.md`, `audit/security.md`, `audit/perf.md`) stay **readable** as back-compat tiers for sessions written before slice `2026-09-14-audit-artifact-rid-scoping` — read, never written. Exception: `rd/perf-baseline.md` is the RD-side Gate B9 baseline (a different artifact from `audit/perf-<rid>.md`) and is still both written by `peaks perf baseline --apply` and read as `AUDIT_PERF`'s oldest legacy tier.
 > | docs / chore | (none) | (none) |
 >
 > The escape hatch `--allow-incomplete --reason "<text>"` still exists for one-off exceptions; the bypass is recorded in the artifact transition note.
@@ -68,16 +70,16 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -20
 
 **Peaks-Loop Gate B3 — Before QA handoff: code review evidence exists:**
 ```bash
-ls .peaks/_runtime/<sessionId>/rd/code-review.md 2>&1
-# Expected: .peaks/_runtime/<sessionId>/rd/code-review.md
+ls .peaks/_runtime/<sessionId>/rd/code-review-<rid>.md 2>&1
+# Expected: .peaks/_runtime/<sessionId>/rd/code-review-<rid>.md
 # "No such file" → BLOCKED. Run code review (use code-reviewer agent or equivalent),
 # record findings, fix CRITICAL/HIGH issues, then re-check.
 ```
 
 **Peaks-Loop Gate B4 — Before QA handoff: security review evidence exists:**
 ```bash
-ls .peaks/_runtime/<sessionId>/rd/security-review.md 2>&1
-# Expected: .peaks/_runtime/<sessionId>/rd/security-review.md
+ls .peaks/_runtime/<sessionId>/audit/security-<rid>.md 2>&1
+# Expected: .peaks/_runtime/<sessionId>/audit/security-<rid>.md
 # "No such file" → BLOCKED. Run security review (use security-reviewer agent or equivalent),
 # fix CRITICAL/HIGH issues, record findings, then re-check.
 ```
