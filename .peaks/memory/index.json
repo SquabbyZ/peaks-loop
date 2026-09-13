@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-12T12:22:10.440Z",
+  "updatedAt": "2026-09-13T07:56:59.105Z",
   "hot": {
     "rule": [
       {
@@ -408,6 +408,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
+        "kind": "feedback",
+        "description": "**用注入验证守卫时，探针本身出错的表现，与\"守卫工作正常\"**输出完全一样**。** 2026-09-13 实测（peaks-loop vendor 守卫的收口轮）：RD 的注入探针用  启动。在 Windows 上，不经 shel...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "active-skill-cli-routing",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> Active-skill reads go through the CLI When checking the active Peaks skill ...",
@@ -430,6 +438,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\bash-pretooluse-hook-json-error-fix.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "check-ci-on-every-push-and-run-wide-tsc",
+        "kind": "feedback",
+        "description": "**2026-09-11 我推了两个红提交却没发现。**  和 (4.0.39 后的两条技能修复) **CI 双双失败**,而我是**在下一批发版时偶然翻 run 列表才看到**。它们失败直到  修掉。 **根因是一条我踩过的旧坑:*...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\check-ci-on-every-push-and-run-wide-tsc.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "coverage-red-line",
@@ -528,6 +544,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "piping-a-test-run-reports-the-pipes-exit-code",
+        "kind": "feedback",
+        "description": "**把测试命令管进 （或任何管道/分页器）之后，你读到的  是那个**管道的**退出码，不是测试运行器的。** 2026-09-13 实测（peaks-loop）：跑了全量集成套件 输出尾部是  / ，退出码 。**我据此宣布\"套件全...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\piping-a-test-run-reports-the-pipes-exit-code.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "rd-gstack-dry-run",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> The skills under this project's  directory should deeply integrate and refe...",
@@ -542,6 +566,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\redline-no-claude-co-author.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+        "kind": "feedback",
+        "description": "**做\"扫全仓找某类调用点\"这类作业时，先找仓库里**已有的 AST 守卫**，扩它的射程；不要另写一个正则/文本扫描。** 2026-09-13 实测：为了统计\"全仓有多少  调用点没带 \"，我临时写了三版扫描器，**三版都错**： 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\use-the-repos-existing-ast-guard-not-a-fresh-regex-scan.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "user-decision-2026-07-05-eradicate-peaks-code",
@@ -566,6 +598,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\windows-shell-quoting-divergence.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "writing-a-value-then-reading-it-back-locks-the-first-guess",
+        "kind": "feedback",
+        "description": "**一个组件若把\"自己派生的值\"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（peaks-loop 方案 A1，QA 在副本复现）：peaks-loop 把解析出的上...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\writing-a-value-then-reading-it-back-locks-the-first-guess.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       }
     ],
     "convention": [
@@ -2034,12 +2074,44 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "ci-green-restoration-2026-09-08",
+        "kind": "project",
+        "description": "CI 首次全绿（2026-09-08） **Date:** 2026-09-08（session 2026-09-07-session-245530） 背景：ci.yml 此前**从未**跑到过 Test 步骤 第一个门  在 run...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ci-green-restoration-2026-09-08.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "cli-cleanup-on-demand-ecc-design-2026-07-16",
         "kind": "project",
         "description": "CLI surface cleanup + on-demand ECC — design sediment **日期:** 2026-07-16 **rid:**  **sessionId:**  **targetRelease:**...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\cli-cleanup-on-demand-ecc-design-2026-07-16.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "codegraph-dangling-marker-autorefresh-fix",
+        "kind": "project",
+        "description": "codegraph 自动刷新失效根因 + 修复（4.0.31） **Date:** 2026-09-08（session 2026-09-07-session-245530） 根因（一个语义混淆）  的语义是\"peaks-loop 管...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\codegraph-dangling-marker-autorefresh-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "codegraph-default-excludes-hide-real-source",
+        "kind": "project",
+        "description": "codegraph 默认 exclude 静默吞掉真实源文件（2026-09-12） 事实 （**未被 git 跟踪**，仓库级 .gitignore 忽略整个 ）的  是上游默认模板（99 条），按**目录名**匹配。它在本仓库误伤...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\codegraph-default-excludes-hide-real-source.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "commander-defaults-defeat-fallbacks",
+        "kind": "project",
+        "description": "**commander 的第三个参数是默认值。** 一旦声明， **永远不是 ** —— 于是下游任何  的  **永远不执行**。这不是\"默认值\"，是**悄悄删掉一条分支**。 **2026-09-11 真实事故（）：** **结果...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\commander-defaults-defeat-fallbacks.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "custom-sop-and-gate-metering",
@@ -2066,6 +2138,38 @@
         "updatedAt": "2026-09-06"
       },
       {
+        "name": "ecc-de-pluginization-2026-09-09",
+        "kind": "project",
+        "description": "ECC 去插件化 + 动态获取修复（2026-09-09） **Date:** 2026-09-09（session 2026-09-07-session-245530）· commit  用户诉求 \"有些能力借助 ECC、部分动态获...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-de-pluginization-2026-09-09.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "ecc-fact-force-gate-is-first-touch-not-read",
+        "kind": "project",
+        "description": "**2026-09-11 用户拿 Mac 上 4.0.39 的实际日志打回来，才查出这条。** 我先前在 22 个技能里 写的 *\"Read a file BEFORE your first Edit … **Skipping tha...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-fact-force-gate-is-first-touch-not-read.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "ecc-hooks-json-warning-is-upstream-plugin-drift",
+        "kind": "project",
+        "description": "Claude Code 启动打印的 ，**根因在第三方 ECC 插件自己的文件**，不是 peaks-loop。 **来源**：。Claude Code 插件 hook schema 在 matcher 组上只收 、顶层只收 (+ 可...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ecc-hooks-json-warning-is-upstream-plugin-drift.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "execsync-goes-through-cmd-on-windows",
+        "kind": "project",
+        "description": "**2026-09-11 被 CI 抓到。**  用  找 22 个 SKILL.md。CI 的 windows-latest 报：  **走平台 shell**：Windows 上是 ， 解析到  （另一个程序，不认 ）。本地能过，...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\execsync-goes-through-cmd-on-windows.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "gate-enforcement-hook",
         "kind": "project",
         "description": "决策 2026-05-30(已实现,commit b289cd6):把 SOP 门禁从「约定」变「强制」。这是产品护城河——CI 只拦合并、CLAUDE.md 靠自觉,只有这里能在**对话流程中途、面向 agent 本身**拦住不可逆...",
@@ -2088,6 +2192,22 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\human-nl-choice-only-tenet.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "mode-consolidation-2026-09-09",
+        "kind": "project",
+        "description": "mode 模型收敛 + 三个真 bug（2026-09-09） **Date:** 2026-09-09（session 2026-09-07-session-245530）· commit  用户报的三个问题 → 三个真根因 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\mode-consolidation-2026-09-09.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "npm-view-reads-a-local-cache",
+        "kind": "project",
+        "description": "**2026-09-11 发 4.0.39 时误报了一次严重 bug。** 发布后我用  核对，  报 （bump 明明去了 0.0.24），  还**返回 404**。两条独立信号都指向 \"这个包没发出去，而 publish wor...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\npm-view-reads-a-local-cache.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "parked-peaks-workflow-primitive",
@@ -2170,6 +2290,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "peaks-loop-consumer-project-gaps",
+        "kind": "project",
+        "description": "用户在 **Mac 的消费者项目**里报告了三个问题。它们属于同一主题：peaks-loop 在自己的仓库里 能跑，在别人的项目里不能。 | # | 现象 | 状态（2026-09-11） | |---|---|---| | 1 | ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-loop-consumer-project-gaps.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "peaks-loop-fast-iteration-quality-loop",
         "kind": "project",
         "description": "peaks-loop 快速迭代闭环 > 适用: 当 LLM 解释存量老项目 / 无 UT 场景 / 改 A 触发 B / 2 天 1 版快速上线时。 1.",
@@ -2250,6 +2378,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "peaks-loop-release-flow-is-tag-triggered-ci-publish",
+        "kind": "project",
+        "description": "peaks-loop **不在本地 **。发布由  完成,触发条件只有两个: 或 GitHub UI 手动的 。 **完整链条**(2026-09-12 实发 4.0.43 走通): 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-loop-release-flow-is-tag-triggered-ci-publish.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "peaks-loop-slice-review-and-qa-perspective",
         "kind": "project",
         "description": "peaks-loop slice 审阅 + QA 视角 > 适用: 当 LLM 解释 Code gate / slice review / QA 验收时,避免让 user 审技术。 1.",
@@ -2266,6 +2402,22 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "peaks-web-3-of-4-shipped",
+        "kind": "project",
+        "description": "peaks-web — 3 of 4 slices shipped (2026-09-10) **Authority lives at ** — this file is only a session note so a future...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-web-3-of-4-shipped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "per-turn-obligations-belong-in-per-turn-output",
+        "kind": "project",
+        "description": "**2026-09-11 实证的教训。**  早就有完整的 zero-pause contract， 甚至点名禁止\"prompt the user to run \"。**而这个会话里它被执行 者（我）违反了** —— 我建议用户手动 ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\per-turn-obligations-belong-in-per-turn-output.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "phase-A-baseline-stub-2026-08-10",
         "kind": "project",
         "description": "Phase A baseline — STUB (fill before ship) Gate items per spec §5.2: | Gate | Target | Actual | |---|---|---| | orche...",
@@ -2280,6 +2432,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-22-plan-2-ship-state.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "pnpm-exec-truncates-multiline-args-on-windows",
+        "kind": "project",
+        "description": "** 在 Windows 上把参数截断在第一个换行处。** 2026-09-12 实测（ 打印 ）： | 参数 |  直连 |  | |---|---|---| | 3 行、16 字符 | 16 ✓ | **5 ✗**（只剩 ） | ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\pnpm-exec-truncates-multiline-args-on-windows.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "rid-020b-shipped-2026-07-28",
@@ -2410,12 +2570,28 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "two-components-resolved-the-window-independently",
+        "kind": "project",
+        "description": "**死锁根因（2026-09-13 定位）：peaks-loop 与 Claude Code 各自独立解析「上下文窗口」，没有任何东西保证两者相同。** | | 用哪个窗口 | |---|---| | **Claude Code** ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-components-resolved-the-window-independently.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
         "name": "two-forms-only-rule",
         "kind": "project",
         "description": "Two-Forms-Only — 全局用户交互规则 > **Why:** 用户 2026-07-04 重申\"目前没有客户,用户的一切操作只有选择 AskUserQuestion 的选项和自然语言,包括下载存储的 skill 或者微调等...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-forms-only-rule.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "upgrading-the-package-does-not-refresh-generated-settings",
+        "kind": "project",
+        "description": "**2026-09-12 由用户的实际故障定位到。** 用户在  里装到 4.0.42 后**仍被卡住**； 最后是**删掉项目  下的 json、重开 session**解决的 —— 随后  重新生成了它们，一切正常（状态头出现、不...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\upgrading-the-package-does-not-refresh-generated-settings.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "v2-13-1-verdict-aggregator",
@@ -2482,6 +2658,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-02-publish-runbook.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "claude-code-has-no-llm-invocable-compact",
+        "kind": "reference",
+        "description": "**Claude Code 没有任何让模型或钩子触发压缩的机制。** 2026-09-12 经 claude-code-guide 对官方文档核实： **不可**被模型调用。Skill 工具只暴露  与 ；文档原文：\"Other bu...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\claude-code-has-no-llm-invocable-compact.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "fzf-for-js-api-semantics-used-by-peaks-loop-fuzzy-matching",
