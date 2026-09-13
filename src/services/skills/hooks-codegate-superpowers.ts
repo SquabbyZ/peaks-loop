@@ -10,6 +10,10 @@
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 import {
+  HOOK_COMPACT_SETTLE_COMMAND,
+  HOOK_COMPACT_SETTLE_EVENT,
+  HOOK_COMPACT_SETTLE_MATCHER,
+  HOOK_COMPACT_SETTLE_SENTINEL,
   HOOK_OUTER_CACHE_COMMAND,
   HOOK_OUTER_CACHE_EVENT,
   HOOK_OUTER_CACHE_SENTINEL,
@@ -263,6 +267,24 @@ export function resolveHookEntries(ide: IdeId, _skipProgress = false): PeaksHook
       command: HOOK_POST_COMPACT_REINJECT_COMMAND,
       event: HOOK_POST_COMPACT_REINJECT_EVENT
     });
+    // rid 2026-09-13-compact-event-settle: the harness's OWN "a compaction
+    // completed" event, which is the only signal that settles a compact as a
+    // FACT rather than as an inference from a ratio that fell.
+    //
+    // No `machineLocal` flag, so this lands in the shared, committed
+    // `.claude/settings.json` — the same file as the three SessionStart entries
+    // above, and NOT the machine-local file the workspace-init materializer
+    // owns. That routing IS the answer to "who owns the `hooks` key for this
+    // entry": the only writer that could delete it is the one that installed
+    // it. See `session-start-hook-constants.ts` for why it also carries no
+    // `shell` pin, and `mergeHooksTree` for the second line of defence if it
+    // ever moves.
+    entries.push({
+      sentinel: HOOK_COMPACT_SETTLE_SENTINEL,
+      matcher: HOOK_COMPACT_SETTLE_MATCHER,
+      command: HOOK_COMPACT_SETTLE_COMMAND,
+      event: HOOK_COMPACT_SETTLE_EVENT
+    });
   }
   return entries;
 }
@@ -295,7 +317,11 @@ export function resolveLegacySentinels(ide: IdeId): ReadonlyArray<string> {
    // it) exactly like the other two SessionStart entries. Without this the
    // entry would be unremovable by `peaks hooks uninstall` — the rollback
    // path T2 requires.
-   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL, HOOK_POST_COMPACT_REINJECT_SENTINEL];
+   // rid 2026-09-13-compact-event-settle: the PostCompact settle sentinel joins
+   // too — same rollback argument as the reinject entry above. A hook that
+   // `peaks hooks uninstall` cannot remove is a hook the user cannot get rid
+   // of, and this one fires on every compaction.
+   return [...base, HOOK_OUTER_CACHE_SENTINEL, HOOK_WORKSPACE_INIT_SENTINEL, HOOK_POST_COMPACT_REINJECT_SENTINEL, HOOK_COMPACT_SETTLE_SENTINEL];
  }
  return base;
 }

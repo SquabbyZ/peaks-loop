@@ -521,10 +521,22 @@ function shapeMatchesDesired(
         return false;
       }
     }
-    // (b) every desired entry must be on disk.
-    for (const sentinel of desiredSentinels) {
-      const has = peaksPresent.some((entry) => (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(sentinel)));
-      if (!has) return false;
+    // (b) every desired entry must be on disk AND carry the matcher it declares.
+    //     Presence alone cannot see a WRONG matcher, and a wrong matcher is not
+    //     cosmetic: `''` and `Bash|Task` route the same command to different
+    //     tool sets, so the entry is present while the hook never fires on the
+    //     tools it was installed for. Measured (rid `2026-09-13-compact-event-settle`,
+    //     residual R2): a `PostCompact` entry hand-corrupted to matcher
+    //     `auto|manual` survived `peaks hooks install` unchanged, and the
+    //     installer was structurally unable to repair it.
+    //     An absent matcher reads as `''` — the form Claude Code takes as "every
+    //     source" — so a file written before matchers were explicit converges
+    //     once instead of churning on every install.
+    for (const desired of entries.filter((e) => e.event === eventKey)) {
+      const onDisk = peaksPresent.find((entry) =>
+        (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(desired.sentinel))
+      );
+      if (onDisk === undefined || (onDisk.matcher ?? '') !== desired.matcher) return false;
     }
   }
   return true;

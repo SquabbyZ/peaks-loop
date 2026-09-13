@@ -314,3 +314,195 @@ export function settleOpenLifecycleRun(input: {
   emit('completed', true);
   return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio };
 }
+
+/**
+ * rid `2026-09-13-compact-event-settle`: close out an open compact run because
+ * the HARNESS said one completed — `PostCompact` — rather than because a later
+ * probe noticed the ratio had fallen.
+ *
+ * WHY THIS IS A SECOND FUNCTION AND NOT A FLAG ON THE ONE ABOVE. The function
+ * above is defined by two MEASUREMENT gates: it refuses when nothing could be
+ * measured, and refuses when the number it got has not dropped far enough. Both
+ * are correct for a probe, whose ratio is an INFERENCE about whether something
+ * happened. Handed a harness event, both are wrong in the same direction —
+ * the harness has already stated that the compaction happened, so a probe that
+ * could not measure, or measured something larger, contradicts nothing. The
+ * event is the evidence; the ratio is a consequence.
+ *
+ * What survives from the probe path is the ATTRIBUTION gate, and only that:
+ * there must be an open run (`compacting` / `armed`) for this event to be
+ * about. A `PostCompact` on a session where peaks-loop never dispatched has
+ * nothing to settle — objectively, the run the event would complete does not
+ * exist. (`queued` / `preparing` are excluded for the probe path's reason: a
+ * run that died before dispatch never had a compaction to complete.)
+ *
+ * `afterRatio` is recorded ONLY when it is a genuine DROP below the ratio the
+ * dispatch was made at. Immediately after a compaction, `readContextPercent`
+ * prefers the statusline file, which may still hold the PRE-compact value; the
+ * one thing this row must not do is launder that stale reading into an
+ * `afterRatio` and publish "the context did not shrink" as a measurement. A
+ * `null` here means "no honest post-compact number was available at the moment
+ * the event fired" — and that is NOT self-healing: the record is left at
+ * `completed` with no number, `computeWindowCalibration` skips `observed` rows
+ * that carry none, and the probe path refuses a run that is no longer open. The
+ * pair is then closed by `fillEventSettledMeasurement` below — but only on the
+ * probes that reach it, which is not all of them: that call sits in the
+ * BELOW-THRESHOLD branch of `runAutoCompact` (`auto-compact-orchestrator.ts:567`
+ * guards it, `:589` calls it). A probe that instead commits to compacting does
+ * not merely defer the measurement: `advance('queued')` writes a fresh run to
+ * the same one-record-per-session store (`auto-compact-orchestrator.ts:668`), so
+ * the `completed`-without-`afterRatio` record this pair was owed is gone and the
+ * pair stays unmeasured. That loss is inherent rather than an oversight — once a
+ * second compaction has happened, no later ratio can be attributed to the first,
+ * so there is nothing honest left to fill — and it is visible as `unmeasured` in
+ * `peaks compact history` (QA residual R9). A fabricated number is not
+ * recoverable at all, which is why the stale reading is dropped rather than
+ * corrected.
+ *
+ * `verifying` is deliberately NOT emitted: its documented meaning is "we hold a
+ * measurement and are checking it", and on this path there may be no
+ * measurement at all. Emitting it would move the same untruth from the history
+ * row into the lifecycle record.
+ *
+ * Returns the settled facts, or `null` when there was nothing to settle. `null`
+ * means exactly ONE thing here — there was no OPEN run for this event to be
+ * about. A run that was open but whose record could not be written is not
+ * `null`: it returns the facts read off that run with `lifecycleWritten: false`,
+ * because a failed write is not an absent run, and a caller that cannot tell the
+ * two apart ends up telling the user a falsehood (see `compact-event-settle.ts`).
+ */
+export function settleOpenLifecycleRunOnCompactEvent(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly measuredRatio: number | null;
+  readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
+  /** Failure injection for the write below — the seam `CompactLifecyclePublisher` already takes. */
+  readonly failLifecycleWrite?: boolean | undefined;
+}): {
+  readonly runId: string;
+  readonly triggerRatio: number;
+  readonly afterRatio: number | null;
+  /**
+   * `false` when the run could not be marked settled — `writeCompactLifecycle`
+   * threw. The three facts above were read off the OPEN run, so they stay true
+   * and a caller may still record the observation; what it must not do is report
+   * the run as settled. `settleOpenLifecycleRun` above does not suppress its
+   * returned record on a failed write either, so the two now agree that a write
+   * failure is not "nothing happened". This field exists because this function's
+   * caller, unlike the sibling's, renders a sentence about the outcome.
+   */
+  readonly lifecycleWritten: boolean;
+} | null {
+  const prior = readOpenCompactLifecycle({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId
+  });
+  if (prior === null) return null;
+  if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
+
+  const afterRatio =
+    input.measuredRatio !== null && input.measuredRatio < prior.triggerRatio ? input.measuredRatio : null;
+
+  const record: CompactLifecycleRecord = {
+    schemaVersion: 1,
+    runId: prior.runId,
+    stage: 'completed',
+    updatedAt: new Date().toISOString(),
+    triggerRatio: prior.triggerRatio,
+    redLine: prior.redLine,
+    ...(afterRatio !== null ? { afterRatio } : {})
+  };
+  const facts = { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio };
+  try {
+    if (input.failLifecycleWrite) throw new Error('lifecycle store unavailable');
+    writeCompactLifecycle({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      record
+    });
+  } catch {
+    // Deliberately NOT `null`. The run WAS open and the write FAILED; returning
+    // the same value as "no run is open" is the conflation the repo's own lint
+    // names at this exact line (`catch-return-null — caller cannot distinguish
+    // failure from success`), and it reached the user as "No compact run was
+    // open", which is false.
+    return { ...facts, lifecycleWritten: false };
+  }
+  try {
+    input.onLifecycleStage?.('completed', record);
+  } catch {
+    // Observer failures are not ours to propagate.
+  }
+  return { ...facts, lifecycleWritten: true };
+}
+
+/**
+ * rid `2026-09-13-compact-event-settle` (repair R1): supply the measurement a
+ * harness-settled run was left owing.
+ *
+ * The function above deliberately refuses to launder a post-compact reading
+ * that has not dropped — and right after a compaction that refusal is the
+ * NORMAL case, because the statusline still holds the pre-compact value. The
+ * run is then closed at `completed` with no `afterRatio`, so the dispatch's
+ * calibration pair never closes and "intent vs observed" stays blank for
+ * exactly the compactions this slice exists to witness. This function is what
+ * makes the function above's promise payable.
+ *
+ * WHY NOT WIDEN `settleOpenLifecycleRun`. That one re-emits `verifying` before
+ * `completed`, which on an already-`completed` record is a backwards stage
+ * transition with no observer to serve. This is not a settlement — the run IS
+ * settled; only the number is owed. So no stage is rewritten here.
+ *
+ * WRITING `afterRatio` ONTO THE RECORD IS THE IDEMPOTENCE TOKEN: every later
+ * probe finds it present and returns `null`, so however many probes follow, one
+ * compaction yields exactly one late measurement.
+ *
+ * THE DROP GATE IS THE EVENT PATH'S OWN (`measuredRatio < triggerRatio`), not
+ * the probe path's `autoFireThreshold`. `afterRatio` has to mean "below the
+ * ratio this run was dispatched at" — the rule the event path already enforces
+ * — or a run dispatched under the threshold (a forced or banded dispatch) would
+ * let a NON-drop through the one path that can still write a `completed` record.
+ * `conservative-fallback` is refused for the probe path's reason: its `0` is
+ * the absence of a measurement, not an empty context.
+ *
+ * Returns the filled record, or `null` when no run is owed a measurement.
+ */
+export function fillEventSettledMeasurement(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly measuredRatio: number;
+  readonly source: string;
+}): { readonly runId: string; readonly triggerRatio: number; readonly afterRatio: number } | null {
+  if (input.source === 'conservative-fallback') return null;
+
+  const prior = readOpenCompactLifecycle({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId
+  });
+  if (prior === null) return null;
+  // Exactly one shape is owed a number: the one the EVENT path leaves behind.
+  // `settleOpenLifecycleRun` never writes it (it always carries `afterRatio`),
+  // and a `failed` run never dispatched, so it has no row to pair with.
+  if (prior.stage !== 'completed' || prior.afterRatio !== undefined) return null;
+  if (input.measuredRatio >= prior.triggerRatio) return null;
+
+  const record: CompactLifecycleRecord = {
+    schemaVersion: 1,
+    runId: prior.runId,
+    stage: 'completed',
+    updatedAt: new Date().toISOString(),
+    triggerRatio: prior.triggerRatio,
+    redLine: prior.redLine,
+    afterRatio: input.measuredRatio
+  };
+  try {
+    writeCompactLifecycle({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      record
+    });
+  } catch {
+    return null;
+  }
+  return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio };
+}

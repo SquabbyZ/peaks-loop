@@ -42,6 +42,20 @@ export interface CompactHistoryEvent {
   readonly kind?: 'dispatch' | 'observed';
   /** `observed` rows only: the measured post-compact ratio. */
   readonly afterRatio?: number;
+  /**
+   * rid `2026-09-13-compact-event-settle`: what the HARNESS said caused the
+   * compaction — `manual` (a user ran `/compact`) or `auto` (the harness's own
+   * window fired). Written only by the `PostCompact` hook path, which is the
+   * only path a harness reports it on.
+   *
+   * OPTIONAL, AND ABSENT MEANS "NOT REPORTED" — never "manual", never "auto".
+   * `PostCompact`'s payload schema is truncated in the retrievable docs, so a
+   * payload without the field is an expected input, not an error; the whole
+   * reason this column exists is that "has this machine ever auto-compacted?"
+   * has no answer today, and a defaulted value would answer it falsely.
+   * Rows that predate the slice omit it, exactly like `windowTokens` / `kind`.
+   */
+  readonly trigger?: 'manual' | 'auto';
 }
 
 /**

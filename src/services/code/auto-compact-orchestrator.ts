@@ -63,6 +63,7 @@ import type {
 } from '../compact-statusline/compact-lifecycle-store.js';
 import {
   CompactLifecyclePublisher,
+  fillEventSettledMeasurement,
   newCompactRunId,
   resolveDispatchedStage,
   settleOpenLifecycleRun,
@@ -571,14 +572,26 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     // still open at `compacting`. Nothing is written when there is no
     // open run, when the ratio is still high, or when the probe could
     // not measure at all.
-    const settled = settleOpenLifecycleRun({
-      projectRoot: input.projectRoot,
-      sessionId,
-      measuredRatio: probe.ratio,
-      source: probe.source,
-      autoFireThreshold: thresholdFor(mode, 'autoFire'),
-      onLifecycleStage: input.onLifecycleStage
-    });
+    const settled =
+      settleOpenLifecycleRun({
+        projectRoot: input.projectRoot,
+        sessionId,
+        measuredRatio: probe.ratio,
+        source: probe.source,
+        autoFireThreshold: thresholdFor(mode, 'autoFire'),
+        onLifecycleStage: input.onLifecycleStage
+      }) ??
+      // Repair R1 (`2026-09-13-compact-event-settle`): the HARNESS event may
+      // already have closed this run WITHOUT an honest post-compact number —
+      // in which case the call above finds nothing open, and without this the
+      // calibration pair stays blank for exactly the compactions the event path
+      // exists to witness. Fills the number the event owed.
+      fillEventSettledMeasurement({
+        projectRoot: input.projectRoot,
+        sessionId,
+        measuredRatio: probe.ratio,
+        source: probe.source
+      });
     // Slice 2026-09-13-auto-compact-trigger-ownership (T4): a settle means a
     // dispatched compact demonstrably landed. Append an `observed` row
     // carrying the measured ratio, so `peaks compact history` can show

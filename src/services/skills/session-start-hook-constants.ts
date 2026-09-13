@@ -93,3 +93,52 @@ export const HOOK_WORKSPACE_INIT_COMMAND = `peaks session primer --project "\${C
 
 /** SessionStart hook event key (same as outer-cache). */
 export const HOOK_WORKSPACE_INIT_EVENT = 'SessionStart';
+
+/**
+ * rid `2026-09-13-compact-event-settle` — the `PostCompact` entry that lets the
+ * harness's own event settle a compact, instead of the next `context-now` probe
+ * inferring one from a ratio that fell.
+ *
+ * WHY THIS ENTRY IS NOT A `SessionStart` ONE, despite living in this file: the
+ * three entries above all ride `SessionStart` and differ only by matcher. A
+ * `PostCompact` hook is a different EVENT that carries the one fact no
+ * `SessionStart` payload has — whether the compaction the harness just
+ * completed was `auto` or `manual`. That distinction is the whole question
+ * ("has this machine ever auto-compacted?"), and without it peaks-loop can only
+ * ever see that SOMETHING compacted. See `compact-event-settle.ts` for what the
+ * command does with it.
+ *
+ * WHY THE MATCHER IS THE EMPTY STRING and not the documented `auto|manual`:
+ * both trigger values are wanted, so the matcher must filter nothing. An empty
+ * matcher is the convention the three `SessionStart` entries already rely on to
+ * match every source, and it is the only form that cannot fail SILENTLY — an
+ * alternation string is a match-everything pattern under regex semantics but
+ * matches NEITHER value under exact-equality semantics, and a hook that never
+ * fires looks exactly like a hook with nothing to report.
+ */
+export const HOOK_COMPACT_SETTLE_SENTINEL = 'peaks compact settle';
+
+/**
+ * The settle hook command. `--project "${CLAUDE_PROJECT_DIR}"` is byte-for-byte
+ * the shape of the three `SessionStart` entries above — Claude Code's standard
+ * project-root convention, resolved strictly on the CLI side (a hook payload is
+ * env-driven and must not be trusted as a path).
+ *
+ * The command prints NOTHING on the hook path and exits 0 for every outcome.
+ * `PostCompact`'s stdin/stdout contract is truncated in the retrievable docs,
+ * so the safe assumption is the `SessionStart` one — stdout may be added to the
+ * model's context. An error message there would be read as a fact. See
+ * `compact-event-settle.ts`.
+ *
+ * No `shell` pin, deliberately: this entry lands in the shared, committed
+ * `.claude/settings.json`, and a `powershell` pin there would break every
+ * macOS / Linux reader of the file. See `resolveHookEntries`' comment block for
+ * the full reason the three `SessionStart` entries are unpinned too.
+ */
+export const HOOK_COMPACT_SETTLE_COMMAND = `peaks compact settle --project "\${CLAUDE_PROJECT_DIR}"`;
+
+/** The event this entry rides. Claude Code fires it after a compaction completes. */
+export const HOOK_COMPACT_SETTLE_EVENT = 'PostCompact';
+
+/** Matcher: empty = every `trigger` (`auto` and `manual`). See the sentinel doc. */
+export const HOOK_COMPACT_SETTLE_MATCHER = '';
