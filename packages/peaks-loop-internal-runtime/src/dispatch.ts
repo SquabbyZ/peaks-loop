@@ -28,7 +28,14 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
 
   const pb = new PromptBuilder();
   const ac = new AutoCompactAdapter();
-  const marker = ac.marker({ rid: i.rid, sid: i.sid, vendorWindow: adapter.maxPromptBytes / 40 /* rough */ });
+  // E5 (rid 2026-09-13-defects-e): the marker used to carry
+  // `adapter.maxPromptBytes / 40` as its `vendor-window` — 204.8 for the claude
+  // adapter. That is not a context window (it is a prompt BYTE budget divided by
+  // forty), and the child was then told to measure "85% of" it, with no way to
+  // tell the number was fabricated. peaks-loop does not know the child's window
+  // here — the child's own harness owns it — so the attribute is omitted rather
+  // than invented.
+  const marker = ac.marker({ rid: i.rid, sid: i.sid });
   const prompt = pb.assemble({
     rid: i.rid, role: i.role, vendor: i.vendor,
     files: i.files, refs: i.refs, userTask: i.userTask,

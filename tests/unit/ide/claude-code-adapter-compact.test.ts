@@ -912,6 +912,77 @@ describe('Scenario: behavior — explicit context-window override precedence + s
     expect(withEnv).toEqual({ tokens: 300_000, source: 'env-override' });
   });
 
+  // E2 (rid 2026-09-13-defects-e). The harness does not take the window on
+  // faith: it reduces it with `Math.min(native, override)`, so a pin ABOVE the
+  // model's own context size is accepted by peaks-loop and silently capped by
+  // the harness. peaks-loop's ratio then divides by a number the harness is not
+  // compacting on — the E1 drift from the other direction, and the same class of
+  // defect A1 spent a whole slice deleting.
+  //
+  // peaks-loop CANNOT read the native window (no API, no env var carries it), so
+  // the detector is `modelContextWindowTokens` — a name heuristic that is wrong
+  // for exactly the proxied models the pin exists for. The warning therefore
+  // says what peaks-loop actually knows, and no more.
+  describe('Scenario: behavior — E2 a pin above peaks-loop\'s model estimate', () => {
+    it('when the env pin is larger than the model estimate, should warn and name both numbers', () => {
+      // given: a proxied id the heuristic cannot see past 200K, pinned to 500K
+      const warnings: string[] = [];
+      // when: resolveContextWindow runs
+      const out = resolveContextWindow('deepseek-v4-flash', {
+        env: { [ENV]: '500000' },
+        onAboveModelEstimate: (m) => warnings.push(m)
+      });
+      // then: the pin still WINS — refusing would delete the escape hatch the
+      //       pin exists for...
+      expect(out).toEqual({ tokens: 500_000, source: 'env-override' });
+      // ...but peaks-loop says out loud that it cannot verify the number, that
+      //    the harness caps at the model's native size, and both values
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('500000');
+      expect(warnings[0]).toContain('200000');
+      expect(warnings[0]).toContain(ENV);
+      expect(warnings[0]).toContain('cannot');
+    });
+
+    it('when the config pin is larger than the model estimate, should warn too', () => {
+      // given: the machine-wide twin of the env pin
+      const warnings: string[] = [];
+      // when: resolveContextWindow runs
+      const out = resolveContextWindow('deepseek-v4-flash', {
+        configWindowTokens: 400_000,
+        onAboveModelEstimate: (m) => warnings.push(m)
+      });
+      expect(out).toEqual({ tokens: 400_000, source: 'config' });
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('context.windowTokens');
+      expect(warnings[0]).toContain('400000');
+    });
+
+    it('when the pin is AT OR BELOW the model estimate, should stay quiet (control)', () => {
+      // given: a pin the harness will honour as-is, and a 1M model pinned to 1M.
+      //        Without this case the warnings above would be indistinguishable
+      //        from a notice that fires on every pin.
+      const warnings: string[] = [];
+      const atEstimate = resolveContextWindow('deepseek-v4-flash', {
+        configWindowTokens: 200_000,
+        onAboveModelEstimate: (m) => warnings.push(m)
+      });
+      const below = resolveContextWindow('deepseek-v4-flash', {
+        configWindowTokens: 150_000,
+        onAboveModelEstimate: (m) => warnings.push(m)
+      });
+      const oneMillionModel = resolveContextWindow('deepseek-v4-flash[1M]', {
+        configWindowTokens: 1_000_000,
+        onAboveModelEstimate: (m) => warnings.push(m)
+      });
+      // then: no notice at all — an ordinary pin is not news
+      expect(atEstimate).toEqual({ tokens: 200_000, source: 'config' });
+      expect(below).toEqual({ tokens: 150_000, source: 'config' });
+      expect(oneMillionModel).toEqual({ tokens: 1_000_000, source: 'config' });
+      expect(warnings).toEqual([]);
+    });
+  });
+
   it('when parseContextWindowOverride runs, should accept only positive integers', () => {
     // given: a spread of candidate override values
     // when: parseContextWindowOverride runs

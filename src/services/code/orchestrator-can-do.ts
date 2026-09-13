@@ -18,8 +18,10 @@
  *        decide, ?, 选择, 决定). If yes → soft warning, NOT a blocker
  *        (the LLM should AskUserQuestion, which is cheap).
  *   Q4 — Is context usage sustainable? (probe `peaks code context-now
- *        --json`). ratio ≥ 0.95 → blocker (red-line); ≥ 0.85 →
- *        blocker (auto-compact-now).
+ *        --json`). ratio ≥ 0.95 → WARNING (red-line, ask-and-wait);
+ *        ≥ 0.85 → WARNING (pre-compact band). Never a blocker — see the
+ *        comment on the Q4 branch in `buildOrchestratorCanDoResult`, and
+ *        `evaluateCompactTrigger`, which is the face this one must agree with.
  *
  * Decision rule:
  *   canDoInSession === (blockers.length === 0)
@@ -279,15 +281,43 @@ export function buildOrchestratorCanDoResult(input: OrchestratorCanDoInput, sign
     suggestions.push('verify peaks CLI is on PATH; check `peaks --version`');
   }
 
-  // Q4 — context ratio gate. ≥0.95 → red-line; ≥0.85 → pre-compact.
+  // Q4 — context ratio. ≥0.95 → red-line; ≥0.85 → pre-compact. A WARNING, not
+  // a blocker, and the difference is deliberate (E3, rid 2026-09-13-defects-e).
+  //
+  // Why this is not a blocker any more, and why it is not an oversight:
+  //
+  //   The peak this answers is "can this slice run in the current session".
+  //   Context ratio cannot answer "no" to it. The reason is the one the
+  //   T3 slice (2026-09-13-auto-compact-trigger-ownership) landed on the
+  //   OTHER face of this same threshold: peaks-loop has no executor for a
+  //   running session, so it cannot compact its way out of a high ratio —
+  //   `evaluateCompactTrigger` therefore says of the red line "peaks-loop has
+  //   asked the harness to compact and is WAITING for it — sub-agent dispatch
+  //   is NOT blocked; carry on and re-probe". A probe that returned
+  //   `canDoInSession: false` here would contradict that sentence for the same
+  //   0.95 on the same number, and its only programmatic consumer
+  //   (`code-orchestrator-can-do.ts`) turns the false into exit code 1 — i.e.
+  //   it would re-open, at the CLI layer, exactly the deadlock T3 deleted.
+  //
+  //   Nor does the pre-compact zone (0.85–0.95) earn a blocker: the trigger's
+  //   message there is "peaks-loop already fired the auto-compact pathway; the
+  //   LLM does not need to act", which is the opposite of "you may not proceed".
+  //
+  //   What a blocker would still need to be true: THE ORCHESTRATOR itself
+  //   cannot continue. It can — the slice's edits are delegated to a sub-agent
+  //   (Q1), and the orchestrator's own context is only spent co-ordinating.
+  //
+  //   So the ratio is reported, warned about, and given a next action; the
+  //   verdict is left to the blockers that really are un-survivable (a
+  //   hard-blocked path family, an unreachable sub-agent dispatcher).
   if (signals.q4ContextRatio >= ORCHESTRATOR_REDLINE_RATIO) {
-    blockers.push(
-      `context red-line (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_REDLINE_RATIO}); auto-compact now or push to next session`
+    warnings.push(
+      `context red-line (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_REDLINE_RATIO}): peaks-loop has asked the harness to compact and is waiting for it; dispatch is NOT blocked — carry on and re-probe with \`peaks code context-now\``
     );
     suggestions.push('peaks code auto-compact');
   } else if (signals.q4ContextRatio >= ORCHESTRATOR_PRECOMPACT_RATIO) {
-    blockers.push(
-      `context near limit (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_PRECOMPACT_RATIO}); auto-compact or push to next session`
+    warnings.push(
+      `context near limit (ratio=${signals.q4ContextRatio.toFixed(2)} ≥ ${ORCHESTRATOR_PRECOMPACT_RATIO}): in the pre-compact band; peaks-loop fires the auto-compact pathway itself and dispatch is NOT blocked`
     );
     suggestions.push('peaks code auto-compact');
   }

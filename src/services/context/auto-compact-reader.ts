@@ -33,6 +33,8 @@ import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 import { readContextWindowTokensOverride } from '../config/config-service.js';
 import {
+  isHarnessWindowInRange,
+  parseHarnessWindowTokens,
   readHarnessWindow,
   syncHarnessWindow,
   type HarnessWindowLocation,
@@ -136,7 +138,23 @@ export function readHarnessWindowState(input: {
  */
 export function resolveHarnessRatioWindow(state: HarnessWindowReadResult | null): unknown {
   if (state === null) return undefined;
-  return state.fileRaw !== undefined ? state.fileRaw : state.raw;
+  // E1 (rid 2026-09-13-defects-e): a value outside the band the harness accepts
+  // is not a window, however well-formed an integer it is — the harness ignores
+  // or caps it, so handing it over here would make the ratio's denominator a
+  // number the harness is not compacting on. This is the read half of the same
+  // guard the writer applies before planting one; without it, a value already on
+  // disk (hand-planted, or written by a release that predates the band) would
+  // keep poisoning the ratio on every probe.
+  //
+  // The two NULLs are deliberate and different: an out-of-band value is refused
+  // here (the adapter falls through to its own resolution and the writer's
+  // notice names the skipped number), while an UNPARSEABLE one is still handed
+  // over — the adapter validates it and warns about a hand-edited `500k`, which
+  // is a closer reading of the user's intent than silently ignoring it.
+  const raw = state.fileRaw !== undefined ? state.fileRaw : state.raw;
+  const tokens = parseHarnessWindowTokens(raw);
+  if (tokens !== null && !isHarnessWindowInRange(tokens)) return undefined;
+  return raw;
 }
 
 /**

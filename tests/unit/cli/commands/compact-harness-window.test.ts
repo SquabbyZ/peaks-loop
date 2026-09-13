@@ -22,7 +22,7 @@
 //   - a11y:        the human-facing nextActions name the rollback command and
 //                  never leak a stack trace or a bare verb
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Command } from 'commander';
@@ -219,6 +219,48 @@ describe('peaks compact harness-window — show / rollback', () => {
     // then: it writes — so "nothing was written" above is the opt-out's doing
     expect(probe?.action).toBe('written');
     expect(envBlock()[KEY]).toBe('1000000');
+  });
+
+  // E4 (rid 2026-09-13-defects-e): the opt-out verb used to be the one write in
+  // this module with no home guard, so `--project .` from a fresh terminal (cwd
+  // = $HOME) put a peaks-loop row in the user's PERSONAL settings. These two
+  // cases run against an ISOLATED fake home — the real one is never touched.
+  it('when --disable targets the home directory, should refuse and create nothing (E4)', async () => {
+    // given: the fresh-terminal case, reconstructed with a fake HOME
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    const fakeHome = join(ws().path, 'fake-home');
+    mkdirSync(fakeHome, { recursive: true });
+    withEnv('HOME', fakeHome);
+    withEnv('USERPROFILE', fakeHome);
+    // when: the opt-out is requested for that root
+    const envelope = await run(['--project', fakeHome, '--disable']);
+    // then: refused, and NOTHING was created — not the file, not `.claude/`.
+    //       A refusal that had already mkdir'd `$HOME/.claude` would not be one.
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data['action']).toBe('refused-unsafe-project-root');
+    expect(existsSync(join(fakeHome, '.claude'))).toBe(false);
+    // and: the operator is told why, and what to do instead
+    expect(envelope.nextActions.join('\n')).toContain('home directory');
+    expect(envelope.nextActions.join('\n')).toContain('--project');
+  });
+
+  it('when --disable targets a SUBDIRECTORY of home, should still record the opt-out (E4 control)', async () => {
+    // given: a home directory that CONTAINS the project — the ordinary layout.
+    //        Without this case, the refusal above would be indistinguishable
+    //        from a guard that rejected every path under home.
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    withEnv(KEY, undefined);
+    const fakeHome = join(ws().path, 'fake-home-sub');
+    const project = join(fakeHome, 'proj');
+    mkdirSync(project, { recursive: true });
+    withEnv('HOME', fakeHome);
+    withEnv('USERPROFILE', fakeHome);
+    // when: the opt-out is requested for the project, not for home itself
+    const envelope = await run(['--project', project, '--disable']);
+    // then: recorded — the guard is exact-home, exactly like H1's
+    expect(envelope.data['action']).toBe('disabled');
+    expect(existsSync(join(project, '.claude', 'settings.local.json'))).toBe(true);
   });
 
   it('when --disable runs twice, should report the second as already opted out (behavior)', async () => {

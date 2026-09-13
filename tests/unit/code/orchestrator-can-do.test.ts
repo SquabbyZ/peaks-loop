@@ -50,6 +50,8 @@ import {
   type ContextProbe,
 } from '~/src/services/code/orchestrator-can-do';
 import { registerCodeOrchestratorCanDoCommand } from '~/src/cli/commands/code-orchestrator-can-do';
+// Case 4b pins the two faces of the 0.95 red line against each other.
+import { evaluateCompactTrigger } from '~/src/services/code/auto-compact-orchestrator';
 import { Command } from 'commander';
 
 /** Repo root — the tree the un-injected probes must resolve their own CLI from. */
@@ -196,37 +198,76 @@ describe('Scenario: behavior — buildOrchestratorCanDoResult verdict matrix', (
     ).rejects.toBeInstanceOf(OrchestratorCanDoError);
   });
 
-  it('Case 4 (NEW): ratio ≥ 0.95 → canDoInSession=false (red-line)', () => {
+  // E3 (rid 2026-09-13-defects-e): the two faces of the SAME threshold.
+  //
+  // `evaluateCompactTrigger` (auto-compact-orchestrator) says the red line is
+  // an ASK, not a gate — "sub-agent dispatch is NOT blocked; carry on and
+  // re-probe". This probe said the opposite for the same 0.95 on the same
+  // ratio, and its only programmatic consumer turns that into exit code 1.
+  // Two verdicts for one number is the drift; the trigger's is the one the
+  // slice 2026-09-13-auto-compact-trigger-ownership was rewritten to encode.
+  it('Case 4 (NEW): ratio ≥ 0.95 → canDoInSession=true, the red line is a WARNING not a blocker', () => {
     const result = buildOrchestratorCanDoResult(
-      { sliceSpec: 'modify src/services/foo.ts', projectRoot: '.' },
+      { sliceSpec: 'update docs/spec.md', projectRoot: '.' },
       {
-        q1SourceCodeTouched: true,
-        q1HardBlockedPath: true,
+        q1SourceCodeTouched: false,
+        q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.97,
       }
     );
-    expect(result.canDoInSession).toBe(false);
-    expect(result.blockers.some((b) => b.includes('red-line'))).toBe(true);
-    expect(result.blockers.some((b) => b.includes('0.95'))).toBe(true);
+    // nothing blocks: the context signal does not, because a context ratio
+    // cannot stop a dispatch (peaks-loop cannot compact the session)
+    expect(result.canDoInSession).toBe(true);
+    expect(result.blockers).toEqual([]);
+    const ctxWarning = result.warnings.find((w) => w.includes('red-line'));
+    expect(ctxWarning).toBeDefined();
+    expect(ctxWarning).toContain('0.95');
     expect(result.suggestions).toContain('peaks code auto-compact');
   });
 
-  it('Case 5 (NEW): ratio ≥ 0.85 but < 0.95 → canDoInSession=false (pre-compact)', () => {
+  it('Case 5 (NEW): ratio ≥ 0.85 but < 0.95 → canDoInSession=true with a pre-compact warning', () => {
     const result = buildOrchestratorCanDoResult(
-      { sliceSpec: 'modify src/services/foo.ts', projectRoot: '.' },
+      { sliceSpec: 'update docs/spec.md', projectRoot: '.' },
       {
-        q1SourceCodeTouched: true,
-        q1HardBlockedPath: true,
+        q1SourceCodeTouched: false,
+        q1HardBlockedPath: false,
         q2SubAgentAvailable: true,
         q3RequiresUserDecision: false,
         q4ContextRatio: 0.88,
       }
     );
-    expect(result.canDoInSession).toBe(false);
-    expect(result.blockers.some((b) => b.includes('near limit'))).toBe(true);
+    expect(result.canDoInSession).toBe(true);
+    expect(result.blockers).toEqual([]);
+    expect(result.warnings.some((w) => w.includes('near limit'))).toBe(true);
     expect(result.suggestions).toContain('peaks code auto-compact');
+  });
+
+  it('Case 4b: the probe and the compact trigger must agree on what 0.95 MEANS', () => {
+    // given: the very ratio both components gate on
+    const ratio = 0.97;
+    // when: each one is asked what it implies
+    const trigger = evaluateCompactTrigger(ratio, 'standard');
+    const probe = buildOrchestratorCanDoResult(
+      { sliceSpec: 'update docs/spec.md', projectRoot: '.' },
+      {
+        q1SourceCodeTouched: false,
+        q1HardBlockedPath: false,
+        q2SubAgentAvailable: true,
+        q3RequiresUserDecision: false,
+        q4ContextRatio: ratio,
+      }
+    );
+    // then: the trigger ASKS ("NOT blocked") and the probe does not claim
+    //       otherwise. Before E3 the probe answered canDoInSession=false here
+    //       while the trigger answered "carry on" — one number, two verdicts.
+    // (`if` rather than an assertion, so TS narrows the union and the wording
+    //  below is read off the red-line variant rather than a widened one)
+    if (trigger.kind !== 'red-line') throw new Error(`expected the red line at ${ratio}, got ${trigger.kind}`);
+    expect(trigger.message).toContain('NOT blocked');
+    expect(probe.canDoInSession).toBe(true);
+    expect(probe.blockers).toEqual([]);
   });
 
   it('Case 6 (NEW): sub-agent dispatch unavailable → canDoInSession=false', () => {
@@ -316,16 +357,20 @@ describe('Scenario: integration — evaluateOrchestratorCanDo end-to-end with mo
     expect(result.blockers.some((b) => b.includes('requires-sub-agent-dispatch'))).toBe(true);
   });
 
-  it('when context near limit, should return canDoInSession=false regardless of other signals', async () => {
+  it('when context near limit, should warn about it without blocking the dispatch', async () => {
     const result = await evaluateOrchestratorCanDo({
-      sliceSpec: 'modify src/services/foo.ts',
+      sliceSpec: 'update docs/spec.md',
       projectRoot: '.',
       probeSubAgentAvailable: async () => true,
       probeContextRatio: async () => ({ ratio: 0.91, source: 'transcript-estimate' }),
     });
-    expect(result.canDoInSession).toBe(false);
+    // E3: the ratio is reported and warned about, but it is not a reason to
+    // refuse a dispatch — peaks-loop cannot compact the session, so refusing
+    // would only stall the runner at the worst moment (T3).
+    expect(result.canDoInSession).toBe(true);
     expect(result.contextRatio).toBe(0.91);
-    expect(result.blockers.some((b) => b.includes('near limit'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('near limit'))).toBe(true);
+    expect(result.blockers).toEqual([]);
   });
 });
 

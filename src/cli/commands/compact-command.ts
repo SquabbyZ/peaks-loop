@@ -540,7 +540,9 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
                     ? `Recorded the opt-out in ${result.settingsPath}: peaks-loop will not write ${location.envVar} here, and left any value already in the file exactly as it was. Undo with \`peaks compact harness-window --reenable\`.`
                     : result.action === 'already-opted-out'
                       ? `Already opted out — ${result.settingsPath} carries ${location.envVar}'s opt-out, so nothing was written. Undo with \`peaks compact harness-window --reenable\`.`
-                      : `Nothing written — ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so the opt-out could not be recorded there.`,
+                      : result.action === 'refused-unsafe-project-root'
+                        ? `Nothing written: the resolved project root is the user's own home directory, so ${result.settingsPath} is their PERSONAL harness settings, not a project's. peaks-loop already refuses to write ${location.envVar} there, so an opt-out would change nothing except which refusal you see. Point --project at a project (a subdirectory of home is fine) and the opt-out lands there.`
+                        : `Nothing written — ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so the opt-out could not be recorded there.`,
                 ],
               ),
               options.json,

@@ -247,6 +247,68 @@ export interface ContextWindowOverrides {
   readonly harnessWindowPeakWritten?: boolean;
   /** Warning sink for an invalid override (defaults to `console.warn`). */
   readonly onInvalidOverride?: ((message: string) => void) | undefined;
+  /**
+   * Warning sink for the E2 notice: a HUMAN pin (`env-override` / `config`)
+   * larger than peaks-loop's own model-window estimate. Deliberately separate
+   * from `onInvalidOverride` — that sink means "your value could not be read",
+   * this one means "your value was read, and peaks-loop cannot promise the
+   * harness will use it". Two meanings, two sinks. Defaults to `console.warn`.
+   *
+   * See `describeWindowAboveModelEstimate` for what the notice does and does
+   * not claim, and why it is a notice rather than a refusal.
+   */
+  readonly onAboveModelEstimate?: ((message: string) => void) | undefined;
+}
+
+/**
+ * E2 (rid 2026-09-13-defects-e) — the notice for a pin larger than
+ * peaks-loop's model-window estimate. `null` when there is nothing to say.
+ *
+ * WHY THIS EXISTS. The harness does not take its auto-compact window on faith:
+ * it reduces the configured value with `Math.min(native, override)`, where
+ * `native` is the model's own context size. A pin ABOVE `native` is therefore
+ * accepted by peaks-loop, written to the harness's settings, and silently
+ * reduced by the harness — so peaks-loop's ratio divides by a window the
+ * harness is not compacting on. That is the A1 drift (two independent
+ * resolutions, one number meaning two things), arriving from the other side
+ * from E1: E1 is a value the harness refuses, E2 a value it quietly lowers.
+ *
+ * CAN WE READ THE NATIVE WINDOW? No, and the notice does not pretend otherwise.
+ * There is no API for it and no environment variable that carries it; the only
+ * local knowledge is `modelContextWindowTokens`'s NAME HEURISTIC (200_000, or
+ * 1_000_000 when the id says `1m` or matches the allowlist) — the very layer
+ * this slice demoted, because it is wrong for precisely the proxied /
+ * third-party models the pin exists for. It is used here ONLY as a disagreement
+ * DETECTOR, never as an authority, and the uncertainty that buys is one-sided:
+ * this notice means "peaks-loop's best guess of your model is smaller than the
+ * window you pinned", which a genuinely larger model ALSO produces. It cannot
+ * mean "the harness will definitely cap you" — only the harness knows that.
+ *
+ * WHY A NOTICE AND NOT A REFUSAL. The pin is the documented escape hatch for a
+ * model id the heuristic cannot see, so refusing would delete the feature. The
+ * notice keeps it and states the risk.
+ *
+ * WHY ONLY THE HUMAN PINS. The `harness-env` layer is a value peaks-loop FOUND
+ * in the harness's own file, not one this call is setting; its disagreements are
+ * already reported by the writer (`harnessWindowSyncWarning`), and warning here
+ * would fire on every probe of a project whose file legitimately says 1000000.
+ */
+export function describeWindowAboveModelEstimate(input: {
+  readonly model: string;
+  readonly tokens: number;
+  /** Human-readable name of the pin, e.g. `PEAKS_CONTEXT_WINDOW_TOKENS="500000"`. */
+  readonly pin: string;
+}): string | null {
+  const estimate = modelContextWindowTokens(input.model);
+  if (input.tokens <= estimate) return null;
+  return (
+    `[peaks] ${input.pin} is larger than peaks-loop's model-window estimate for ` +
+    `"${input.model}" (${estimate} tokens). peaks-loop cannot read a model's native context window — this ` +
+    `estimate is a name heuristic and may be wrong — and the harness caps its auto-compact window at that ` +
+    `native size, so if the estimate is right the harness will compact at ${estimate} while this ratio ` +
+    `divides by ${input.tokens}. If your model really does have the larger window this is expected; ` +
+    `otherwise set the value to the model's real window so the two stay in step.`
+  );
 }
 
 /**
@@ -308,15 +370,34 @@ export function resolveContextWindow(
   overrides: ContextWindowOverrides = {}
 ): ContextWindowResolution {
   const warn = overrides.onInvalidOverride ?? ((message: string) => console.warn(message));
+  // E2: the second sink, for a value that IS valid but that the harness may
+  // reduce. Kept separate so neither notice can be mistaken for the other.
+  const warnAboveEstimate = overrides.onAboveModelEstimate ?? ((message: string) => console.warn(message));
   const envRaw = overrides.env?.[CONTEXT_WINDOW_TOKENS_ENV_VAR];
   if (envRaw !== undefined) {
     const parsed = parseContextWindowOverride(envRaw);
-    if (parsed !== null) return { tokens: parsed, source: 'env-override' };
+    if (parsed !== null) {
+      const above = describeWindowAboveModelEstimate({
+        model,
+        tokens: parsed,
+        pin: `${CONTEXT_WINDOW_TOKENS_ENV_VAR}="${String(envRaw)}"`
+      });
+      if (above !== null) warnAboveEstimate(above);
+      return { tokens: parsed, source: 'env-override' };
+    }
     warn(`[peaks] ${CONTEXT_WINDOW_TOKENS_ENV_VAR}="${String(envRaw)}" is not a positive integer — ignoring the override`);
   }
   if (overrides.configWindowTokens !== undefined) {
     const parsed = parseContextWindowOverride(overrides.configWindowTokens);
-    if (parsed !== null) return { tokens: parsed, source: 'config' };
+    if (parsed !== null) {
+      const above = describeWindowAboveModelEstimate({
+        model,
+        tokens: parsed,
+        pin: `config context.windowTokens=${parsed}`
+      });
+      if (above !== null) warnAboveEstimate(above);
+      return { tokens: parsed, source: 'config' };
+    }
     warn(`[peaks] config context.windowTokens=${JSON.stringify(overrides.configWindowTokens)} is not a positive integer — ignoring the override`);
   }
   if (overrides.harnessWindowTokens !== undefined) {

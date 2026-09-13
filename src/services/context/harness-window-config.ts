@@ -74,6 +74,50 @@ export const HARNESS_WINDOW_SYNC_OPTOUT_VALUE = 'off';
  */
 export const HARNESS_WINDOW_WRITTEN_KEY = 'PEAKS_HARNESS_WINDOW_WRITTEN';
 
+/**
+ * The harness's OWN accepted band for its auto-compact window (E1, rid
+ * 2026-09-13-defects-e).
+ *
+ * THE BAND IS A PROPERTY OF THE KEY, NOT OF peaks-loop. `autoCompactWindow` —
+ * and the `CLAUDE_CODE_AUTO_COMPACT_WINDOW` env var that shadows it — is
+ * documented as "how full the context window gets before Claude Code compacts
+ * automatically, in tokens from 100000 to 1000000", and a value outside that
+ * band is not the window the harness compacts on: below the minimum the value
+ * is ignored, above the maximum it is reduced to the model's own context size
+ * (`Math.min(native, override)`; no Claude model's window exceeds 1000000, so
+ * above the maximum the reduction is certain).
+ *
+ * Either way the outcome is the failure this whole module exists to prevent:
+ * peaks-loop divides its ratio by a number the harness is not using, so
+ * "85%" names a point the harness will never fire at. A positive integer is
+ * therefore NOT sufficient — the band is part of what the value means.
+ *
+ * Clamping instead was rejected. A clamped write would put a DIFFERENT number
+ * in the file from the one the probe just divided by, restoring the
+ * two-resolutions drift inside the single write that is supposed to delete it.
+ * Refusing keeps the disagreement in one place, reportable, and reported.
+ */
+export const HARNESS_WINDOW_MIN_TOKENS = 100_000;
+/** See `HARNESS_WINDOW_MIN_TOKENS`. */
+export const HARNESS_WINDOW_MAX_TOKENS = 1_000_000;
+
+/**
+ * True when `tokens` is a window the harness will actually compact on.
+ * `null` (absent / unparseable) is NOT in band — there is no window at all.
+ */
+export function isHarnessWindowInRange(tokens: number | null): boolean {
+  return tokens !== null && tokens >= HARNESS_WINDOW_MIN_TOKENS && tokens <= HARNESS_WINDOW_MAX_TOKENS;
+}
+
+/**
+ * The BAND SENTENCE, in one place: both the write refusal and the read
+ * suppression have to say the same thing about the same numbers, and two
+ * copies would eventually disagree about the band.
+ */
+function harnessWindowBand(): string {
+  return `${HARNESS_WINDOW_MIN_TOKENS}..${HARNESS_WINDOW_MAX_TOKENS}`;
+}
+
 /** Where the harness key lives + which key it is. Both caller-supplied. */
 export interface HarnessWindowLocation {
   /** Absolute path of the machine-local settings file. */
@@ -303,6 +347,13 @@ export function describeHarnessWindowSync(result: HarnessWindowSyncResult | null
  */
 export function harnessWindowSyncWarning(result: HarnessWindowSyncResult | null): string | null {
   if (result === null || result.action !== 'skipped') return null;
+  // E1: the resolved window is not one the harness accepts, so this ratio's
+  // denominator is un-anchored no matter what the file holds. Reported FIRST —
+  // it is the more fundamental disagreement, and the two clauses below would
+  // read as "a different number" rather than "a number the harness cannot use".
+  if (result.reason === 'out-of-harness-range') {
+    return `harness window out of range: this probe divided by ${String(result.requestedTokens)} tokens, outside the ${harnessWindowBand()} band the harness accepts — the ratio does not describe the harness's own trigger`;
+  }
   if (
     result.requestedTokens !== null &&
     result.previousTokens !== null &&
@@ -333,6 +384,8 @@ function skippedHarnessWindowClause(result: HarnessWindowSyncResult): string {
       return `Harness window not managed: ${result.settingsPath} is the user's own home settings, not a project's, so peaks-loop left it alone. Re-run from inside a project (or point at one) and the window lands there instead.`;
     case 'no-window-resolved':
       return 'Harness window not managed: this probe measured a percentage and carried no token window, so there was no number to write — peaks-loop does not invent a window the adapter did not resolve.';
+    case 'out-of-harness-range':
+      return `Harness window not managed: the window this probe resolved (${String(result.requestedTokens)}) is outside the ${harnessWindowBand()} band the harness accepts, so writing it would put a number in ${result.settingsPath} that the harness does not compact on.`;
     case 'unreadable-settings':
       return `Harness window not managed: ${result.settingsPath} is not a JSON object peaks-loop can safely edit, so it was left exactly as found.`;
     case 'not-peaks-owned':
@@ -544,6 +597,14 @@ export function syncHarnessWindow(input: {
   if (input.tokens === null) {
     return { ...base, action: 'skipped', reason: 'no-window-resolved', tokens: current.tokens };
   }
+  // THE E1 BAND CHECK — before the idempotence and ownership gates, so an
+  // out-of-band request is refused whatever the file happens to hold. Writing it
+  // would be worse than useless: the harness ignores or caps it, so the file
+  // would carry a number that LOOKS managed while the ratio divides by a number
+  // the harness is not using. See `HARNESS_WINDOW_MIN_TOKENS`.
+  if (!isHarnessWindowInRange(input.tokens)) {
+    return { ...base, action: 'skipped', reason: 'out-of-harness-range', tokens: current.tokens };
+  }
   if (!isEditable(settingsPath)) {
     return { ...base, action: 'skipped', reason: 'unreadable-settings', tokens: current.tokens };
   }
@@ -678,22 +739,46 @@ export function resetHarnessWindow(input: {
  *     value it did not write.
  * The next probe reports `skipped / opted-out` and writes nothing.
  *
- * The H1 home-directory guard is deliberately NOT applied here, unlike in
- * `syncHarnessWindow`. That guard exists because `--project .` from a fresh
- * terminal turns an implicit project root into `$HOME` and the user never asked
- * peaks-loop to edit their personal settings. This function is the opposite: an
- * explicit, unambiguous instruction to stop managing the key AT THIS LOCATION,
- * and the location's own file is the only place the opt-out can be recorded for
- * it to mean anything. Refusing here would make the intention inexpressible in
- * exactly the situation the user is most likely to be in. The CLI names the
- * absolute path it wrote, so the user can always see where the row landed.
+ * THE H1 HOME GUARD APPLIES HERE TOO (E4, rid 2026-09-13-defects-e).
+ *
+ * This function used to exempt itself, on the argument that `--disable` is an
+ * explicit instruction and "the location's own file is the only place the
+ * opt-out can be recorded for it to mean anything". The first half is true and
+ * was never the problem; the second half does not hold at `$HOME`:
+ *
+ *   - the location is NOT usually explicit. `--project` is optional, and a
+ *     fresh terminal starts in `$HOME`, so the ordinary invocation resolves the
+ *     root to the user's home directory without them naming it — the very
+ *     trigger the H1 guard was written for;
+ *   - the opt-out has NOTHING to mean there. `syncHarnessWindow` already
+ *     refuses to write the window at that root (`unsafe-project-root`), so the
+ *     only thing a recorded opt-out changes is which sentence the refusal uses.
+ *     Nothing is made expressible; a visible refusal is traded for a quieter one;
+ *   - what IS added is a durable peaks-loop row in `~/.claude/settings.local.json`
+ *     — a file outside every repo. `--reset`'s exemption does not transfer to
+ *     this verb: `--reset` REMOVES (and is a no-op when there is nothing of
+ *     peaks-loop's to remove), while `--disable` only ever ADDS.
+ *
+ * So the guard fires here exactly as it does in `syncHarnessWindow`: the same
+ * exact-home comparison, before any `mkdir` and before any read-modify-write.
+ * `~/my-project` is unaffected, and a user who really does carry a stale
+ * peaks-loop window key in `$HOME` still has `--reset`, which is allowed there
+ * for the reason its own note gives.
  *
  * Idempotent: a second call reports `already-opted-out` and rewrites nothing.
  */
 export function disableHarnessWindowSync(input: {
   readonly location: HarnessWindowLocation;
-}): { readonly settingsPath: string; readonly action: 'disabled' | 'already-opted-out' | 'unreadable-settings' } {
+}): {
+  readonly settingsPath: string;
+  readonly action: 'disabled' | 'already-opted-out' | 'unreadable-settings' | 'refused-unsafe-project-root';
+} {
   const settingsPath = input.location.settingsPath;
+  // Checked FIRST, before `isEditable` and before any directory is created:
+  // a refusal that has already mkdir'd `$HOME/.claude` is not a refusal.
+  if (input.location.projectRoot !== undefined && isUserHome(input.location.projectRoot)) {
+    return { settingsPath, action: 'refused-unsafe-project-root' };
+  }
   const settings = readSettingsObject(settingsPath);
   if (!isEditable(settingsPath)) {
     return { settingsPath, action: 'unreadable-settings' };

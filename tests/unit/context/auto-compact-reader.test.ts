@@ -253,6 +253,57 @@ describe('Scenario: behavior — the ratio divides by the FILE, not the frozen e
     _setAdapterForTesting('claude-code', noFallbackAdapter());
     expect(resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} }))).toBeUndefined();
   });
+
+  // E1 (rid 2026-09-13-defects-e), read half. The write half refuses to PLANT an
+  // out-of-band window; this is the other way one gets into the ratio: it is
+  // already on disk (hand-planted, or written by a release that predates the
+  // band check). The harness does not compact on such a value, so handing it
+  // over as the `harness-env` layer would make the denominator a number the
+  // harness is not using — the very drift this module was built to delete.
+  it('when the FILE pins a value outside the harness band, should not hand it over as the ratio window', () => {
+    // given: a settings file carrying 2M — a plain positive integer, and not a
+    //        window the harness will compact on
+    const root = mkdtempSync(join(tmpdir(), 'peaks-ratio-window-band-'));
+    try {
+      mkdirSync(join(root, '.fakeide'), { recursive: true });
+      writeFileSync(
+        join(root, '.fakeide', 'settings.local.json'),
+        JSON.stringify({ env: { FAKEIDE_AUTO_COMPACT_WINDOW: '2000000' } }),
+        'utf8'
+      );
+      _setAdapterForTesting('claude-code', adapterWithRatioKnob());
+      // when: the ratio's window is resolved
+      const state = readHarnessWindowState({ projectRoot: root, env: {} });
+      // then: the read still reports the value truthfully (the status display
+      //       must not pretend the file says something else)...
+      expect(state!.fileTokens).toBe(2_000_000);
+      // ...but it is NOT offered as the window to divide by, so the adapter
+      //    falls through to its own resolution and the refusal notice (raised
+      //    by the writer, E1) can name the value that was skipped
+      expect(resolveHarnessRatioWindow(state)).toBeUndefined();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('when the FILE pins a value INSIDE the band, should still hand it over (control)', () => {
+    // given: the maximum the harness accepts
+    const root = mkdtempSync(join(tmpdir(), 'peaks-ratio-window-band-ok-'));
+    try {
+      mkdirSync(join(root, '.fakeide'), { recursive: true });
+      writeFileSync(
+        join(root, '.fakeide', 'settings.local.json'),
+        JSON.stringify({ env: { FAKEIDE_AUTO_COMPACT_WINDOW: '1000000' } }),
+        'utf8'
+      );
+      _setAdapterForTesting('claude-code', adapterWithRatioKnob());
+      // when / then: in band ⇒ still the ratio's window (so the case above is
+      //             the band's doing, not a read that stopped resolving)
+      expect(resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: root, env: {} }))).toBe('1000000');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 // Slice 2026-07-31-rid-002-prompt-size-context-now-override — `promptSizeBytes`

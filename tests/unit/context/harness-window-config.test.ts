@@ -23,7 +23,7 @@
 //
 // Run with: pnpm vitest run tests/unit/context/harness-window-config.test.ts
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -336,6 +336,99 @@ describe('harness-window-config', () => {
     });
   });
 
+  // E1 (rid 2026-09-13-defects-e). The harness does not accept an arbitrary
+  // positive integer: `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (and the
+  // `autoCompactWindow` setting it shadows) is documented as a token count from
+  // 100000 to 1000000, and a value outside that band is not the window the
+  // harness compacts on — below the minimum it is ignored outright, above the
+  // maximum it is capped at the model's own context size. peaks-loop used to
+  // write ANY positive integer and believe it, so the ratio it reported divided
+  // by a number the harness was not using: the same two-resolutions drift the
+  // slice above exists to delete, arriving through the value's RANGE instead of
+  // its source.
+  //
+  // Refusal, not clamping: a clamp would write a DIFFERENT number from the one
+  // the probe just divided by, restoring the drift inside the single write that
+  // is supposed to remove it. A refusal at least leaves the disagreement
+  // reportable — and reported, see the notice assertions.
+  describe('(behavior) E1 — the harness window band is 100000..1000000', () => {
+    it('when the value is BELOW the harness minimum, should refuse it and report both numbers', () => {
+      // given: an empty slot (so nothing but the range can be the reason)
+      writeSettings(existingSettings());
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: a probe resolves a window the harness would ignore
+      const result = syncHarnessWindow({ location, tokens: 50_000, env: {} });
+      // then: nothing is written, and the refusal carries the value it refused
+      expect(result).toMatchObject({
+        action: 'skipped',
+        reason: 'out-of-harness-range',
+        requestedTokens: 50_000,
+        previousTokens: null
+      });
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
+      expect(envBlock()[KEY]).toBeUndefined();
+      expect(envBlock()[HARNESS_WINDOW_WRITTEN_KEY]).toBeUndefined();
+      // and: the notice names the number, the band, and the consequence — the
+      //      whole remedy for a state peaks-loop refuses to write its way out of
+      const notice = describeHarnessWindowSync(result);
+      expect(notice).toContain('50000');
+      expect(notice).toContain('100000');
+      expect(notice).toContain('1000000');
+      expect(notice).not.toContain('CONFLICT');
+      // and: the machine channel says it too, so a JSON consumer reading a ratio
+      //      cannot miss that its denominator is not the harness's window
+      expect(harnessWindowSyncWarning(result)).toContain('50000');
+      expect(harnessWindowSyncWarning(result)).toContain('1000000');
+    });
+
+    it('when the value is ABOVE the harness maximum, should refuse it as well', () => {
+      // given: the other end of the band — the `Math.min(native, override)` cap
+      //        (the harness reduces any value above the model's own window, and
+      //        no model's window exceeds 1000000)
+      writeSettings(existingSettings());
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: a probe resolves 2M
+      const result = syncHarnessWindow({ location, tokens: 2_000_000, env: {} });
+      // then: refused — writing it would plant a key the harness will not honour
+      expect(result).toMatchObject({ action: 'skipped', reason: 'out-of-harness-range', requestedTokens: 2_000_000 });
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
+      expect(describeHarnessWindowSync(result)).toContain('2000000');
+    });
+
+    it('when the value sits ON either band edge, should write it (control)', () => {
+      // given: the two values the harness DOES accept. Without this case the
+      //        refusals above would be indistinguishable from a guard that
+      //        rejected every number.
+      writeSettings(existingSettings());
+      // when: the minimum is synced
+      expect(syncHarnessWindow({ location, tokens: 100_000, env: {} })).toMatchObject({
+        action: 'written',
+        tokens: 100_000
+      });
+      expect(envBlock()[KEY]).toBe('100000');
+      // and: the maximum is synced over it
+      expect(syncHarnessWindow({ location, tokens: 1_000_000, env: {} })).toMatchObject({
+        action: 'written',
+        tokens: 1_000_000
+      });
+      expect(envBlock()[KEY]).toBe('1000000');
+    });
+
+    it('when an out-of-band value is ALREADY in the file, should refuse to write and say the file is out of band', () => {
+      // given: a hand-planted 2M (or a row written by a release that predates
+      //        the band check) — the file, not the request, is out of range here
+      writeSettings({ env: { [KEY]: '2000000' } });
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: a probe resolves an in-band window
+      const result = syncHarnessWindow({ location, tokens: 200_000, env: {} });
+      // then: refused, and the notice names the out-of-band value on disk —
+      //       the reason token alone would leave the reader with no number
+      expect(result.action).toBe('skipped');
+      expect(describeHarnessWindowSync(result)).toContain('2000000');
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
+    });
+  });
+
   // Slice 2026-09-13-auto-compact-trigger-ownership, round 3 — H1.
   //
   // `resolveCanonicalProjectRoot($HOME)` returns $HOME, and a fresh terminal
@@ -633,6 +726,64 @@ describe('harness-window-config', () => {
       // then: nothing is written — the honest answer is "could not record it"
       expect(result.action).toBe('unreadable-settings');
       expect(readFileSync(location.settingsPath, 'utf8')).toBe('{ not json\n');
+    });
+
+    // E4 (rid 2026-09-13-defects-e). The H1 guard above covers the WINDOW write.
+    // `--disable` opened a second door onto the same hazard: `--project .` from a
+    // fresh terminal resolves the root to `$HOME`, so an explicit opt-out verb
+    // wrote `PEAKS_HARNESS_WINDOW_SYNC: "off"` into the user's own
+    // `~/.claude/settings.local.json` — a file outside every repo peaks-loop has
+    // business editing, left there by the command the user ran to say "leave me
+    // alone". The two keys differ in WHAT they change (the window key changes
+    // harness behaviour; the opt-out key only changes peaks-loop's), but not in
+    // WHERE they land, and at `$HOME` the opt-out has no meaning to lose: the
+    // window write is already refused there, so the opt-out can only turn that
+    // visible refusal into a quieter one. Refusing costs the user nothing and
+    // keeps the row out of their personal settings.
+    it('when the project root IS the home directory, should refuse and write NO file (E4)', () => {
+      // given: the fresh-terminal case — cwd is $HOME and --project defaulted to it
+      writeSettings(existingSettings());
+      const before = readFileSync(location.settingsPath, 'utf8');
+      // when: the opt-out is requested for that root
+      const result = disableHarnessWindowSync({ location: { ...location, projectRoot: homedir() } });
+      // then: refused, and the file is byte-identical — not even the opt-out row
+      expect(result.action).toBe('refused-unsafe-project-root');
+      expect(readFileSync(location.settingsPath, 'utf8')).toBe(before);
+      expect(envBlock()[HARNESS_WINDOW_SYNC_OPTOUT_KEY]).toBeUndefined();
+    });
+
+    it('when no file exists at the refused root, should create nothing at all (E4)', () => {
+      // given: a home-rooted location whose settings file does not exist —
+      //        `disableHarnessWindowSync` mkdirs the parent before writing, so
+      //        "refused" must mean refused BEFORE any of that
+      // when: the opt-out is requested
+      const result = disableHarnessWindowSync({ location: { ...location, projectRoot: homedir() } });
+      // then: refused, and neither the file nor its directory was created
+      expect(result.action).toBe('refused-unsafe-project-root');
+      expect(existsSync(location.settingsPath)).toBe(false);
+      expect(existsSync(join(root, '.claude'))).toBe(false);
+    });
+
+    it('when the project root is a SUBDIRECTORY of home, should still record the opt-out (E4 control)', () => {
+      // given: ~/my-project — the ordinary project root, which is NOT home itself
+      writeSettings(existingSettings());
+      // when: the opt-out is requested there
+      const result = disableHarnessWindowSync({
+        location: { ...location, projectRoot: join(homedir(), 'my-project') }
+      });
+      // then: recorded — the guard is exact-home, exactly like H1's
+      expect(result.action).toBe('disabled');
+      expect(envBlock()[HARNESS_WINDOW_SYNC_OPTOUT_KEY]).toBe(HARNESS_WINDOW_SYNC_OPTOUT_VALUE);
+    });
+
+    it('when the location carries no project root, should make no claim either way (E4 opt-in)', () => {
+      // given: a caller that built its own location (root unit tests), where the
+      //        optional field is genuinely absent rather than home-shaped
+      writeSettings(existingSettings());
+      // when: the opt-out runs without a root
+      const result = disableHarnessWindowSync({ location });
+      // then: no guard fires — absent is not the same claim as "is home"
+      expect(result.action).toBe('disabled');
     });
   });
 
