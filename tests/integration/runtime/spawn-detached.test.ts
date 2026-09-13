@@ -19,7 +19,10 @@ describe('spawn detached mock vendor', () => {
       files: [], refs: [],
       runtimeDir, subAgentsDir,
     });
-    expect(existsSync(join(runtimeDir, 'r-det-1', 'pid'))).toBe(true);
+    // `owner-session` and the dispatch record are written unconditionally: they
+    // record which session owns this rid directory, and what the launch outcome
+    // was. Both are true whether or not an OS process started, so they are not
+    // branched. The `pid` file is — see below.
     expect(existsSync(join(runtimeDir, 'r-det-1', 'owner-session'))).toBe(true);
     expect(existsSync(r.dispatchRecordPath)).toBe(true);
 
@@ -30,11 +33,21 @@ describe('spawn detached mock vendor', () => {
     // Before the fix it escaped this promise chain as an uncaught exception:
     // every test still reported "passed" and the run exited 1, which is the
     // "looks green, checked nothing" shape this assertion exists to kill.
+    //
+    // `<rid>/pid` exists IFF a real OS process was launched. That is the
+    // invariant `ProcessSupervisor.spawn` enforces by writing the file only when
+    // `child.pid !== undefined`, so the file is asserted in BOTH directions and
+    // sits next to the outcome it is derived from. A failed launch used to write
+    // an EMPTY pid file (`String(undefined ?? '')`), and `Number('')` is 0 — a
+    // cleanup path doing `kill(Number(read(pid)))` would signal the whole
+    // process group. Absence is the encoding that cannot be misread as a pid.
     if (r.spawnError) {
       expect(r.spawnError.code).toBe('ENOENT');
+      expect(existsSync(join(runtimeDir, 'r-det-1', 'pid'))).toBe(false);
     } else {
       // The CLI was installed and the child really started.
       expect(r.pid).toBeGreaterThan(0);
+      expect(existsSync(join(runtimeDir, 'r-det-1', 'pid'))).toBe(true);
     }
 
     // The record on disk must agree with the outcome instead of claiming a
