@@ -46,7 +46,8 @@ export interface PrecheckOptions {
 export interface PrecheckEnvelope {
   readonly ok: boolean;
   readonly overall: LayerStatus;
-  readonly rootVersion: string;
+  /** `null` when the root `package.json` is missing or unreadable — see `rootVsShared`. */
+  readonly rootVersion: string | null;
   readonly strict: boolean;
   readonly snapshotAt: string;
   readonly layers: {
@@ -74,14 +75,60 @@ function upgrade(result: LayerResult, strict: boolean | undefined): LayerResult 
   return result;
 }
 
-function readRootVersion(projectRoot: string): string {
-  const pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
-    version?: string;
-  };
-  if (typeof pkg.version !== 'string' || !SEMVER_RE.test(pkg.version)) {
-    throw new Error(`invalid root package.json#version: ${JSON.stringify(pkg.version)}`);
+/**
+ * Outcome of reading a `package.json`. Never throws: an unreadable root manifest
+ * is an ordinary precheck blocker, not an unhandled CLI error. Before this, a
+ * project without `package.json` made `peaks release canary` crash with
+ * `{ command: "cli", code: "UNHANDLED_ERROR" }` instead of a `PRECHECK_BLOCKER`
+ * naming the missing file.
+ */
+type PackageJsonRead<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly message: string; readonly remediation: string };
+
+/** Read + parse a JSON manifest, mapping both failure modes onto a blocker description. */
+function readPackageJson<T>(path: string, label: string): PackageJsonRead<T> {
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    return {
+      ok: false,
+      message: `${label} is missing or unreadable at ${path}`,
+      remediation: `run \`peaks release precheck\` from a project root that has a readable ${label}`
+    };
   }
-  return pkg.version;
+  try {
+    return { ok: true, value: JSON.parse(raw) as T };
+  } catch {
+    return {
+      ok: false,
+      message: `${label} at ${path} is not valid JSON`,
+      remediation: `fix the ${label} syntax; \`peaks release precheck\` cannot gate a version it cannot parse`
+    };
+  }
+}
+
+type RootVersionRead =
+  | { readonly ok: true; readonly version: string }
+  | { readonly ok: false; readonly message: string; readonly remediation: string };
+
+function readRootVersion(projectRoot: string): RootVersionRead {
+  const path = join(projectRoot, 'package.json');
+  const read = readPackageJson<{ version?: string }>(path, 'root package.json');
+  if (!read.ok) {
+    return read;
+  }
+  const pkg = read.value;
+  if (typeof pkg.version !== 'string' || !SEMVER_RE.test(pkg.version)) {
+    return {
+      ok: false,
+      message: `invalid root package.json#version: ${JSON.stringify(pkg.version)}`,
+      remediation:
+        'set root package.json#version to a clean semver (e.g. 4.0.0) before running `peaks release precheck`'
+    };
+  }
+  return { ok: true, version: pkg.version };
 }
 
 function rollup(layers: PrecheckEnvelope['layers'], strict: boolean): {
@@ -103,7 +150,16 @@ function rollup(layers: PrecheckEnvelope['layers'], strict: boolean): {
 // ---------------------------------------------------------------------------
 
 export function runRootVsShared(opts: PrecheckOptions): LayerResult {
-  const rootVersion = readRootVersion(opts.projectRoot);
+  const rootRead = readRootVersion(opts.projectRoot);
+  if (!rootRead.ok) {
+    return {
+      status: 'blocker',
+      message: rootRead.message,
+      remediation: rootRead.remediation,
+      observed: { rootVersion: null, sharedVersion: null }
+    };
+  }
+  const rootVersion = rootRead.version;
   const sharedDist = join(
     opts.projectRoot,
     'packages',
@@ -167,7 +223,18 @@ export function runRootVsShared(opts: PrecheckOptions): LayerResult {
 // ---------------------------------------------------------------------------
 
 export function runTagCollision(opts: PrecheckOptions): LayerResult {
-  const rootVersion = readRootVersion(opts.projectRoot);
+  const rootRead = readRootVersion(opts.projectRoot);
+  if (!rootRead.ok) {
+    // Fail closed: without a version there is no tag name to check, so this
+    // layer cannot claim "safe to publish".
+    return {
+      status: 'blocker',
+      message: rootRead.message,
+      remediation: rootRead.remediation,
+      observed: { tagName: null }
+    };
+  }
+  const rootVersion = rootRead.version;
   const tagName = `v${rootVersion}`;
   // 2026-09-10: no shell. `git` is `git.exe` on Windows, so the wrapper bought
   // nothing — and it actively broke this layer, because `projectRoot` is an
@@ -259,11 +326,19 @@ export function runChangesetStaged(opts: PrecheckOptions): LayerResult {
 // ---------------------------------------------------------------------------
 
 export function runWorkspaceLockstep(opts: PrecheckOptions): LayerResult {
-  const rootPkgRaw = readFileSync(join(opts.projectRoot, 'package.json'), 'utf8');
-  const rootPkg = JSON.parse(rootPkgRaw) as {
+  const rootRead = readPackageJson<{
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
-  };
+  }>(join(opts.projectRoot, 'package.json'), 'root package.json');
+  if (!rootRead.ok) {
+    return {
+      status: 'blocker',
+      message: rootRead.message,
+      remediation: rootRead.remediation,
+      observed: { sharedDep: null }
+    };
+  }
+  const rootPkg = rootRead.value;
   const allDeps: Record<string, string> = {
     ...(rootPkg.dependencies ?? {}),
     ...(rootPkg.devDependencies ?? {})
@@ -288,12 +363,19 @@ export function runWorkspaceLockstep(opts: PrecheckOptions): LayerResult {
       observed: { sharedDep }
     };
   }
-  const sharedPkgRaw = readFileSync(
+  const sharedRead = readPackageJson<{ version?: string }>(
     join(opts.projectRoot, 'packages', 'peaks-loop-shared', 'package.json'),
-    'utf8'
+    'packages/peaks-loop-shared/package.json'
   );
-  const sharedPkg = JSON.parse(sharedPkgRaw) as { version?: string };
-  const sharedVersion = sharedPkg.version ?? '';
+  if (!sharedRead.ok) {
+    return {
+      status: 'blocker',
+      message: sharedRead.message,
+      remediation: sharedRead.remediation,
+      observed: { sharedDep, sharedVersion: null }
+    };
+  }
+  const sharedVersion = sharedRead.value.version ?? '';
   if (!SEMVER_RE.test(sharedVersion)) {
     return {
       status: 'blocker',
@@ -316,7 +398,8 @@ export function runWorkspaceLockstep(opts: PrecheckOptions): LayerResult {
 // ---------------------------------------------------------------------------
 
 export function runAllLayers(opts: PrecheckOptions): PrecheckEnvelope {
-  const rootVersion = readRootVersion(opts.projectRoot);
+  const rootRead = readRootVersion(opts.projectRoot);
+  const rootVersion = rootRead.ok ? rootRead.version : null;
   const strict = opts.strict === true;
   const layers: PrecheckEnvelope['layers'] = {
     rootVsShared: upgrade(runRootVsShared(opts), strict),

@@ -8,8 +8,9 @@
 //     canonical form the rest of the codebase expects (handles input-path
 //     quirks from the path-utils layer).
 //   - `realPathOrThrow` — refuses symlinks and missing paths. Throws with
-//     a stable message so callers can distinguish "missing" from "escape
-//     attempt".
+//     a stable, path-free message, and takes ONE MESSAGE PER REASON, so
+//     callers can distinguish "missing" from "escape attempt" by the
+//     message they supplied.
 //   - `assertInsideProject` — confirms an artifact path resolves inside
 //     the project root after realpath, throwing the same kind of error
 //     message realPathOrThrow uses.
@@ -43,9 +44,17 @@ export function normalizeRealRoot(path: string): string {
   return stableRealPath(path);
 }
 
-export function realPathOrThrow(path: string, errorMessage: string): string {
+/**
+ * Resolve `path` to its realpath, refusing missing paths and symlinks.
+ *
+ * `missingPathMessage` is required because the two refusals mean different
+ * things to the user: "there is nothing at this path" is a caller typo, while
+ * "this path is a symlink" is an escape attempt. A single shared message made
+ * `peaks memory extract --artifact <typo>` report a sandbox-escape warning.
+ */
+export function realPathOrThrow(path: string, errorMessage: string, missingPathMessage: string): string {
   if (!existsSync(path)) {
-    throw new Error(errorMessage);
+    throw new Error(missingPathMessage);
   }
   const stats = lstatSync(path);
   if (stats.isSymbolicLink()) {
@@ -64,8 +73,16 @@ export function resolveProjectPath(path: string, projectRoot: string): string {
 export function assertInsideProject(path: string, projectRoot: string): string {
   const resolvedRoot = normalizeRoot(projectRoot);
   const resolvedPath = resolveProjectPath(path, resolvedRoot);
-  const realProjectRoot = realPathOrThrow(resolvedRoot, 'Project root is not accessible');
-  const realArtifactPath = realPathOrThrow(resolvedPath, 'Artifact path must stay inside the project root');
+  const realProjectRoot = realPathOrThrow(
+    resolvedRoot,
+    'Project root is not accessible',
+    'Project root does not exist'
+  );
+  const realArtifactPath = realPathOrThrow(
+    resolvedPath,
+    'Artifact path must stay inside the project root',
+    'Artifact path does not exist'
+  );
   if (!isInsidePath(realArtifactPath, realProjectRoot)) {
     throw new Error('Artifact path must stay inside the project root');
   }

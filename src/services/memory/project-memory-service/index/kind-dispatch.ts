@@ -169,7 +169,11 @@ export function executeProjectMemoryBackup(options: BackupPlanOptions): ProjectM
     const safeMemoryDir = assertSafeProjectMemoryDir(plan.projectRoot);
     mkdirSync(plan.backupMemoryDir, { recursive: true });
     for (const copy of plan.plannedCopies) {
-      const sourcePath = realPathOrThrow(copy.sourcePath, 'Project memory source must stay inside the project memory directory');
+      const sourcePath = realPathOrThrow(
+        copy.sourcePath,
+        'Project memory source must stay inside the project memory directory',
+        'Project memory source does not exist'
+      );
       if (!isInsidePath(sourcePath, stableRealPath(safeMemoryDir))) {
         throw new Error('Project memory source must stay inside the project memory directory');
       }
