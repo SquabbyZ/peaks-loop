@@ -23,6 +23,25 @@ describe('spawn detached mock vendor', () => {
     expect(existsSync(join(runtimeDir, 'r-det-1', 'owner-session'))).toBe(true);
     expect(existsSync(r.dispatchRecordPath)).toBe(true);
 
+    // The vendor CLI is OPTIONAL — this test runs on machines and CI runners
+    // where `claude` is not installed, and spawn() reports that asynchronously
+    // as an 'error' event. So the contract under test is NOT "claude exists";
+    // it is that the failure arrives as a TYPED value on the dispatch envelope.
+    // Before the fix it escaped this promise chain as an uncaught exception:
+    // every test still reported "passed" and the run exited 1, which is the
+    // "looks green, checked nothing" shape this assertion exists to kill.
+    if (r.spawnError) {
+      expect(r.spawnError.code).toBe('ENOENT');
+    } else {
+      // The CLI was installed and the child really started.
+      expect(r.pid).toBeGreaterThan(0);
+    }
+
+    // The record on disk must agree with the outcome instead of claiming a
+    // running child that was never spawned.
+    const record = JSON.parse(readFileSync(r.dispatchRecordPath, 'utf8'));
+    expect(record.status).toBe(r.spawnError ? 'failed' : 'running');
+
     rmSync(root, { recursive: true, force: true });
   }, 15000);
 });

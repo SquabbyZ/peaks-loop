@@ -19,7 +19,18 @@ export interface DispatchInput {
   runtimeDir: string; subAgentsDir: string;
   verbatimBlocks?: string[];
 }
-export interface DispatchResult { pid: number; dispatchRecordPath: string; child?: ChildProcess; }
+export interface DispatchResult {
+  pid: number;
+  dispatchRecordPath: string;
+  child?: ChildProcess;
+  /**
+   * Typed launch failure, or `null` when the vendor CLI started. A vendor CLI
+   * that is not installed is an expected environment, not a crash: the ENOENT
+   * used to surface as an unhandled 'error' event (see ProcessSupervisor.spawn)
+   * and escape every awaiting caller's promise chain.
+   */
+  spawnError: NodeJS.ErrnoException | null;
+}
 
 export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult> {
   const registry = new VendorAdapterRegistry([new ClaudeAdapter(), new CodexAdapter(), new CopilotAdapter()]);
@@ -55,6 +66,10 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
   // no-op (ProcessSupervisor forces detached:false). Pass `false` to
   // reflect the post-F2 contract explicitly.
   const handle = await sup.spawn(adapter.binary, args, { detach: false, rid: i.rid });
+  // `settled` never rejects; it carries the launch outcome as a value. Awaiting
+  // it here is what makes a missing vendor CLI an assertable result rather than
+  // an exception thrown from outside this function's promise chain.
+  const spawnError = (await handle.settled) ?? null;
   lo.register(handle.pid, i.rid, i.sid);
 
   // Write dispatch record (placeholder — final shape per Task 8 schema)
@@ -62,8 +77,12 @@ export async function dispatchDetached(i: DispatchInput): Promise<DispatchResult
   mkdirSync(i.subAgentsDir, { recursive: true });
   writeFileSync(recPath, JSON.stringify({
     rid: i.rid, mode: 'detached', vendor: i.vendor,
-    status: 'running', heartbeats: [], at: Date.now(),
+    // The record must not claim a child is running when the launch failed —
+    // that is the on-disk form of "looks green, checked nothing".
+    status: spawnError ? 'failed' : 'running',
+    ...(spawnError ? { spawnError: { code: spawnError.code, message: spawnError.message } } : {}),
+    heartbeats: [], at: Date.now(),
   }, null, 2));
 
-  return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child };
+  return { pid: handle.pid, dispatchRecordPath: recPath, child: handle.child, spawnError };
 }

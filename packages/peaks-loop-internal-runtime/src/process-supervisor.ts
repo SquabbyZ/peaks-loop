@@ -20,6 +20,15 @@ export interface SpawnHandle {
   pid: number;
   child: ChildProcess;
   kill(signal?: NodeJS.Signals): void;
+  /**
+   * Resolves once the OS confirms the launch (`'spawn'`) or the launch fails
+   * (`'error'`). Never rejects: `null` means the process is running; a launch
+   * failure resolves to the otherwise-unhandled ErrnoException (ENOENT when the
+   * vendor CLI is not installed). The listener that settles this is attached
+   * synchronously in `spawn()` — see the comment there for why no caller can
+   * attach one in time.
+   */
+  settled: Promise<NodeJS.ErrnoException | null>;
 }
 
 export class ProcessSupervisor {
@@ -50,6 +59,21 @@ export class ProcessSupervisor {
     }
 
     const child = nodeSpawn(binary, args, spawnOpts);
+
+    // Attach the 'error' listener in the SAME synchronous turn the child is
+    // created, because no caller can do it in time. A missing binary does not
+    // throw from spawn(): Node emits it asynchronously as an 'error' event, and
+    // an EventEmitter with no 'error' listener re-throws it as a process-level
+    // uncaught exception. That emission runs on the nextTick queue, which
+    // drains BEFORE the awaiting caller resumes — so the documented caller-side
+    // pattern (`await spawn(...); child.on('error', …)`) loses the race by
+    // construction, whatever caller writes it. Capturing it here turns the
+    // failure into a typed value on `settled` and removes the crash.
+    const settled = new Promise<NodeJS.ErrnoException | null>((resolve) => {
+      child.on('error', (err: Error) => resolve(err as NodeJS.ErrnoException));
+      child.on('spawn', () => resolve(null));
+    });
+
     const dir = join(this.cfg.runtimeDir, opts.rid);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'pid'), String(child.pid ?? ''));
@@ -58,6 +82,7 @@ export class ProcessSupervisor {
       pid: child.pid ?? -1,
       child,
       kill: (signal: NodeJS.Signals = 'SIGTERM') => child.kill(signal),
+      settled,
     };
   }
 }
