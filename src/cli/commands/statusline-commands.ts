@@ -23,11 +23,38 @@ import {
   renderCompactStatusline,
 } from '../../services/compact-statusline/compact-statusline-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
+import { writeHarnessWitness } from '../../services/context/harness-context-witness.js';
 
 const STDIN_READ_TIMEOUT_MS = 250;
 
-/** Read piped stdin if present; resolve quickly with '' when attached to a TTY. */
+/**
+ * Read piped stdin if present; resolve quickly with '' when attached to a TTY.
+ *
+ * `PEAKS_STATUSLINE_STDIN` is a test seam (same shape as the `PEAKS_HOOK_STDIN`
+ * seam in `gate-commands.ts`): the harness payload is the only channel that
+ * carries the harness's own context numbers, and a test that cannot supply one
+ * cannot verify the capture at all.
+ *
+ * WHY THIS SEAM IS ACCEPTABLE ON A DIFFERENT ARGUMENT (repair cycle 3). The
+ * precedent does not transfer by itself: `PEAKS_HOOK_STDIN` is defended in
+ * `.peaks/memory/peaks-hook-stdin-test-seam-pattern.md` because its payload
+ * still routes through the `enforceBashCommand` SOP gate. This payload is
+ * routed through no gate — it is PERSISTED verbatim as the record the witness
+ * guard then reads. So the compensating control is different, not absent: the
+ * record is observation-only and one-way. It reaches only `data` and the
+ * `warnings` / `nextActions` arrays of `peaks code context-now`; the compact
+ * `action` there is computed from `probe.ratio` alone, before and independently
+ * of the witness. A forged payload can therefore make the instrument lie —
+ * measured: a hand-written record yields a confident false `agree`, or a
+ * self-contradictory false `disagree` — and can do nothing else. What it cannot
+ * do is fire, block or delay a compact. Unconditional rather than NODE_ENV-
+ * gated, for the reason already recorded for the sibling seam.
+ */
 function readStdin(): Promise<string> {
+  const override = process.env['PEAKS_STATUSLINE_STDIN'];
+  if (override !== undefined) {
+    return Promise.resolve(override);
+  }
   return new Promise((resolve) => {
     if (process.stdin.isTTY) {
       resolve('');
@@ -109,6 +136,18 @@ export async function runDefaultStatuslineRender(
   // subprocess sat descheduled. Production callers omit the flag.
   const now = options.now !== undefined ? Number(options.now) : Date.now();
   const model = buildStatusLineModel(seeded, now);
+  // Slice 2026-09-13-statusline-window-witness (AC1): capture the harness's OWN
+  // context numbers from the payload it just piped in. The project root and the
+  // canonical session id are taken from the model that was JUST built, so the
+  // witness lands under the same session this render already resolved — a second
+  // resolution here could disagree with it. Never throws; never changes the
+  // rendered line.
+  writeHarnessWitness({
+    projectRoot: model.projectRoot,
+    sessionId: model.sessionId,
+    stdin,
+    nowMs: now,
+  });
   const capability = resolveStatusLineCapability({
     env: process.env,
     isTTY: Boolean(process.stdout.isTTY),

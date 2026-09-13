@@ -22,6 +22,10 @@ import { runAutoCompact, type AutoCompactResult } from '../../services/code/auto
 import { auditContext } from '../../services/context/context-audit.js';
 import { syncHarnessWindowForProject } from '../../services/context/auto-compact-reader.js';
 import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../../services/context/harness-window-config.js';
+import {
+  describeHarnessWitness,
+  readAndCompareHarnessWitness
+} from '../../services/context/harness-context-witness.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { buildContextAuditHint } from '../../services/context/context-audit-hint.js';
 import {
@@ -308,6 +312,16 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           env: process.env,
           promptSizeBytes
         });
+        // Promote `--project .` (what the PreToolUse hook passes) to the git
+        // root ONCE, for both of the consumers below: the settings path the
+        // harness window is written to, and the session directory the witness
+        // is read from, must not depend on the caller's cwd — and an absolute
+        // path is what the envelope then reports back to the operator. This
+        // resolves through `git rev-parse --show-toplevel`, i.e. a whole
+        // process spawn (measured 2026-09-14: med 111.8 ms per call on this
+        // host), so calling it twice with the same argument charged the witness
+        // read it precedes — 0.027 ms — roughly 4,000x its own cost.
+        const canonicalProjectRoot = resolveCanonicalProjectRoot(opts.project);
         // Slice 2026-09-13-auto-compact-trigger-ownership (T1 + T2): materialize
         // the window this probe just divided by into the harness's own settings,
         // so "85%" here and the harness's own trigger are one point on one
@@ -315,11 +329,7 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         // no-op when the probe carried no token window — peaks-loop never
         // invents a number it did not measure.
         const harnessWindow = syncHarnessWindowForProject({
-          // Promote `--project .` (what the PreToolUse hook passes) to the git
-          // root first: the settings path this writes to must not depend on
-          // the caller's cwd, and an absolute path is what the envelope then
-          // reports back to the operator.
-          projectRoot: resolveCanonicalProjectRoot(opts.project),
+          projectRoot: canonicalProjectRoot,
           env: process.env,
           tokens: probe.capacityTokens ?? null
         });
@@ -330,6 +340,23 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         // sentence; this one line rides `warnings` so a JSON consumer cannot
         // miss it either.
         const harnessWindowWarning = harnessWindowSyncWarning(harnessWindow);
+        // Slice 2026-09-13-statusline-window-witness (AC2/AC3): the harness's
+        // own number for the same quantity, captured by the statusline. This is
+        // OBSERVATION ONLY — it never feeds `verdict` / `action` / any threshold
+        // below. A wrong reading here must not be able to fire a compact.
+        const harnessWitness = readAndCompareHarnessWitness({
+          // The same promoted root as the harness-window write above, for the
+          // same reason: the statusline resolves its root from the harness
+          // payload (absolute), so a `--project .` from a hook would otherwise
+          // look for the witness somewhere else and report `absent` forever.
+          projectRoot: canonicalProjectRoot,
+          sessionId,
+          peaksRatio: probe.ratio,
+          peaksTokens: probe.rawTokens ?? null,
+          peaksWindowTokens: probe.capacityTokens ?? null,
+          outerSessionId: outerSessionId ?? null
+        });
+        const witnessNotice = describeHarnessWitness(harnessWitness);
         const ratioPct = (probe.ratio * 100).toFixed(1);
         let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
         let next: string | null = null;
@@ -391,8 +418,16 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             // window sync did on this probe. Reported rather than silent — the
             // harness tells a user who overrides the window only via
             // `/autocompact`, so peaks-loop must be the one that says it.
-            harnessWindow
-          }, harnessWindowWarning === null ? [] : [harnessWindowWarning], [
+            harnessWindow,
+            // Slice 2026-09-13-statusline-window-witness: the second scale.
+            harnessWitness
+          }, [
+            ...(harnessWindowWarning === null ? [] : [harnessWindowWarning]),
+            // AC3: the disagreement rides `warnings` — it is a fact about the
+            // state, not an instruction — and it is one-way. Never an
+            // AskUserQuestion (see .peaks/memory/auto-compact-threshold-policy.md).
+            ...(witnessNotice === null ? [] : [witnessNotice])
+          ], [
             action === 'red-line'
               ? `RED LINE: ≥ 95%. Next: \`${next}\` — peaks-loop asks the harness to compact and KEEPS WORKING (dispatch is not blocked); re-probe to confirm it landed.`
               : action === 'auto-compact-now'
@@ -403,7 +438,15 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             gateModeNotice,
             // Single wording, shared with `peaks code auto-compact` — see
             // `describeHarnessWindowSync`.
-            describeHarnessWindowSync(harnessWindow)
+            describeHarnessWindowSync(harnessWindow),
+            // AC3: the one-way hint that accompanies the `warnings` entry. Both
+            // channels carry the SAME fact in the shape each is read for
+            // (machine-readable warning vs human/LLM advice) — see
+            // `harnessWindowSyncWarning` / `describeHarnessWindowSync` above for
+            // the same split, and note this one never asks a question.
+            ...(witnessNotice === null
+              ? []
+              : ['Re-probe with `peaks code context-now` to confirm; this is reported, not blocking.'])
           ]),
           // Slice 2026-09-13-auto-compact-trigger-ownership: was hard-coded
           // `true`, which made the declared `--json` flag a no-op and left the

@@ -42,6 +42,20 @@ export type StatusLineStdin = {
   cwd?: string;
   session_id?: string;
   caller_id?: string;
+  /**
+   * The harness's own context numbers. Declared here because this type IS the
+   * documented shape of the payload the harness pipes in; omitting a documented
+   * field would make the type lie by omission, and a consumer that reached for
+   * it would have to cast. Read (never written) by
+   * `harness-context-witness.ts` — see that module for why
+   * `context_window_size` is NOT a denominator.
+   */
+  context_window?: {
+    context_window_size?: unknown;
+    used_percentage?: unknown;
+    remaining_percentage?: unknown;
+    current_usage?: Record<string, unknown> | undefined;
+  } | undefined;
 };
 
 export type StatusLineState = 'active' | 'idle' | 'stale' | 'invalid-presence';
