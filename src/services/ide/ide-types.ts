@@ -206,6 +206,13 @@ export interface IdeCompactProfile {
    * Slash command or shell-call to invoke compact. The orchestrator
    * spawns this via `child_process.spawn` (shell-exec pathway) or
    * writes it to an IDE hook file (ide-native pathway).
+   *
+   * ZERO EXECUTOR as of slice 2026-09-13-auto-compact-trigger-ownership: every
+   * `shell-exec` branch now only REPORTS that it will not spawn (see
+   * `auto-compact-dispatcher.ts`), and the `ide-native` branch registers a
+   * harness-side trigger instead. The field is retained because the sibling
+   * work (A2, harness-side state re-injection) still needs it; nothing in this
+   * slice deletes it. Do not read it as a capability peaks-loop has.
    */
   readonly compactCommand: string;
   /**
@@ -223,6 +230,19 @@ export interface IdeCompactProfile {
    *          adapters still on the v2.11.x model).
    */
   readonly compactPathway: 'shell-exec' | 'ide-native' | 'llm-self-compress' | 'noop';
+  /**
+   * Optional settings key / env var the IDE reads its AUTO-COMPACT WINDOW
+   * from — i.e. the window the harness itself compacts against. When
+   * declared, peaks-loop writes the window it computes its ratio against
+   * into the adapter's machine-local settings `env` block, under this key,
+   * so both sides reference one number instead of two independent
+   * resolutions (slice 2026-09-13-auto-compact-trigger-ownership).
+   *
+   * `undefined` = this IDE exposes no such knob. peaks-loop then cannot
+   * close the drift; `peaks compact harness-window` reports that instead of
+   * pretending. Adapters that do not opt in are unchanged.
+   */
+  readonly autoCompactWindowEnvVar?: string;
   /**
    * Optional command the runner invokes post-compact to confirm
    * ratio dropped (e.g. `peaks code auto-compact --json`). When omitted,
@@ -294,6 +314,31 @@ export interface ContextPercentFallbackInput {
    * Slice 2026-09-09-context-window-override.
    */
   readonly configWindowTokens?: unknown;
+  /**
+   * Raw value of the adapter's `autoCompactWindowEnvVar`, resolved by the
+   * generic reader from the adapter's own declarations (settings path +
+   * key name) — the window peaks-loop configured for the harness. Feeds the
+   * `harness-env` layer of `resolveContextWindow`.
+   *
+   * Slice 2026-09-13-auto-compact-trigger-ownership.
+   */
+  readonly harnessWindowTokens?: unknown;
+  /**
+   * True when `harnessWindowTokens` is a value peaks-loop ITSELF wrote (the
+   * harness settings carry the provenance marker matching it), false when a
+   * human set the key by hand.
+   *
+   * The `harness-env` layer outranks the model heuristic either way — that is
+   * what keeps peaks-loop's ratio and the harness's trigger on one number. The
+   * flag decides only whether the late 1M rescue may OVERRULE that layer when
+   * the observed context proves it too small: peaks-loop's own earlier
+   * resolution is self-correcting, whereas a human's explicit pin must not be
+   * silently rewritten (and, since it is persisted, permanently so).
+   *
+   * Omitted = treated as not peaks-written (the safe direction: do not touch
+   * what you did not write).
+   */
+  readonly harnessWindowPeakWritten?: boolean;
 }
 
 /**

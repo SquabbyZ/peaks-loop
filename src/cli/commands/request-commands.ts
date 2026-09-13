@@ -426,9 +426,12 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // 0.85–0.95 pre-compact zone, write a checkpoint BEFORE the
       // transition completes and attach `preCompactCheckpoint: true` to
       // the response envelope. The LLM remains the decision-maker; this
-      // hook only surfaces the signal. The 0.95 red-line behaviour is
-      // unchanged — the existing auto-compact orchestrator continues to
-      // refuse dispatch at ratio ≥ 0.95.
+      // hook only surfaces the signal. At ratio ≥ 0.95 the auto-compact
+      // orchestrator ASKS the harness to compact and reports that it is
+      // waiting; it does not refuse anything, because peaks-loop has no
+      // executor for a running session and a refusal it cannot enforce only
+      // deadlocked the runner (slice
+      // 2026-09-13-auto-compact-trigger-ownership).
       let preCompact: import('peaks-loop-shared/result').ResultEnvelope<unknown> | null = null;
       // 2026-09-03-codegraph-autorefresh: auto codegraph re-index on the
       // RD → QA slice-complete boundary. Set only for rd:qa-handoff; null

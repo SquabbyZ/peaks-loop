@@ -114,4 +114,65 @@ describe('peaks code context-now — single-rid / job-mode threshold parity', ()
     expect(env.data.verdict).toBe('ok');
     expect(env.data.next).toBeNull();
   });
+
+  // Slice 2026-09-13-auto-compact-trigger-ownership, round 2 — defect 2.
+  //
+  // This command's success path hard-coded `printResult(..., true)`, so its
+  // declared `--json` flag was a no-op and the notices it emits as
+  // `nextActions` were NEVER printed as text: a person running the command saw
+  // a JSON blob and nothing else. Since peaks-loop rewrites the user's own
+  // harness settings on this path, "the user cannot see it" was the exact
+  // failure the write was accepted on condition of avoiding — 要告知.
+  describe('output mode parity — the notice must reach a human, and --json must still be machine-readable', () => {
+    async function runRaw(args: readonly string[]): Promise<{ text: string; stderrText: string }> {
+      const { io, captured } = makeCapturedIo();
+      const program = new Command();
+      const code = program.command('code');
+      registerCodeRuntimeCommands(code, io);
+      await program.parseAsync(['code', 'context-now', ...args], { from: 'user' });
+      return { text: captured.text(), stderrText: captured.stderrText() };
+    }
+
+    it('when --json is passed, should emit ONE parseable envelope with nextActions carried inside it (machines unchanged)', async () => {
+      withEnv(RATIO_ENV, '0.87');
+      withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+      // when: the machine path runs
+      const { text } = await runRaw(['--json', '--project', ws().path, '--session-id', '2026-09-12-parity']);
+      // then: byte-compatible with the pre-round-2 behaviour — a bare envelope,
+      //       no `next:` lines spliced into stdout
+      const env = parseEnvelope(text);
+      expect(env.ok).toBe(true);
+      expect(env.nextActions.length).toBeGreaterThan(0);
+      expect(text.startsWith('{')).toBe(true);
+      expect(text).not.toContain('next: ');
+    });
+
+    it('when --json is OMITTED, should print the notices as human-readable `next:` lines', async () => {
+      withEnv(RATIO_ENV, '0.87');
+      withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+      // when: a human runs the command with no flag
+      const { text } = await runRaw(['--project', ws().path, '--session-id', '2026-09-12-parity']);
+      // then: every notice is a readable line — including the harness-window
+      //       one, which is the only place a user can learn what was written
+      //       to their settings and how to undo it
+      expect(text).toContain('next: ');
+      expect(text).toContain('next: Harness window');
+    });
+  });
+
+  it('when invoked, should report the harness-window sync in the envelope (skipped, never a silent write)', async () => {
+    // given: a percent-based probe — the harness handles the ratio itself, so
+    //        peaks-loop has NO token window to write (slice
+    //        2026-09-13-auto-compact-trigger-ownership)
+    withEnv(RATIO_ENV, '0.90');
+    withEnv('CLAUDE_CODE_ENTRYPOINT', 'cli');
+    // when: the canonical probe runs
+    const env = await runContextNow(['--project', ws().path, '--session-id', '2026-09-12-parity']);
+    // then: the field is present and says what happened — peaks-loop never
+    //       invents a window it did not measure, and never writes silently
+    const harnessWindow = (env.data as { harnessWindow?: { action: string; reason?: string } }).harnessWindow;
+    expect(harnessWindow).toBeDefined();
+    expect(harnessWindow!.action).toBe('skipped');
+    expect(harnessWindow!.reason).toBe('no-window-resolved');
+  });
 });

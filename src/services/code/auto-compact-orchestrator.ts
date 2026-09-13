@@ -9,10 +9,15 @@
  * conversation history — so peaks-loop drives the entire compaction:
  *
  *   1. Read current context % (via IDE adapter's `readContextPercent`).
- *   2. If ratio ≥ 0.95 (RED LINE): synchronous gate — peaks-loop
- *      refuses sub-agent dispatch and forces IDE compact immediately.
- *      The LLM cannot opt out (compact red line — keeps the runner
- *      alive).
+ *   2. If ratio ≥ 0.95 (RED LINE): peaks-loop ASKS the harness to
+ *      compact and reports that it is waiting. It does NOT block
+ *      sub-agent dispatch (slice
+ *      2026-09-13-auto-compact-trigger-ownership, T3): peaks-loop owns
+ *      the *decision*, the harness owns the *capability*, and peaks-loop
+ *      has no way to compact a running session itself — so a "gate"
+ *      here gated nothing and deadlocked the runner at the worst
+ *      moment. If the ratio keeps rising and the harness has not
+ *      compacted, the honest move is to say so and hand control back.
  *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-loop prepares
  *      the convergence toolkit (checkpoint + auto-decisions log +
  *      IDE-dispatch handle) and surfaces it to the LLM. The LLM
@@ -24,14 +29,16 @@
  * Why two tiers (vs. one): the LLM uses the 0.85–0.95 zone for
  * intelligent convergence — wait for in-flight sub-agents, finish
  * the current todo row, persist a checkpoint, then compact. At 0.95
- * the window is gone; peaks-loop takes over synchronously. Net effect:
- * the LLM-runner keeps working with context < 95% without human
- * intervention.
+ * peaks-loop stops negotiating and requests the compact outright. Net
+ * effect: the LLM-runner keeps working at any ratio without human
+ * intervention, and without a gate it cannot satisfy.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import { resolveOuterSessionId } from '../session/binding-status-service.js';
+import { resolveCanonicalProjectRoot } from '../config/config-service.js';
+import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../context/harness-window-config.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
@@ -90,7 +97,21 @@ export interface AutoCompactInput {
    * autonomously at 0.85+ with zero human / zero LLM intervention.
    */
   readonly force?: boolean | undefined;
-  /** Skip the 95% red-line gate (test seam — never true in production). */
+  /**
+   * INERT — nothing reads this. It is threaded from the CLI's
+   * `--bypass-red-line` (a published flag, kept for backward compatibility;
+   * see the option's own note) down to `evaluateAutoCompactDecision`, where the
+   * red-line branch ignores it.
+   *
+   * Why nothing reads it any more: it used to skip a gate that refused to
+   * dispatch below 0.85. That gate was removed (slice
+   * 2026-09-13-auto-compact-trigger-ownership, T3/A1) — peaks-loop cannot
+   * compact a running session, so the refusal could not shorten the wait it
+   * was waiting for, and it deadlocked the runner at the worst moment. With the
+   * gate gone, the red line still ASKS the harness to compact (when it always
+   * did) and no longer needs a bypass. Kept as a field so the published
+   * signature does not change under callers that pass it.
+   */
   readonly bypassRedLine?: boolean | undefined;
   /** Current session id (default = resolve via session-id-service). */
   readonly sessionId?: string | undefined;
@@ -156,7 +177,7 @@ const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
  *
  *   - ratio < preCompact → 'none' or 'soft-warn'
  *   - ratio ≥ preCompact → 'pre-compact' (async-friendly path)
- *   - ratio ≥ redLine    → 'red-line' (synchronous gate)
+ *   - ratio ≥ redLine    → 'red-line' (ask the harness; dispatch continues)
  *
  * Slice 2026-07-28 (rid-027): `mode` selects the threshold table.
  * Default `'standard'` (0.85/0.95). `'partial'` (0.70/0.85) is used
@@ -176,10 +197,17 @@ export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 's
         };
   }
   if (ratio >= redLine) {
+    // Slice 2026-09-13-auto-compact-trigger-ownership (T3): the red line no
+    // longer claims it blocks anything. It cannot: peaks-loop has no
+    // executor for a running session (no `/compact` the model may invoke, no
+    // hook-initiated compact, no `--compact` flag), so "refuse dispatch until
+    // ratio < 0.85" was a gate with no key — a constructive deadlock at the
+    // exact moment the runner most needed to keep working. What peaks-loop
+    // CAN do is ask the harness (whose own trigger is armed) and say so.
     return {
       kind: 'red-line',
       ratio,
-      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ ${(redLine * 100).toFixed(0)}% red line (mode=${mode}). Synchronous compact REQUIRED (LLM cannot opt out).`
+      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ ${(redLine * 100).toFixed(0)}% red line (mode=${mode}). peaks-loop has asked the harness to compact and is WAITING for it — sub-agent dispatch is NOT blocked; carry on and re-probe with \`peaks code context-now\`.`
     };
   }
   if (ratio < preCompact) {
@@ -217,8 +245,13 @@ export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 's
  *   - 0.85 ≤ ratio < 0.95    → pre-compact; if in-flight batch
  *                                present, defer (D6.e); else dispatch
  *                                IDE compact asynchronously.
- *   - ratio ≥ 0.95           → red-line; ALWAYS dispatch synchronously
- *                                regardless of in-flight batch.
+ *   - ratio ≥ 0.95           → red-line; ask the harness to compact
+ *                                regardless of in-flight batch. Nothing is
+ *                                gated — dispatch is NOT blocked (slice
+ *                                2026-09-13-auto-compact-trigger-ownership:
+ *                                peaks-loop cannot compact a running session,
+ *                                so a "block" gated nothing and deadlocked the
+ *                                runner).
  */
 export function evaluateAutoCompactDecision(input: {
   ratio: number;
@@ -237,6 +270,7 @@ export function evaluateAutoCompactDecision(input: {
    */
   inflightBatch?: boolean | InFlightBatchProbe | undefined;
   force?: boolean | undefined;
+  /** Accepted and ignored — see `AutoCompactInput.bypassRedLine`. */
   bypassRedLine?: boolean | undefined;
   mode?: AutoCompactMode | undefined;
   /**
@@ -269,7 +303,10 @@ export function evaluateAutoCompactDecision(input: {
     return { shouldCompact: false, reason: 'below-threshold', trigger, action: 'soft-warn' };
   }
   if (trigger.kind === 'red-line') {
-    // Red line: ignore in-flight batch — synchronous dispatch wins.
+    // Red line: ignore in-flight batch — the harness is asked NOW rather than
+    // waiting for the batch to drain. Not "synchronous dispatch": peaks-loop
+    // has no synchronous compact to run, it can only request one and report
+    // that it is waiting.
     return { shouldCompact: true, reason: 'red-line', trigger, action: 'red-line' };
   }
   // pre-compact zone (0.85 ≤ ratio < 0.95): honor D6.e in-flight deferral.
@@ -315,7 +352,7 @@ export function buildConvergencePlan(input: {
     checkpointPath: input.checkpointPath,
     nextActions: [...input.nextActions],
     resumeHint: input.redLine === true
-      ? 'RED-LINE compact: post-compact-detect must confirm ratio < 0.85 before resuming work.'
+      ? 'RED-LINE compact requested from the harness; work CONTINUES (nothing is blocked). Re-probe with `peaks code context-now`; if the ratio is still ≥ 0.95 and the harness has not compacted, report it and hand control back to the user.'
       : 'post-compact-detect shouldAutoResume → resume pre-compact plan from checkpoint'
   };
 }
@@ -362,6 +399,13 @@ function appendAutoDecisionLog(input: {
  * The file is gitignored under `.peaks/_runtime/<sessionId>/txt/` and
  * is one-shot: the LLM should `mv` it to `.consumed` after firing
  * `/compact`. A re-run will overwrite.
+ *
+ * ZERO READERS as of slice 2026-09-13-auto-compact-trigger-ownership: the
+ * write survives, but nothing consumes the file, and its `nextAction` asks
+ * for a `/compact` the model cannot invoke (the Skill tool exposes only
+ * `/init` and `/security-review`; hooks can observe or veto, never initiate).
+ * Retained deliberately for the sibling A2 slice, which owns harness-side
+ * state re-injection. Not a capability peaks-loop has today.
  */
 function writeMainSessionCompactIntent(input: {
   readonly projectRoot: string;
@@ -410,7 +454,7 @@ function writePreCompactCheckpoint(input: {
     // rehydrates from the auto-decisions log + open question list.
     mode: 'full-auto',
     currentPlan: input.redLine === true
-      ? 'RED-LINE compact just executed; confirm ratio < 0.85 before resuming work'
+      ? 'RED-LINE compact REQUESTED from the harness (not executed by peaks-loop); work continues'
       : 'auto-compact in progress; resume from auto-decisions.md',
     openQuestions: [] as string[],
     recentDecisions: [] as string[],
@@ -446,13 +490,14 @@ function resolveAutoCompactMode(projectRoot: string): AutoCompactMode {
  *   5. If trigger.kind === 'pre-compact' AND in-flight batch → wait.
  *   6. If trigger.kind === 'pre-compact' → async dispatch (write
  *      checkpoint + IDE compact; orchestrator returns immediately).
- *   7. If trigger.kind === 'red-line' → synchronous gate: refuse
- *      sub-agent dispatch, dispatch IDE compact, mark `redLineGated`.
+ *   7. If trigger.kind === 'red-line' → dispatch the IDE compact, report
+ *      that the harness has been asked and that dispatch continues.
  *
  * The caller (CLI or skill body) handles the actual return — D7's
- * post-compact-detect will pick up the checkpoint on the next turn.
- * For red-line, the caller MUST block further tool calls until the
- * post-compact probe confirms ratio < 0.85.
+ * post-compact-detect will pick up the checkpoint on the next turn. For
+ * red-line, the caller keeps working; it re-probes and, if the ratio is
+ * still rising with no compact from the harness, reports that instead of
+ * stalling.
  */
 export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompactResult> {
   const sessionId = input.sessionId ?? getSessionIdCanonical(input.projectRoot);
@@ -470,13 +515,29 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   // v2.13.0 zero-pause contract.
   const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot);
   // Lazy import to avoid the AC-1 module depending on the orchestrator.
-  const { readContextPercent } = await import('../context/auto-compact-reader.js');
+  const { readContextPercent, syncHarnessWindowForProject } = await import('../context/auto-compact-reader.js');
   const outerSessionId = resolveOuterSessionId(input.projectRoot, sessionId, input.env ?? process.env);
   const probe = readContextPercent({
     projectRoot: input.projectRoot,
     sessionId,
     outerSessionId,
     env: input.env
+  });
+
+  // Slice 2026-09-13-auto-compact-trigger-ownership (T1 + T2): write the very
+  // denominator this probe divided by into the harness's own machine-local
+  // settings, so "peaks-loop's 85%" and "the harness's trigger" are the same
+  // point on one scale. Idempotent — an unchanged value performs no write, so
+  // a hook firing this on every Bash call cannot churn the file.
+  const harnessWindow = syncHarnessWindowForProject({
+    // Promoted to the git root first (`--project .` is what the PreToolUse
+    // hook passes): the harness's settings live at the project root, and the
+    // envelope must report an absolute path for the write it claims to have
+    // made. Fail-open — `resolveCanonicalProjectRoot` returns its input when
+    // nothing resolves.
+    projectRoot: resolveCanonicalProjectRoot(input.projectRoot),
+    env: input.env,
+    tokens: probe.capacityTokens ?? null
   });
 
   const decision = evaluateAutoCompactDecision({
@@ -509,7 +570,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     // still open at `compacting`. Nothing is written when there is no
     // open run, when the ratio is still high, or when the probe could
     // not measure at all.
-    settleOpenLifecycleRun({
+    const settled = settleOpenLifecycleRun({
       projectRoot: input.projectRoot,
       sessionId,
       measuredRatio: probe.ratio,
@@ -517,19 +578,60 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       autoFireThreshold: thresholdFor(mode, 'autoFire'),
       onLifecycleStage: input.onLifecycleStage
     });
+    // Slice 2026-09-13-auto-compact-trigger-ownership (T4): a settle means a
+    // dispatched compact demonstrably landed. Append an `observed` row
+    // carrying the measured ratio, so `peaks compact history` can show
+    // "asked at R (intent) / landed by R' (observed)" once a real session has
+    // run. Without this row the intent has nothing to be compared against.
+    if (settled !== null) {
+      appendObservedCompactEvent({
+        projectRoot: input.projectRoot,
+        sessionId,
+        event: {
+          schemaVersion: 1,
+          kind: 'observed',
+          ts: new Date().toISOString(),
+          target: input.target ?? 'main',
+          mode,
+          ide: probe.ide,
+          pathway: 'post-compact-probe',
+          beforeRatio: settled.triggerRatio,
+          afterRatio: probe.ratio,
+          redLine: false,
+          ok: true,
+          checkpointPath: '',
+          dispatchMessage: `post-compact probe measured ratio ${(probe.ratio * 100).toFixed(1)}% (source=${probe.source}) after the compact dispatched at ${(settled.triggerRatio * 100).toFixed(1)}%`,
+          windowTokens: probe.capacityTokens ?? null,
+          windowSource: probe.capacitySource ?? null
+        }
+      });
+    }
     return {
       ok: true,
       code: decision.reason === 'in-flight-batch' ? 'AUTO_COMPACT_WAIT' : 'AUTO_COMPACT_SKIP',
-      message: decision.trigger.kind === 'soft-warn'
+      message: `${decision.trigger.kind === 'soft-warn'
         ? decision.trigger.message
         : decision.reason === 'in-flight-batch'
           ? `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`
-          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below the ${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`,
+          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below the ${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}).`}${
+        // No compact was needed, but the sync may still have rewritten the
+        // harness's settings (the first probe of a project always does). The
+        // notice is appended ONLY for an actual write — the other actions'
+        // sentences would be noise on every quiet probe — PLUS the one refusal
+        // that is not quiet: a refused write that leaves peaks-loop's number and
+        // the harness's pinned window disagreeing. That is the moment the ratio
+        // stops describing the harness's trigger, so staying silent is exactly
+        // the failure 要告知 exists to prevent.
+        harnessWindow !== null && harnessWindow !== undefined &&
+        (harnessWindow.action === 'written' || harnessWindowSyncWarning(harnessWindow) !== null)
+          ? ` ${describeHarnessWindowSync(harnessWindow)}`
+          : ''}`,
       data: {
         sessionId,
         ratio: probe.ratio,
         source: probe.source,
-        decision: decision.reason === 'in-flight-batch' ? 'in-flight-batch' : 'below-threshold'
+        decision: decision.reason === 'in-flight-batch' ? 'in-flight-batch' : 'below-threshold',
+        harnessWindow
       }
     };
   }
@@ -568,14 +670,20 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
     nextActions = isRedLine
       ? [
-          'RED-LINE compact dispatched — further sub-agent dispatch BLOCKED until ratio < 0.85',
+          'RED-LINE: harness compact requested — sub-agent dispatch is NOT blocked; keep working',
           'Post-compact resume picks up the convergence plan from auto-decisions.md',
-          'Next `peaks code auto-compact` probe will confirm ratio dropped below 0.85'
+          'Next `peaks code context-now` probe will confirm the ratio dropped; if it keeps climbing and the harness has not compacted, report that to the user and hand control back',
+          // Slice 2026-09-13-auto-compact-trigger-ownership: this command
+          // also rewrites the harness's own settings, so it says so too. The
+          // user accepted that write on the condition 要告知 — a write only
+          // one of the two syncing commands reports is not a notice.
+          describeHarnessWindowSync(harnessWindow)
         ]
       : [
           'Pre-compact dispatched — IDE compact in progress (async)',
           'Post-compact resume picks up the convergence plan from auto-decisions.md',
-          'Next `peaks code auto-compact` probe will confirm ratio dropped below 0.85'
+          'Next `peaks code auto-compact` probe will confirm ratio dropped below 0.85',
+          describeHarnessWindowSync(harnessWindow)
         ];
 
     plan = buildConvergencePlan({
@@ -603,7 +711,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         source: probe.source,
         target: input.target ?? 'main',
         mode,
-        redLineGated: isRedLine
+        redLineRequested: isRedLine,
+        harnessWindow
       }
     };
   }
@@ -652,7 +761,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         convergencePlan: plan,
         target,
         mode,
-        redLineGated: isRedLine
+        redLineRequested: isRedLine,
+        harnessWindow
       }
     };
   }
@@ -685,6 +795,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       sessionId,
       event: {
         schemaVersion: 1,
+        kind: 'dispatch',
         ts: now.toISOString(),
         target,
         mode,
@@ -695,6 +806,10 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         ok: dispatch.ok,
         checkpointPath,
         dispatchMessage: dispatch.message,
+        // T4 calibration: the exact denominator this dispatch divided by, so
+        // `beforeRatio * windowTokens` is the token point we asked for.
+        windowTokens: probe.capacityTokens ?? null,
+        windowSource: probe.capacitySource ?? null,
       },
     });
   } catch { /* best-effort; do not fail the compact return */ }
@@ -706,7 +821,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       : 'AUTO_COMPACT_DISPATCH_FAILED',
     message: dispatch.ok
       ? isRedLine
-        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target} / mode=${mode} — ${describeMode(mode)}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
+        ? `RED-LINE: harness compact REQUESTED (${dispatch.ide} / ${dispatch.pathway} / target=${target} / mode=${mode} — ${describeMode(mode)}); checkpoint at ${checkpointPath}. Sub-agent dispatch is NOT blocked — keep working and re-probe with \`peaks code context-now\`.`
         : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target} / mode=${mode} — ${describeMode(mode)}); checkpoint at ${checkpointPath}.`
       : `Auto-compact checkpoint written but IDE dispatch failed: ${dispatch.message}`,
     data: {
@@ -718,7 +833,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       dispatch,
       target,
       mode,
-      redLineGated: isRedLine
+      redLineRequested: isRedLine,
+      harnessWindow
     }
   };
 }
@@ -745,6 +861,29 @@ export interface CompactHistoryEvent {
   readonly ok: boolean;
   readonly checkpointPath: string;
   readonly dispatchMessage: string;
+  /**
+   * Slice 2026-09-13-auto-compact-trigger-ownership (T4): the calibration
+   * instrument. `windowTokens` is the denominator peaks-loop divided by
+   * (`probe.capacityTokens`), so `beforeRatio * windowTokens` is the exact
+   * TOKEN POINT peaks-loop asked the harness to compact at. That number is
+   * the deliverable — NOT a hand-picked threshold: this slice could not run a
+   * real Claude Code session, so the real trigger point of
+   * `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (documented as a window, observed to
+   * fire near the window's end) has no measured answer yet. Recording the
+   * intent lets the first real session produce one.
+   */
+  readonly windowTokens?: number | null;
+  /** Which layer produced `windowTokens` (see `ContextWindowSource`). */
+  readonly windowSource?: string | null;
+  /**
+   * `dispatch` (default, and the only kind earlier releases wrote) or
+   * `observed` — a row appended when a later probe MEASURED the ratio after
+   * a dispatched compact, proving one landed. The pair is what yields the
+   * intent-vs-observed delta.
+   */
+  readonly kind?: 'dispatch' | 'observed';
+  /** `observed` rows only: the measured post-compact ratio. */
+  readonly afterRatio?: number;
 }
 
 export function appendCompactHistoryEvent(input: {
@@ -756,6 +895,21 @@ export function appendCompactHistoryEvent(input: {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = join(dir, 'compact-history.jsonl');
   appendFileSync(path, JSON.stringify(input.event) + '\n', 'utf8');
+}
+
+/**
+ * Best-effort variant for the post-compact measurement row. Telemetry must
+ * never change the probe's return envelope, so an append failure here is
+ * swallowed — same discipline as the dispatch-path append.
+ */
+function appendObservedCompactEvent(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly event: CompactHistoryEvent;
+}): void {
+  try {
+    appendCompactHistoryEvent(input);
+  } catch { /* best-effort; the probe result is already settled */ }
 }
 // Keep dirname import live for symmetry with sibling services that
 // use it for path joins; tree-shaking removes it in builds.

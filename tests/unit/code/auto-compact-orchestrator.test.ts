@@ -33,7 +33,7 @@
 //
 // Run with: pnpm vitest run tests/unit/code/auto-compact-orchestrator.test.ts
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -696,5 +696,127 @@ describe("Scenario: a11y — null/undefined thrown errors map to \"unknown error
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
+  });
+});
+
+// Slice 2026-09-13-auto-compact-trigger-ownership (T3).
+//
+// The red line used to claim it "refuses sub-agent dispatch and forces IDE
+// compact immediately ... The LLM cannot opt out". Both halves were false:
+// peaks-loop has no executor for a running session (no `/compact` the model
+// may invoke, no hook-initiated compact, no `--compact` flag), so the refusal
+// gated nothing while the ratio stayed ≥ 0.95 and could never fall — a
+// constructive deadlock at the exact moment the runner most needed to keep
+// working. These tests pin the replacement: ask the harness, say so, and keep
+// going.
+describe("Scenario: behavior — the red line asks the harness instead of gating dispatch", () => {
+  let projectRoot = '';
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'peaks-redline-t3-'));
+  });
+
+  afterEach(() => {
+    try { rmSync(projectRoot, { recursive: true, force: true }); } catch { /* best effort */ }
+  });
+
+  it("when invoked, should Case 19: at ≥0.95 still return shouldCompact: true (a crosser is never told to stop)", () => {
+    // given: a ratio above the red line
+    // when: the pure decision runs
+    const decision = evaluateAutoCompactDecision({ ratio: 0.97 });
+    // then: peaks-loop acts — it does not wait for a condition it cannot cause
+    expect(decision.shouldCompact).toBe(true);
+    expect(decision.action).toBe('red-line');
+    expect(decision.reason).toBe('red-line');
+  });
+
+  it("when invoked, should Case 20: the red-line trigger text claims no block and names the harness request", () => {
+    // given: a ratio above the red line
+    const trigger = evaluateAutoCompactDecision({ ratio: 0.97 }).trigger;
+    if (trigger.kind !== 'red-line') throw new Error('expected red-line trigger');
+    // when: the LLM reads the message
+    // then: it says the harness was asked and that work continues — the old
+    //       "Synchronous compact REQUIRED (LLM cannot opt out)" was unactionable
+    expect(trigger.message).toContain('WAITING');
+    expect(trigger.message).toContain('NOT blocked');
+    expect(trigger.message).not.toMatch(/cannot opt out/i);
+    expect(trigger.message).not.toMatch(/REQUIRED/i);
+  });
+
+  it("when invoked, should Case 21: an end-to-end red-line dispatch reports redLineRequested and promises no block", async () => {
+    // given: a 0.97 ratio through the real probe + dispatch path
+    // when: the orchestrator runs
+    const result = await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.97),
+    });
+    // then: the envelope carries the honest field name and message
+    expect(result.ok).toBe(true);
+    expect(result.code).toBe('AUTO_COMPACT_RED_LINE');
+    expect(result.message).toContain('NOT blocked');
+    expect(result.message).not.toMatch(/BLOCKED until ratio/i);
+    if (result.code !== 'AUTO_COMPACT_RED_LINE') throw new Error('expected the red-line dispatch envelope');
+    expect(result.data.redLineRequested).toBe(true);
+  });
+
+  it("when invoked, should Case 22: the red-line convergence plan hands control back instead of demanding a gate", async () => {
+    // given: a red-line dispatch
+    // when: the orchestrator runs
+    const result = await runAutoCompact({
+      projectRoot,
+      sessionId: LIFECYCLE_SID,
+      env: envAtRatio(0.97),
+    });
+    if (result.code !== 'AUTO_COMPACT_RED_LINE') throw new Error('expected the red-line dispatch envelope');
+    // then: the resume surface tells the next turn to re-probe and escalate,
+    //       not to sit at a gate until an impossible ratio drop
+    const plan = result.data.convergencePlan;
+    expect(plan).toBeDefined();
+    expect(plan!.resumeHint).toContain('CONTINUES');
+    expect(plan!.resumeHint).toContain('hand control back');
+    expect(plan!.resumeHint).not.toMatch(/must confirm ratio < 0\.85/i);
+  });
+});
+
+// Slice 2026-09-13-auto-compact-trigger-ownership (T4) — the dispatch row and
+// the measurement row the orchestrator appends. Together they are the whole
+// calibration instrument: `windowTokens` says what peaks-loop divided by, and
+// the `observed` row says what the next probe actually measured.
+describe("Scenario: integration — compact-history carries the calibration pair", () => {
+  let projectRoot = '';
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'peaks-calibration-t4-'));
+  });
+
+  afterEach(() => {
+    try { rmSync(projectRoot, { recursive: true, force: true }); } catch { /* best effort */ }
+  });
+
+  it("when invoked, should Case 23: a dispatch row carries the window it divided by, and the settling probe appends an `observed` row", async () => {
+    // given: a red-line dispatch
+    // when: the orchestrator runs
+    await runAutoCompact({ projectRoot, sessionId: LIFECYCLE_SID, env: envAtRatio(0.97) });
+    // then: one dispatch row exists and is marked as such
+    const historyPath = join(projectRoot, '.peaks', '_runtime', LIFECYCLE_SID, 'compact-history.jsonl');
+    const afterDispatch = readFileSync(historyPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(afterDispatch).toHaveLength(1);
+    expect(afterDispatch[0]!['kind']).toBe('dispatch');
+    expect(afterDispatch[0]!['redLine']).toBe(true);
+    // The env-percent probe carries no token window, so the honest record is
+    // null — NOT a default peaks-loop never used.
+    expect(afterDispatch[0]!['windowTokens']).toBeNull();
+
+    // given: the next probe measures a dropped ratio (proof a compact landed)
+    // when: the orchestrator runs again
+    await runAutoCompact({ projectRoot, sessionId: LIFECYCLE_SID, env: envAtRatio(0.30) });
+    // then: an `observed` row follows, carrying the measured ratio and the
+    //       trigger ratio of the ask it settles
+    const rows = readFileSync(historyPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]!['kind']).toBe('observed');
+    expect(rows[1]!['beforeRatio']).toBeCloseTo(0.97, 5);
+    expect(rows[1]!['afterRatio']).toBeCloseTo(0.30, 5);
   });
 });

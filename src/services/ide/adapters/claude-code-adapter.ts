@@ -205,11 +205,16 @@ export const CONTEXT_WINDOW_TOKENS_ENV_VAR = 'PEAKS_CONTEXT_WINDOW_TOKENS';
 /**
  * Which layer produced a resolved context window:
  *   - `env-override`     — `PEAKS_CONTEXT_WINDOW_TOKENS`
+ *   - `harness-env`      — the window peaks-loop itself wrote into the
+ *                          harness's machine-local settings
+ *                          (`CLAUDE_CODE_AUTO_COMPACT_WINDOW`, declared by
+ *                          the adapter as `autoCompactWindowEnvVar`); see
+ *                          `harness-window-config.ts`
  *   - `config`           — `context.windowTokens` (`peaks config set`)
  *   - `model-heuristic`  — `[1M]` suffix / `ONE_MILLION_CONTEXT_MODELS`
  *   - `default`          — 200K safe default
  */
-export type ContextWindowSource = 'env-override' | 'config' | 'model-heuristic' | 'default';
+export type ContextWindowSource = 'env-override' | 'harness-env' | 'config' | 'model-heuristic' | 'default';
 
 export interface ContextWindowResolution {
   readonly tokens: number;
@@ -221,6 +226,25 @@ export interface ContextWindowOverrides {
   readonly env?: NodeJS.ProcessEnv | undefined;
   /** Raw `context.windowTokens` value (unvalidated — validated here). */
   readonly configWindowTokens?: unknown;
+  /**
+   * The window peaks-loop itself configured for the harness — raw value read
+   * from the harness's machine-local settings `env` block (or the process env
+   * the harness populated from it). Resolved by the caller
+   * (`auto-compact-reader.ts` via `harness-window-config.ts`), NOT here: the
+   * settings path and the key name are per-IDE declarations.
+   *
+   * Slice 2026-09-13-auto-compact-trigger-ownership: this layer is what makes
+   * the ratio peaks-loop computes and the window the harness compacts against
+   * THE SAME NUMBER. Without it they are two independent resolutions that can
+   * drift 5× apart on a 1M-window model the model-name heuristic misses.
+   */
+  readonly harnessWindowTokens?: unknown;
+  /**
+   * Provenance of `harnessWindowTokens`: true when peaks-loop wrote that value
+   * itself, false/omitted when a human set it. Only a peaks-written value may
+   * be overruled by the late 1M rescue — see `resolveContextWindowTokens`.
+   */
+  readonly harnessWindowPeakWritten?: boolean;
   /** Warning sink for an invalid override (defaults to `console.warn`). */
   readonly onInvalidOverride?: ((message: string) => void) | undefined;
 }
@@ -243,11 +267,41 @@ export function parseContextWindowOverride(raw: unknown): number | null {
  * (first hit wins):
  *   1. env `PEAKS_CONTEXT_WINDOW_TOKENS`
  *   2. config `context.windowTokens`
- *   3. model-name heuristic (`modelContextWindowTokens`)
- *   4. `DEFAULT_CONTEXT_WINDOW_TOKENS` (200_000)
+ *   3. `harnessWindowTokens` — the window peaks-loop configured for the
+ *      harness (`autoCompactWindowEnvVar`)
+ *   4. model-name heuristic (`modelContextWindowTokens`)
+ *   5. `DEFAULT_CONTEXT_WINDOW_TOKENS` (200_000)
  *
  * An invalid explicit override is ignored with a warning and falls through
  * to the next layer — a typo must never crash or silently win the probe.
+ *
+ * Slice 2026-09-13-auto-compact-trigger-ownership — why layer 3 exists:
+ *   The hard constraint is that the window peaks-loop divides by must BE the
+ *   window it configured for the harness. Layer 3 is peaks-loop's own output
+ *   read back from the harness's settings file, so the two sides reference one
+ *   artifact rather than two independent resolutions. It sits ABOVE the model
+ *   heuristic because a heuristic contradicting the number both sides already
+ *   use is precisely how the 5× drift arose (a 1M-window model measured
+ *   against a 200K guess).
+ *
+ *   Why it sits BELOW the two explicit pins. Both are human declarations of
+ *   intent, and a pin that loses to a value peaks-loop wrote earlier is a
+ *   silently ignored setting: the user changes `context.windowTokens`, the
+ *   stale harness key shadows it, and nothing appears to happen. Conflict is
+ *   instead resolved by PROPAGATION — the probe that resolves the pin also
+ *   syncs it into the harness (`syncHarnessWindowForProject`), so peaks-loop's
+ *   ratio and the harness's window are back on one number before that command
+ *   returns. The conflict is therefore transient and self-healing rather than
+ *   either silent shadowing or permanent drift.
+ *
+ *   Why layer 3 is not simply authoritative (the ratchet). Reading back a value
+ *   peaks-loop wrote makes peaks-loop trust its own earlier resolution, so a
+ *   first-time mis-resolution (an unrecognised model defaulting to 200_000)
+ *   would be written to disk and then believed forever: the ratio stays
+ *   saturated at 1.0 while the session grows past the pin, and the correction
+ *   that exists for exactly that case — the late 1M rescue — was disabled for
+ *   this layer. Self-locking. See `resolveContextWindowTokens` for how the
+ *   rescue is let back in without letting it overwrite a human's own setting.
  */
 export function resolveContextWindow(
   model: string,
@@ -264,6 +318,11 @@ export function resolveContextWindow(
     const parsed = parseContextWindowOverride(overrides.configWindowTokens);
     if (parsed !== null) return { tokens: parsed, source: 'config' };
     warn(`[peaks] config context.windowTokens=${JSON.stringify(overrides.configWindowTokens)} is not a positive integer — ignoring the override`);
+  }
+  if (overrides.harnessWindowTokens !== undefined) {
+    const parsed = parseContextWindowOverride(overrides.harnessWindowTokens);
+    if (parsed !== null) return { tokens: parsed, source: 'harness-env' };
+    warn(`[peaks] harness auto-compact window ${JSON.stringify(overrides.harnessWindowTokens)} is not a positive integer — ignoring the override`);
   }
   const heuristic = modelContextWindowTokens(model);
   return heuristic === DEFAULT_CONTEXT_WINDOW_TOKENS
@@ -366,6 +425,30 @@ function findLatestTranscriptUsage(filePath: string): { contextTokens: number; m
  * when the observed token count contradicts the heuristic window (tokens
  * exceed it), the model must be ≥1M, so bump to the 1M window (the late
  * rescue; it keeps the heuristic source tag, only the tokens change).
+ *
+ * `env-override` and `config` are in the no-bump list because a human pinned
+ * them: a pin the probe silently overrules is a setting that does not work.
+ *
+ * `harness-env` is the interesting one, and is decided by PROVENANCE:
+ *
+ *   - peaks-written (`harnessWindowPeakWritten === true`): may be bumped. This
+ *     is the ratchet fix. The value is peaks-loop's own earlier resolution, so
+ *     believing it forever makes a first-time mis-resolution PERMANENT — a
+ *     200_000 default written to disk, re-read as the window, and exempt from
+ *     the very rescue that exists to correct it, leaving the ratio saturated at
+ *     1.0 while the session grows past the pin. Evidence must be able to
+ *     overrule peaks-loop's own output.
+ *   - human-set (false/omitted): NOT bumpable. Here the key is a person's
+ *     explicit declaration — the documented Claude Code variable, hand-edited.
+ *     Overruling it would not be self-correction, it would be peaks-loop
+ *     silently rewriting a setting the user chose (and persisting the rewrite).
+ *
+ * Both branches keep the single-source rule: the resolution this function
+ * returns becomes `probe.capacityTokens`, and the caller syncs exactly that
+ * back into the harness key (`syncHarnessWindowForProject`). When the rescue
+ * fires, the key is refreshed to the bumped number in the same command, so
+ * peaks-loop's ratio and the harness window are one number again — the rescue
+ * never leaves the two sides apart.
  */
 function resolveContextWindowTokens(
   model: string,
@@ -374,6 +457,7 @@ function resolveContextWindowTokens(
 ): ContextWindowResolution {
   const resolved = resolveContextWindow(model, overrides);
   if (resolved.source === 'env-override' || resolved.source === 'config') return resolved;
+  if (resolved.source === 'harness-env' && overrides.harnessWindowPeakWritten !== true) return resolved;
   return contextTokens > resolved.tokens
     ? { tokens: ONE_MILLION_CONTEXT_TOKENS, source: resolved.source }
     : resolved;
@@ -392,8 +476,9 @@ function resolveContextWindowTokens(
  * Window model resolution is env-first: when `envModel` is present, its id
  * (which Claude Code stamps with the `[1M]` / `[200K]` suffix) drives the
  * window; otherwise the transcript `message.model` is used. Explicit
- * overrides (env `PEAKS_CONTEXT_WINDOW_TOKENS` / config `context.windowTokens`)
- * sit above both and are reported via `capacitySource`.
+ * overrides (env `PEAKS_CONTEXT_WINDOW_TOKENS` / the harness key peaks-loop
+ * wrote / config `context.windowTokens`) sit above both and are reported via
+ * `capacitySource`.
  */
 function readClaudeTranscriptEstimate(
   outerSessionId: string,
@@ -447,7 +532,15 @@ function readContextPercentFallback(input: ContextPercentFallbackInput): Context
     const envModel = resolveClaudeModelFromEnv(input.env);
     const estimate = readClaudeTranscriptEstimate(input.outerSessionId, envModel, {
       env: input.env,
-      configWindowTokens: input.configWindowTokens
+      configWindowTokens: input.configWindowTokens,
+      // Slice 2026-09-13-auto-compact-trigger-ownership: the window
+      // peaks-loop configured for the harness outranks config + heuristic
+      // (see `resolveContextWindow`). The generic reader resolved it from the
+      // adapter's own declarations — this module never names the key.
+      ...(input.harnessWindowTokens !== undefined ? { harnessWindowTokens: input.harnessWindowTokens } : {}),
+      // ...and whether that value is peaks-loop's own output (bumpable) or a
+      // human's pin (not) — see `resolveContextWindowTokens`.
+      ...(input.harnessWindowPeakWritten !== undefined ? { harnessWindowPeakWritten: input.harnessWindowPeakWritten } : {})
     });
     if (estimate !== null) {
       return {
@@ -525,6 +618,14 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
     postCompactDetectCommand: 'peaks code auto-compact --json',
+    // Slice 2026-09-13-auto-compact-trigger-ownership: the key Claude Code
+    // reads its auto-compact WINDOW from, in the machine-local `env` block.
+    // Claude Code documents it as taking precedence "over the command, the
+    // flag, and the setting", and as accepting the plain token count only
+    // (no `500k` suffix). peaks-loop writes the window it computes the ratio
+    // against here so the two sides cannot drift; see
+    // `harness-window-config.ts`.
+    autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
     readContextPercentFallback,
     // Slice 2026-09-10-context-audit-and-discipline (Slice A): the vendor
     // layout knowledge (`~/.claude/projects/**/<outerSessionId>.jsonl`)

@@ -14,22 +14,28 @@
  *                                toolkit is "ready to use" so the
  *                                LLM doesn't lose context to a
  *                                last-second `/compact` panic.
- *   - 95%  RED LINE           — peaks-loop refuses to dispatch any
- *                                further sub-agent and synchronously
- *                                triggers IDE-side compact. At 95%+
- *                                the context window is too tight to
- *                                continue safely; the LLM cannot
- *                                opt out. This is the compact red
- *                                line that guarantees the LLM-runner
- *                                keeps working with context < 95%.
+ *   - 95%  RED LINE           — peaks-loop asks the harness to
+ *                                compact and says it is waiting.
+ *                                Nothing is blocked: peaks-loop has
+ *                                no executor for a running session,
+ *                                so it cannot gate dispatch — and
+ *                                claiming to was the deadlock. See
+ *                                the correction note below.
  *
  * Why 0.85 / 0.95 split: the LLM uses the 0.85–0.95 zone to do
  * intelligent convergence — wait for in-flight sub-agents, finish
  * the current todo row, persist a checkpoint, then compact. peaks-loop
- * provides the toolkit; the LLM picks the moment. At 0.95 the window
- * is gone and peaks-loop takes over synchronously to keep the runner
- * alive.
+ * provides the toolkit; the LLM picks the moment. At 0.95 peaks-loop
+ * requests the compact outright and says it is waiting.
+ *
+ * Slice 2026-09-13-auto-compact-trigger-ownership corrected two claims that
+ * used to head this file: the red line does NOT "refuse to dispatch any
+ * further sub-agent" (peaks-loop has no way to compact a running session, so
+ * such a refusal gated nothing and deadlocked the runner), and the window
+ * these ratios divide by is now the same one peaks-loop configures for the
+ * harness — see `harness-window-config.ts`.
  */
+import type { HarnessWindowSyncResult } from './harness-window-config.js';
 
 export const AUTO_COMPACT_SOFT_WARN_RATIO = 0.5;
 // Part 22: auto-fire threshold (was 0.85 pre-compact zone where
@@ -62,7 +68,10 @@ export type CompactTrigger =
    * auto-fired at 0.80 already.
    */
   | { kind: 'pre-compact'; ratio: number; message: string; toolkitReady: true }
-  /** Red line (ratio ≥ 0.95): peaks-loop forces synchronous compact; LLM cannot opt out. */
+  /**
+   * Red line (ratio ≥ 0.95): peaks-loop asks the harness to compact and says
+   * it is waiting. Dispatch is NOT blocked — see `redLineRequested`.
+   */
   | { kind: 'red-line'; ratio: number; message: string };
 
 /** Caller-side info about sub-agent batches in flight (D6.e). */
@@ -109,6 +118,13 @@ export type AutoCompactResult =
         readonly ratio: number;
         readonly source: string;
         readonly decision: 'below-threshold' | 'in-flight-batch';
+        /**
+         * Slice 2026-09-13-auto-compact-trigger-ownership: what syncing the
+         * harness auto-compact window did on this probe. `null` = the active
+         * adapter declares no such knob. Present so the write is VISIBLE —
+         * the harness reports an override silently, so peaks-loop must not.
+         */
+        readonly harnessWindow?: HarnessWindowSyncResult | null;
       };
     }
   | {
@@ -137,7 +153,19 @@ export type AutoCompactResult =
          * caller passes `--mode partial`.
          */
         readonly mode?: 'standard' | 'partial';
-        readonly redLineGated?: boolean;
+        /**
+         * True when the ratio had crossed the red line and peaks-loop asked
+         * the harness to compact.
+         *
+         * Renamed from `redLineGated` in slice
+         * 2026-09-13-auto-compact-trigger-ownership: nothing is gated. The
+         * old name asserted a block peaks-loop cannot enforce (it has no
+         * executor for a running session), and acting on that assertion is
+         * what deadlocked the runner.
+         */
+        readonly redLineRequested?: boolean;
+        /** See the `AUTO_COMPACT_SKIP` data shape above. */
+        readonly harnessWindow?: HarnessWindowSyncResult | null;
       };
     };
 

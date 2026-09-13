@@ -36,6 +36,7 @@ declareDimensions(
 );
 
 import {
+  computeWindowCalibration,
   readCompactHistory,
   summarizeCompactHistory,
   type CompactHistoryEvent,
@@ -1051,5 +1052,137 @@ describe("Scenario: behavior — `armed` rests; `compacting` is the only stage t
     });
     expect(out.kind).toBe('stalled');
     expect(renderCompactStatusline(out)).toMatch(/stalled/i);
+  });
+});
+
+// Slice 2026-09-13-auto-compact-trigger-ownership (T4) — the calibration
+// instrument. This slice could NOT run a real Claude Code session, so the
+// percentage of the window at which the harness actually fires has no
+// measured answer; picking one would be a fabricated number. What it
+// delivers instead is the record that turns the first real session into that
+// answer: the token point peaks-loop ASKED for, next to the ratio the next
+// probe MEASURED.
+describe("Scenario: behavior — window calibration (intent vs observed)", () => {
+  const ws = withTmpWorkspacePerTest();
+
+  function dispatchRow(over: Partial<CompactHistoryEvent> = {}): CompactHistoryEvent {
+    return {
+      schemaVersion: 1,
+      kind: 'dispatch',
+      ts: '2026-09-13T00:00:00.000Z',
+      target: 'main',
+      mode: 'standard',
+      ide: 'claude-code',
+      pathway: 'ide-native',
+      beforeRatio: 0.95,
+      redLine: true,
+      ok: true,
+      checkpointPath: '/tmp/cp.json',
+      dispatchMessage: 'dispatched',
+      windowTokens: 200_000,
+      windowSource: 'harness-env',
+      ...over,
+    };
+  }
+
+  function observedRow(over: Partial<CompactHistoryEvent> = {}): CompactHistoryEvent {
+    return {
+      ...dispatchRow(),
+      kind: 'observed',
+      ts: '2026-09-13T00:10:00.000Z',
+      beforeRatio: 0.95,
+      afterRatio: 0.12,
+      ...over,
+    };
+  }
+
+  it("when a dispatch is followed by a measurement, should pair them and report the token drift", () => {
+    // given: peaks-loop asked at 95% of a 200K window; the next probe measured 12%
+    // when: the calibration is computed
+    const out = computeWindowCalibration([dispatchRow(), observedRow()]);
+    // then: intent and observation are both expressed in tokens
+    expect(out.pairs).toHaveLength(1);
+    expect(out.pairs[0]).toMatchObject({
+      windowTokens: 200_000,
+      windowSource: 'harness-env',
+      requestedRatio: 0.95,
+      requestedTokens: 190_000,
+      observedRatio: 0.12,
+      observedTokens: 24_000,
+      driftTokens: -166_000,
+      measured: true,
+    });
+    expect(out.unmeasured).toBe(0);
+    expect(out.lastWindowTokens).toBe(200_000);
+  });
+
+  it("when a dispatch has no measurement yet, should report it as unmeasured rather than guessing", () => {
+    // given: an ask with no following probe
+    // when: the calibration is computed
+    const out = computeWindowCalibration([dispatchRow()]);
+    // then: every observed field is null — no fabricated observation
+    expect(out.pairs[0]).toMatchObject({
+      observedRatio: null,
+      observedTokens: null,
+      driftTokens: null,
+      measured: false,
+    });
+    expect(out.unmeasured).toBe(1);
+  });
+
+  it("when a row predates this slice, should still produce a pair (append-only file, never rewritten)", () => {
+    // given: a legacy row with no `kind` and no window
+    const legacy: CompactHistoryEvent = {
+      schemaVersion: 1,
+      ts: '2026-01-01T00:00:00.000Z',
+      target: 'main',
+      mode: 'standard',
+      ide: 'claude-code',
+      pathway: 'ide-native',
+      beforeRatio: 0.9,
+      redLine: false,
+      ok: true,
+      checkpointPath: '/tmp/old.json',
+      dispatchMessage: 'legacy dispatch',
+    };
+    // when: the calibration is computed
+    const out = computeWindowCalibration([legacy]);
+    // then: it is treated as a dispatch with an unknown window, not an error
+    expect(out.pairs).toHaveLength(1);
+    expect(out.pairs[0]).toMatchObject({ windowTokens: null, requestedTokens: null, measured: false });
+  });
+
+  it("when two dispatches share one measurement, should attach it to the most recent unmeasured ask", () => {
+    // given: two asks and a single measurement row
+    // when: the calibration is computed
+    const out = computeWindowCalibration([
+      dispatchRow({ ts: '2026-09-13T00:00:00.000Z' }),
+      dispatchRow({ ts: '2026-09-13T00:05:00.000Z' }),
+      observedRow(),
+    ]);
+    // then: the newest ask is the one that got settled; the older stays open
+    expect(out.pairs[0]!.measured).toBe(false);
+    expect(out.pairs[1]!.measured).toBe(true);
+    expect(out.unmeasured).toBe(1);
+  });
+
+  it("when the same file is read back through readCompactHistory, should keep the window fields (render)", () => {
+    // given: a compact-history.jsonl on disk carrying a dispatch + observation
+    const root = ws().path;
+    const dir = join(root, '.peaks', '_runtime', 'sid');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'compact-history.jsonl'),
+      `${JSON.stringify(dispatchRow())}\n${JSON.stringify(observedRow())}\n`,
+      'utf8',
+    );
+    // when: the reader parses it
+    const read = readCompactHistory({ projectRoot: root, sessionId: 'sid' });
+    if (read.kind !== 'ok') throw new Error(`expected ok, got ${read.kind}`);
+    // then: no parse errors and the calibration survives the round trip
+    expect(read.parseErrors).toEqual([]);
+    expect(read.events[0]!.kind).toBe('dispatch');
+    expect(read.events[0]!.windowTokens).toBe(200_000);
+    expect(computeWindowCalibration(read.events).pairs[0]!.observedTokens).toBe(24_000);
   });
 });

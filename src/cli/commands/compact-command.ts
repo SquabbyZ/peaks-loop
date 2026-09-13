@@ -25,9 +25,18 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { writeCheckpoint } from '../../services/session/session-checkpoint-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import {
+  computeWindowCalibration,
   readCompactHistory,
   summarizeCompactHistory,
 } from '../../services/compact-history/compact-history-service.js';
+import {
+  readHarnessWindowState,
+  resolveHarnessWindowLocation
+} from '../../services/context/auto-compact-reader.js';
+import {
+  reenableHarnessWindowSync,
+  resetHarnessWindow
+} from '../../services/context/harness-window-config.js';
 import {
   buildRecommendEnvelopePure,
   dryRunCompact,
@@ -400,11 +409,18 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
             return;
           }
           const summary = summarizeCompactHistory(result.events);
+          // Slice 2026-09-13-auto-compact-trigger-ownership (T4): the
+          // intent-vs-observed record. `pairs[i].requestedTokens` is the token
+          // point peaks-loop asked for; `observedTokens` is what the next real
+          // session actually measured. Unmeasured pairs are reported as such —
+          // this instrument states what happened, it does not predict.
+          const windowCalibration = computeWindowCalibration(result.events);
           printResult(
             io,
             ok('compact.history', {
               sessionId: session.sid,
               ...summary,
+              windowCalibration,
               events: result.events,
               parseErrors: result.parseErrors,
               historyPath: result.path,
@@ -415,6 +431,149 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
           printResult(
             io,
             fail('compact.history', 'COMPACT_HISTORY_READ_FAILED', getErrorMessage(error), {}, ['Verify the project path is readable and a session is bound']),
+            options.json,
+          );
+          process.exitCode = 1;
+        }
+      }),
+  );
+
+  // 7. peaks compact harness-window [--reset | --reenable]
+  //    (slice 2026-09-13-auto-compact-trigger-ownership, T1 + T2)
+  //
+  // The window peaks-loop divides by and the window the harness compacts
+  // against must be ONE number, or "95%" lands at two different token counts.
+  // This command is the visible half of that write: the default reports what
+  // is in force, `--reset` removes it.
+  //
+  // There is deliberately NO `--sync` flag. Materializing the window requires
+  // the ratio's own denominator, which only a probe has (it is the only place
+  // the active model is known). A `--sync` that re-derived the window here
+  // would be the second, independent resolution this slice exists to delete —
+  // `peaks code context-now` and `peaks code auto-compact` already sync.
+  addJsonOption(
+    compact
+      .command('harness-window')
+      .description(
+        'Report / roll back the auto-compact window peaks-loop writes into the ' +
+          'harness\'s own machine-local settings (the adapter-declared ' +
+          'autoCompactWindowEnvVar, e.g. CLAUDE_CODE_AUTO_COMPACT_WINDOW in ' +
+          '.claude/settings.local.json). peaks-loop computes its context ratio ' +
+          'against exactly this number, so the value it reports as "85%" and the ' +
+          'point the harness compacts at are the same. Context probes ' +
+          '(`peaks code context-now`, `peaks code auto-compact`) materialize it ' +
+          'automatically; --reset removes the key AND opts the project out so ' +
+          'later probes do not put it back (when the file holds no peaks-loop ' +
+          'row at all there is nothing to roll back, so --reset writes nothing); ' +
+          '--reenable undoes that opt-out.'
+      )
+      .option('--project <path>', 'project root (defaults to git root or cwd)')
+      .option('--reset', 'rollback: remove the window key and stop managing it')
+      .option('--reenable', 'undo a --reset opt-out (peaks-loop manages it again)')
+      .action((options: { project?: string; reset?: boolean; reenable?: boolean; json?: boolean }) => {
+        try {
+          const project = options.project !== undefined
+            ? resolveCanonicalProjectRoot(options.project)
+            : (findProjectRoot(process.cwd()) ?? process.cwd());
+
+          const location = resolveHarnessWindowLocation({ projectRoot: project, env: process.env });
+          if (location === null) {
+            printResult(
+              io,
+              ok('compact.harness-window', {
+                projectRoot: project,
+                managed: false,
+                message:
+                  'The active IDE adapter declares no auto-compact window key, so peaks-loop cannot tie ' +
+                  'the harness window to its own ratio. Nothing was written and there is nothing to roll back.',
+              }),
+              options.json,
+            );
+            return;
+          }
+
+          if (options.reset === true) {
+            const result = resetHarnessWindow({ location, env: process.env });
+            printResult(
+              io,
+              ok(
+                'compact.harness-window',
+                {
+                  projectRoot: project,
+                  action: result.action,
+                  key: location.envVar,
+                  settingsPath: result.settingsPath,
+                  previousTokens: result.previousTokens,
+                },
+                [],
+                [
+                  result.action === 'removed'
+                    ? `Removed ${location.envVar} from ${result.settingsPath} and opted this project out, so later probes stop writing it. Undo with \`peaks compact harness-window --reenable\`.`
+                    : `Nothing to remove — ${location.envVar} was already absent from ${result.settingsPath}, so nothing was written and no opt-out row was recorded: if a probe writes a window here later, run --reset again to remove it.`,
+                ],
+              ),
+              options.json,
+            );
+            return;
+          }
+
+          if (options.reenable === true) {
+            const result = reenableHarnessWindowSync({ location });
+            printResult(
+              io,
+              ok(
+                'compact.harness-window',
+                { projectRoot: project, action: result.action, key: location.envVar, settingsPath: result.settingsPath },
+                [],
+                [
+                  result.action === 'reenabled'
+                    ? 'Opt-out cleared; the next context probe will materialize the window again.'
+                    : 'No opt-out was recorded for this project.',
+                ],
+              ),
+              options.json,
+            );
+            return;
+          }
+
+          const state = readHarnessWindowState({ projectRoot: project, env: process.env });
+          printResult(
+            io,
+            ok(
+              'compact.harness-window',
+              {
+                projectRoot: project,
+                managed: true,
+                key: location.envVar,
+                settingsPath: location.settingsPath,
+                tokens: state?.tokens ?? null,
+                raw: state?.raw ?? null,
+                source: state?.source ?? null,
+                optedOut: state?.optedOut ?? false,
+                // Provenance: whether this value is peaks-loop's own write or
+                // one the user set by hand. It decides whether the late 1M
+                // rescue may override it, so it is not just diagnostics.
+                peakWritten: state?.peakWritten ?? false,
+              },
+              [],
+              [
+                state?.tokens === null || state?.tokens === undefined
+                  ? 'No window is set yet. The next `peaks code context-now` probe materializes the window it computes its ratio against.'
+                  : `peaks-loop computes its context ratio against ${state.tokens} tokens; the harness fires near the end of that window. ${
+                      state.peakWritten
+                        ? 'peaks-loop wrote this value; it may raise it if a session outgrows it.'
+                        : 'This value is not peaks-loop\'s own write, so peaks-loop will not raise it — it is treated as your setting.'
+                    }`,
+                'Rollback: `peaks compact harness-window --reset`.',
+                'Intent-vs-observed calibration: `peaks compact history --json` → windowCalibration.',
+              ],
+            ),
+            options.json,
+          );
+        } catch (error) {
+          printResult(
+            io,
+            fail('compact.harness-window', 'COMPACT_HARNESS_WINDOW_FAILED', getErrorMessage(error), {}, ['Verify the project path is writable and a session is bound']),
             options.json,
           );
           process.exitCode = 1;

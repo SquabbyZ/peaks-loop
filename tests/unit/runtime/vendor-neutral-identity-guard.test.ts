@@ -976,7 +976,12 @@ describe('AC-1 — vendor verb strings live only in adapter implementations', ()
       VERB_ALLOWED_DIRS.some((dir) => relativeToRoot(hit.file).startsWith(dir))
     );
     expect(allowed.map((hit) => `${relativeToRoot(hit.file)}:${hit.line}`)).toEqual([
-      'src/services/ide/adapters/claude-code-adapter.ts:525'
+      // Re-pinned 585 → 618 in round 2 of slice
+      // 2026-09-13-auto-compact-trigger-ownership: JSDoc added above the
+      // `compact` profile (the ratchet/self-lock explanation) moved the
+      // literal. The pin's VALUE changed; its meaning did not — still exactly
+      // one vendor verb literal, still in the adapter that owns it.
+      'src/services/ide/adapters/claude-code-adapter.ts:618'
     ]);
   });
 

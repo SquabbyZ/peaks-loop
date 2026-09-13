@@ -249,6 +249,12 @@ export function summarizeLifecycleError(error: unknown): string {
  *     `afterRatio: 0` there would publish a fabricated number;
  *   - the ratio is still at or above the auto-fire threshold — the
  *     compact has not landed, so the run stays open.
+ *
+ * Returns the settled record, or `null` when nothing settled. Slice
+ * 2026-09-13-auto-compact-trigger-ownership: the caller needs the settled
+ * `afterRatio` to append the "observed compaction point" row that makes the
+ * intent-vs-observed gap readable after a real session. The return value is
+ * telemetry only — callers that ignore it are unaffected.
  */
 export function settleOpenLifecycleRun(input: {
   readonly projectRoot: string;
@@ -257,24 +263,24 @@ export function settleOpenLifecycleRun(input: {
   readonly source: string;
   readonly autoFireThreshold: number;
   readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
-}): void {
+}): { readonly runId: string; readonly triggerRatio: number; readonly afterRatio: number } | null {
   // A `conservative-fallback` probe means no signal was available at
   // all. Its `ratio: 0` is the absence of a measurement, so it can
   // never be evidence that the context shrank.
-  if (input.source === 'conservative-fallback') return;
-  if (input.measuredRatio >= input.autoFireThreshold) return;
+  if (input.source === 'conservative-fallback') return null;
+  if (input.measuredRatio >= input.autoFireThreshold) return null;
 
   const prior = readOpenCompactLifecycle({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId
   });
-  if (prior === null) return;
+  if (prior === null) return null;
   // Only a run that was actually dispatched can be completed by a
   // post-compact measurement. Both `compacting` (the in-band trigger is
   // satisfied) and `armed` (a trigger was registered and could fire at
   // any time) qualify: the measured drop is proof that SOME compact
   // landed, and this is the only open run to attribute it to.
-  if (prior.stage !== 'compacting' && prior.stage !== 'armed') return;
+  if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
 
   const emit = (stage: 'verifying' | 'completed', withAfterRatio: boolean): void => {
     const record: CompactLifecycleRecord = {
@@ -306,4 +312,5 @@ export function settleOpenLifecycleRun(input: {
   emit('verifying', false);
   // `completed` = the measurement confirms the drop; publish it.
   emit('completed', true);
+  return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio };
 }

@@ -33,7 +33,13 @@ import {
 } from '~/src/services/ide/ide-registry';
 import { CLAUDE_CODE_ADAPTER } from '~/src/services/ide/adapters/claude-code-adapter';
 import type { IdeAdapter } from '~/src/services/ide/ide-types';
-import { readContextPercent } from '~/src/services/context/auto-compact-reader';
+import {
+  readContextPercent,
+  readHarnessWindowState,
+  resolveHarnessRatioWindow,
+  resolveHarnessWindowLocation,
+  syncHarnessWindowForProject
+} from '~/src/services/context/auto-compact-reader';
 
 declareDimensions(
   'tests/unit/context/auto-compact-reader.test.ts',
@@ -114,6 +120,138 @@ describe('Scenario: behavior — adapter fallback delegation (vendor-neutral)', 
     const out = readContextPercent({ projectRoot: '/tmp/peaks-test', sessionId: SID, env: {} });
     expect(out.source).toBe('conservative-fallback');
     expect(out.ratio).toBe(0);
+  });
+});
+
+// Slice 2026-09-13-auto-compact-trigger-ownership — the reader is the ONE
+// place that knows both halves of the harness window's location, and it learns
+// them from the adapter's own declarations (`settings.dirName` +
+// `settings.localSettingsFileName` + `compact.autoCompactWindowEnvVar`). These
+// tests pin that the resolution is declaration-driven — the property the
+// vendor-neutrality guard's shape-3 rule exists to protect.
+describe('Scenario: integration — harness window resolution is adapter-declared', () => {
+  function adapterWithWindowKnob(over: Partial<IdeAdapter> = {}): IdeAdapter {
+    return {
+      ...CLAUDE_CODE_ADAPTER,
+      settings: {
+        ...CLAUDE_CODE_ADAPTER.settings,
+        dirName: '.fakeide',
+        localSettingsFileName: 'settings.local.json'
+      },
+      compact: {
+        ...CLAUDE_CODE_ADAPTER.compact!,
+        autoCompactWindowEnvVar: 'FAKEIDE_AUTO_COMPACT_WINDOW'
+      },
+      ...over
+    };
+  }
+
+  it('when the adapter declares a window key, should resolve the path from its declarations and read the value', () => {
+    // given: a project whose adapter-declared settings file carries the key
+    const root = mkdtempSync(join(tmpdir(), 'peaks-harness-reader-'));
+    try {
+      mkdirSync(join(root, '.fakeide'), { recursive: true });
+      writeFileSync(
+        join(root, '.fakeide', 'settings.local.json'),
+        JSON.stringify({ env: { FAKEIDE_AUTO_COMPACT_WINDOW: '850000' } }),
+        'utf8'
+      );
+      _setAdapterForTesting('claude-code', adapterWithWindowKnob());
+      // when: the location + state are resolved
+      const location = resolveHarnessWindowLocation({ projectRoot: root, env: {} });
+      const state = readHarnessWindowState({ projectRoot: root, env: {} });
+      // then: BOTH halves came from the adapter — no IDE literal anywhere
+      expect(location).toEqual({
+        settingsPath: join(root, '.fakeide', 'settings.local.json'),
+        envVar: 'FAKEIDE_AUTO_COMPACT_WINDOW',
+        // carried through so the WRITER can refuse to target the user's home
+        // directory (H1) — the path alone cannot say which root it came from
+        projectRoot: root
+      });
+      expect(state!.tokens).toBe(850_000);
+      expect(state!.source).toBe('settings-file');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('when the adapter declares no window key, should resolve nothing (no invented path)', () => {
+    // given: an adapter whose compact profile has no window knob
+    _setAdapterForTesting('claude-code', {
+      ...CLAUDE_CODE_ADAPTER,
+      compact: {
+        envVarForContextPercent: 'PEAKS_TEST_CONTEXT_PCT',
+        compactCommand: 'claude --compact',
+        compactPathway: 'ide-native'
+      }
+    });
+    // when: resolution runs
+    // then: null in both shapes, and a sync is a no-op rather than a stray write
+    expect(resolveHarnessWindowLocation({ projectRoot: '/tmp/peaks-test', env: {} })).toBeNull();
+    expect(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} })).toBeNull();
+    expect(syncHarnessWindowForProject({ projectRoot: '/tmp/peaks-test', env: {}, tokens: 1_000_000 })).toBeNull();
+  });
+});
+
+// Slice 2026-09-13-auto-compact-trigger-ownership, round 3 — T1's number.
+//
+// The window peaks-loop divides its ratio by must be the one the harness is
+// CONFIGURED with. That is the settings FILE, not the frozen process env — the
+// env is a snapshot the harness took at session start, so it is stale by
+// exactly one write. Preferring the env is what let a stale copy revert a
+// human's hand-edited window and made T1's consistency depend on rewriting the
+// file (the very write that destroyed the human's value).
+describe('Scenario: behavior — the ratio divides by the FILE, not the frozen env', () => {
+  /** The same declaration-driven stub, scoped to this block. */
+  function adapterWithRatioKnob(): IdeAdapter {
+    return {
+      ...CLAUDE_CODE_ADAPTER,
+      settings: { ...CLAUDE_CODE_ADAPTER.settings, dirName: '.fakeide', localSettingsFileName: 'settings.local.json' },
+      compact: { ...CLAUDE_CODE_ADAPTER.compact!, autoCompactWindowEnvVar: 'FAKEIDE_AUTO_COMPACT_WINDOW' }
+    };
+  }
+
+  it('when both sides carry a value, should hand the adapter the FILE value', () => {
+    // given: the file re-pinned to 150000, the running session still at 200000
+    const root = mkdtempSync(join(tmpdir(), 'peaks-ratio-window-'));
+    try {
+      mkdirSync(join(root, '.fakeide'), { recursive: true });
+      writeFileSync(
+        join(root, '.fakeide', 'settings.local.json'),
+        JSON.stringify({ env: { FAKEIDE_AUTO_COMPACT_WINDOW: '150000' } }),
+        'utf8'
+      );
+      _setAdapterForTesting('claude-code', adapterWithRatioKnob());
+      // when: the ratio's window is resolved
+      const state = readHarnessWindowState({ projectRoot: root, env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv });
+      // then: the file's 150000 is what the ratio must divide by...
+      expect(resolveHarnessRatioWindow(state)).toBe('150000');
+      // ...even though the in-force read (status display) reports the env copy
+      expect(state!.raw).toBe('200000');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('when only the env carries it, should fall back to the env value', () => {
+    // given: no key on disk yet (an outer settings layer supplies it)
+    const root = mkdtempSync(join(tmpdir(), 'peaks-ratio-window-'));
+    try {
+      mkdirSync(join(root, '.fakeide'), { recursive: true });
+      writeFileSync(join(root, '.fakeide', 'settings.local.json'), JSON.stringify({ env: {} }), 'utf8');
+      _setAdapterForTesting('claude-code', adapterWithRatioKnob());
+      // when: the ratio's window is resolved
+      const state = readHarnessWindowState({ projectRoot: root, env: { FAKEIDE_AUTO_COMPACT_WINDOW: '200000' } as NodeJS.ProcessEnv });
+      // then: the env is the only signal, so it is used
+      expect(resolveHarnessRatioWindow(state)).toBe('200000');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('when the adapter declares no window knob, should resolve nothing', () => {
+    _setAdapterForTesting('claude-code', noFallbackAdapter());
+    expect(resolveHarnessRatioWindow(readHarnessWindowState({ projectRoot: '/tmp/peaks-test', env: {} }))).toBeUndefined();
   });
 });
 

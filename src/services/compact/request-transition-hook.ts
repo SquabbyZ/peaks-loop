@@ -15,8 +15,11 @@
  *
  * The hook is INVOKED from `src/cli/commands/request-commands.ts`
  * (RD→QA boundary) and from any future QA→final-review boundary. The
- * 0.95 red line is NOT changed: the existing auto-compact
- * orchestrator continues to refuse dispatch at ratio ≥ 0.95.
+ * 0.95 red line is unchanged in THRESHOLD but not in behaviour: the
+ * auto-compact orchestrator asks the harness to compact and reports that
+ * it is waiting. It does not refuse sub-agent dispatch — peaks-loop has no
+ * executor for a running session, so a refusal gated nothing and deadlocked
+ * the runner (slice 2026-09-13-auto-compact-trigger-ownership).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

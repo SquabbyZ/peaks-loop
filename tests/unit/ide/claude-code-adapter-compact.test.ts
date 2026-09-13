@@ -33,7 +33,7 @@
 //   - render:      omitted — probe shape asserted inside behavior cases
 //   - a11y:        omitted — no human-facing text in the fallback path
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -107,6 +107,14 @@ import {
   resolveClaudeModelFromEnv,
   resolveContextWindow,
 } from '~/src/services/ide/adapters/claude-code-adapter';
+import {
+  readContextPercent,
+  syncHarnessWindowForProject
+} from '~/src/services/context/auto-compact-reader';
+import { runAutoCompact } from '~/src/services/code/auto-compact-orchestrator';
+
+/** Temp project roots created by the acceptance-table cases. */
+const projects: string[] = [];
 
 const fallback = () => CLAUDE_CODE_ADAPTER.compact!.readContextPercentFallback!;
 
@@ -121,6 +129,10 @@ beforeEach(() => {
 
 afterEach(() => {
   __home.value = '';
+  for (const root of projects) {
+    try { rmSync(root, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  projects.length = 0;
   __fsMocks.readdirSync = null;
   __fsMocks.existsSync = null;
   __fsMocks.readFileSync = null;
@@ -368,6 +380,258 @@ describe('Scenario: integration — transcript outer-session-id lookup + token r
     expect(probe!.capacitySource).toBe('default');
   });
 
+  // Slice 2026-09-13-auto-compact-trigger-ownership (T1) — the window
+  // peaks-loop configured for the harness is a resolution LAYER, and it must
+  // outrank config + the model heuristic or the two sides drift (the user's
+  // 1M-window model was being measured against a 200K default, so peaks-loop's
+  // "95%" landed at 190K while the harness waited for ~967K).
+  it('when the harness window is set and no human pin exists, should beat the model heuristic', () => {
+    // given: a `[1M]` model and a harness window written by an earlier probe
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    // when: the transcript fallback runs
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: {}, harnessWindowTokens: '850000'
+    });
+    // then: the window both sides actually use wins over the model-name guess
+    expect(probe!.capacityTokens).toBe(850_000);
+    expect(probe!.capacitySource).toBe('harness-env');
+    expect(probe!.ratio).toBeCloseTo(100_000 / 850_000, 5);
+  });
+
+  it('when a human pin also exists, should let the pin win over the harness window (propagation, not shadowing)', () => {
+    // given: a config pin of 500K while a stale 850K harness window is in force
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    // when: the transcript fallback runs
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: {}, configWindowTokens: 500_000, harnessWindowTokens: '850000'
+    });
+    // then: the pin decides — and the probe's own denominator is what the
+    //       caller then syncs into the harness, so the conflict closes on the
+    //       same command instead of leaving the setting silently ignored
+    expect(probe!.capacityTokens).toBe(500_000);
+    expect(probe!.capacitySource).toBe('config');
+  });
+
+  it('when both PEAKS_CONTEXT_WINDOW_TOKENS and the harness window are set, should keep the explicit pin on top', () => {
+    // given: a hand-exported pin plus the window peaks-loop wrote
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    // when: the transcript fallback runs
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: { PEAKS_CONTEXT_WINDOW_TOKENS: '300000' }, harnessWindowTokens: '850000'
+    });
+    // then: the existing top-precedence contract is unchanged
+    expect(probe!.capacityTokens).toBe(300_000);
+    expect(probe!.capacitySource).toBe('env-override');
+  });
+
+  // Slice 2026-09-13-auto-compact-trigger-ownership, ROUND 2 — the self-lock.
+  //
+  // Round 1 exempted `harness-env` from the late 1M rescue outright, on the
+  // grounds that the harness key is the number the harness compacts against.
+  // That reasoning has a hole: the key is written FROM peaks-loop's own
+  // resolution, so exempting it means peaks-loop only ever believes its own
+  // earlier output. A first-time mis-resolution (unrecognised model → the
+  // 200_000 default) then becomes permanent — written to disk, read back, and
+  // never correctable, leaving the ratio saturated at 1.0 while the session
+  // grows past the pin. The exemption is now conditional on PROVENANCE: a
+  // value peaks-loop wrote may be corrected by evidence, a value a human set
+  // may not (rewriting that one would destroy an explicit setting, and persist
+  // the destruction).
+  describe('Scenario: regression — the harness window must not lock peaks-loop out', () => {
+    it('when peaks-loop WROTE the window and the session outgrows it, should bump to 1M (the self-lock broken)', () => {
+      // given: the QA table's row 2 — 500K observed, a 200K window that
+      //        peaks-loop itself wrote (an unrecognised model's default)
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      ]);
+      // when: the fallback resolves with the provenance marker matching
+      const probe = fallback()({
+        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+        env: {}, harnessWindowTokens: '200000', harnessWindowPeakWritten: true
+      });
+      // then: evidence overrules peaks-loop's own output — the caller then
+      //       syncs this very number back, so both sides move together
+      expect(probe!.capacityTokens).toBe(1_000_000);
+      expect(probe!.capacitySource).toBe('harness-env');
+      expect(probe!.ratio).toBeCloseTo(500_000 / 1_000_000, 5);
+    });
+
+    it('when a HUMAN set the window, should NOT fight it — an explicit pin is not peaks-loop\'s to rewrite', () => {
+      // given: the same 500K observed against a hand-set 200K window
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      ]);
+      // when: the fallback resolves with no peaks provenance
+      const probe = fallback()({
+        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+        env: {}, harnessWindowTokens: '200000', harnessWindowPeakWritten: false
+      });
+      // then: the pin stands — bumping (and persisting the bump) would replace
+      //       a window the user chose with one peaks-loop prefers. The ratio
+      //       saturates, and that is the honest reading: relative to the window
+      //       the harness will actually fire at, this session IS over it.
+      expect(probe!.capacityTokens).toBe(200_000);
+      expect(probe!.capacitySource).toBe('harness-env');
+      expect(probe!.ratio).toBe(1);
+    });
+
+    it('when provenance is unknown (no marker), should default to NOT bumping', () => {
+      // given: a bare window value with no provenance information at all
+      writeTranscript(outer, [
+        usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+      ]);
+      // when: the fallback resolves without the flag
+      const probe = fallback()({
+        projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+        env: {}, harnessWindowTokens: '200000'
+      });
+      // then: the safe direction — do not rewrite what you did not write
+      expect(probe!.capacityTokens).toBe(200_000);
+      expect(probe!.capacitySource).toBe('harness-env');
+    });
+  });
+
+  // The acceptance table, reproduced end to end through the SAME composition
+  // the CLI uses: `readContextPercent` (which resolves the harness window from
+  // the adapter's own declarations) followed by `syncHarnessWindowForProject`
+  // (which writes the denominator it just used). A session starts small, grows
+  // 16×, and the window must follow it — not pin the ratio at 1.0 forever.
+  describe('Scenario: acceptance — the self-lock, row by row', () => {
+    const WINDOW_KEY = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW';
+
+    function makeProject(): string {
+      const project = mkdtempSync(join(tmpdir(), 'peaks-ratchet-'));
+      projects.push(project);
+      return project;
+    }
+
+    /** One probe + sync, exactly as `peaks code context-now` performs them. */
+    function probeAndSync(project: string, env: NodeJS.ProcessEnv = {}) {
+      const probe = readContextPercent({ projectRoot: project, sessionId: 'peaks-sid', outerSessionId: outer, env });
+      const sync = syncHarnessWindowForProject({ projectRoot: project, env, tokens: probe.capacityTokens ?? null });
+      return { probe, sync };
+    }
+
+    function windowOnDisk(project: string): string | undefined {
+      const raw = readFileSync(join(project, '.claude', 'settings.local.json'), 'utf8');
+      return (JSON.parse(raw) as { env?: Record<string, string> }).env?.[WINDOW_KEY];
+    }
+
+    it('row 1 — a 30K-token session resolves the 200K default and writes it to the harness', () => {
+      const project = makeProject();
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      const { probe, sync } = probeAndSync(project);
+      // then: the unrecognised model defaults to 200K, and BOTH sides get it
+      expect(probe.capacityTokens).toBe(200_000);
+      expect(probe.capacitySource).toBe('default');
+      expect(sync!.action).toBe('written');
+      expect(windowOnDisk(project)).toBe('200000');
+    });
+
+    it('row 2 — the SAME session grows to 500K: must resolve 1M and refresh the harness key with it', () => {
+      const project = makeProject();
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      probeAndSync(project);
+      expect(windowOnDisk(project)).toBe('200000');
+      // when: the same session grows 16× (the transcript's latest usage entry)
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      const { probe, sync } = probeAndSync(project);
+      // then: the late 1M rescue fires through the harness layer (no ratchet)...
+      expect(probe.capacityTokens).toBe(1_000_000);
+      expect(probe.ratio).toBeCloseTo(0.5, 5);
+      // ...and the T1 single-source rule still holds: the very same number is
+      // refreshed into the harness key, so the two sides never disagree
+      expect(sync!.action).toBe('written');
+      expect(sync!.previousTokens).toBe(200_000);
+      expect(windowOnDisk(project)).toBe('1000000');
+    });
+
+    it('row 3 — control: with the key deleted, the resolution is unchanged (1M)', () => {
+      const project = makeProject();
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      probeAndSync(project);
+      // given: the key removed, as the QA control does
+      writeFileSync(join(project, '.claude', 'settings.local.json'), `${JSON.stringify({ env: {} }, null, 2)}\n`, 'utf8');
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      // when: the probe runs with no harness window at all
+      const { probe } = probeAndSync(project);
+      // then: identical to row 2 — 1M, ratio 0.5 (the harness layer added
+      //       nothing to the answer; it is not the source of the pin)
+      expect(probe.capacityTokens).toBe(1_000_000);
+      expect(probe.ratio).toBeCloseTo(0.5, 5);
+    });
+
+    it('row 4 — a running session whose env is frozen at the OLD window must not flip back after the refresh', () => {
+      const project = makeProject();
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      probeAndSync(project);
+      // given: the session's process env, which the harness captured at
+      //        start-up and which does NOT change when the file does
+      const frozen: NodeJS.ProcessEnv = { [WINDOW_KEY]: '200000' };
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 500_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      // when: the session probes again and peaks-loop refreshes the file
+      const second = probeAndSync(project, frozen);
+      expect(second.probe.capacityTokens).toBe(1_000_000);
+      expect(second.sync!.action).toBe('written');
+      // then: the NEXT probe of the same session repeats 1M instead of
+      //       decaying back to the pinned value — provenance is judged against
+      //       the file, not against the stale copy the env still hands us
+      const third = probeAndSync(project, frozen);
+      expect(third.probe.capacityTokens).toBe(1_000_000);
+      expect(third.probe.ratio).toBeCloseTo(0.5, 5);
+      expect(third.sync!.action).toBe('unchanged');
+      expect(windowOnDisk(project)).toBe('1000000');
+    });
+
+    // Defect 2 of the round-2 dispatch: the write must REACH A HUMAN. The
+    // user accepted peaks-loop writing their harness settings on one condition
+    // — 要告知. `peaks code auto-compact` syncs the same file as
+    // `context-now`, so it must say so too; a write only one of the two
+    // commands reports is not a notice.
+    it('the auto-compact path reports the write too (the notice cannot live in only one command)', async () => {
+      const project = makeProject();
+      writeTranscript(outer, [usageLine('deepseek-v4-flash', { input_tokens: 30_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })]);
+      // when: the orchestrator runs (below threshold — the sync still writes).
+      // `PEAKS_OUTER_SESSION_ID` is how the transcript (and so a token window)
+      // is reached; without it the probe has no window and there is nothing to
+      // sync, which is a different path.
+      const result = await runAutoCompact({
+        projectRoot: project,
+        sessionId: 'peaks-sid',
+        env: { PEAKS_OUTER_SESSION_ID: outer }
+      });
+      // then: the message names the key, the value and the rollback command
+      expect(result.code).toBe('AUTO_COMPACT_SKIP');
+      expect(result.message).toContain('WROTE CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000');
+      expect(result.message).toContain('Rollback: `peaks compact harness-window --reset`');
+      expect(windowOnDisk(project)).toBe('200000');
+    });
+  });
+
+  it('when the harness window is garbage (a hand-edited `500k`), should warn and fall through, never crash', () => {
+    // given: the marker the harness itself refuses
+    writeTranscript(outer, [
+      usageLine('deepseek-v4-flash[1M]', { input_tokens: 100_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 })
+    ]);
+    // when: the fallback resolves the window with an invalid harness value
+    const probe = fallback()({
+      projectRoot: '/tmp/x', sessionId: 'peaks-sid', outerSessionId: outer,
+      env: {}, harnessWindowTokens: '500k'
+    });
+    // then: the invalid layer is skipped and the heuristic still answers
+    expect(probe!.capacityTokens).toBe(1_000_000);
+    expect(probe!.capacitySource).toBe('model-heuristic');
+  });
+
   it('when no entry carries a numeric message.usage, should return null (conservative)', () => {
     const noUsage = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: 'hello' } });
     writeTranscript(outer, [noUsage, noUsage]);
@@ -611,6 +875,41 @@ describe('Scenario: behavior — explicit context-window override precedence + s
     });
     expect(out).toEqual({ tokens: 200_000, source: 'default' });
     expect(warnings).toHaveLength(2);
+  });
+
+  it('when the harness window is invalid, should warn once and fall through to the heuristic (keeping the no-crash contract)', () => {
+    // given: a garbage harness value with no human pin above it
+    const warnings: string[] = [];
+    // when: resolveContextWindow runs
+    const out = resolveContextWindow('deepseek-v4-flash[1M]', {
+      env: {},
+      harnessWindowTokens: '500k',
+      onInvalidOverride: (m) => warnings.push(m)
+    });
+    // then: the bad layer is ignored with one warning naming it, and the
+    //       heuristic answers — a hand-edited `500k` must not crash the probe
+    expect(out).toEqual({ tokens: 1_000_000, source: 'model-heuristic' });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('harness auto-compact window');
+  });
+
+  it('when the harness window is valid, should outrank the model heuristic but lose to BOTH human pins', () => {
+    // given: no pins at all, and a harness window above a model-name guess
+    // when: resolveContextWindow runs
+    const harnessOnly = resolveContextWindow('deepseek-v4-flash', { env: {}, harnessWindowTokens: 850_000 });
+    // then: harness-env wins (it is the number the harness itself fires against)
+    expect(harnessOnly).toEqual({ tokens: 850_000, source: 'harness-env' });
+    // given: a config pin alongside the harness window
+    const withConfig = resolveContextWindow('deepseek-v4-flash', { env: {}, harnessWindowTokens: 850_000, configWindowTokens: 400_000 });
+    // then: the human pin wins — a pin shadowed by an earlier peaks write is
+    //       a setting the user cannot see taking effect
+    expect(withConfig).toEqual({ tokens: 400_000, source: 'config' });
+    // given: the explicit env pin is present too
+    const withEnv = resolveContextWindow('deepseek-v4-flash', {
+      env: { [ENV]: '300000' }, harnessWindowTokens: 850_000, configWindowTokens: 400_000
+    });
+    // then: the existing top-precedence contract is unchanged
+    expect(withEnv).toEqual({ tokens: 300_000, source: 'env-override' });
   });
 
   it('when parseContextWindowOverride runs, should accept only positive integers', () => {

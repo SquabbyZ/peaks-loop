@@ -20,6 +20,9 @@ import {
 } from '../../services/code/post-compact-detector.js';
 import { runAutoCompact } from '../../services/code/auto-compact-orchestrator.js';
 import { auditContext } from '../../services/context/context-audit.js';
+import { syncHarnessWindowForProject } from '../../services/context/auto-compact-reader.js';
+import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../../services/context/harness-window-config.js';
+import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { buildContextAuditHint } from '../../services/context/context-audit-hint.js';
 import {
   evaluateStep08,
@@ -95,9 +98,11 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       .description(
         'v2.13.0 AC-4: zero-human-intervention auto-compact. Probes current ' +
           'context-fill % via the active IDE adapter; ≥ 0.85 writes a pre-compact ' +
-          'checkpoint + convergence plan + auto-decisions log; ≥ 0.95 forces ' +
-          'synchronous IDE-side compact. The LLM / runner keeps working with ' +
-          'context < 95% without human intervention. Pair with `peaks code ' +
+          'checkpoint + convergence plan + auto-decisions log; ≥ 0.95 ASKS the ' +
+          'harness to compact and reports that it is waiting for it — no ratio ' +
+          'blocks sub-agent dispatch, because peaks-loop has no way to compact a ' +
+          'running session and a gate nobody can satisfy gates nothing. The LLM / ' +
+          'runner keeps working at any ratio without human intervention. Pair with `peaks code ' +
           'context-now` (AC-1), the read-only probe that reports the ratio this ' +
           'command acts on. This command is also fired by the installed ' +
           'PreToolUse hook, which passes `--project .` — without that argument ' +
@@ -109,7 +114,15 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
       .option('--in-flight-batch', 'defer if a sub-agent batch is in flight (D6.e)')
       .option('--force', 'force compact at any ratio (test seam)')
-      .option('--bypass-red-line', 'skip the 95% red-line gate (test seam; never true in production)')
+      // Accepted and inert. There is no longer a 95% gate to skip: peaks-loop
+      // cannot compact a running session, so the red line never blocked
+      // dispatch and `bypassRedLine` is read by nothing (slice
+      // 2026-09-13-auto-compact-trigger-ownership, T3/A1). The flag is KEPT
+      // rather than deleted because it is a published CLI surface — deleting it
+      // would make an existing caller fail on an unknown option, which is a
+      // harder break than a no-op — and because the honest fix here is to stop
+      // advertising it, not to change its meaning.
+      .option('--bypass-red-line', 'no-op: the 95% red line no longer gates dispatch, so there is nothing to bypass (accepted for backward compatibility)')
       // No commander default here, deliberately. A declared default makes
       // `opts.mode` permanently defined, which defeats the orchestrator's
       // `input.mode ?? resolveAutoCompactMode(projectRoot)` fallback and
@@ -215,7 +228,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'hermes / openclaw register their own env-var via IdeAdapter.compact. ' +
           'v3.1.2 / 2026-09-12: ≥0.85 emits action=auto-compact-now ' +
           '(MANDATORY in every mode — single-rid included) and ' +
-          '≥0.95 emits action=red-line (forced hook fires next turn). ' +
+          '≥0.95 emits action=red-line (the installed PreToolUse hook re-runs ' +
+          'this command on the next Bash/Task tool call; nothing is blocked). ' +
           '--enforce-job-mode only changes the reported `jobMode` label; ' +
           'the thresholds are identical. ' +
           'Context-window override: set env PEAKS_CONTEXT_WINDOW_TOKENS=<positive int> ' +
@@ -266,6 +280,28 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           env: process.env,
           promptSizeBytes
         });
+        // Slice 2026-09-13-auto-compact-trigger-ownership (T1 + T2): materialize
+        // the window this probe just divided by into the harness's own settings,
+        // so "85%" here and the harness's own trigger are one point on one
+        // scale. Idempotent (no write when the value is already in force) and a
+        // no-op when the probe carried no token window — peaks-loop never
+        // invents a number it did not measure.
+        const harnessWindow = syncHarnessWindowForProject({
+          // Promote `--project .` (what the PreToolUse hook passes) to the git
+          // root first: the settings path this writes to must not depend on
+          // the caller's cwd, and an absolute path is what the envelope then
+          // reports back to the operator.
+          projectRoot: resolveCanonicalProjectRoot(opts.project),
+          env: process.env,
+          tokens: probe.capacityTokens ?? null
+        });
+        // The machine half of 要告知. A refused write is not automatically a
+        // non-event: the file may pin a window that disagrees with the one this
+        // probe just divided by, and then the ratio above describes a trigger
+        // the harness is not going to fire. `nextActions` carries the full
+        // sentence; this one line rides `warnings` so a JSON consumer cannot
+        // miss it either.
+        const harnessWindowWarning = harnessWindowSyncWarning(harnessWindow);
         const ratioPct = (probe.ratio * 100).toFixed(1);
         let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
         let next: string | null = null;
@@ -322,18 +358,37 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             // default) — null for byte/percent sources, which have no window.
             capacitySource: probe.capacitySource ?? null,
             bytesPrompt: promptSizeBytes ?? null,
-            capturedAt: probe.capturedAt
-          }, [], [
+            capturedAt: probe.capturedAt,
+            // Slice 2026-09-13-auto-compact-trigger-ownership: what the harness
+            // window sync did on this probe. Reported rather than silent — the
+            // harness tells a user who overrides the window only via
+            // `/autocompact`, so peaks-loop must be the one that says it.
+            harnessWindow
+          }, harnessWindowWarning === null ? [] : [harnessWindowWarning], [
             action === 'red-line'
-              ? `RED LINE: ≥ 95%. Next: \`${next}\` (PreToolUse hook fires next turn).`
+              ? `RED LINE: ≥ 95%. Next: \`${next}\` — peaks-loop asks the harness to compact and KEEPS WORKING (dispatch is not blocked); re-probe to confirm it landed.`
               : action === 'auto-compact-now'
                 ? `MANDATORY auto-compact (≥85%, every mode). Code MUST call \`${next}\` WITHOUT confirmation.`
                 : action === 'soft-warn'
                   ? `Soft warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
                   : `Below 50%. No action required.`,
-            gateModeNotice
+            gateModeNotice,
+            // Single wording, shared with `peaks code auto-compact` — see
+            // `describeHarnessWindowSync`.
+            describeHarnessWindowSync(harnessWindow)
           ]),
-          true
+          // Slice 2026-09-13-auto-compact-trigger-ownership: was hard-coded
+          // `true`, which made the declared `--json` flag a no-op and left the
+          // human with raw JSON and no `next:` lines — so a person running this
+          // command could not see that peaks-loop had just written their
+          // harness settings. The notices above (including the key, the value
+          // and the rollback command) are `nextActions`, which `printResult`
+          // prints as `next: …` lines ONLY in the non-JSON path. Honoring the
+          // flag is what puts them in front of a human. See the consumer audit
+          // in the slice's RD artifact: every in-repo caller (the PreToolUse
+          // hooks, `orchestrator-can-do`, the skill runbooks) passes `--json`
+          // explicitly, so their byte-for-byte output is unchanged.
+          opts.json === true
         );
       } catch (err) {
         printResult(
