@@ -8,7 +8,7 @@
  * The service owns:
  *   - 5-state detection of the security-audit runtime
  *     (handoff-missing / template-missing / dispatch-failed / template-malformed / ready)
- *   - Loading + sha256 verification of the prd/handoff.md
+ *   - Loading + sha256 verification of the slice's prd/handoff-<rid>.md
  *   - Loading the project-level security-template.md
  *   - Producing the audit envelope (verdict + violations) to write
  *     to `.peaks/_runtime/<sid>/audit/security-<rid>.md`
@@ -37,12 +37,14 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
+import { resolveHandoffPath } from '../prd/handoff-service.js';
 
 /**
  * 5-state detection result. Mirrors `detectEcc` in `services/code-review/ecc-bridge.ts`.
  *
  *   - `ready`              — handoff + template + project all present
- *   - `handoff-missing`    — `.peaks/_runtime/<sid>/prd/handoff.md` absent
+ *   - `handoff-missing`    — this slice's `.peaks/_runtime/<sid>/prd/handoff-<rid>.md`
+ *                        (or the pre-rid-scoping `prd/handoff.md`) absent
  *   - `template-missing`   — `.peaks/project-scan/security-template.md` absent
  *   - `dispatch-failed`    — parent LLM threw before returning the audit envelope
  *   - `envelope-malformed` — parent LLM returned a value that fails `isSecurityAuditEnvelope`
@@ -193,21 +195,27 @@ export function readSecurityTemplate(projectRoot: string): string | null {
 export function detectSecurityAudit(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
+  /**
+   * The slice whose capsule this run audits. Slice
+   * `2026-09-14-prd-capsule-rid-scoping` put the rid in the capsule's
+   * filename, so a caller that knows it must pass it or the probe resolves
+   * only the pre-rid-scoping bare name. Both callers pass it:
+   * `runSecurityAudit` always did, and `peaks security-audit detect` forwards
+   * its long-standing `--rid` flag as of the post-verification repair round.
+   */
+  readonly requestId?: string;
   readonly dispatchError?: unknown;
   readonly envelope?: unknown;
 }): SecurityAuditDetectResult {
   const warnings: string[] = [];
   const nextActions: string[] = [];
 
-  const handoffPath = join(
-    input.projectRoot,
-    '.peaks',
-    '_runtime',
-    input.sessionId,
-    'prd',
-    'handoff.md'
-  );
-  const handoffPresent = existsSync(handoffPath);
+  const handoffPath = resolveHandoffPath({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    ...(input.requestId !== undefined ? { requestId: input.requestId } : {})
+  });
+  const handoffPresent = handoffPath !== null;
 
   const templatePath = join(
     input.projectRoot,
@@ -222,7 +230,12 @@ export function detectSecurityAudit(input: {
       state: 'handoff-missing',
       handoffPresent: false,
       templatePresent,
-      warnings: [`peaks-prd handoff not found at ${handoffPath}`],
+      warnings: [
+        `peaks-prd handoff not found under ${join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'prd')}`,
+        ...(input.requestId === undefined
+          ? ['No --rid was supplied, so only the pre-rid-scoping `prd/handoff.md` could be probed. Pass --rid to resolve this slice\'s `prd/handoff-<rid>.md`.']
+          : [])
+      ],
       nextActions: [
         'Run peaks-prd handoff init to produce a sha256-locked handoff before running peaks security-audit.',
         'Until the handoff exists, peaks-security-audit cannot start (gate fail).'
@@ -401,6 +414,7 @@ export function runSecurityAudit(input: {
   const detect = detectSecurityAudit({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId,
+    requestId: input.rid,
     ...(input.dispatchError !== undefined ? { dispatchError: input.dispatchError } : {}),
     ...(input.envelope !== undefined ? { envelope: input.envelope } : {})
   });
@@ -412,15 +426,12 @@ export function runSecurityAudit(input: {
   // detect.state === 'ready' implies input.envelope passed isSecurityAuditEnvelope.
   const env = input.envelope as SecurityAuditEnvelope;
 
-  const handoffPath = join(
-    input.projectRoot,
-    '.peaks',
-    '_runtime',
-    input.sessionId,
-    'prd',
-    'handoff.md'
-  );
-  const verified = readAndVerifyHandoff(handoffPath, input.projectRoot);
+  const handoffPath = resolveHandoffPath({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    requestId: input.rid
+  });
+  const verified = handoffPath === null ? null : readAndVerifyHandoff(handoffPath, input.projectRoot);
   const handoffHash = verified?.frontmatter.sha256 ?? 'unknown';
 
   const rendered = renderSecurityAuditArtifact(env, {

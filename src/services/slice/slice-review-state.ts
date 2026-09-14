@@ -15,6 +15,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export type SliceReviewDecision = 'pending' | 'accepted' | 'rejected';
 
@@ -65,6 +66,13 @@ export function buildEmptySliceReview(sliceId: string, sessionId: string, now: D
 }
 
 export function getReviewDir(projectRoot: string, sessionId: string): string {
+  // Sid axis. Every `peaks slice-review|score|accept|reject` subcommand reaches
+  // the runtime tree through this one constructor. Measured: `--session-id
+  // ../../../../…/PWNED` wrote `slice-reviews/<slice-id>.json` outside every
+  // project root under an `ok: true` envelope (RD sweep case A26).
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   return resolve(projectRoot, '.peaks', '_runtime', sessionId, 'slice-reviews');
 }
 

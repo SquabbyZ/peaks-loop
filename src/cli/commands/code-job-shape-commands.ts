@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 import {
   readJobShapeDecision,
@@ -103,6 +104,17 @@ export function registerCodeJobShapeCommands(code: Command, io: ProgramIO): void
           printResult(
             io,
             fail('code.detect-job', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`', null, ['Re-run with --session-id <sid>']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        // Sid axis. `--session-id` reaches both the `last-prompt.txt` read and
+        // `writeJobShapeDecision`, so one guard at resolution covers the file.
+        if (isUnsafePathInput(sessionId)) {
+          printResult(
+            io,
+            fail('code.detect-job', 'INVALID_SESSION_ID', `Invalid session id: ${sessionId} (must be a single path segment)`, { provided: sessionId }, ['Pass a session id that is a single path segment']),
             opts.json
           );
           process.exitCode = 1;

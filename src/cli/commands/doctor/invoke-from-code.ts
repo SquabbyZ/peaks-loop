@@ -7,8 +7,14 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isUnsafePathInput } from '../../../shared/path-safety.js';
 
 export async function doctorInvokeFromCode(opts: { sid: string; json: boolean }) {
+  // Sid axis: `opts.sid` is the sole path segment between the runtime root and
+  // the write below, and nothing upstream validated it.
+  if (isUnsafePathInput(opts.sid)) {
+    throw new Error(`Invalid session id: ${opts.sid} (must be a single path segment)`);
+  }
   const dir = join('.peaks', '_runtime', opts.sid, 'doctor');
   mkdirSync(dir, { recursive: true });
   const proposalPath = join(dir, 'proposal.md');

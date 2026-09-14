@@ -452,6 +452,15 @@ interface EvidenceSource {
   readonly label: string;
   /** Path segments under `.peaks/_runtime/<sessionId>/`. */
   readonly segments: readonly string[];
+  /**
+   * An older location of the SAME artifact, tried only when `segments` is not
+   * on disk. Slice `2026-09-14-prd-capsule-rid-scoping` moved the PRD handoff
+   * capsule to `prd/handoff-<rid>.md`; sessions written before it hold only
+   * the bare `prd/handoff.md`, and this module's delivery gate keys on that
+   * source — so a source that goes missing does not fail the gate, it stops
+   * it (`enforceScopeContractDelivery` returns early on `missing`).
+   */
+  readonly legacySegments?: readonly string[];
   /** Dimensions this source can supply evidence for. */
   readonly supports: readonly DimensionKind[];
   /** What DELIVERED means for this source. See `isDelivered()` — every source
@@ -584,7 +593,10 @@ function evidenceSourcesFor(
     {
       key: SCOPE_CONTRACT_SOURCE_KEY,
       label: 'PRD handoff (approved scope + non-goals)',
-      segments: ['prd', 'handoff.md'],
+      // One capsule per slice since `2026-09-14-prd-capsule-rid-scoping`; the
+      // bare name is the pre-scoping tier and still lives on 3 sessions.
+      segments: ['prd', `handoff-${rid}.md`],
+      legacySegments: ['prd', 'handoff.md'],
       supports: ['functional-completeness', 'existing-functionality-intact'],
       delivery: { kind: 'whole' }
     }
@@ -684,21 +696,39 @@ function readEvidence(
   const runtimeRoot = join(projectRoot, '.peaks', '_runtime', sessionId);
 
   return evidenceSourcesFor(rid, prePostDiffAvailable).map(source => {
-    const relativePath = ['.peaks', '_runtime', sessionId, ...source.segments].join('/');
-    const absolutePath = join(runtimeRoot, ...source.segments);
+    // The canonical location first; an older one is tried only when the
+    // canonical file is genuinely ABSENT (see `legacySegments`). A file that
+    // is present but unreadable stops the walk — falling through to an older
+    // copy would silently swap the evidence this run reports.
+    const attempts: ReadonlyArray<readonly string[]> = [
+      source.segments,
+      ...(source.legacySegments !== undefined ? [source.legacySegments] : [])
+    ];
+    // The path reported when nothing resolved stays the CANONICAL one, so the
+    // operator is sent to where the artifact belongs, not to its old home.
+    let resolved = source.segments;
     let raw: Buffer | null = null;
     let error = '';
-    let read: 'ok' | 'missing' | 'unreadable' = 'ok';
-    try {
-      raw = readFileSync(absolutePath);
-    } catch (err) {
-      read = classifyReadFailure(err);
-      error = err instanceof Error ? err.message : String(err);
+    let read: 'ok' | 'missing' | 'unreadable' = 'missing';
+    for (const segments of attempts) {
+      try {
+        raw = readFileSync(join(runtimeRoot, ...segments));
+        read = 'ok';
+        resolved = segments;
+        break;
+      } catch (err) {
+        read = classifyReadFailure(err);
+        error = err instanceof Error ? err.message : String(err);
+        // A file that exists but cannot be read IS this source's file, so it
+        // is also the path the report must name — walking on to an older copy
+        // would silently swap the evidence this run reports.
+        if (read === 'unreadable') { resolved = segments; break; }
+      }
     }
     return {
       source,
-      relativePath,
-      absolutePath,
+      relativePath: ['.peaks', '_runtime', sessionId, ...resolved].join('/'),
+      absolutePath: join(runtimeRoot, ...resolved),
       raw,
       read,
       error,

@@ -313,7 +313,10 @@ describe('prepareFinalReview — on-disk evidence (D1)', () => {
     expect(prompt).toContain('no evidence available from');
     expect(prompt).toContain('qa/test-reports');
     expect(prompt).toContain('rd/tech-doc.md');
-    expect(prompt).toContain('prd/handoff.md');
+    // The capsule is rid-scoped since `2026-09-14-prd-capsule-rid-scoping`;
+    // `prd/handoff.md` is now only the legacy tier, so with nothing on disk
+    // the path the prompt must name is the slice's own.
+    expect(prompt).toContain(`prd/handoff-${RID}.md`);
 
     // (b) The model answered 4/4 pass + allPass:true. The service must not relay
     //     that: with nothing on disk, no dimension can be a pass.
@@ -1472,7 +1475,11 @@ function writeRealSizedEvidence(root: string): void {
   writeUnderProject(root, ['rd', 'security-review.md'], sized('RD-SEC-REVIEW', 11422));
   writeUnderProject(root, ['rd', 'tech-doc.md'], sized('RD-TECH-DOC', 13462));
   writeUnderProject(root, ['rd', 'bug-analysis.md'], sized('RD-BUG-ANALYSIS', 13050));
-  writeUnderProject(root, ['prd', 'handoff.md'], sized('PRD-HANDOFF', 8164));
+  // The capsule carries the rid (slice `2026-09-14-prd-capsule-rid-scoping`).
+  // `writeAllEvidence` above keeps the BARE name on purpose, so both tiers of
+  // this source stay exercised: that fixture proves the pre-scoping layout
+  // still resolves, this one proves the slice's own capsule is preferred.
+  writeUnderProject(root, ['prd', `handoff-${RID}.md`], sized('PRD-HANDOFF', 8164));
 }
 
 describe('prepareFinalReview — the floor protects the source the GATE needs (F1)', () => {
@@ -1887,7 +1894,10 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     const root = makeGitProject();
     writeAuditGoal(root, ['AC1: the widget renders']);
     writeRealSizedEvidence(root);
-    const contractPath = join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md');
+    // The capsule `writeRealSizedEvidence` laid down is the slice's OWN, so
+    // the perturbation has to land there — the bare name is the legacy tier
+    // and an older copy is never consulted while a newer one resolves.
+    const contractPath = join(root, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`);
     rmSync(contractPath);
     mkdirSync(contractPath, { recursive: true });
 
@@ -1921,7 +1931,7 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     writeAuditGoal(emptyRoot, ['AC1']);
     writeRealSizedEvidence(emptyRoot);
     writeFileSync(
-      join(emptyRoot, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'),
+      join(emptyRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`),
       '',
       'utf8'
     );
@@ -1943,7 +1953,7 @@ describe('prepareFinalReview — missing, empty and unreadable are three facts (
     const absentRoot = makeGitProject();
     writeAuditGoal(absentRoot, ['AC1']);
     writeRealSizedEvidence(absentRoot);
-    rmSync(join(absentRoot, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'));
+    rmSync(join(absentRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`));
 
     const absent = captureRunner(
       reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })

@@ -35,6 +35,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlink
 import type { Command } from 'commander';
 import { join, dirname, resolve } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import { runBrowserAction } from '../../services/qa/browser-wrapper-service.js';
 
@@ -59,6 +60,17 @@ export function playwrightSessionsDir(projectRoot: string): string {
 }
 
 export function sessionFilePath(projectRoot: string, terminalId: string): string {
+  // Terminal-id axis. The derived id is already sanitised (`deriveTerminalId`),
+  // but `--terminal` is caller-supplied and reaches this join unsanitised.
+  // Measured (repair cycle 1, item 1): `playwright stop --terminal ../../../../X`
+  // read a session record planted OUTSIDE the project root, sent SIGTERM to the
+  // pid it named, unlinked that file, and returned `ok: true` — arbitrary
+  // process termination plus an arbitrary file delete, one flag away. This is
+  // the join every reader/writer of a session record goes through, so this is
+  // where the invariant lives.
+  if (isUnsafePathInput(terminalId)) {
+    throw new Error(`Invalid terminal id: ${terminalId} (must be a single path segment)`);
+  }
   return join(playwrightSessionsDir(projectRoot), `${terminalId}.json`);
 }
 

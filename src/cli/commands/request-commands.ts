@@ -36,6 +36,7 @@ import {
   type CodegraphAutorefreshResult,
 } from '../../services/codegraph/codegraph-autorefresh.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 type RequestInitOptions = {
   role: string;
@@ -316,6 +317,17 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // non-existent .peaks/default/ dir and crashes with ENOENT, so when
       // --session-id is omitted we look the artifact up to find its session.
       let resolvedSessionId = options.sessionId;
+      // Sid axis: either arm of `resolvedSessionId` can be a caller-supplied
+      // `--session-id`, and it is joined into the bypass-counter root below.
+      if (resolvedSessionId !== undefined && isUnsafePathInput(resolvedSessionId)) {
+        printResult(
+          io,
+          fail('request.transition', 'INVALID_SESSION_ID', `Invalid session id: ${resolvedSessionId} (must be a single path segment)`, { provided: resolvedSessionId }, ['Pass a session id that is a single path segment']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       if (resolvedSessionId === undefined) {
         const { showRequestArtifact: showForSession } = await import('../../services/artifacts/request-artifact-service.js');
         const located = await showForSession({ projectRoot: options.project, role, requestId });

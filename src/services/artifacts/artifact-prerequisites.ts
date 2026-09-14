@@ -219,10 +219,11 @@ const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
 };
 
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
-// immutable handoff capsule at `prd/handoff.md`) exists before any
+// immutable, per-slice handoff capsule at `prd/handoff-<rid>.md`
+// since slice `2026-09-14-prd-capsule-rid-scoping`) exists before any
 // audit skill is allowed to consume it. The peaks-security-audit
-// and peaks-perf-audit CLI commands read frontmatter from
-// `prd/handoff.md` (AC-2.4 / AC-3.4); if the handoff is missing the
+// and peaks-perf-audit CLI commands read frontmatter from the
+// capsule (AC-2.4 / AC-3.4); if the handoff is missing the
 // audit skill aborts — and so should the prereq gate when those
 // audits are required at rd:qa-handoff.
 //
@@ -231,9 +232,22 @@ const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
 // the old form (no PRD handoff chain — config slices may run before
 // PRD handoff exists for small CONFIG-only commits).
 const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
-  relativePath: 'prd/handoff.md',
+  relativePath: 'prd/handoff-<rid>.md',
+  // Slice `2026-09-14-prd-capsule-rid-scoping`: the rid is part of the
+  // filename, like the four audit/review artifacts above. A single slot per
+  // SESSION cannot hold two slices' capsules — `peaks prd handoff init`
+  // overwrote it on every call, and this gate stayed green because it pinned
+  // only `schemaVersion: 2` + `sha256:`, never WHOSE rid the file named.
+  // Measured on `2026-09-13-session-21878f`: a four-slice job passed this
+  // prerequisite on a capsule written for a different line of work.
+  // The bare path stays accepted (see `legacyRelativePath`) so the three
+  // sessions on disk that hold only `prd/handoff.md` keep passing. That tier
+  // is rid-blind by design — the scoping binds for capsules written from now
+  // on, and every producer (`handoff-service.initHandoff`,
+  // `handoff-auto-regen`, `evidence generate`) writes the rid-scoped name.
+  legacyRelativePath: 'prd/handoff.md',
   description:
-    'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. Must exist before audit prereqs are evaluated at rd:qa-handoff.',
+    'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. Must exist before audit prereqs are evaluated at rd:qa-handoff. The rid is part of the filename so two slices in one session do not collide; the bare pre-rid-scoping location is accepted as the legacy tier.',
   // Empty `mustContain` is fine — file existence is the contract.
   // The peaks-prd handoff service writes frontmatter with
   // `schemaVersion: 2` and a sha256 fingerprint; we pin a

@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { printResult, type ProgramIO } from '../cli-helpers.js';
 
 /** Re-exported shape — kept here so the CLI owns the on-disk contract. */
@@ -41,6 +42,16 @@ function registrationsPath(input: {
   readonly sessionId: string;
   readonly dispatchId: string;
 }): string {
+  // Both id axes reach this join. `dispatchId` is `--dispatch-id` (falling back
+  // to PEAKS_DISPATCH_ID), and `sessionId` is the session binding; neither was
+  // checked, and `register` writes through this path. Guarding the whole join
+  // rather than only the flag keeps the function's contract single-stated.
+  if (isUnsafePathInput(input.dispatchId)) {
+    throw new Error(`Invalid dispatch id: ${input.dispatchId} (must be a single path segment)`);
+  }
+  if (isUnsafePathInput(input.sessionId)) {
+    throw new Error(`Invalid session id: ${input.sessionId} (must be a single path segment)`);
+  }
   return join(
     input.projectRoot,
     '.peaks',

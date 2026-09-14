@@ -122,7 +122,7 @@ Then display: `Peaks-Loop Skill: peaks-prd | Peaks-Loop Gate: startup | Next: <o
 
 ## Mandatory per-request artifact
 
-Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state. After user confirmation, the **immutable handoff** is written separately at `.peaks/_runtime/<sid>/prd/handoff.md` (Step 5.5 below) — sha256-locked, schemaVersion: 2 — and is the source of truth for RD, QA, and the 4 audit sub-agents (code-reviewer / security-reviewer / karpathy-reviewer / qa-test-cases-writer).
+Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state. After user confirmation, the **immutable handoff** is written separately at `.peaks/_runtime/<sid>/prd/handoff-<rid>.md` (Step 5.5 below) — sha256-locked, schemaVersion: 2 — and is the source of truth for RD, QA, and the 4 audit sub-agents (code-reviewer / security-reviewer / karpathy-reviewer / qa-test-cases-writer).
 
 Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the user assigned) so PRD/UI/RD/QA/SC can cross-link the same request.
 
@@ -198,15 +198,17 @@ peaks request show <request-id> --role prd --project <repo> --json
 
 # 5.5 — write the immutable handoff (sha256-locked; BLOCKING before RD/QA handoff)
 # Reads the PRD request artifact body, computes sha256, writes a v2.11.0 handoff
-# at .peaks/_runtime/<sid>/prd/handoff.md that downstream RD + QA + 4 audit
-# sub-agents consume as the authoritative source of truth. Dry-run by default
-# (omit --apply) so the operator can review before commit.
+# at .peaks/_runtime/<sid>/prd/handoff-<rid>.md that downstream RD + QA + 4 audit
+# sub-agents consume as the authoritative source of truth. The rid is part of
+# the filename: one capsule per SLICE, so a second slice in the same session
+# cannot overwrite the first's. Dry-run by default (omit --apply) so the
+# operator can review before commit.
 peaks prd handoff init \
   --rid <request-id> --sid <session-id> --change-id <change-id> \
   --body "@.peaks/_runtime/<session-id>/prd/requests/<request-id>.md" \
   --goals <G-ids> --ac <AC-ids> --preserve <P-ids> \
   [--project <repo>] [--apply]
-peaks prd handoff verify --path .peaks/_runtime/<session-id>/prd/handoff.md
+peaks prd handoff verify --path .peaks/_runtime/<session-id>/prd/handoff-<request-id>.md
 
 peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
 ```

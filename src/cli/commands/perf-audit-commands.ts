@@ -96,6 +96,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
   ).action((options: DetectOptions) => {
     const projectRoot = options.project ?? process.cwd();
     const sid = options.sid;
+    const rid = options.rid;
     if (sid === undefined || sid.length === 0) {
       printResult(
         io,
@@ -115,6 +116,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
       const detect = detectPerfAudit({
         projectRoot,
         sessionId: sid,
+        ...(rid !== undefined ? { requestId: rid } : {}),
       });
       const envelope = detect.state === 'ready'
         ? ok('perf-audit.detect', detect, [...detect.warnings], [...detect.nextActions])

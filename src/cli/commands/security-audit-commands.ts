@@ -97,6 +97,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
   ).action((options: DetectOptions) => {
     const projectRoot = options.project ?? process.cwd();
     const sid = options.sid;
+    const rid = options.rid;
     if (sid === undefined || sid.length === 0) {
       printResult(
         io,
@@ -116,6 +117,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
       const detect = detectSecurityAudit({
         projectRoot,
         sessionId: sid,
+        ...(rid !== undefined ? { requestId: rid } : {}),
       });
       const envelope = detect.state === 'ready'
         ? ok('security-audit.detect', detect, [...detect.warnings], [...detect.nextActions])

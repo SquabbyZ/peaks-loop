@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { read24hState } from '../../services/24h-mode/index.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
@@ -27,6 +28,11 @@ function parseSince(raw: string | undefined): ParseResult {
 }
 
 function readSlices(projectRoot: string, sessionId: string): number {
+  // Sid axis: `--session-id` reaches this join unmodified, and a traversal
+  // value resolved `metrics/slices.jsonl` outside every project root.
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'metrics', 'slices.jsonl');
   if (!existsSync(path)) return 0;
   try {

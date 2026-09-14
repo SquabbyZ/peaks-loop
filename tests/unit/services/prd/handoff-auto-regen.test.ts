@@ -70,8 +70,10 @@ function seedRequestArtifact(projectRoot: string): void {
   writeFileSync(join(dir, `${REQUEST_ID}.md`), BODY, 'utf8');
 }
 
+// The capsule carries the rid (slice `2026-09-14-prd-capsule-rid-scoping`):
+// one slot per session let the second slice's handoff overwrite the first's.
 function handoffPathOf(projectRoot: string): string {
-  return join(projectRoot, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md');
+  return join(projectRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${REQUEST_ID}.md`);
 }
 
 /** The `---`-delimited frontmatter, verbatim, without the delimiters. */
@@ -327,9 +329,14 @@ describe('autoRegenPrdHandoff — the output passes the repo’s own handoff ver
       role: 'prd',
     });
 
+    // Found by its legacy tier (see the same lookup in
+    // `handoff-writer-gate-convergence.test.ts`): the primary location is
+    // rid-scoped since `2026-09-14-prd-capsule-rid-scoping`, and the bare
+    // `prd/handoff.md` is what the pre-scoping sessions still hold.
     const prereq = getPrerequisitesFor('rd', 'qa-handoff', 'bugfix').find(
-      (candidate) => candidate.relativePath === 'prd/handoff.md'
+      (candidate) => candidate.legacyRelativePath === 'prd/handoff.md'
     );
+    expect(prereq?.relativePath).toBe('prd/handoff-<rid>.md');
     expect(prereq?.mustContain).toBeDefined();
 
     const handoff = readFileSync(handoffPathOf(projectRoot), 'utf8');

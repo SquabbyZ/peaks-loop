@@ -4,7 +4,7 @@ Every RD handoff artifact carries a **YAML frontmatter block** so peaks-qa (and 
 
 ## Path
 
-`.peaks/_runtime/<sessionId>/prd/handoff.md` — the canonical immutable PRD handoff path (v2.11.0+). The handoff is written by peaks-prd, sha256-hashed in frontmatter, and verified by every downstream sub-agent against the dispatched hash before reading.
+`.peaks/_runtime/<sessionId>/prd/handoff-<rid>.md` — the canonical immutable PRD handoff path (v2.11.0+; one capsule per slice since `2026-09-14-prd-capsule-rid-scoping`). The pre-scoping `.peaks/_runtime/<sessionId>/prd/handoff.md` is still readable as the legacy tier. The handoff is written by peaks-prd, sha256-hashed in frontmatter, and verified by every downstream sub-agent against the dispatched hash before reading.
 
 > **v2.11.0 change (Group A):** the per-session `rd/tech-doc.md` is removed; the immutable peaks-prd handoff replaces it as the slice's source-of-truth architecture document.
 
@@ -19,7 +19,7 @@ scope:
 files:
   - src/services/slice/schema-router.ts
   - src/services/audit/audit-goal-service.ts
-handoffPath: .peaks/_runtime/<sessionId>/prd/handoff.md
+handoffPath: .peaks/_runtime/<sessionId>/prd/handoff-<rid>.md
 handoffHash: sha256:<64 hex chars>
 decisions:
   - id: D1
@@ -34,7 +34,7 @@ nextActions:
   - "If Gate C passes, transition to txt handoff"
 gateEvidence:
   projectScan: .peaks/project-scan/project-scan.md
-  prdHandoff: .peaks/_runtime/<sessionId>/prd/handoff.md
+  prdHandoff: .peaks/_runtime/<sessionId>/prd/handoff-<rid>.md
   codeReview: .peaks/_runtime/<sessionId>/rd/code-review-<rid>.md
   securityReview: .peaks/_runtime/<sessionId>/audit/security-<rid>.md
   perfBaseline: .peaks/_runtime/<sessionId>/audit/perf-<rid>.md

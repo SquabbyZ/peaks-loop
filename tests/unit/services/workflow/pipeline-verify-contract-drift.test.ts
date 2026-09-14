@@ -98,7 +98,7 @@ const QA_EVIDENCE: ReadonlyArray<[string, string]> = [
  *  `rd/security-review.md`, `qa/security-findings-<rid>.md` and
  *  `qa/performance-findings-<rid>.md` — none of those is required. */
 const CURRENT_CONTRACT_EVIDENCE: ReadonlyArray<[string, string]> = [
-  ['prd/handoff.md', PRD_HANDOFF_BODY],
+  [`prd/handoff-${RID}.md`, PRD_HANDOFF_BODY],
   ['rd/code-review.md', '# Code review\n\n## Findings\n\nCRITICAL: none\n'],
   ['audit/security.md', '# Security audit\n\n## Verdict\n\nPASS\n'],
   ['audit/perf.md', '# Perf audit\n\n## Baseline\n\nn/a\n'],
@@ -192,8 +192,14 @@ describe('Scenario: behavior — the checker reads the contract, not a frozen co
     expect(contractEvidencePaths('rd', 'qa-handoff', 'refactor', 'rd/tech-doc.md')).toBeNull();
     // The record the contract names instead is `prd/handoff.md`, and the
     // request types that carry it are exactly the ones the table gives it to.
-    expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'prd/handoff.md')).toEqual(['prd/handoff.md']);
-    expect(contractEvidencePaths('rd', 'qa-handoff', 'bugfix', 'prd/handoff.md')).toEqual(['prd/handoff.md']);
+    expect(contractEvidencePaths('rd', 'qa-handoff', 'feature', 'prd/handoff.md')).toEqual([
+      'prd/handoff-<rid>.md',
+      'prd/handoff.md',
+    ]);
+    expect(contractEvidencePaths('rd', 'qa-handoff', 'bugfix', 'prd/handoff.md')).toEqual([
+      'prd/handoff-<rid>.md',
+      'prd/handoff.md',
+    ]);
     expect(contractEvidencePaths('rd', 'qa-handoff', 'docs', 'prd/handoff.md')).toBeNull();
     expect(contractEvidencePaths('rd', 'qa-handoff', 'config', 'prd/handoff.md')).toBeNull();
   });
@@ -299,10 +305,13 @@ describe('Scenario: integration — the checker and `request transition` agree (
 
   it('when the PRD handoff is absent, should agree with `request transition` that it fails (R1)', async () => {
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'));
+    rmSync(join(ws().path, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`));
 
     // The laxer half of the same asymmetry: the table requires the handoff at
-    // `rd:qa-handoff`, so the checker may not ignore it.
+    // `rd:qa-handoff`, so the checker may not ignore it. Both contract paths
+    // for this source are gone — the rid-scoped one and the legacy bare name —
+    // so the reported path is the slice's own, which is where the capsule
+    // belongs since `2026-09-14-prd-capsule-rid-scoping`.
     const prereqs = await checkPrerequisites({
       projectRoot: ws().path,
       sessionId: SESSION_ID,
@@ -311,12 +320,12 @@ describe('Scenario: integration — the checker and `request transition` agree (
       requestId: RID,
       requestType: 'feature',
     });
-    expect(prereqs.missing.map((m) => m.path)).toContain('prd/handoff.md');
+    expect(prereqs.missing.map((m) => m.path)).toContain(`prd/handoff-${RID}.md`);
     expect(prereqs.ok).toBe(false);
 
     const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });
     expect(result.rdPhase.gates.find((g) => g.name === 'prd-handoff')?.passed).toBe(false);
-    expect(result.violations).toContain('RD evidence missing: PRD handoff capsule (approved scope + non-goals) (prd/handoff.md)');
+    expect(result.violations).toContain(`RD evidence missing: PRD handoff capsule (approved scope + non-goals) (prd/handoff-${RID}.md)`);
     expect(result.complete).toBe(false);
   });
 
@@ -329,7 +338,10 @@ describe('Scenario: integration — the checker and `request transition` agree (
     // contract is still a guard that reads a PATH instead of the CONTRACT, so
     // the checker now applies the table's own body markers.
     await seedSlice(ws(), CURRENT_CONTRACT_EVIDENCE);
-    write(ws().path, 'prd/handoff.md', '# PRD handoff\n\nschemaVersion: 1\nhandoffHash: "aa"\n');
+    // Overwrite the slice's OWN capsule (the rid-scoped one). Writing the bad
+    // body at the bare legacy name instead would not reach the gate: the
+    // rid-scoped file resolves first and it is the good one.
+    write(ws().path, `prd/handoff-${RID}.md`, '# PRD handoff\n\nschemaVersion: 1\nhandoffHash: "aa"\n');
 
     const prereqs = await checkPrerequisites({
       projectRoot: ws().path,
@@ -339,7 +351,7 @@ describe('Scenario: integration — the checker and `request transition` agree (
       requestId: RID,
       requestType: 'feature',
     });
-    expect(prereqs.missing.map((m) => m.path)).toContain('prd/handoff.md');
+    expect(prereqs.missing.map((m) => m.path)).toContain(`prd/handoff-${RID}.md`);
     expect(prereqs.ok).toBe(false);
 
     const result = await verifyPipeline({ projectRoot: ws().path, rid: RID, sessionId: SESSION_ID });

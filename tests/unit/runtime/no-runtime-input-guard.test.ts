@@ -100,12 +100,14 @@
 //      hand-build a shape the product never produces and be green.
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import * as ts from 'typescript';
 
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..');
 const TESTS_ROOT = join(PROJECT_ROOT, 'tests');
+/** Rule D's primary reach — the layer where a commander flag becomes an id. */
+const SRC_COMMANDS_ROOT = join(PROJECT_ROOT, 'src', 'cli', 'commands');
 
 /** POSIX-normalised path relative to the project root. */
 function relativeToRoot(absolutePath: string): string {
@@ -303,6 +305,240 @@ export function findRepoRootedArtifactReads(sourceFile: ts.SourceFile): RepoRoot
   return found;
 }
 
+// ===========================================================================
+// RULE D — an id joined into the runtime tree must carry a guard.
+//
+// Added 2026-09-14 (slice `2026-09-14-cli-id-escape-instrumentation`, AC2).
+//
+// The property, in one sentence:
+//
+//   A `join()` / `resolve()` that places an EXPRESSION in the segment slot
+//   immediately after the `'_runtime'` literal must have that expression
+//   guarded by `isUnsafePathInput` (or a peer control) somewhere in the file.
+//
+// Why the segment slot and not the flag: the measured class is not "a command
+// forgot to check its `--session-id`". It is that each join site RE-DERIVES
+// whether to apply the control, so a command's guardedness is uncorrelated
+// with whether its id reaches a path. `evidence-generator.ts` and
+// `verdict-aggregate-command.ts` guard their sid; their neighbours three files
+// over do not. The join is the invariant's home.
+//
+// Why the guards are a CLOSED set: `isUnsafePathInput` is the canonical control
+// (`src/shared/path-safety.ts`), but two peers exist and are equally sound —
+// `validateSessionId` (a throwing validator whose `SESSION_ID_PATTERN` admits
+// no separator, no dot and no drive letter) and `assertSafePathSegment`.
+// Recognising them is not a widening: a rule that did not would flag
+// `final-review-commands.ts`, which IS guarded, and the remedy for a false
+// positive is an allowlist — which is how this kind of guard dies.
+//
+// REACH, stated because a guard whose reach is unstated reads as total:
+//   scanned  `src/cli/commands/**/*.ts` (the layer where a flag becomes an id)
+//            + `MEASURED_ESCAPE_MODULES`
+//   NOT      the ~75 service-layer joins whose id comes from the canonical
+//            binding / `PEAKS_SESSION_ID` / `session.json` (the job's §4.2 —
+//            a different trust class, deferred not cleared); NOT the segments
+//            after the id slot (limit (k)); and NOT a join whose id slot is a
+//            PINNED LITERAL (limit (l)).
+//
+// Limit (l), stated as the rule's own blind spot because it was read as a
+// clearance once: the rule asserts on the slot IMMEDIATELY after `'_runtime'`,
+// and ONLY when that slot is not a pinned literal. `join(root,'.peaks','_runtime',
+// SESSIONS_DIR, sid)` therefore produces NO finding — not "unguarded", but
+// invisible, numerator and denominator alike. Measured 2026-09-14: 7 such joins
+// in `src/` (1 in this rule's reach):
+//
+//   src/cli/commands/playwright-commands.ts:282   later=[terminalId]        IN REACH
+//   src/services/prd/prd-blocks-checker.ts:62,63  later=[requestId]         not scanned
+//   src/services/session/caller-binding-service.ts:38  later=[callerId]     not scanned
+//   src/services/workflow/artifact-paths.ts:63    later=[sessionId]         not scanned
+//   src/services/workflow/pipeline-verify-gate-support.ts:261,333  later=[rdEvidenceDir]  not scanned
+//   (line numbers measured by the census on 2026-09-14, after this cycle's
+//    `sessionFilePath` guard was added.)
+//
+// The in-reach one is not free of consequence: on 2026-09-14 a LIVE escape
+// (`playwright stop --terminal ../../../../X` → SIGTERM + unlink outside the
+// project root under `ok: true`) lived one call away from that site, and this
+// rule could not have named it. Fixed at the join; `findLiteralFirstIdJoins`
+// below makes the shape countable so a new one fails a test instead of relying
+// on being noticed. Widening the rule into the "not scanned" rows is a separate
+// decision: `caller-binding-service.ts` is guarded by `CALLER_ID_REGEX`, which
+// is not in the recognised set, so widening without an allowlist trades a
+// blind spot for a false positive.
+// ===========================================================================
+
+/** A module-level `const X = 'literal'` — a pinned name, not an id. */
+function moduleStringConstants(sourceFile: ts.SourceFile): ReadonlySet<string> {
+  const names = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer !== undefined) {
+      const init = node.initializer;
+      if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init)) names.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return names;
+}
+
+/** Identifier names handed to a recognised control anywhere in the file. */
+function guardedNames(sourceFile: ts.SourceFile): ReadonlySet<string> {
+  const names = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const callee = collapse(node.expression.getText(sourceFile));
+      const recognised = ID_GUARD_NAMES.some((guard) => callee === guard || callee.endsWith(`.${guard}`));
+      // `REQUEST_ID_PATTERN.test(rid)` is the rid axis's control and is spelled
+      // as a predicate call rather than as a guard function.
+      const ridAxis = callee.includes('REQUEST_ID_PATTERN');
+      if (recognised || ridAxis) {
+        for (const argument of node.arguments) {
+          const collect = (n: ts.Node): void => {
+            if (ts.isIdentifier(n)) names.add(n.text);
+            ts.forEachChild(n, collect);
+          };
+          collect(argument);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return names;
+}
+
+const ID_GUARD_NAMES: readonly string[] = ['isUnsafePathInput', 'validateSessionId', 'assertSafePathSegment'];
+
+const isJoinCall = (callee: string): boolean => /(^|\.)(join|resolve)$/.test(callee);
+
+export interface UnguardedIdJoin {
+  readonly file: string;
+  readonly line: number;
+  readonly segment: string;
+}
+
+export function findUnguardedRuntimeIdJoins(sourceFile: ts.SourceFile): UnguardedIdJoin[] {
+  const constants = moduleStringConstants(sourceFile);
+  const guarded = guardedNames(sourceFile);
+  const found: UnguardedIdJoin[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && isJoinCall(collapse(node.expression.getText(sourceFile)))) {
+      const args = node.arguments;
+      const runtimeAt = args.findIndex((a) => ts.isStringLiteral(a) && a.text === '_runtime');
+      const segment = runtimeAt >= 0 ? args[runtimeAt + 1] : undefined;
+      if (segment !== undefined) {
+        const pinnedName =
+          ts.isStringLiteral(segment) ||
+          ts.isNoSubstitutionTemplateLiteral(segment) ||
+          (ts.isIdentifier(segment) && constants.has(segment.text));
+        if (!pinnedName) {
+          const tails = new Set<string>();
+          const collect = (n: ts.Node): void => {
+            if (ts.isIdentifier(n)) tails.add(n.text);
+            ts.forEachChild(n, collect);
+          };
+          collect(segment);
+          const isGuarded = [...tails].some((name) => guarded.has(name));
+          if (!isGuarded) {
+            found.push({
+              file: sourceFile.fileName,
+              line: lineOf(sourceFile, node),
+              segment: collapse(segment.getText(sourceFile))
+            });
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return found;
+}
+
+/**
+ * LIMIT (l) — the census of joins rule D cannot see, made countable.
+ *
+ * When the slot immediately after `'_runtime'` is a pinned literal, rule D
+ * returns nothing for the whole join: the site is invisible to the id-slot
+ * numerator AND to the `idJoinSites` denominator, so the rule reads as having
+ * looked and found nothing. That is not the same as "safe", and on 2026-09-14 a
+ * LIVE ESCAPE sat behind exactly this shape (`playwright-commands.ts`: the
+ * `'_runtime'` literal is inside `playwrightSessionsDir()`, whose slot is the
+ * pinned `PLAYWRIGHT_SESSIONS_DIR`; the caller-supplied terminal id is joined in
+ * a SECOND call, `sessionFilePath()`, which contains no `_runtime` literal at
+ * all). Fixed at that join in repair cycle 1; this function is why it cannot
+ * happen silently again.
+ *
+ * It reports every join inside rule D's reach whose id slot is pinned while a
+ * LATER argument carries something that is not a pinned literal of this file —
+ * i.e. every shape rule D is blind to. Guarded or not, the fact reported is the
+ * blindness, so the caller cannot mistake the rule's silence for a clearance.
+ *
+ * Measured 2026-09-14: 1 such join in rule D's reach (`playwright-commands.ts`
+ * `join(…, 'playwright-userdata', terminalId)`) and 7 in the whole of `src/`.
+ * The 6 outside this reach are named in the reach note above and are NOT
+ * scanned; a repo-wide census is `probe-src-joins.mjs`'s job, not this file's.
+ */
+export interface LiteralFirstIdJoin {
+  readonly file: string;
+  readonly line: number;
+  /** The pinned literal / module constant written in the slot after `'_runtime'`. */
+  readonly pinned: string;
+  /** Identifier names appearing in the segments AFTER that slot. */
+  readonly later: readonly string[];
+}
+
+const isPinnedName = (node: ts.Node, constants: ReadonlySet<string>): boolean =>
+  ts.isStringLiteral(node) ||
+  ts.isNoSubstitutionTemplateLiteral(node) ||
+  (ts.isIdentifier(node) && constants.has(node.text));
+
+export function findLiteralFirstIdJoins(sourceFile: ts.SourceFile): LiteralFirstIdJoin[] {
+  const constants = moduleStringConstants(sourceFile);
+  const found: LiteralFirstIdJoin[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && isJoinCall(collapse(node.expression.getText(sourceFile)))) {
+      const args = node.arguments;
+      const runtimeAt = args.findIndex((a) => ts.isStringLiteral(a) && a.text === '_runtime');
+      const segment = runtimeAt >= 0 ? args[runtimeAt + 1] : undefined;
+      if (segment !== undefined && isPinnedName(segment, constants)) {
+        const later = args.slice(runtimeAt + 2).filter((a) => !isPinnedName(a, constants));
+        if (later.length > 0) {
+          const names = new Set<string>();
+          for (const argument of later) {
+            const collect = (n: ts.Node): void => {
+              if (ts.isIdentifier(n)) names.add(n.text);
+              ts.forEachChild(n, collect);
+            };
+            collect(argument);
+          }
+          found.push({
+            file: sourceFile.fileName,
+            line: lineOf(sourceFile, node),
+            pinned: collapse(segment.getText(sourceFile)),
+            later: [...names]
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return found;
+}
+
+/**
+ * The second half of rule D's reach. `src/cli/commands/**` is the layer where a
+ * commander flag becomes an id; these service modules are where an id->path
+ * escape was MEASURED this job (`qa-business-review-state.ts`,
+ * `slice-review-state.ts` — RD sweep cases A17/A26) or where the id slot of a
+ * command layer's join lives. A NEW measured escape adds its module here
+ * together with its guard. The set only grows, and a test pins its contents.
+ */
+const MEASURED_ESCAPE_MODULES: readonly string[] = [
+  'src/services/qa/qa-business-review-state.ts',
+  'src/services/slice/slice-review-state.ts'
+];
+
 interface ScanResult {
   readonly scannedFiles: number;
   readonly anchoredPaths: readonly AnchoredRuntimePath[];
@@ -327,7 +563,45 @@ function scanProject(): ScanResult {
   return { scannedFiles: files.length, anchoredPaths, repoRootedReads };
 }
 
+interface SrcScanResult {
+  readonly scannedFiles: readonly string[];
+  readonly unguardedIdJoins: readonly UnguardedIdJoin[];
+  readonly idJoinSites: number;
+  readonly literalFirstJoins: readonly LiteralFirstIdJoin[];
+}
+
+function scanSourceLayer(): SrcScanResult {
+  const files = [
+    ...listTestFiles(SRC_COMMANDS_ROOT),
+    ...MEASURED_ESCAPE_MODULES.map((rel) => join(PROJECT_ROOT, rel))
+  ];
+  const unguardedIdJoins: UnguardedIdJoin[] = [];
+  const literalFirstJoins: LiteralFirstIdJoin[] = [];
+  let idJoinSites = 0;
+  for (const absolutePath of files) {
+    const sourceFile = parseSourceFile(absolutePath, readFileSync(absolutePath, 'utf8'));
+    unguardedIdJoins.push(...findUnguardedRuntimeIdJoins(sourceFile));
+    literalFirstJoins.push(...findLiteralFirstIdJoins(sourceFile));
+    // Every `_runtime` join whose id slot is not a pinned name, guarded or not:
+    // the denominator the hit count is reported against.
+    const countIdSlots = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && isJoinCall(collapse(node.expression.getText(sourceFile)))) {
+        const args = node.arguments;
+        const runtimeAt = args.findIndex((a) => ts.isStringLiteral(a) && a.text === '_runtime');
+        const segment = runtimeAt >= 0 ? args[runtimeAt + 1] : undefined;
+        if (segment !== undefined && !ts.isStringLiteral(segment) && !ts.isNoSubstitutionTemplateLiteral(segment)) {
+          idJoinSites += 1;
+        }
+      }
+      ts.forEachChild(node, countIdSlots);
+    };
+    ts.forEachChild(sourceFile, countIdSlots);
+  }
+  return { scannedFiles: files, unguardedIdJoins, idJoinSites, literalFirstJoins };
+}
+
 const SCAN = scanProject();
+const SRC_SCAN = scanSourceLayer();
 
 const where = (file: string, line: number): string => `${relativeToRoot(file)}:${line}`;
 
@@ -363,6 +637,130 @@ describe('`.peaks/_runtime` is never a test input (slice 2026-09-13)', () => {
       (hit) => `${where(hit.file, hit.line)} \`peaks ${hit.command}\` resolves via ${hit.flag} ${hit.anchor}`
     );
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('rule D — an id joined into the runtime tree carries a guard (slice 2026-09-14)', () => {
+  it('parses a real part of the command layer (anti-silence)', () => {
+    // Rule D's off-switch is silence: if the walk stops finding files, or the
+    // join recogniser stops recognising joins, every assertion below is
+    // vacuously green. Pin both against the live tree and against a fixture
+    // that MUST be counted.
+    expect(SRC_SCAN.scannedFiles.length).toBeGreaterThan(50);
+    expect(SRC_SCAN.idJoinSites).toBeGreaterThan(0);
+    expect(MEASURED_ESCAPE_MODULES.length).toBeGreaterThan(0);
+    for (const rel of MEASURED_ESCAPE_MODULES) {
+      expect(existsSync(join(PROJECT_ROOT, rel))).toBe(true);
+    }
+  });
+
+  it('no unguarded id is joined into the runtime tree', () => {
+    const offenders = SRC_SCAN.unguardedIdJoins.map(
+      (hit) => `${relativeToRoot(hit.file)}:${hit.line} joins ${hit.segment} after '_runtime' with no guard in the file`
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('catches the measured escapes this rule was written for, and spares the guarded forms', () => {
+    const BAD = [
+      `const sid = opts.sessionId ?? 'ad-hoc';`,
+      `const dir = join(projectRoot, '.peaks', '_runtime', sid, 'slice-reviews');`,
+      `mkdirSync(dir, { recursive: true });`
+    ].join('\n');
+    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', BAD)).map((h) => h.line)).toEqual([2]);
+
+    // A guard anywhere in the file is enough — `verdict-aggregate-command.ts`
+    // guards `sid` once at the action entry and three helpers 100 lines below
+    // reuse it. A function-scoped rule would score those three as offenders.
+    const GUARDED = [
+      `function read(projectRoot: string, sid: string) {`,
+      `  return join(projectRoot, '.peaks', '_runtime', sid, 'audit');`,
+      `}`,
+      `function action(opts: any) {`,
+      `  const sid = opts.sid ?? 'default';`,
+      `  if (isUnsafePathInput(sid)) throw new Error('bad');`,
+      `  return read(opts.project, sid);`,
+      `}`
+    ].join('\n');
+    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', GUARDED))).toEqual([]);
+
+    // A PINNED NAME is not an id: `join(root, '.peaks', '_runtime', 'playwright-sessions')`
+    // is a fixed directory, and flagging it would force a guard whose only
+    // effect is to reject a literal the product wrote itself.
+    const PINNED = [
+      `const SESSIONS_DIR = 'playwright-sessions';`,
+      `export const sessionsDir = (root: string) => join(root, '.peaks', '_runtime', SESSIONS_DIR);`,
+      `export const fixed = (root: string) => join(root, '.peaks', '_runtime', 'fixtures');`
+    ].join('\n');
+    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', PINNED))).toEqual([]);
+
+    // `validateSessionId` throws and is a peer of `isUnsafePathInput`; a rule
+    // that did not recognise it would flag a file that IS guarded, and the
+    // remedy for a false positive is an allowlist — which is how this kind of
+    // guard dies.
+    const VALIDATED = [
+      `function run(opts: any) {`,
+      `  const v = validateSessionId(opts.sessionId);`,
+      `  return join(opts.project, '.peaks', '_runtime', v.sessionId, 'audit-goal');`,
+      `}`
+    ].join('\n');
+    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', VALIDATED))).toEqual([]);
+  });
+
+  it('pins rule D\'s reach, so it is not read as covering the service layer', () => {
+    // The ~75 service-layer joins whose id comes from the canonical binding are
+    // the job's §4.2 — a different trust class, deferred not cleared. They are
+    // NOT scanned, and this test is the statement of that bound rather than a
+    // comment someone can miss.
+    expect(SRC_SCAN.scannedFiles.some((f) => relativeToRoot(f) === 'src/services/loop/loop-store.ts')).toBe(false);
+    // …while the modules rule D DOES cover are the command layer plus the
+    // measured-escape set, and nothing else.
+    expect(SRC_SCAN.scannedFiles.every((f) => {
+      const rel = relativeToRoot(f);
+      return rel.startsWith('src/cli/commands/') || MEASURED_ESCAPE_MODULES.includes(rel);
+    })).toBe(true);
+  });
+
+  it('limit (k): segments AFTER the id slot are not asserted', () => {
+    // `join(root, '.peaks', '_runtime', sid, 'dispatch', dispatchId, F)` has two
+    // caller-supplied segments and only the first is asserted. Pinned because
+    // this is the shape the slice fixed BY HAND in
+    // `sub-agent-shutdown-commands.ts` (`--dispatch-id`), and the next reader
+    // should not infer the rule covers it. Widening it needs the rid axis's
+    // `REQUEST_ID_PATTERN` control folded in, which is a separate decision.
+    const fixture =
+      `const p = join(root, '.peaks', '_runtime', sid, 'dispatch', dispatchId, 'x.json');`;
+    expect(findUnguardedRuntimeIdJoins(parseSourceFile('fixture.ts', fixture)).map((h) => h.segment)).toEqual(['sid']);
+  });
+
+  it('limit (l): a pinned literal in the id slot makes the whole join invisible', () => {
+    // The rule reads as having looked and found nothing. That is NOT a clearance
+    // — on 2026-09-14 a live escape (`playwright stop --terminal ../../../../X`)
+    // sat one call away from exactly this shape. Both halves are asserted: the
+    // rule is blind, and the census sees it (so the blindness cannot be silent).
+    const fixture = [
+      `const SESSIONS_DIR = 'playwright-sessions';`,
+      `export const dir = (root: string, sid: string) =>`,
+      `  join(root, '.peaks', '_runtime', SESSIONS_DIR, sid, 'x.json');`
+    ].join('\n');
+    const parsed = parseSourceFile('fixture.ts', fixture);
+    expect(findUnguardedRuntimeIdJoins(parsed)).toEqual([]);
+    expect(findLiteralFirstIdJoins(parsed).map((h) => `${h.line}:${h.pinned}:[${h.later.join(',')}]`)).toEqual([
+      '3:SESSIONS_DIR:[sid]'
+    ]);
+  });
+
+  it('pins the literal-first census inside the rule\'s reach (measurement, not assurance)', () => {
+    // Every join in the scanned layer that rule D cannot see. A NEW one fails
+    // here — that is the point: the shape that hid a live escape must announce
+    // itself, not wait to be noticed. Measured 2026-09-14: 7 in the whole of
+    // `src/`, of which this is the only one in reach (the other 6 are named in
+    // the reach note and are NOT scanned).
+    expect(
+      SRC_SCAN.literalFirstJoins.map((h) => `${relativeToRoot(h.file)}:${h.line} pinned=${h.pinned} later=[${h.later.join(',')}]`)
+    ).toEqual([
+      "src/cli/commands/playwright-commands.ts:282 pinned='playwright-userdata' later=[terminalId]"
+    ]);
   });
 });
 

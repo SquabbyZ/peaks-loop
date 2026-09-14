@@ -31,7 +31,7 @@
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { serializeHandoffFrontmatter } from '../prd/handoff-frontmatter.js';
-import { sha256OfBody } from '../prd/handoff-service.js';
+import { handoffRelativePath, sha256OfBody } from '../prd/handoff-service.js';
 import type { HandoffFrontmatter } from '../prd/handoff-types.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
@@ -280,7 +280,7 @@ function buildQaRequest(rid: string, sid: string, files: string[]): string {
 }
 
 /**
- * Build the `prd/handoff.md` frontmatter + body. The frontmatter comes from the
+ * Build the `prd/handoff-<rid>.md` frontmatter + body. The frontmatter comes from the
  * ONE canonical serializer and `handoffHash === sha256(body)` — the same
  * pairing `handoff-service.initHandoff` and `handoff-auto-regen.ts` use, so
  * this producer cannot drift from them.
@@ -314,7 +314,7 @@ ${lineCountsMd(lineCounts)}
     goals: [],
     acceptanceCriteria: [],
     preservedBehavior: [],
-    handoffPath: `.peaks/_runtime/${sid}/prd/handoff.md`
+    handoffPath: handoffRelativePath(sid, rid)
   };
   return { content: `${serializeHandoffFrontmatter(frontmatter)}${body}`, hash: handoffHash };
 }
@@ -400,7 +400,10 @@ export async function generateEvidence(options: EvidenceGenerateOptions): Promis
     [join(qaDir, `security-findings-${rid}.md`), buildSecurityFindings(rid)],
     [join(qaDir, `performance-findings-${rid}.md`), buildPerformanceFindings(rid)],
     [qaRequestPath, buildQaRequest(rid, sessionId, files)],
-    [join(prdDir, 'handoff.md'), handoff.content]
+    // The handoff capsule carries the rid for the same reason as the four
+    // above (slice `2026-09-14-prd-capsule-rid-scoping`): one slot per
+    // session means the second slice's capsule overwrites the first's.
+    [join(prdDir, `handoff-${rid}.md`), handoff.content]
   ];
 
   const writtenFiles: string[] = [];
@@ -413,7 +416,7 @@ export async function generateEvidence(options: EvidenceGenerateOptions): Promis
     rid,
     sessionId,
     sessionRoot,
-    handoffPath: join(prdDir, 'handoff.md'),
+    handoffPath: join(prdDir, `handoff-${rid}.md`),
     handoffHash: handoff.hash,
     writtenFiles,
     createdDirectories

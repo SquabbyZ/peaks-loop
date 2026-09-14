@@ -11,6 +11,7 @@ import type { Command } from 'commander';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { integrateSlices } from '../../services/slice/slice-integration.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -18,6 +19,10 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { SliceContract } from '../../services/dispatch/contract-store.js';
 
 function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds: readonly string[]): SliceContract[] {
+  // Sid axis: `--session-id` reaches this join unmodified.
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   const dir = resolve(projectRoot, '.peaks', '_runtime', sessionId, 'dispatch', 'contracts');
   if (!existsSync(dir)) return [];
   const result: SliceContract[] = [];

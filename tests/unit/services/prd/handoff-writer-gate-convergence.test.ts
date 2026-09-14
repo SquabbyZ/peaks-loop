@@ -73,7 +73,7 @@ function makeProjectRoot(): string {
 }
 
 function handoffPathOf(root: string): string {
-  return join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md');
+  return join(root, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${REQUEST_ID}.md`);
 }
 
 /** The `---`-delimited frontmatter, verbatim, without the delimiters. */
@@ -85,13 +85,17 @@ function frontmatterOf(handoff: string): string {
   return lines.slice(1, close).join('\n');
 }
 
-/** The markers the REAL rd:qa-handoff gate pins on `prd/handoff.md`. Read
- *  from the registry rather than hardcoded, so this file fails if the gate's
- *  contract moves underneath it. */
+/** The markers the REAL rd:qa-handoff gate pins on the handoff capsule. The
+ *  gate is found by its `prd/handoff.md` LEGACY tier, so this file fails both
+ *  if the marker contract moves and if the back-compat tier is dropped; the
+ *  primary location is then asserted to be the rid-scoped one (slice
+ *  `2026-09-14-prd-capsule-rid-scoping`). Read from the registry rather than
+ *  hardcoded, so the gate's contract cannot move underneath this file. */
 function gateMarkers(): readonly string[] {
   const prereq = getPrerequisitesFor('rd', 'qa-handoff', 'feature').find(
-    (candidate) => candidate.relativePath === 'prd/handoff.md',
+    (candidate) => candidate.legacyRelativePath === 'prd/handoff.md',
   );
+  expect(prereq?.relativePath).toBe('prd/handoff-<rid>.md');
   expect(prereq?.mustContain).toBeDefined();
   const markers = prereq?.mustContain ?? [];
   // Guarded here, once, because BOTH gate cases below assert inside a
@@ -203,7 +207,7 @@ describe('(render) the canonical frontmatter shape', () => {
     // emitted correctly.
     const handoff = await readHandoff(await writeViaInit(root));
     expect(handoff.frontmatter.handoffPath).toBe(
-      join('.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'),
+      join('.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${REQUEST_ID}.md`),
     );
   });
 });

@@ -18,6 +18,7 @@
 import { Command } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { resolveWorkflow, planWorkflow, planWorkflowRun } from '../../services/workflow/workflow-loader.js';
 import { lintWorkflowSpec, type EvaluatorKind, type WorkflowSpec } from '../../services/workflow/workflow-spec.js';
 import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from '../../services/loop/evaluator-dispatcher.js';
@@ -213,6 +214,14 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
       if (options.captureScore === true) {
         if (options.session === undefined || options.session.length === 0) {
           printResult(io, fail('loop.eval', 'CAPTURE_SCORE_NEEDS_SESSION', '--capture-score requires --session <sid>', { rid }, ['Pass --session <sid> alongside --capture-score.']), options.json);
+          process.exitCode = 1;
+          return;
+        }
+        // Sid axis. `--session` reaches two joins below (`dir` and, through
+        // `nextEvalCaptureIndex`, the same literal), so one guard here covers
+        // the whole `--capture-score` write path.
+        if (isUnsafePathInput(options.session)) {
+          printResult(io, fail('loop.eval', 'INVALID_SESSION_ID', `Invalid session id: ${options.session} (must be a single path segment)`, { provided: options.session }, ['Pass a session id that is a single path segment']), options.json);
           process.exitCode = 1;
           return;
         }
@@ -539,6 +548,12 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
  *  writes. The run-driver also writes to the same dir; the next
  *  index = max(prior)+1, or 1. */
 function nextEvalCaptureIndex(projectRoot: string, sid: string, rid: string): number {
+  // Sid axis: this function is the join for the capture-score cycle dir. The
+  // action guards `options.session` before calling in, but the seam is callable
+  // on its own, so the join states its own contract.
+  if (isUnsafePathInput(sid)) {
+    throw new Error(`Invalid session id: ${sid} (must be a single path segment)`);
+  }
   const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
   if (!existsSync(dir)) return 1;
   // eslint-disable-next-line @typescript-eslint/no-var-requires

@@ -1,12 +1,17 @@
 /**
- * v2.13.2 AC-4 — prd/handoff.md auto-regen on prd:handed-off.
+ * v2.13.2 AC-4 — prd/handoff-<rid>.md auto-regen on prd:handed-off.
  *
  * When `peaks request transition --role prd --state handed-off` succeeds
- * and `prd/handoff.md` is missing, this helper writes a sha256-locked
+ * and this slice's capsule is missing, this helper writes a sha256-locked
  * handoff (schemaVersion: 2) using the request artifact body as the
- * handoff body. If the handoff already exists, it's NOT overwritten —
+ * handoff body. If the capsule already exists, it's NOT overwritten —
  * the existing handoff is canonical (it may carry a richer body that
  * peaks-prd produced in an earlier session).
+ *
+ * Slice `2026-09-14-prd-capsule-rid-scoping`: the path carries the rid, so
+ * "already exists" is now asked per SLICE. The pre-rid-scoping bare name is
+ * deliberately NOT consulted — writing there would recreate the
+ * one-slot-per-session collision for the next slice in the session.
  *
  * Karpathy §3 (Surgical Changes): this file only owns the auto-regen
  * path. The other 11 transitions are untouched.
@@ -16,7 +21,7 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { showRequestArtifact, type RequestArtifactRole } from '../artifacts/request-artifact-service.js';
 import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
-import { sha256OfBody } from './handoff-service.js';
+import { handoffRelativePath, sha256OfBody } from './handoff-service.js';
 import type { HandoffFrontmatter } from './handoff-types.js';
 import { normalizePath } from '../../shared/path-utils.js';
 
@@ -38,7 +43,7 @@ export async function autoRegenPrdHandoff(opts: {
   if (opts.role !== 'prd') {
     return { status: 'failed', reason: 'role must be prd' };
   }
-  const handoffPath = join(opts.projectRoot, '.peaks', '_runtime', opts.sessionId, 'prd', 'handoff.md');
+  const handoffPath = join(opts.projectRoot, handoffRelativePath(opts.sessionId, opts.requestId));
   if (existsSync(handoffPath)) {
     return { status: 'skipped-exists', path: handoffPath };
   }

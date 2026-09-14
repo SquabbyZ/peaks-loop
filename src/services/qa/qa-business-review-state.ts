@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export type QaReviewDecision = 'pending' | 'accepted' | 'rejected';
 
@@ -59,6 +60,14 @@ export function buildEmptyQaReview(requestId: string, sessionId: string, now: Da
 }
 
 export function getQaReviewDir(projectRoot: string, sessionId: string): string {
+  // Sid axis. Every `peaks qa-business-review|score|accept|reject` subcommand
+  // reaches the runtime tree through this one constructor, so one guard here
+  // covers the whole family — measured: `--session-id ../../../../…/PWNED`
+  // wrote `qa-business-reviews/<rid>.json` outside every project root under an
+  // `ok: true` envelope (RD sweep case A17).
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   return resolve(projectRoot, '.peaks', '_runtime', sessionId, 'qa-business-reviews');
 }
 

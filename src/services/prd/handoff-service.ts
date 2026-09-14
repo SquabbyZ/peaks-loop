@@ -3,7 +3,9 @@
  * `v2-11-rm-rd-techdoc-immutable-handoff`).
  *
  * Owns the immutable handoff at
- * `.peaks/_runtime/<sessionId>/prd/handoff.md`:
+ * `.peaks/_runtime/<sessionId>/prd/handoff-<rid>.md` (one capsule per slice;
+ * the pre-rid-scoping `.peaks/_runtime/<sessionId>/prd/handoff.md` stays
+ * readable through `resolveHandoffPath`):
  *
  *   - `initHandoff` — pure; computes sha256 of the body and returns
  *     a Handoff whose frontmatter `handoffHash` matches.
@@ -22,6 +24,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -42,6 +45,57 @@ export function sha256OfBody(body: string): string {
   return createHash('sha256').update(body, 'utf8').digest('hex');
 }
 
+/**
+ * The canonical capsule path for ONE SLICE, relative to the project root.
+ *
+ * Slice `2026-09-14-prd-capsule-rid-scoping`: the capsule used to be one slot
+ * per SESSION (`prd/handoff.md`), so the second slice's handoff silently
+ * overwrote the first slice's — and `AUDIT_REQUIRES_HANDOFF` stayed green
+ * because it never checked WHOSE rid the file named. Measured on
+ * `2026-09-13-session-21878f`: a four-slice job passed that prerequisite on a
+ * capsule left by a different line of work.
+ *
+ * This is the WRITE target, so it always carries the rid — a consumer-side
+ * fallback here would leave a rid-scoped requirement with a bare-name writer,
+ * which is the defect shape this slice exists to remove. Readers that must
+ * tolerate pre-rid-scoping sessions call `resolveHandoffPath` instead.
+ */
+export function handoffRelativePath(sessionId: string, requestId: string): string {
+  return join('.peaks', '_runtime', sessionId, 'prd', `handoff-${requestId}.md`);
+}
+
+/**
+ * The capsule a CONSUMER should read for (session, requestId): the rid-scoped
+ * path when it is on disk, else the pre-rid-scoping bare name. Returns null
+ * when neither exists.
+ *
+ * Three sessions on disk still hold only the bare file
+ * (`2026-09-06-session-a87ca4`, `2026-09-12-session-e37ef0`,
+ * `2026-09-13-session-21878f`), so the legacy tier has to keep resolving for
+ * the gate and for every reader below.
+ *
+ * `requestId` is optional because the detect-only audit surface reaches its
+ * service without one. Such a caller can name only the bare path: a session
+ * holding nothing but rid-scoped capsules reports missing rather than picking
+ * among its siblings' capsules, which would re-open the cross-slice mix-up
+ * this scoping exists to close (fail closed, not "some capsule is there").
+ */
+export function resolveHandoffPath(opts: {
+  projectRoot: string;
+  sessionId: string;
+  requestId?: string;
+}): string | null {
+  const candidates = [
+    ...(opts.requestId !== undefined ? [handoffRelativePath(opts.sessionId, opts.requestId)] : []),
+    join('.peaks', '_runtime', opts.sessionId, 'prd', 'handoff.md')
+  ];
+  for (const relative of candidates) {
+    const absolute = join(opts.projectRoot, relative);
+    if (existsSync(absolute)) return absolute;
+  }
+  return null;
+}
+
 /** Pure: produce a Handoff with the frontmatter populated. Hash is
  *  computed here; callers MUST NOT pre-populate `handoffHash`. */
 export function initHandoff(opts: {
@@ -52,12 +106,12 @@ export function initHandoff(opts: {
   goals: readonly string[];
   acceptanceCriteria: readonly string[];
   preservedBehavior: readonly string[];
-  /** Override path; defaults to `.peaks/_runtime/<sid>/prd/handoff.md`. */
+  /** Override path; defaults to `.peaks/_runtime/<sid>/prd/handoff-<rid>.md`. */
   handoffPath?: string;
 }): Handoff {
   const handoffPath =
     opts.handoffPath ??
-    join('.peaks', '_runtime', opts.sessionId, 'prd', 'handoff.md');
+    handoffRelativePath(opts.sessionId, opts.requestId);
   const handoffHash = sha256OfBody(opts.body);
   const frontmatter: HandoffFrontmatter = {
     requestId: opts.requestId,

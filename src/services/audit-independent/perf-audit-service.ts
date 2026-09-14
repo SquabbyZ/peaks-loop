@@ -25,6 +25,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
+import { resolveHandoffPath } from '../prd/handoff-service.js';
 
 /**
  * 5-state detection result. Mirrors `SecurityAuditDetectState` and
@@ -187,21 +188,27 @@ export function readPerfTemplate(projectRoot: string): string | null {
 export function detectPerfAudit(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
+  /**
+   * The slice whose capsule this run audits. Slice
+   * `2026-09-14-prd-capsule-rid-scoping` put the rid in the capsule's
+   * filename, so a caller that knows it must pass it or the probe resolves
+   * only the pre-rid-scoping bare name. Both callers pass it:
+   * `runPerfAudit` always did, and `peaks perf-audit detect` forwards its
+   * long-standing `--rid` flag as of the post-verification repair round.
+   */
+  readonly requestId?: string;
   readonly dispatchError?: unknown;
   readonly envelope?: unknown;
 }): PerfAuditDetectResult {
   const warnings: string[] = [];
   const nextActions: string[] = [];
 
-  const handoffPath = join(
-    input.projectRoot,
-    '.peaks',
-    '_runtime',
-    input.sessionId,
-    'prd',
-    'handoff.md'
-  );
-  const handoffPresent = existsSync(handoffPath);
+  const handoffPath = resolveHandoffPath({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    ...(input.requestId !== undefined ? { requestId: input.requestId } : {})
+  });
+  const handoffPresent = handoffPath !== null;
 
   const templatePath = join(
     input.projectRoot,
@@ -216,7 +223,12 @@ export function detectPerfAudit(input: {
       state: 'handoff-missing',
       handoffPresent: false,
       templatePresent,
-      warnings: [`peaks-prd handoff not found at ${handoffPath}`],
+      warnings: [
+        `peaks-prd handoff not found under ${join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'prd')}`,
+        ...(input.requestId === undefined
+          ? ['No --rid was supplied, so only the pre-rid-scoping `prd/handoff.md` could be probed. Pass --rid to resolve this slice\'s `prd/handoff-<rid>.md`.']
+          : [])
+      ],
       nextActions: [
         'Run peaks-prd handoff init to produce a sha256-locked handoff before running peaks perf-audit.',
         'Until the handoff exists, peaks-perf-audit cannot start (gate fail).'
@@ -406,6 +418,7 @@ export function runPerfAudit(input: {
   const detect = detectPerfAudit({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId,
+    requestId: input.rid,
     ...(input.dispatchError !== undefined ? { dispatchError: input.dispatchError } : {}),
     ...(input.envelope !== undefined ? { envelope: input.envelope } : {})
   });
@@ -417,15 +430,12 @@ export function runPerfAudit(input: {
   // detect.state === 'ready' implies input.envelope passed isPerfAuditEnvelope.
   const env = input.envelope as PerfAuditEnvelope;
 
-  const handoffPath = join(
-    input.projectRoot,
-    '.peaks',
-    '_runtime',
-    input.sessionId,
-    'prd',
-    'handoff.md'
-  );
-  const verified = readAndVerifyHandoff(handoffPath, input.projectRoot);
+  const handoffPath = resolveHandoffPath({
+    projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
+    requestId: input.rid
+  });
+  const verified = handoffPath === null ? null : readAndVerifyHandoff(handoffPath, input.projectRoot);
   const handoffHash = verified?.frontmatter.sha256 ?? 'unknown';
 
   const rendered = renderPerfAuditArtifact(env, {

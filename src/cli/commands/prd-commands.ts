@@ -75,7 +75,7 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     handoff
       .command('init')
-      .description('Initialize an immutable handoff: sha256(body) → frontmatter → write to .peaks/_runtime/<sid>/prd/handoff.md')
+      .description('Initialize an immutable handoff: sha256(body) → frontmatter → write to .peaks/_runtime/<sid>/prd/handoff-<rid>.md')
       .requiredOption('--rid <request-id>', 'request id (e.g. 001-v2-11-cc-group-b)')
       .requiredOption('--sid <session-id>', 'session id (e.g. 2026-06-26-session-a28d69)')
       .requiredOption('--body <body>', 'handoff body markdown, or @<file> to read from disk')

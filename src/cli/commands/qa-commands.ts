@@ -137,6 +137,12 @@ export type RunQaSliceInput = {
 };
 
 export function runQaSlice(input: RunQaSliceInput): QaRunResult {
+  // Sid axis: this is the join for `qa/browser-events.jsonl`. The `qa gate run`
+  // action guards before calling in, but the function is exported for tests and
+  // states its own contract at the join.
+  if (isUnsafePathInput(input.sessionId)) {
+    throw new Error(`Invalid session id: ${input.sessionId} (must be a single path segment)`);
+  }
   const detector = new BrowserRestartDetector({
     maxRestarts: input.maxRestarts,
     enabled: input.detectorEnabled
@@ -320,6 +326,19 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
       // when the user did not supply one.
       const qaProject = options.project;
       const qaSid = options.sessionId ?? 'ad-hoc';
+      // Sid axis. `--session-id` reaches three consumers below — the context
+      // pre-build, `loadMutReport`, and `runQaSlice`'s
+      // `qa/browser-events.jsonl` join — so one guard at resolution covers all
+      // three. (`peaks qa archive-screenshots` has its own, separate join.)
+      if (isUnsafePathInput(qaSid)) {
+        printResult(
+          io,
+          fail('qa.gate', 'INVALID_SESSION_ID', `Invalid session id: ${qaSid} (must be a single path segment)`, { provided: qaSid }, ['Pass a session id that is a single path segment']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       await ensureContextForQa('qa gate run', qaProject, qaSid);
       // Plan 2 / Task 8 — load peaks-mut's report (MUT.sig) if present.
       // Returns null when peaks-mut was not run; the gate treats that

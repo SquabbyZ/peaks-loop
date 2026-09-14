@@ -126,7 +126,7 @@ describe('registerEvidenceCommands', () => {
     // `AUDIT_REQUIRES_HANDOFF` gate and both audit loaders read; the generator
     // used to emit `handoffHash: sha256:<hex>` with no `^sha256:` line and hash
     // `frontmatter + body`, which the gate accepted and the loaders refused.
-    const handoff = readRel(ws, '.peaks', '_runtime', SID, 'prd', 'handoff.md');
+    const handoff = readRel(ws, '.peaks', '_runtime', SID, 'prd', `handoff-${RID}.md`);
     expect(handoff).toContain('schemaVersion: 2');
     const shaMatch = handoff.match(/^sha256:\s*([0-9a-f]{64})$/m);
     expect(shaMatch).not.toBeNull();
