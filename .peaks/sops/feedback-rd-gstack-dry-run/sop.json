@@ -1,0 +1,18 @@
+{
+  "id": "feedback-rd-gstack-dry-run",
+  "name": "rd-gstack-dry-run",
+  "description": "Promoted from feedback memory .peaks/memory/rd-gstack-dry-run.md: Integrate gstack deeply into skills/ content and require repeated peaks-rd dry-runs during code output.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/rd-gstack-dry-run.md"
+      }
+    }
+  ]
+}

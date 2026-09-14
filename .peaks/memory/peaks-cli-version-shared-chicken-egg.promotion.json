@@ -1,0 +1,16 @@
+{
+  "name": "peaks-cli-version-shared-chicken-egg",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\peaks-cli-version-shared-chicken-egg.md",
+    ".peaks\\sops\\feedback-peaks-cli-version-shared-chicken-egg\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-peaks-cli-version-shared-chicken-egg/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:31.790Z",
+  "promotedBy": "peaks-rd fork agent"
+}

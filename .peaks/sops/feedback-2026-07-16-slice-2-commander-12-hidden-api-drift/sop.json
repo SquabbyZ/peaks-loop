@@ -1,0 +1,18 @@
+{
+  "id": "feedback-2026-07-16-slice-2-commander-12-hidden-api-drift",
+  "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
+  "description": "Promoted from feedback memory .peaks/memory/2026-07-16-slice-2-commander-12-hidden-api-drift.md: Commander 12.1.0 does NOT expose `.hidden()` as a chain method — use `program.command(name, { hidden: true })` constructor flag instead. Slice 2 of 4.0.0-beta.10 hit this; this sediment saves Slice 3 and future slices from re-debugging.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/2026-07-16-slice-2-commander-12-hidden-api-drift.md"
+      }
+    }
+  ]
+}

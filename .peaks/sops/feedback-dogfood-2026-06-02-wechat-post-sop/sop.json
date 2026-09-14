@@ -1,0 +1,18 @@
+{
+  "id": "feedback-dogfood-2026-06-02-wechat-post-sop",
+  "name": "dogfood-2026-06-02-wechat-post-sop",
+  "description": "Promoted from feedback memory .peaks/memory/dogfood-2026-06-02-wechat-post-sop.md: Real-world dogfood of the 公众号发文 SOP (PRD 005 v2) on 2026-06-02. Confirms G4/G5/G6/G7 work end-to-end; surfaces a small but real \"literal-word trap\" finding worth flagging in SKILL.md.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/dogfood-2026-06-02-wechat-post-sop.md"
+      }
+    }
+  ]
+}

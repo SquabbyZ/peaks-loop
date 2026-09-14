@@ -1,0 +1,18 @@
+{
+  "id": "feedback-coverage-red-line",
+  "name": "coverage-red-line",
+  "description": "Promoted from feedback memory .peaks/memory/coverage-red-line.md: Unit-test coverage must come from meaningful tests, not coverage padding. Targets 100% on testable files but never justifies useless tests.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/coverage-red-line.md"
+      }
+    }
+  ]
+}

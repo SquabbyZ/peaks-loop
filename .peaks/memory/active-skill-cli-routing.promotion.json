@@ -1,0 +1,16 @@
+{
+  "name": "active-skill-cli-routing",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\active-skill-cli-routing.md",
+    ".peaks\\sops\\feedback-active-skill-cli-routing\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-active-skill-cli-routing/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:26.258Z",
+  "promotedBy": "peaks-rd fork agent"
+}

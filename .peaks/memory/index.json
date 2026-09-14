@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T23:38:08.907Z",
+  "updatedAt": "2026-09-14T12:08:49.073Z",
   "hot": {
     "rule": [
       {
@@ -2072,6 +2072,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\4x-sediment-pool-reserves-desktop-client-entry-points.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "a-gate-that-verifies-the-label-instead-of-the-thing",
+        "kind": "project",
+        "description": "** 的 Gate H 检查的是\"记忆带没带  标记\"，而那个标记由它让你跑的那条命令自己写。它读的一切，都来自它让你跑的东西 —— 自我认证。** 实测（2026-09-14） 在临时项目跑真 CLI： 只改变了三样东西 —— 1.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-gate-that-verifies-the-label-instead-of-the-thing.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "a-lone-ts6053-is-an-abort-not-a-clean-tree",

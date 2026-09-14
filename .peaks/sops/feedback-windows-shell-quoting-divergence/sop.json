@@ -1,0 +1,18 @@
+{
+  "id": "feedback-windows-shell-quoting-divergence",
+  "name": "windows-shell-quoting-divergence",
+  "description": "Promoted from feedback memory .peaks/memory/windows-shell-quoting-divergence.md: On Windows, Git Bash (MSYS) and PowerShell have different command-line escaping for \" inside start \"...\"; tests should use the hook-path command (Node spawn) instead of bash-side cmd invocations",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/windows-shell-quoting-divergence.md"
+      }
+    }
+  ]
+}

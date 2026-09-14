@@ -1,0 +1,16 @@
+{
+  "name": "rd-gstack-dry-run",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\rd-gstack-dry-run.md",
+    ".peaks\\sops\\feedback-rd-gstack-dry-run\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-rd-gstack-dry-run/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:38.876Z",
+  "promotedBy": "peaks-rd fork agent"
+}

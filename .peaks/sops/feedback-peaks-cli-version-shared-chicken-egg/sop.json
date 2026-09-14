@@ -1,0 +1,18 @@
+{
+  "id": "feedback-peaks-cli-version-shared-chicken-egg",
+  "name": "peaks-cli-version-shared-chicken-egg",
+  "description": "Promoted from feedback memory .peaks/memory/peaks-cli-version-shared-chicken-egg.md: \"peaks-loop's CLI_VERSION is read via import from peaks-loop-shared; that creates a chicken-and-egg publish trap that needs bumps across peaks-loop AND peaks-loop-shared in lockstep\"",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/peaks-cli-version-shared-chicken-egg.md"
+      }
+    }
+  ]
+}

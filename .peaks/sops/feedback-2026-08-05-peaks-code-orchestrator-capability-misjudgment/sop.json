@@ -1,0 +1,18 @@
+{
+  "id": "feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+  "name": "2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+  "description": "Promoted from feedback memory .peaks/memory/2026-08-05-peaks-code-orchestrator-capability-misjudgment.md: 2026-08-05 peaks-code 编排器能力边界误判 — orchestrator 直写 source code 红线 vs orchestrator 通过 sub-agent 实施代码 红线是分开的",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/2026-08-05-peaks-code-orchestrator-capability-misjudgment.md"
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "feedback-active-skill-cli-routing",
+  "name": "active-skill-cli-routing",
+  "description": "Promoted from feedback memory .peaks/memory/active-skill-cli-routing.md: LLM reads active-skill via `peaks skill presence --json`, not by Read-ing the file directly. The CLI handles canonical-path + legacy-back-compat resolution.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/active-skill-cli-routing.md"
+      }
+    }
+  ]
+}

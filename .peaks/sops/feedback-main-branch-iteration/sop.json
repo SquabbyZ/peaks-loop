@@ -1,0 +1,18 @@
+{
+  "id": "feedback-main-branch-iteration",
+  "name": "main-branch-iteration",
+  "description": "Promoted from feedback memory .peaks/memory/main-branch-iteration.md: For this project, future iterations should modify main directly instead of creating worktrees.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/main-branch-iteration.md"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "windows-shell-quoting-divergence",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\windows-shell-quoting-divergence.md",
+    ".peaks\\sops\\feedback-windows-shell-quoting-divergence\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-windows-shell-quoting-divergence/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:42.558Z",
+  "promotedBy": "peaks-rd fork agent"
+}

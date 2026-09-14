@@ -1,0 +1,18 @@
+{
+  "id": "feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+  "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+  "description": "Promoted from feedback memory .peaks/memory/user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md: 2026-07-08 user 商讨后决定——在 4.x-beta 周期内把 peaks-solo 作为 dispatcher(分诊员)从 0 重建,不替代 peaks-code(leaf),不影响 3.x→4.x 升级路径;同步新增 `peaks skill search` CLI 解决 dispatcher 的\"分诊判断源\"硬依赖",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md"
+      }
+    }
+  ]
+}

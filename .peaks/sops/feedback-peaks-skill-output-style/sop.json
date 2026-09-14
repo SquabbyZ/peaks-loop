@@ -1,0 +1,18 @@
+{
+  "id": "feedback-peaks-skill-output-style",
+  "name": "peaks-skill-output-style",
+  "description": "Promoted from feedback memory .peaks/memory/peaks-skill-output-style.md: Peaks skills should visibly announce active skill workflows and next process steps across projects.",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/peaks-skill-output-style.md"
+      }
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "sops": [
+    {
+      "id": "feedback-2026-06-22-cc-connect-removal-publish",
+      "path": "sops/feedback-2026-06-22-cc-connect-removal-publish/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-2026-06-22-cc-connect-removal-publish/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-2026-06-22-cc-connect-removal-publish",
+          "phase": "apply",
+          "transition": "feedback-2026-06-22-cc-connect-removal-publish:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-2026-07-16-slice-2-commander-12-hidden-api-drift",
+      "path": "sops/feedback-2026-07-16-slice-2-commander-12-hidden-api-drift/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-2026-07-16-slice-2-commander-12-hidden-api-drift/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-2026-07-16-slice-2-commander-12-hidden-api-drift",
+          "phase": "apply",
+          "transition": "feedback-2026-07-16-slice-2-commander-12-hidden-api-drift:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+      "path": "sops/feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment",
+          "phase": "apply",
+          "transition": "feedback-2026-08-05-peaks-code-orchestrator-capability-misjudgment:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-active-skill-cli-routing",
+      "path": "sops/feedback-active-skill-cli-routing/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-active-skill-cli-routing/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-active-skill-cli-routing",
+          "phase": "apply",
+          "transition": "feedback-active-skill-cli-routing:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-coverage-red-line",
+      "path": "sops/feedback-coverage-red-line/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-coverage-red-line/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-coverage-red-line",
+          "phase": "apply",
+          "transition": "feedback-coverage-red-line:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-dogfood-2026-06-02-wechat-post-sop",
+      "path": "sops/feedback-dogfood-2026-06-02-wechat-post-sop/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-dogfood-2026-06-02-wechat-post-sop/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-dogfood-2026-06-02-wechat-post-sop",
+          "phase": "apply",
+          "transition": "feedback-dogfood-2026-06-02-wechat-post-sop:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-main-branch-iteration",
+      "path": "sops/feedback-main-branch-iteration/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-main-branch-iteration/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-main-branch-iteration",
+          "phase": "apply",
+          "transition": "feedback-main-branch-iteration:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-peaks-cli-version-shared-chicken-egg",
+      "path": "sops/feedback-peaks-cli-version-shared-chicken-egg/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-peaks-cli-version-shared-chicken-egg/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-peaks-cli-version-shared-chicken-egg",
+          "phase": "apply",
+          "transition": "feedback-peaks-cli-version-shared-chicken-egg:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-peaks-release-4-0-2-published",
+      "path": "sops/feedback-peaks-release-4-0-2-published/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-peaks-release-4-0-2-published/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-peaks-release-4-0-2-published",
+          "phase": "apply",
+          "transition": "feedback-peaks-release-4-0-2-published:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-peaks-skill-output-style",
+      "path": "sops/feedback-peaks-skill-output-style/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-peaks-skill-output-style/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-peaks-skill-output-style",
+          "phase": "apply",
+          "transition": "feedback-peaks-skill-output-style:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-rd-gstack-dry-run",
+      "path": "sops/feedback-rd-gstack-dry-run/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-rd-gstack-dry-run/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-rd-gstack-dry-run",
+          "phase": "apply",
+          "transition": "feedback-rd-gstack-dry-run:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+      "path": "sops/feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+          "phase": "apply",
+          "transition": "feedback-user-decision-2026-07-08-revive-peaks-solo-as-dispatcher:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-windows-shell-quoting-divergence",
+      "path": "sops/feedback-windows-shell-quoting-divergence/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-windows-shell-quoting-divergence/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-windows-shell-quoting-divergence",
+          "phase": "apply",
+          "transition": "feedback-windows-shell-quoting-divergence:apply"
+        }
+      ]
+    }
+  ],
+  "gateCount": 13
+}

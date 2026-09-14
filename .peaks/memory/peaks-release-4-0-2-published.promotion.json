@@ -1,0 +1,16 @@
+{
+  "name": "peaks-release-4-0-2-published",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\peaks-release-4-0-2-published.md",
+    ".peaks\\sops\\feedback-peaks-release-4-0-2-published\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-peaks-release-4-0-2-published/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:35.266Z",
+  "promotedBy": "peaks-rd fork agent"
+}

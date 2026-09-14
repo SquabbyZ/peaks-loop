@@ -1,0 +1,18 @@
+{
+  "id": "feedback-2026-06-22-cc-connect-removal-publish",
+  "name": "2026-06-22-cc-connect-removal-publish",
+  "description": "Promoted from feedback memory .peaks/memory/2026-06-22-cc-connect-removal-publish.md: 2.8.2 release day — cc-connect removal finally shipped to npm. Audit found 4 follow-up cleanup items the release commit missed (orphan deps, stale static set, stale doc comments). peaks-companion skill is intentional tombstone. Lessons: (1) the 2.8.2 release commit was authored locally on 2026-06-22 but never published — npm latest stayed at 2.8.1 until this session; (2) `git add <explicit-list>` will silently skip working-tree deletions (the qrcode-terminal.d.ts was committed-as-message-only, missed in the actual stat; caught by self-audit of `git ls-tree HEAD src/types/`).",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/2026-06-22-cc-connect-removal-publish.md"
+      }
+    }
+  ]
+}

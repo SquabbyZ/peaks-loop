@@ -1,0 +1,16 @@
+{
+  "name": "coverage-red-line",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\coverage-red-line.md",
+    ".peaks\\sops\\feedback-coverage-red-line\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-coverage-red-line/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:03.755Z",
+  "promotedBy": "peaks-rd fork agent"
+}

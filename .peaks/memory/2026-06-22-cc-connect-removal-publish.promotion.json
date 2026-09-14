@@ -1,0 +1,16 @@
+{
+  "name": "2026-06-22-cc-connect-removal-publish",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\2026-06-22-cc-connect-removal-publish.md",
+    ".peaks\\sops\\feedback-2026-06-22-cc-connect-removal-publish\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-2026-06-22-cc-connect-removal-publish/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T12:34:20.983Z",
+  "promotedBy": "peaks-rd fork agent"
+}

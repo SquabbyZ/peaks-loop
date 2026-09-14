@@ -1,0 +1,18 @@
+{
+  "id": "feedback-peaks-release-4-0-2-published",
+  "name": "peaks-release-4-0-2-published",
+  "description": "Promoted from feedback memory .peaks/memory/peaks-release-4-0-2-published.md: \"2026-07-22 publish run — git tag v4.0.1 but npm landed 4.0.2 because publish.yml ran `pnpm changeset version` which overrode the committed pin\"",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/peaks-release-4-0-2-published.md"
+      }
+    }
+  ]
+}
