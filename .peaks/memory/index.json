@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-14T12:08:49.073Z",
+  "updatedAt": "2026-09-14T14:29:11.523Z",
   "hot": {
     "rule": [
       {
@@ -333,7 +333,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> 2.8.2 publish day — 2026-06-22 Local commit  (37 files, +22/-7713) was auth...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-06-22-cc-connect-removal-publish.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "2026-06-22-top-level-change-id-cleanup",
@@ -365,7 +365,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> Slice 2 — Commander 12  API drift (D-007) What we thought PRD v3 §Slice 2 +...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-commander-12-hidden-api-drift.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "2026-07-30-publish-yml-if-quoting",
@@ -405,7 +405,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> 2026-08-05 peaks-code 编排器能力边界误判 TL;DR 在 2026-08-05 的 /peaks-code turn 里,我**...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-05-peaks-code-orchestrator-capability-misjudgment.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
@@ -437,7 +437,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> Active-skill reads go through the CLI When checking the active Peaks skill ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\active-skill-cli-routing.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-10"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "auto-compact-threshold-policy",
@@ -469,7 +469,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> When a coverage gate fails on a new file, do NOT reflexively add tests just...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\coverage-red-line.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "detached 子代理架构 user 反馈 — headless 应该是 in-shell background，不是新 OS process",
@@ -485,7 +485,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , ga...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "headroom-ai 半成品集成 — N-7 proxy 后端未接，当前 0 token 节省；省 token 主杠杆是 G7 + auto-compact + cache 对齐",
@@ -501,7 +501,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> For future iterations in this project, do not create worktrees by default; ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\main-branch-iteration.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "peaks-cli-version-shared-chicken-egg",
@@ -509,7 +509,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop CLI_VERSION shared chicken-egg (2026-07-22) 2026-07-22 04:15Z ic...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-cli-version-shared-chicken-egg.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "peaks-code-to-peaks-code-rename-session-directive",
@@ -549,7 +549,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop 4.0.2 — accidental publish (2026-07-22) 2026-07-22 published  + ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-release-4-0-2-published.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "peaks-skill-output-style",
@@ -557,7 +557,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> When the user uses Peaks skills from  in any project, the response should l...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-skill-output-style.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "piping-a-test-run-reports-the-pipes-exit-code",
@@ -573,7 +573,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> The skills under this project's  directory should deeply integrate and refe...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rd-gstack-dry-run.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "redline-no-claude-co-author",
@@ -605,7 +605,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> User decision 2026-07-08: revive peaks-solo as dispatcher > **Why:** 这次商讨直接...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "windows-shell-quoting-divergence",
@@ -613,7 +613,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=A --> On Windows, when testing  or similar nested-quote patterns, the test outcom...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\windows-shell-quoting-divergence.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "writing-a-value-then-reading-it-back-locks-the-first-guess",
@@ -2692,10 +2692,10 @@
       {
         "name": "two-peaks-probes-disagree-about-what-a-ratio-means",
         "kind": "project",
-        "description": "**peaks-loop 的两个探针，对同一个\"上下文用了多少\"给出不同的动作 —— 而且比例更高的那个反而更轻。** 实测（2026-09-14，相隔约两分钟） **不是时间差**：65.6% 判 ，70.3% 判  —— 阈值不单...",
+        "description": "**两个探针对**同一个比例**给出不同动作。权威是 ，不是 。** > ⚠️ **本条目早期版本说反了。** 当时只从\"契约说 context-now 是唯一权威\"推出结论，没有去看**系统真正据以行动的是哪一档**。2026-09...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-peaks-probes-disagree-about-what-a-ratio-means.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "upgrading-the-package-does-not-refresh-generated-settings",
