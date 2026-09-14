@@ -5,13 +5,17 @@
  *   - `peaks feedback check-unpromoted --project <path> [--strict]`
  *
  * Companion to `sops/feedback-promotion-sop.md`. The promote command
- * generates a stub for the chosen enforcement layer (A: peaks-sop
- * gate, B: peaks-hooks PreToolUse, C: mode-gate hardFloorCategory)
- * and writes the promotion marker + sidecar + RD envelope. The
- * check-unpromoted command scans `.peaks/memory/*.md` for feedback
- * memories without a promotion marker and emits a structured list.
- * `--strict` flips exit code to non-zero when any unpromoted feedback
- * is found — used by `peaks workflow verify-pipeline` Gate H.
+ * writes the promotion marker + sidecar + RD envelope, and — for the
+ * layers whose artifact it can produce (A: a registered SOP manifest)
+ * — the enforcement artifact itself. Layers B and C live in shared
+ * files it does not own, so there it records the requirement and
+ * reports `effective: false` instead of claiming success.
+ *
+ * The check-unpromoted command scans `.peaks/memory/*.md` for feedback
+ * memories whose promotion is missing OR not backed by its layer's
+ * artifact, and emits a structured list. `--strict` flips exit code to
+ * non-zero when any is found — used by `peaks workflow verify-pipeline`
+ * Gate H.
  */
 
 import type { Command } from 'commander';
@@ -22,10 +26,12 @@ import {
   generatePromotionStub,
   isPromotionLayer,
   listUnpromotedFeedback,
+  missingArtifacts,
   parseFeedbackMemory,
   PROMOTION_LAYER_DETAILS,
   PROMOTION_LAYERS,
   promoteFeedback,
+  promotionArtifactChecks,
   type PromotionLayer
 } from '../../services/feedback/feedback-promotion-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -42,9 +48,10 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
       .command('promote <memory-file>')
       .description(
         'Promote a feedback memory to one of the 3 enforcement layers (A=peaks-sop gate, B=peaks-hooks PreToolUse, C=mode-gate hardFloorCategory). ' +
-          'Reads `.peaks/memory/<file>.md`, generates a code stub for the chosen layer, and writes ' +
-          'the promotion marker (HTML comment + sidecar .promotion.json) + an RD envelope at ' +
-          '`.peaks/_runtime/<sid>/rd/feedback-promote-<name>.json`. ' +
+          'Reads `.peaks/memory/<file>.md` and writes the promotion marker (HTML comment + sidecar .promotion.json) + an RD envelope at ' +
+          '`.peaks/_runtime/<sid>/rd/feedback-promote-<name>.json`. Layer A additionally generates and registers the SOP manifest the ' +
+          'SOP engine reads. Layers B and C live in shared files the command does not own, so it records the requirement and exits ' +
+          'non-zero (PROMOTION_NOT_EFFECTIVE) until the registration is present. ' +
           'Without --layer, the CLI lists the 3 layer options as nextActions and exits with code 0 ' +
           '(use --layer <A|B|C> to actually promote, or pass --dry-run to preview the stub).'
       )
@@ -53,7 +60,7 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
       .option('--promoted-by <id>', 'identity string for the audit envelope (default: peaks-rd fork agent)')
       .option('--dry-run', 'preview the stub without writing the marker / sidecar / envelope')
   ).action(
-    (memoryFile: string, opts: { layer?: string; project?: string; promotedBy?: string; dryRun?: boolean; json?: boolean }) => {
+    async (memoryFile: string, opts: { layer?: string; project?: string; promotedBy?: string; dryRun?: boolean; json?: boolean }) => {
       try {
         const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
         const memoryPath = memoryFile.endsWith('.md')
@@ -148,7 +155,7 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
         const layer = opts.layer as PromotionLayer;
         const sessionId = getCurrentSessionId(projectRoot) ?? 'unknown-sid';
         const promotedBy = opts.promotedBy ?? 'peaks-rd fork agent';
-        const envelope = promoteFeedback({
+        const envelope = await promoteFeedback({
           feedbackPath: memoryPath,
           layer,
           promotedBy,
@@ -156,20 +163,39 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
           projectRoot,
           dryRun: false
         });
+        // rid 2026-09-14-gate-h-promotion: report what was written, not what
+        // the stub wished for. A promotion whose layer artifact is absent is
+        // recorded but NOT effective, and says so with a non-zero exit.
+        const notes = [
+          `Promoted feedback "${envelope.name}" to layer ${envelope.layer} (${envelope.layerDetail}).`,
+          `Generated files: ${envelope.generatedFiles.join(', ')}`,
+          `Envelope written to .peaks/_runtime/${sessionId}/rd/feedback-promote-${envelope.name}.json`
+        ];
+        if (envelope.effective) {
+          printResult(io, ok('feedback.promote', envelope, [], notes), opts.json);
+          return;
+        }
+        const missing = missingArtifacts(
+          promotionArtifactChecks(envelope.name, envelope.layer),
+          projectRoot
+        );
         printResult(
           io,
-          ok(
+          fail(
             'feedback.promote',
+            'PROMOTION_NOT_EFFECTIVE',
+            `Promotion recorded but not effective — layer ${envelope.layer} is not backed by its artifact: ${missing.join('; ')}`,
             envelope,
-            [],
             [
-              `Promoted feedback "${envelope.name}" to layer ${envelope.layer} (${envelope.layerDetail}).`,
-              `Generated files: ${envelope.generatedFiles.join(', ')}`,
-              `Envelope written to .peaks/_runtime/${sessionId}/rd/feedback-promote-${envelope.name}.json`
+              ...notes,
+              ...(envelope.layer === 'C'
+                ? ['Layer C lives in source code: register the hard-floor category in src/services/code/mode-gate.ts, then re-run promote to record it.']
+                : ['Apply the snippet to the file(s) named above, then re-run promote to record it.'])
             ]
           ),
           opts.json
         );
+        process.exitCode = 1;
       } catch (err) {
         printResult(
           io,
@@ -213,6 +239,7 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
         const nextActions = [
           `Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each entry above.`,
           'A = peaks-sop gate, B = peaks-hooks PreToolUse, C = mode-gate hardFloorCategory.',
+          'A marker alone does not count: the entry above names the artifact its layer still owes.',
           'See sops/feedback-promotion-sop.md for the SOP and the layer-choice rubric.'
         ];
         if (opts.strict === true) {

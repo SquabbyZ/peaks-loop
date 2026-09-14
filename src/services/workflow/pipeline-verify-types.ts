@@ -53,9 +53,11 @@ export type PipelineVerification = {
    * Slice 002 (v2.15.0) AC-3: Gate H "feedback-promotion". Always
    * present (single-element array). Evaluates whether every
    * `metadata.type === 'feedback'` memory in `.peaks/memory/`
-   * carries a promotion marker (comment OR sidecar). Failures
-   * block the `complete` verdict via the `gateH` field below; the
-   * pipeline only completes when every gate in this array passes.
+   * carries a promotion marker (comment OR sidecar) AND whether the
+   * layer that marker claims is actually backed by its artifact
+   * (rid 2026-09-14-gate-h-promotion). Failures block the `complete`
+   * verdict via the `gateH` field below; the pipeline only completes
+   * when every gate in this array passes.
    */
   feedbackPhase?: {
     gates: PipelineGate[];

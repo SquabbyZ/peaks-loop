@@ -8,26 +8,32 @@
  * primitive behind the `peaks feedback promote` and
  * `peaks feedback check-unpromoted` CLI commands.
  *
- * Promotion tracking convention: a feedback memory is considered
- * "promoted" when one of the following is true:
+ * Promotion tracking convention — two parts, and BOTH are required:
  *
- *   (a) The memory file contains an HTML comment near the top of the
- *       body: `<!-- peaks-feedback-promoted: layer=<A|B|C> -->`.
- *       Written by `peaks feedback promote` so a single read of the
- *       memory file is enough to determine promotion state.
+ *   (a) A MARKER, either an HTML comment near the top of the body
+ *       (`<!-- peaks-feedback-promoted: layer=<A|B|C> -->`) or a sibling
+ *       `.peaks/memory/<name>.promotion.json` sidecar with
+ *       `{ layer: "A" | "B" | "C", ... }`. Written by `peaks feedback
+ *       promote` so a single read of the memory file is enough to see the
+ *       claimed layer.
  *
- *   (b) A sibling `.peaks/memory/<name>.promotion.json` exists with
- *       `{ layer: "A" | "B" | "C", ... }`. Written as a sidecar for
- *       tooling that prefers machine-readable state over embedded
- *       comments (e.g. `verify-pipeline` Gate H).
+ *   (b) The ARTIFACT that layer implies — see `promotionArtifactChecks`.
+ *       rid 2026-09-14-gate-h-promotion: the marker alone used to count,
+ *       which made the gate self-certifying, because the only thing a marker
+ *       proves is that `peaks feedback promote` ran. Every layer-A marker in
+ *       this repo pointed at `sops/<name>.md`, a file that did not exist and
+ *       that no engine reads.
  *
- * The comment marker is the SOURCE OF TRUTH for human review; the
- * sidecar is the source of truth for the scanner. Either is enough
- * to mark a feedback memory as promoted.
+ * The comment marker is the SOURCE OF TRUTH for human review; the sidecar is
+ * the source of truth for the scanner. Neither is evidence on its own.
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+
+import { registerSop } from '../sop/sop-registry-service.js';
+import { projectRegistryPath, projectSopManifestPath } from '../sop/sop-paths.js';
+import type { SopManifest } from '../sop/sop-types.js';
 
 /**
  * PRD-002b slice 2 — extract magic numbers used by the promotion
@@ -54,6 +60,98 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
   { layer: 'B', label: 'peaks-hooks PreToolUse', description: 'Append a matcher to .peaks/.claude-settings-template.json. Tool-call interception.' },
   { layer: 'C', label: 'mode-gate hardFloorCategory', description: 'Extend HardFloorCategory + shouldPauseAtGate. Always pauses regardless of mode.' }
 ] as const;
+
+/**
+ * rid 2026-09-14-gate-h-promotion — what actually backs a promotion.
+ *
+ * Before this, a promotion was honored on the marker alone (HTML comment or
+ * sidecar). Both are written by `peaks feedback promote` and neither proves
+ * that anything was enforced: every layer-A promotion in this repo pointed at
+ * `sops/<name>.md`, a file that did not exist and that no engine reads. The
+ * gate was therefore self-certifying — it read only what the command it tells
+ * you to run had written.
+ *
+ * A promotion is now honored only when its layer's enforcement surface carries
+ * the artifact. The three layers keep artifacts in three different shapes, so
+ * the check is a small table rather than one rule:
+ *
+ *   - A (peaks-sop gate): a SOP manifest at `.peaks/sops/<id>/sop.json` AND an
+ *     entry for `<id>` in `.peaks/sops/registry.json`. The registry half is not
+ *     decoration: `gate-enforce-service.enforceBashCommand` enumerates SOPs via
+ *     `readRegistry()`, so an unregistered manifest is off the enforcement path
+ *     no matter how valid it is.
+ *   - B (peaks-hooks PreToolUse): `.peaks/.claude-settings-template.json` must
+ *     mention the rule. The file always exists, so existence proves nothing —
+ *     the evidence is the registration inside it.
+ *   - C (mode-gate hardFloorCategory): `src/services/code/mode-gate.ts` must
+ *     mention the rule, for the same reason. This is the repo's existing
+ *     convention: the one real layer-C promotion cites its memory by path.
+ */
+export type PromotionArtifactCheck = {
+  /** Project-relative POSIX path that must exist. */
+  path: string;
+  /**
+   * When set, the file's text must contain this literal. Used for the layers
+   * whose backing file is a shared registry that already exists on disk, where
+   * `existsSync` alone would pass for the wrong reason.
+   */
+  mustContain?: string;
+};
+
+/**
+ * SOP id used for a feedback memory's layer-A artifact.
+ *
+ * Prefixed because `peaks-*` SOP ids are reserved for the built-in namespace
+ * (`reservedIdReason` in sop-service.ts) and several feedback memories start
+ * with `peaks-`, which would make them unregistrable under their own name.
+ */
+export function sopIdForFeedback(memoryName: string): string {
+  return `feedback-${memoryName}`;
+}
+
+/** The artifact(s) that must be present for `layer` to mean anything. */
+export function promotionArtifactChecks(memoryName: string, layer: PromotionLayer): PromotionArtifactCheck[] {
+  if (layer === 'A') {
+    const id = sopIdForFeedback(memoryName);
+    return [
+      { path: `.peaks/sops/${id}/sop.json` },
+      { path: '.peaks/sops/registry.json', mustContain: `"${id}"` }
+    ];
+  }
+  if (layer === 'B') {
+    return [{ path: '.peaks/.claude-settings-template.json', mustContain: memoryName }];
+  }
+  return [{ path: 'src/services/code/mode-gate.ts', mustContain: memoryName }];
+}
+
+/**
+ * Which of `checks` are not satisfied under `projectRoot`. Empty means the
+ * promotion is backed by its artifact. Never throws — an unreadable file is
+ * reported as missing rather than crashing the gate.
+ */
+export function missingArtifacts(checks: readonly PromotionArtifactCheck[], projectRoot: string): string[] {
+  const missing: string[] = [];
+  for (const check of checks) {
+    const absolute = resolve(projectRoot, check.path);
+    if (!existsSync(absolute)) {
+      missing.push(`${check.path} (absent)`);
+      continue;
+    }
+    if (check.mustContain !== undefined) {
+      let text: string;
+      try {
+        text = readFileSync(absolute, 'utf8');
+      } catch {
+        missing.push(`${check.path} (unreadable)`);
+        continue;
+      }
+      if (!text.includes(check.mustContain)) {
+        missing.push(`${check.path} (does not reference ${check.mustContain})`);
+      }
+    }
+  }
+  return missing;
+}
 
 export type FeedbackMemory = {
   /** File basename (without `.md`). */
@@ -198,6 +296,22 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
         path: parsed.path,
         reason: 'no promotion marker (comment or sidecar) found — see `peaks feedback promote`'
       });
+      continue;
+    }
+    // rid 2026-09-14-gate-h-promotion: a marker is a claim, not evidence. It
+    // counts only when the layer's enforcement surface actually carries the
+    // artifact. Before this, the marker alone was accepted, so the gate
+    // certified whatever the promote command had written and nothing else.
+    const missing = missingArtifacts(
+      promotionArtifactChecks(parsed.name, parsed.promotion.layer),
+      opts.projectRoot
+    );
+    if (missing.length > 0) {
+      out.push({
+        name: parsed.name,
+        path: parsed.path,
+        reason: `marker claims layer ${parsed.promotion.layer} but the artifact is missing: ${missing.join('; ')}`
+      });
     }
   }
   return out;
@@ -250,8 +364,8 @@ export function generatePromotionStub(opts: {
   const { layer, feedbackName } = opts;
   if (layer === 'A') {
     return {
-      snippet: `# SOP entry for feedback "${feedbackName}"\n\n<!-- Append the rule + acceptance criteria below. Reference from a new peaks-sop gate. -->\n\n## Rule\n\n${opts.feedbackBody.split('\n').slice(0, RULE_BODY_PREVIEW_LINES).join('\n')}\n\n## Enforcement\n\nAdd a check to sops/<name>.md and reference from .claude/rules/.`,
-      targetFiles: [`sops/${feedbackName}.md`]
+      snippet: `# SOP entry for feedback "${feedbackName}"\n\n<!-- Append the rule + acceptance criteria below. Reference from a new peaks-sop gate. -->\n\n## Rule\n\n${opts.feedbackBody.split('\n').slice(0, RULE_BODY_PREVIEW_LINES).join('\n')}\n\n## Enforcement\n\nAuthor the rule's gates in the generated manifest and reference it from .claude/rules/.`,
+      targetFiles: [`.peaks/sops/${sopIdForFeedback(feedbackName)}/sop.json`]
     };
   }
   if (layer === 'B') {
@@ -272,11 +386,52 @@ export type FeedbackPromoteEnvelope = {
   feedbackPath: string;
   layer: PromotionLayer;
   layerDetail: string;
+  /**
+   * Files this call actually wrote. rid 2026-09-14-gate-h-promotion: this used
+   * to be the stub's *targets* — paths the command never wrote yet printed as
+   * `Generated files:` — which is the defect the Gate H rework exists to remove.
+   */
   generatedFiles: string[];
+  /** The artifact(s) `layer` requires before the promotion means anything. */
+  requiredArtifacts: string[];
+  /** `false` when `requiredArtifacts` are not all present — the marker is then a claim without evidence. */
+  effective: boolean;
   snippet: string;
   promotedAt: string;
   promotedBy: string;
 };
+
+/**
+ * Materialize the layer-A artifact: the SOP manifest the engine reads, plus its
+ * registry entry. Registration is not optional — `gate-enforce-service` walks
+ * `readRegistry()`, so an unregistered manifest enforces nothing.
+ *
+ * Returns the paths written. `registerSop` lints the manifest first, so a
+ * malformed generation throws here rather than leaving a promotion that only
+ * looks real.
+ */
+async function generateLayerAArtifact(parsed: FeedbackMemory, projectRoot: string): Promise<string[]> {
+  const id = sopIdForFeedback(parsed.name);
+  const manifestPath = projectSopManifestPath(projectRoot, id);
+  const description = parsed.frontmatter.description ?? '';
+  const manifest: SopManifest = {
+    id,
+    name: parsed.name,
+    description: `Promoted from feedback memory .peaks/memory/${parsed.name}.md${description.length > 0 ? `: ${description}` : ''}`,
+    phases: ['apply'],
+    gates: [
+      {
+        id: 'rule-source-present',
+        phase: 'apply',
+        check: { type: 'file-exists', path: `.peaks/memory/${parsed.name}.md` }
+      }
+    ]
+  };
+  mkdirSync(dirname(manifestPath), { recursive: true });
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  await registerSop({ id, projectRoot });
+  return [manifestPath, projectRegistryPath(projectRoot)];
+}
 
 /**
  * Write the promotion marker + sidecar. Also writes the envelope to
@@ -288,14 +443,14 @@ export type FeedbackPromoteEnvelope = {
  * machine-readable mirror. Both are written; either alone is
  * enough for the scanner.
  */
-export function promoteFeedback(opts: {
+export async function promoteFeedback(opts: {
   feedbackPath: string;
   layer: PromotionLayer;
   promotedBy: string;
   sessionId: string;
   projectRoot: string;
   dryRun?: boolean;
-}): FeedbackPromoteEnvelope {
+}): Promise<FeedbackPromoteEnvelope> {
   const parsed = parseFeedbackMemory(opts.feedbackPath);
   if (parsed === null) {
     throw new Error(`Not a feedback memory: ${opts.feedbackPath}`);
@@ -306,17 +461,21 @@ export function promoteFeedback(opts: {
     feedbackBody: parsed.body
   });
   const now = new Date().toISOString();
+  const required = promotionArtifactChecks(parsed.name, opts.layer);
   const envelope: FeedbackPromoteEnvelope = {
     name: parsed.name,
     feedbackPath: parsed.path,
     layer: opts.layer,
     layerDetail: PROMOTION_LAYER_DETAILS.find((l) => l.layer === opts.layer)?.label ?? opts.layer,
-    generatedFiles: stub.targetFiles,
+    generatedFiles: [],
+    requiredArtifacts: required.map((check) => check.path),
+    effective: false,
     snippet: stub.snippet,
     promotedAt: now,
     promotedBy: opts.promotedBy
   };
   if (opts.dryRun === true) {
+    envelope.effective = missingArtifacts(required, opts.projectRoot).length === 0;
     return envelope;
   }
   // 1. Embed comment marker in the memory file.
@@ -333,8 +492,14 @@ export function promoteFeedback(opts: {
       : `${marker}\n${body}`;
     const newContent = normalized.slice(0, endIndex + '\n---\n'.length) + newBody;
     writeFileSync(opts.feedbackPath, newContent, 'utf8');
+    envelope.generatedFiles.push(opts.feedbackPath);
   }
-  // 2. Sidecar (machine-readable mirror).
+  // 2. Layer A: the promotion only means something once the SOP engine can see
+  // it. Generated before the sidecar so the sidecar records the full list.
+  if (opts.layer === 'A') {
+    envelope.generatedFiles.push(...(await generateLayerAArtifact(parsed, opts.projectRoot)));
+  }
+  // 3. Sidecar (machine-readable mirror).
   const sidecarPath = opts.feedbackPath.replace(/\.md$/, '.promotion.json');
   writeFileSync(
     sidecarPath,
@@ -342,13 +507,15 @@ export function promoteFeedback(opts: {
       name: parsed.name,
       layer: opts.layer,
       layerDetail: envelope.layerDetail,
-      generatedFiles: stub.targetFiles,
+      generatedFiles: envelope.generatedFiles,
+      requiredArtifacts: envelope.requiredArtifacts,
       promotedAt: now,
       promotedBy: opts.promotedBy
     }, null, 2),
     'utf8'
   );
-  // 3. Envelope to `.peaks/_runtime/<sid>/rd/`.
+  envelope.generatedFiles.push(sidecarPath);
+  // 4. Envelope to `.peaks/_runtime/<sid>/rd/`.
   const envelopePath = join(
     opts.projectRoot,
     '.peaks',
@@ -361,6 +528,8 @@ export function promoteFeedback(opts: {
   if (!existsSync(envelopeDir)) {
     mkdirSync(envelopeDir, { recursive: true });
   }
+  envelope.generatedFiles.push(envelopePath);
+  envelope.effective = missingArtifacts(required, opts.projectRoot).length === 0;
   writeFileSync(envelopePath, JSON.stringify(envelope, null, 2), 'utf8');
   return envelope;
 }

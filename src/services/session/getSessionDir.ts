@@ -22,12 +22,37 @@
  *       legacy `.peaks/<sid>/...` artifact path that a sub-agent would
  *       follow verbatim.
  *
+ * `sessionId` is the last caller-supplied segment of every session-scoped
+ * path here, so its segment check lives at this join rather than being
+ * re-derived at each call site: `../../x` used to be joined verbatim, and
+ * the CLI wrote outside the project root while still returning `ok: true`.
+ *
+ * The predicate is `isUnsafePathInput`, NOT `SESSION_ID_PATTERN` /
+ * `validateSessionId`. The latter are stricter than the segment axis and
+ * reject ids that are legal today (`sid-1`, a request id reused as the
+ * session-dir name), so adopting them would change results for
+ * well-formed callers.
+ *
+ * Not covered, recorded rather than implied: the `\0` axis
+ * (`isUnsafePathInput` admits a NUL, and `execFileSync` raises EINVAL
+ * before it can be exercised), and callers that hand-roll
+ * `join(root, '.peaks', '_runtime', sid, ...)` instead of calling this.
+ *
  * @param projectRoot - Absolute path to the project root.
  * @param sessionId - The session identifier (e.g. `2026-06-06-session-5b1095`).
  * @returns Absolute path to the canonical session directory.
+ * @throws Error when `sessionId` is not a single path segment.
  */
 import { join } from 'node:path';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export function getSessionDir(projectRoot: string, sessionId: string): string {
+  // Throwing, not `null` / a tagged result: those widen the return type
+  // to `string | null` and make every call site handle a bad id — the
+  // per-site slice this guard replaces. This is also the shape the repo
+  // already refuses with, and a caller cannot forget to handle a throw.
+  if (isUnsafePathInput(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
+  }
   return join(projectRoot, '.peaks', '_runtime', sessionId);
 }

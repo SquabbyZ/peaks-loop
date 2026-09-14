@@ -227,10 +227,12 @@ export async function verifyPipeline(options: {
 
   // Slice 002 (v2.15.0) AC-3 — Gate H "feedback-promotion". Scans
   // `.peaks/memory/*.md` for `metadata.type === 'feedback'` entries
-  // without a promotion marker (HTML comment or `.promotion.json`
-  // sidecar). When any unpromoted feedback is found, the gate fails
-  // and the pipeline does not complete until the user promotes via
-  // `peaks feedback promote <memory-file> --layer <A|B|C>`.
+  // that lack a promotion marker (HTML comment or `.promotion.json`
+  // sidecar) OR whose marker is not backed by the layer's artifact
+  // (rid 2026-09-14-gate-h-promotion). When any such feedback is
+  // found, the gate fails and the pipeline does not complete until the
+  // user promotes via `peaks feedback promote <memory-file> --layer
+  // <A|B|C>` — which now produces the artifact, not just the marker.
   //
   // The scan is intentionally non-throwing — a missing or unreadable
   // memory dir is treated as "no feedback found, gate passes" so
@@ -249,9 +251,13 @@ export async function verifyPipeline(options: {
       feedbackGates[0]!.passed = true;
       feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/`;
     } else {
-      feedbackGates[0]!.detail = `${unpromoted.length} unpromoted feedback memor${unpromoted.length === 1 ? 'y' : 'ies'}: ${unpromoted.map((u) => u.name).join(', ')}`;
-      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer (${unpromoted.map((u) => u.name).join(', ')}). Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each. See sops/feedback-promotion-sop.md.`);
-      nextActions.push(`Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each unpromoted feedback memory to satisfy Gate H.`);
+      // rid 2026-09-14-gate-h-promotion: the gate no longer passes on a marker
+      // alone. `listUnpromotedFeedback` now also reports markers whose layer
+      // artifact is absent, so `unpromoted` mixes "never promoted" with
+      // "promoted on paper only" — the reason on each entry says which.
+      feedbackGates[0]!.detail = `${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y' : 'ies'} without a backed promotion: ${unpromoted.map((u) => `${u.name} (${u.reason})`).join('; ')}`;
+      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer with a real artifact (${unpromoted.map((u) => u.name).join(', ')}). A marker alone does not count: layer A needs a registered SOP manifest, layer B a matcher in .peaks/.claude-settings-template.json, layer C a hard-floor category in src/services/code/mode-gate.ts. Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each and read what it reports. See sops/feedback-promotion-sop.md.`);
+      nextActions.push(`Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each feedback memory without a backed promotion to satisfy Gate H.`);
     }
   } catch {
     // listUnpromotedFeedback swallows IO errors internally; the
