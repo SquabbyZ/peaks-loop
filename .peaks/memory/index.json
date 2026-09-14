@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-13T20:26:08.861Z",
+  "updatedAt": "2026-09-13T23:38:08.907Z",
   "hot": {
     "rule": [
       {
@@ -420,6 +420,14 @@
         "kind": "feedback",
         "description": "**\"看起来验证过了\"和\"验证过了\"在输出上可以完全一致。分开它们的只有一个动作：让下一个人重新量一遍 —— 而不是让他相信上一轮的报告。** 实测：同一晚四次 | # | 结论 | 证据的瑕 | |---|---|---| | 1 ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
+      },
+      {
+        "name": "a-surface-declared-clean-by-a-scan-that-never-ran-it",
+        "kind": "feedback",
+        "description": "**肯定结论错了要一次执行才能推翻；否定结论错了，连\"有没有查过\"都看不出来。** 实测（2026-09-14） 一个把\"调用方 id 拼进路径\"整类摸清的切片，产出了一张分类表，把  标为 **\"not a guard gap\"**...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-surface-declared-clean-by-a-scan-that-never-ran-it.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-13"
       },
@@ -2672,6 +2680,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-forms-only-rule.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "two-peaks-probes-disagree-about-what-a-ratio-means",
+        "kind": "project",
+        "description": "**peaks-loop 的两个探针，对同一个\"上下文用了多少\"给出不同的动作 —— 而且比例更高的那个反而更轻。** 实测（2026-09-14，相隔约两分钟） **不是时间差**：65.6% 判 ，70.3% 判  —— 阈值不单...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\two-peaks-probes-disagree-about-what-a-ratio-means.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-13"
       },
       {
         "name": "upgrading-the-package-does-not-refresh-generated-settings",
