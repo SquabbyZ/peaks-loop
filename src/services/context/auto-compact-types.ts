@@ -128,13 +128,22 @@ export type AutoCompactResult =
     }
   | {
       readonly ok: true;
-      readonly code: 'AUTO_COMPACT_SKIP' | 'AUTO_COMPACT_WAIT';
+      readonly code: 'AUTO_COMPACT_SKIP' | 'AUTO_COMPACT_WAIT' | 'AUTO_COMPACT_ALREADY_ARMED';
       readonly message: string;
       readonly data: {
         readonly sessionId: string;
         readonly ratio: number;
         readonly source: string;
-        readonly decision: 'below-threshold' | 'in-flight-batch';
+        readonly decision: 'below-threshold' | 'in-flight-batch' | 'already-armed';
+        /**
+         * rid `2026-09-14-compact-dispatch-backoff`, `already-armed` only: the
+         * ratio the open run was dispatched at, and its id. `ratio` above is the
+         * LIVE reading — the pair is what keeps "it is still high" legible after
+         * the backoff drops the per-probe rows: the ask is at `armedAtRatio`, and
+         * the context is now at `ratio`, above it and not yet compacted.
+         */
+        readonly armedAtRatio?: number;
+        readonly armedRunId?: string;
         /**
          * Slice 2026-09-13-auto-compact-trigger-ownership: what syncing the
          * harness auto-compact window did on this probe. `null` = the active

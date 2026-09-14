@@ -120,6 +120,52 @@ function readOpenCompactLifecycle(input: {
 }
 
 /**
+ * rid `2026-09-14-compact-dispatch-backoff`: the compact run this session has
+ * already DISPATCHED and whose outcome is still unknown — the backoff token.
+ *
+ * WHY A BACKOFF IS NEEDED AT ALL. Once the ratio crosses the auto-fire
+ * threshold it STAYS crossed: nothing in peaks-loop can compact a running
+ * session, and the harness fires only at its own red line. So the dispatch
+ * obligation became unsatisfiable and fired on every probe. Measured in one
+ * real session (2026-09-13T22:43:33Z → 2026-09-14T14:15:02Z, ~15.5 h):
+ * 1075 `dispatch` rows, 444 checkpoints, and ZERO compactions. The dispatch
+ * itself is idempotent — `ide-native` only installs a PreToolUse hook, and a
+ * second install of the same hook is a documented no-op — so 1074 of those
+ * rows installed nothing (their own `dispatchMessage` says `already
+ * installed`) and carried no new information. Only noise: a signal that fires
+ * a thousand times is not a signal.
+ *
+ * WHY NO NEW STORE. The one-record-per-session lifecycle store already holds
+ * the one fact the backoff needs: is a compact attempt dispatched and not yet
+ * superseded? `armed` and `compacting` are exactly those two stages, and
+ * `completed` / `failed` mean the attempt is over and the next crossing is a
+ * legitimate new one. The state lives here rather than in
+ * `compact-history.jsonl`, which is append-only and never rewritten — so the
+ * backoff cannot be built by editing history, which is the point.
+ *
+ * STALENESS IS DELIBERATELY IGNORED, for `settleOpenLifecycleRun`'s reason: a
+ * probe arriving after `staleAfterMs` has learned nothing about whether the run
+ * is still live. Age cannot make re-dispatching honest, so the stale window
+ * must not decide it. (`settleOpenLifecycleRun` reads with the same window for
+ * the same reason; the two must not grow two policies.)
+ *
+ * `queued` / `preparing` / `verifying` are NOT open here: they are transient
+ * stages inside a dispatch or a settle, and a process that died in one of them
+ * left no compact attempt to protect — the next probe should be free to
+ * dispatch. `failed` is not open either, by the same argument: a failure is a
+ * reason to try again, not a reason to stay quiet.
+ */
+export function readOpenDispatchRun(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+}): { readonly runId: string; readonly stage: 'armed' | 'compacting'; readonly triggerRatio: number } | null {
+  const record = readOpenCompactLifecycle(input);
+  if (record === null) return null;
+  if (record.stage !== 'armed' && record.stage !== 'compacting') return null;
+  return { runId: record.runId, stage: record.stage, triggerRatio: record.triggerRatio };
+}
+
+/**
  * Slice 2026-08-01-compact-lifecycle (Task 5): the local transition
  * builder. Carries `runId`, `triggerRatio` and `redLine` forward from
  * the run that opened, and remembers the prior stage so a failure can

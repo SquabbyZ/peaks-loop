@@ -545,7 +545,14 @@ describe("Scenario: integration — verifying/completed driven by the real post-
       sessionId: LIFECYCLE_SID,
       env: envAtRatio(0.88),
     });
-    // Still full → the compact has not landed. Re-dispatch, do not "complete".
+    // Still full → the compact has not landed. Do not "complete" the run.
+    //
+    // rid `2026-09-14-compact-dispatch-backoff`: this probe no longer
+    // re-dispatches, and that is deliberate — the dispatch is idempotent (it
+    // re-installs a PreToolUse hook that is already installed), so a second
+    // dispatch from the same crossing adds a checkpoint and a row without
+    // adding a capability. The assertion below is unchanged and is the one that
+    // matters here: an unsettled run must not be reported as completed.
     await runAutoCompact({
       projectRoot,
       sessionId: LIFECYCLE_SID,

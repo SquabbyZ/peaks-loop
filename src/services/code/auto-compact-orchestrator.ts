@@ -65,6 +65,7 @@ import {
   CompactLifecyclePublisher,
   fillEventSettledMeasurement,
   newCompactRunId,
+  readOpenDispatchRun,
   resolveDispatchedStage,
   settleOpenLifecycleRun,
   summarizeLifecycleError
@@ -652,6 +653,60 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
   const isRedLine = decision.reason === 'red-line';
   const now = input.now ?? new Date();
+
+  // rid `2026-09-14-compact-dispatch-backoff`: ONE dispatch per compact
+  // attempt.
+  //
+  // The decision above fires whenever the ratio is at or over the auto-fire
+  // threshold, and the ratio does not come back down on its own — nothing in
+  // peaks-loop can compact a running session, and the harness fires only at
+  // its own red line. So "shouldCompact" was true on every probe, forever: one
+  // real session's `compact-history.jsonl` holds 1075 dispatch rows, 444
+  // checkpoints and ZERO compactions over 15.5 h — and the file was still
+  // growing while this slice ran. Re-dispatching bought nothing, because the
+  // `ide-native` dispatch only installs a PreToolUse hook and installing it
+  // again is a documented no-op: 1074 of those 1075 rows say `already
+  // installed` in their own `dispatchMessage`. It produced rows, not
+  // compactions.
+  //
+  // The lifecycle store already knows whether an attempt is outstanding (see
+  // `readOpenDispatchRun` — `armed`/`compacting` = dispatched, `completed`/
+  // `failed` = over), so the gate needs no new state and no threshold: it is
+  // keyed on the STAGE of the open run, never on a ratio, which is why it
+  // survives any future realignment of the 0.65/0.70/0.85/0.95 table.
+  //
+  // What is NOT suppressed: the probe still measures and still reports. The
+  // envelope carries the LIVE ratio plus the ratio the open ask was made at,
+  // so "it crossed and it is still high, unanswered" stays legible on every
+  // turn — the difference between a quiet signal and a silenced one.
+  //
+  // `force` (the `--force` test seam, "force compact at any ratio") outranks
+  // the inference: an explicit instruction must not be silently reduced to a
+  // no-op, which would make the published flag a lie.
+  const openRun = readOpenDispatchRun({ projectRoot: input.projectRoot, sessionId });
+  if (openRun !== null && input.force !== true) {
+    return {
+      ok: true,
+      code: 'AUTO_COMPACT_ALREADY_ARMED',
+      message:
+        `Context at ${(probe.ratio * 100).toFixed(1)}% — still above the ` +
+        `${(thresholdFor(mode, 'autoFire') * 100).toFixed(0)}% auto-fire threshold (mode=${mode}); ` +
+        `a compact was already dispatched for this crossing at ${(openRun.triggerRatio * 100).toFixed(1)}% ` +
+        `(run ${openRun.runId}, resting at '${openRun.stage}') and nothing has compacted since. ` +
+        `Not dispatching again: the trigger is already registered, so a second dispatch would install the ` +
+        `same hook and add a checkpoint and a history row without adding a capability. ` +
+        `Re-probe with \`peaks code context-now\`.`,
+      data: {
+        sessionId,
+        ratio: probe.ratio,
+        source: probe.source,
+        decision: 'already-armed',
+        armedAtRatio: openRun.triggerRatio,
+        armedRunId: openRun.runId,
+        harnessWindow
+      }
+    };
+  }
 
   // Slice 2026-08-01-compact-lifecycle (Task 5): the decision has now
   // committed to compacting, so the run is `queued`. One runId per
