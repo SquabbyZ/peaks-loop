@@ -91,7 +91,19 @@ export function resolveActiveSkillForCaller(
   // single skill per resolution. When the lease dir is empty (e.g.
   // ad-hoc / pre-migration projects) we fall through to the legacy
   // walk below.
-  const sessionDir = getSessionDir(projectRoot, sessionId);
+  // `getSessionDir` refuses an unsafe session id by throwing (slice
+  // 2026-09-14-getsessiondir-guard). This function's contract is the
+  // resolution order's "graceful degradation — never throws", so an unsafe
+  // id degrades to the same `source: 'none'` shape an absent session dir
+  // produces, exactly as it did before that guard existed. Without this,
+  // the throw escapes to the nearest caller `catch` — for `hook handle`
+  // that catch is a fail-open that skips the SOP gate.
+  let sessionDir: string;
+  try {
+    sessionDir = getSessionDir(projectRoot, sessionId);
+  } catch {
+    return { skill: null, callerId: null, sessionId: null, mode: null, source: 'none' };
+  }
   if (!existsSync(sessionDir)) {
     return { skill: null, callerId: null, sessionId, mode: null, source: 'none' };
   }
