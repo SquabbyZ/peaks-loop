@@ -4,7 +4,7 @@
 > Loop Engineering asset, CLI verb, and skill in peaks-loop.**
 > Consumed by: `peaks standards lint --category loop-engineering`, every peaks-* skill that touches crystallization / evolution, and the post-run handoff.
 
-**Inherits from:** `docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §8, §10.
+**Inherits from:** the 2026-07-07 Loop Engineering crystallization design spec (§8, §10) — that file was retired from the tree (commit `e6e35842`); its surviving design record is `.peaks/memory/2026-07-07-m1-loop-release-design-notes.md`. This file is the source of truth for the red lines themselves.
 **External methodology:** https://github.com/multica-ai/andrej-karpathy-skills (failure-mode table, imperative→declarative rewrite, self-check questions, out-of-scope).
 **External execution layer:** https://github.com/alchaincyf/darwin-skill (ratchet, independent-context evaluation, regression skeptic).
 
@@ -24,7 +24,7 @@ Every red line uses the karpathy-style 4-section form:
 
 `peaks standards lint --category loop-engineering` enforces that each red line below has all 4 sections. The lint harness lives at `src/services/standards/loop-engineering-lint.ts` and is exercised by `tests/unit/standards/loop-engineering-guidelines.test.ts`.
 
-Any new red line introduced in any future slice must be added here using the same 4-section form, or the lint will reject the change. The closed set for the 4.x Loop Engineering slice is `RL-0..RL-9`; new red lines require a new spec section and an `evolution_evaluation` row that proves the new rule is a single-dimension, single-asset, independently-scored improvement (RL-4, RL-5, RL-6).
+Any new red line introduced in any future slice must be added here using the same 4-section form, or the lint will reject the change. The closed set is `RL-0..RL-10` (mirrored by `EXPECTED_RED_LINE_IDS` in the lint harness — a red line that is present here but absent there is not enforced); new red lines require a new spec section and an `evolution_evaluation` row that proves the new rule is a single-dimension, single-asset, independently-scored improvement (RL-4, RL-5, RL-6).
 
 ---
 
@@ -420,7 +420,7 @@ user_imperative: "把这个 loop 分享给队友"
 
 user_imperative: "在桌面端列出所有 loop"
   → declarative:
-      action: peaks skill sediment list --kind loop
+      action: peaks skill sediment list
       reads_only: true
       forbidden_actions:
         - direct_sqlite
@@ -447,10 +447,6 @@ user_imperative: "在桌面端列出所有 loop"
 - A public SkillHub registry.
 
 ---
-
-## End of file
-
-Total red lines: 9 (RL-0..RL-9). Any new red line introduced in any future slice must be added in the 4-section form above; `peaks standards lint --category loop-engineering` will reject the change otherwise.
 
 ## RL-10 — Capability Baseline / Guard / Audit (applies to all peaks-loop slices touching product semantics)
 
@@ -482,3 +478,9 @@ user_imperative: "改这个 bug"
 - Internal refactors that do not change the external behavior of a P0 journey.
 - Documentation-only changes (do not require baseline update).
 - Slice-internal unit tests that are not part of the 15 guard contracts.
+
+---
+
+## End of file
+
+Total red lines: 11 (RL-0..RL-10). Any new red line introduced in any future slice must be added in the 4-section form above; `peaks standards lint --category loop-engineering` will reject the change otherwise.

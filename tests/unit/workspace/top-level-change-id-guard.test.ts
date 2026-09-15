@@ -1,0 +1,162 @@
+// tests/unit/workspace/top-level-change-id-guard.test.ts
+//
+// Defense test for the 2.8.3 hard-ban: a date-stamped / change-id-style dir
+// must never sit at the top level of `.peaks/` (it belongs under
+// `.peaks/_runtime/<sessionId>/`).
+//
+// PROVENANCE. This file originally landed with slice
+// `2026-06-22-top-level-change-id-cleanup`; commit `457b9a87` (v2.16.0-alpha,
+// 2026-06-29) deleted it as "AC-1 partial" while removing the change-id axis,
+// and the later release notes for 3.0.2 claimed it had been "retargeted to ban
+// `<YYYY-MM-DD-*>` sibling dirs" — a retarget that never happened. For ten weeks
+// `CLAUDE.md` and `.peaks/PROJECT.md` kept citing this path as a live enforcement
+// layer, and `.peaks/standards/loop-engineering-guidelines.md` kept citing a
+// deleted test of its own, with nothing in the suite able to notice: a citation
+// that outlives its referent reads exactly like a working one.
+//
+// Restored by slice 2026-09-15-s4-dangling-citations, which also added the
+// repo-wide citation guard at
+// `tests/unit/standards/repo-citation-integrity.test.ts` — the guard that would
+// have caught the three stale citations above.
+//
+// What is asserted here is the MECHANISM of each defense layer, never its prose:
+// the `.gitignore` rule is exercised through `git check-ignore`, the source
+// refusal through a real `initWorkspace` call on a real tmp tree.
+//
+// Dimensions covered:
+//   - behavior:    initWorkspace refuses a date-stamped sibling (typed error)
+//   - integration: real git binary + real working tree + real tmp project
+//   - render:      OMITTED — the effects asserted are fs/git state, not
+//                  formatted output
+//   - a11y:        OMITTED — no human-facing text surface; the refusal is
+//                  asserted as a typed error, not as a rendered message
+
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+import { declareDimensions } from '../_setup/4dim-template.js';
+import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
+import { initWorkspace, LegacyChangeIdSiblingError } from '../../../src/services/workspace/workspace-service.js';
+
+declareDimensions(
+  'tests/unit/workspace/top-level-change-id-guard.test.ts',
+  ['behavior', 'integration'],
+  [
+    { dim: 'render', reason: 'the asserted effects are fs/git state, not formatted output' },
+    { dim: 'a11y', reason: 'no human-facing text surface; the refusal is asserted as a typed error' },
+  ],
+);
+
+const REPO_ROOT = resolve(__dirname, '..', '..', '..');
+const GITIGNORE_PATH = join(REPO_ROOT, '.gitignore');
+const PEAKS_DIR = join(REPO_ROOT, '.peaks');
+
+/**
+ * The defensive rule added in slice 2026-06-22-top-level-change-id-cleanup.
+ * If this literal is dropped from the root `.gitignore`, layer 1 is gone.
+ */
+const DEFENSE_RULE = '.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/';
+
+/** `windowsHide: true` is repo convention for every spawn. */
+function git(args: readonly string[], cwd: string) {
+  return spawnSync('git', [...args], { cwd, encoding: 'utf8', windowsHide: true });
+}
+
+function isDateStamped(name: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}-/.test(name);
+}
+
+describe('Scenario: integration — the root .gitignore still blocks a date-stamped sibling', () => {
+  it('when the root .gitignore is read, should still carry the date-prefix rule', () => {
+    // given: the repository working tree
+    // when: the root .gitignore is read
+    // then: the defensive rule literal is present
+    expect(existsSync(GITIGNORE_PATH)).toBe(true);
+    expect(readFileSync(GITIGNORE_PATH, 'utf8')).toContain(DEFENSE_RULE);
+  });
+
+  it('when git evaluates a synthetic date-stamped sibling path, should ignore it via that rule', () => {
+    // given: a path shaped like the 2.8.0-era orphan, which need not exist on disk
+    // when: git check-ignore resolves it
+    // then: the matching pattern is the defensive rule
+    const result = git(['check-ignore', '-v', '.peaks/2026-01-01-fake-sibling/rd/note.md'], REPO_ROOT);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(DEFENSE_RULE);
+  });
+
+  it('when git evaluates a session dir under .peaks/_runtime, should ignore it via the _runtime rule instead', () => {
+    // given: a legitimate session dir (the canonical two-axis location)
+    // when: git check-ignore resolves it
+    // then: it is ignored, but NOT by the date-prefix rule
+    const result = git(['check-ignore', '-v', '.peaks/_runtime/2026-01-01-fake-session/rd/note.md'], REPO_ROOT);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('.peaks/_runtime/');
+    expect(result.stdout).not.toContain(DEFENSE_RULE);
+  });
+
+  it('when the working tree is scanned, should hold no date-stamped sibling dir under .peaks/', () => {
+    // given: the live repository tree
+    // when: the immediate children of .peaks/ are enumerated
+    // then: no date-stamped directory sits there
+    const orphans = readdirSync(PEAKS_DIR).filter((name) => {
+      if (name.startsWith('.')) return false;
+      if (!isDateStamped(name)) return false;
+      try {
+        return statSync(join(PEAKS_DIR, name)).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+    expect(orphans).toEqual([]);
+  });
+
+  it('when git lists the tracked .peaks entries, should hold no top-level date-stamped path', () => {
+    // given: the index, which a `--force-add` could have poisoned
+    // when: git ls-files enumerates tracked paths under .peaks/
+    // then: none of them is a top-level date-stamped entry
+    const result = git(['ls-files', '.peaks/'], REPO_ROOT);
+    expect(result.status).toBe(0);
+    const offenders = result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('.peaks/_runtime/'))
+      .filter((line) => isDateStamped(line.slice('.peaks/'.length).split('/')[0] ?? ''));
+    expect(offenders).toEqual([]);
+  });
+
+  it('when the two ban documents are read, should still name the rule that blocks the pattern', () => {
+    // given: the two documents layer 4 consists of
+    // when: their bodies are read
+    // then: each still carries the defensive-rule literal
+    expect(readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8')).toContain(DEFENSE_RULE);
+    expect(readFileSync(join(REPO_ROOT, '.peaks', 'PROJECT.md'), 'utf8')).toContain(DEFENSE_RULE);
+  });
+});
+
+describe('Scenario: behavior — initWorkspace refuses the pattern before writing', () => {
+  const ws = withTmpWorkspacePerTest('peaks-top-level-guard-');
+
+  it('when a date-stamped sibling dir holds non-writer content, should throw LegacyChangeIdSiblingError', async () => {
+    // given: a project with `.peaks/2026-01-01-legacy-orphan/rd/note.txt`
+    const orphan = join(ws().path, '.peaks', '2026-01-01-legacy-orphan', 'rd');
+    mkdirSync(orphan, { recursive: true });
+    writeFileSync(join(orphan, 'note.txt'), 'hand-authored residue\n', 'utf8');
+
+    // when: the workspace is initialized
+    const attempt = initWorkspace({ projectRoot: ws().path, sessionId: '2026-01-02-restored-guard', noClaudeHooks: true });
+
+    // then: init refuses instead of walking into the legacy layout
+    await expect(attempt).rejects.toBeInstanceOf(LegacyChangeIdSiblingError);
+  });
+
+  it('when no date-stamped sibling exists, should initialize without refusing', async () => {
+    // given: a clean project root
+    // when: the workspace is initialized
+    const report = await initWorkspace({ projectRoot: ws().path, sessionId: '2026-01-02-clean-init', noClaudeHooks: true });
+
+    // then: the guard does not fire on the happy path
+    expect(report.bound).toBe(true);
+  });
+});

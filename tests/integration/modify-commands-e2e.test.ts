@@ -277,13 +277,40 @@ describe('peaks standards migrate-from-claude-rules (P2-B.2 modify e2e)', () => 
   });
 });
 
+// Slice 2026-09-15-s4-dangling-citations registered the subcommand this
+// describe used to pin as ABSENT. The drift pointer flips polarity: the same
+// invocation must now reach the handler and fail on the MISSING FILE, not on an
+// unknown command — a project with no `.peaks/standards/` has nothing to lint.
 describe('peaks standards lint (P2-B.2 modify e2e)', () => {
-  test('subcommand is NOT registered (drift pointer)', () => {
+  test('reaches the handler and reports the missing guideline file', () => {
     const project = makeProject('peaks-p2b2-std-lint-');
-    const result = runCli(['standards', 'lint', '--project', project, '--json'], project);
+    const result = runCli(['standards', 'lint', '--category', 'loop-engineering', '--project', project, '--json'], project);
     expect(result.code).not.toBe(0);
-    const combined = result.stdout + result.stderr;
-    expect(combined).toMatch(/unknown command|standards lint/);
+    const envelope = parseEnvelope<{ path: string }>(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.command).toBe('standards.lint');
+    expect(envelope.code).toBe('LINT_FILE_NOT_FOUND');
+  });
+
+  test('rejects a category it does not implement', () => {
+    const project = makeProject('peaks-p2b2-std-lint-cat-');
+    const result = runCli(['standards', 'lint', '--category', 'not-a-category', '--project', project, '--json'], project);
+    expect(result.code).not.toBe(0);
+    const envelope = parseEnvelope(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('UNKNOWN_LINT_CATEGORY');
+  });
+
+  test('lints the shipped guideline file when pointed at a peaks-loop checkout', () => {
+    // The lint reads its own `--project` tree; the repo root is the one tree
+    // guaranteed to carry `.peaks/standards/loop-engineering-guidelines.md`.
+    const repoRoot = resolve(__dirname, '..', '..');
+    const result = runCli(['standards', 'lint', '--category', 'loop-engineering', '--project', repoRoot, '--json'], repoRoot);
+    expect(result.code).toBe(0);
+    const envelope = parseEnvelope<{ redLineCount: number; findings: readonly string[] }>(result);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data.redLineCount).toBeGreaterThan(0);
+    expect(envelope.data.findings).toEqual([]);
   });
 });
 

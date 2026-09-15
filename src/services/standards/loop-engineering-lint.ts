@@ -30,6 +30,12 @@ export const EXPECTED_RED_LINE_IDS = [
   'RL-7',
   'RL-8',
   'RL-9',
+  // RL-10 was written into the guideline file (its 4 sections included) but
+  // never added here, so the lint could not see it: the closed set stopped one
+  // short of the file it was supposed to police. The file's own footer said
+  // "Total red lines: 9 (RL-0..RL-9)" while RL-10 sat below it — the two
+  // statements contradicted each other and only the file was ever read.
+  'RL-10',
 ] as const;
 
 export type RedLineId = (typeof EXPECTED_RED_LINE_IDS)[number];

@@ -44,8 +44,9 @@ denied again after a long pause. That is the gate resetting, not you regressing.
 
 `peaks-code` is a **code-domain long-task loop engineering orchestrator; not a general-purpose orchestrator.**
 
-This is RL-8 from the Loop Engineering crystallization design
-(`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §0.4 and §10 RL-8).
+This is RL-8, stated in `.peaks/standards/loop-engineering-guidelines.md` (the 2026-07-07
+crystallization design spec that first wrote it, §0.4 and §10, was retired from the tree in
+commit `e6e35842`).
 The boundary is closed under this slice:
 
 - **In scope:** end-to-end code-domain workflows — repository scanning, RD planning, code implementation via RD, QA verification, UI changes inside a code repo, source-control handoff, and code-repo context packaging. Coordinated role skills: `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`.

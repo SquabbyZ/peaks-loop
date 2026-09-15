@@ -15,7 +15,7 @@
   `.gitignore`: `.peaks/runtime/` (typo guard) and `.peaks/preferences.json`
   (per-project user state). Full rule at
   `.peaks/memory/workspace-underscore-convention.md`.
-- **Top-level `.peaks/_runtime/<YYYY-MM-DD-*>/` is forbidden (effective 2.8.3)** —
+- **Top-level `.peaks/<YYYY-MM-DD-*>/` is forbidden (effective 2.8.3)** —
   session-id artifacts MUST live under `.peaks/_runtime/<sid>/`
   (gitignored). Never as siblings of `.peaks/_runtime/`. **Path
   distinction** (post-`2026-06-29-change-id-root-removal`): the
@@ -26,8 +26,9 @@
   enforcement**: (1) root `.gitignore` rule
   `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks untracked
   writes; (2) vitest guard at
-  `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases
-  including CLI help-text + sibling-dir-shape assertions) fails CI on
+  `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases —
+  `git check-ignore` on the rule, the live working tree + index, the
+  `initWorkspace` refusal, and the two ban documents) fails CI on
   regression; (3) source-code redirect in
   `src/services/workspace/workspace-service.ts` — `initWorkspace` uses
   `lstatSync` to refuse legacy sibling dirs
@@ -39,8 +40,8 @@
   slice `2026-06-22-top-level-change-id-cleanup` (commits `7373f81`,
   `d557ed8`, `f18a518`, `bc0423d`, plus audit followup). The change-id
   axis was fully removed in slice `2026-06-29-change-id-root-removal`.
-  See `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md` for the
-  full audit trail + the 13 audit findings remediation.
+  See `.peaks/memory/archived/2026-06-22-top-level-change-id-cleanup.md`
+  for the full audit trail + the 13 audit findings remediation.
 
 <!-- peaks-managed:session-history-start -->
 

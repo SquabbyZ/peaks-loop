@@ -114,7 +114,7 @@
     "test:ci": "node ./scripts/sync-version.mjs && node ./scripts/lint/silent-warning-detector.mjs && vitest run --coverage",
     "test:changed": "node scripts/test-changed.mjs",
     "lint:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",
-    "test:race": "vitest run --no-file-parallelism packages/peaks-loop-shared-channel/tests/shared-channel.test.ts tests/unit/dispatch-record-writer.test.ts tests/unit/services/retrospective/heartbeat.test.ts tests/unit/cli/commands/share-commands.test.ts",
+    "test:race": "vitest run --no-file-parallelism packages/peaks-loop-shared-channel/tests/shared-channel.test.ts tests/unit/services/dispatch/dispatch-record-writer.test.ts",
     "test:replay": "node scripts/fixture-capture-setup.mjs && vitest run tests/unit/replay tests/unit/fixture",
     "fixture:capture-setup": "node scripts/fixture-capture-setup.mjs",
     "test:coverage": "node ./scripts/coverage-c8.mjs",
