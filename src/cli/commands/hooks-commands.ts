@@ -15,9 +15,10 @@ import {
   listSuperpowersDenyEntries,
   type HookScope
 } from '../../services/skills/hooks-settings-service.js';
+import { resolveHookEntries, resolveHookSpec } from '../../services/skills/hooks-codegate-superpowers.js';
 import { readJsonObjectFile } from '../../services/ide/shared/atomic-json.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
-import { getAdapter, resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
+import { resolveIdeOptionHelp } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
 type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
@@ -68,20 +69,23 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
  * service did not write.
  */
 function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
-  const adapter = getAdapter(ide);
-  if (ide === 'trae') {
-    return [{ matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' }];
-  }
-  // Slice 2026-08-06-codegate-vendor-neutral: Claude Code install
-  // also emits the Edit|Write|MultiEdit code-gate entry. The summary
-  // mirrors the install shape, NOT a hardcoded expected list. The
-  // hook source of truth is `src/services/hooks/pre-tool-code-gate.sh`
-  // (vendor-neutral); the runtime adapter is `peaks code-gate --json`
-  // registered as a PreToolUse entry.
-  return [
-    { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
-    { matcher: 'Edit|Write|MultiEdit', sentinel: 'peaks code-gate' }
-  ];
+  // Derived from `resolveHookEntries(ide)` — the same function `planHookInstall`
+  // / `applyHookInstall` write from — so the summary can only ever report a
+  // shape the install actually produces. The previous version was a
+  // hand-written literal under a comment claiming it "mirrors the install
+  // shape, NOT a hardcoded expected list" (diagnosis 2026-09-15, C4); the
+  // literal had drifted from that claim in both directions: it re-typed the
+  // code-gate matcher instead of reading `HOOK_CODE_GATE_MATCHER`, and it
+  // reported 2 of the 6 entries a claude-code install writes.
+  //
+  // The filter is the tool-call event. `resolveHookEntries` also returns the
+  // once-per-session SessionStart / PostCompact entries; those are not what a
+  // per-call hook-entry summary is read for, and leaving them out is the only
+  // place this summary is narrower than the install.
+  const event = resolveHookSpec(ide).hookEnforceEvent;
+  return resolveHookEntries(ide, _skipProgress)
+    .filter((entry) => entry.event === event)
+    .map((entry) => ({ matcher: entry.matcher, sentinel: entry.sentinel }));
 }
 
 /**
@@ -124,6 +128,36 @@ function readOnDiskDenyEntries(settings: Record<string, unknown>): ReadonlyArray
   const deny = (permissions as Record<string, unknown>).deny;
   if (!Array.isArray(deny)) return [];
   return deny.filter((d): d is string => typeof d === 'string');
+}
+
+/**
+ * One `nextActions` line for a hook-script copy, or `null` when there is
+ * nothing to say.
+ *
+ * Diagnosis 2026-09-15 (C7): the copy failure used to be reported as a single
+ * sentence — `'<x> hook not copied (source missing or non-global scope)'` —
+ * which merged a real build failure into the expected project-scope no-op.
+ * Only `scope === 'global'` copies these scripts at all (see the call sites),
+ * so in project scope the sentence described normal behaviour in the wording
+ * of a fault, and a healthy `peaks hooks install` read as broken.
+ *
+ * Scope is therefore what decides the sentence, and it is knowable here — the
+ * copy helper cannot tell the two cases apart because both return
+ * `copied: false`, but the caller can. Project scope emits no line: there is
+ * no action to take, and the envelope's `bridgeHookCopy` / `codeGateHookCopy`
+ * field still reports `copied: false` for anyone reading the JSON.
+ */
+function describeHookCopy(
+  label: string,
+  copy: { copied: boolean; source: string; target: string },
+  scope: HookScope,
+  dryRun: boolean
+): string | null {
+  if (scope !== 'global') return null;
+  if (copy.copied) {
+    return dryRun ? `would copy ${label} from ${copy.source} to ${copy.target}` : `Copied ${label}: ${copy.target}`;
+  }
+  return `${label} NOT copied — source missing at ${copy.source}. Run the build (\`pnpm build\`) so the script ships with the package.`;
 }
 
 function copyBridgeHookIfPresent(userHome: string, dryRun = false): { copied: boolean; source: string; target: string } {
@@ -237,25 +271,19 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
                 (entry) => `would write ${entry.matcher || '(no matcher)'} → ${entry.sentinel} to ${entry.settingsPath}`
               ),
               `would write ${listSuperpowersDenyEntries().length} permissions.deny entries (Layer 3 worktree governance)`,
-              bridgeCopy.copied
-                ? `would copy bridge hook from ${bridgeCopy.source} to ${bridgeCopy.target}`
-                : 'would not copy bridge hook (source missing or non-global scope)',
-              codeGateCopy.copied
-                ? `would copy code-gate hook from ${codeGateCopy.source} to ${codeGateCopy.target}`
-                : 'would not copy code-gate hook (source missing or non-global scope)'
-            ]
+              describeHookCopy('bridge hook', bridgeCopy, scope, true),
+              describeHookCopy('code-gate hook', codeGateCopy, scope, true)
+            ].filter((line): line is string => line !== null)
           ),
           options.json
         );
         return;
       }
       const result = applyHookInstall(scope, projectRoot, { ide, skipProgress });
-      // Slice #3: build the per-IDE entries summary from the actual installed
-      // entries, not the slice #1 PEAKS_HOOK_ENTRIES constant (which is the
-      // claude-code default). The user's JSON envelope must reflect the IDE
-      // they targeted. Slice #014: the install only emits the gate-enforce
-      // entry; the summary mirrors the install shape, NOT a hardcoded
-      // expected list.
+      // Slice #3: build the per-IDE entries summary for the IDE the user
+      // targeted, not the slice #1 PEAKS_HOOK_ENTRIES constant (which is the
+      // claude-code default). The summary is derived from the install's own
+      // entry table — see `listExpectedEntriesForIde`.
       const installedEntries = listExpectedEntriesForIde(ide, skipProgress);
       // Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): when
       // the install targets global scope, also copy the superpowers-bridge
@@ -280,16 +308,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             // Slice 2026-07-29-worktree-layer3-deny: surface L3 deny
             // write alongside the hook install — single atomic write.
             `Layer 3 deny: wrote ${listSuperpowersDenyEntries().length} permissions.deny entries (worktree governance)`,
-            bridgeCopy.copied
-              ? `Copied bridge hook: ${bridgeCopy.target}`
-              : 'Bridge hook not copied (source missing or non-global scope)',
-            codeGateCopy.copied
-              ? `Copied code-gate hook: ${codeGateCopy.target}`
-              : 'Code-gate hook not copied (source missing or non-global scope)'
-          ]
-        : (bridgeCopy.copied
-            ? [`Bridge hook copied: ${bridgeCopy.target}`]
-            : []);
+            describeHookCopy('bridge hook', bridgeCopy, scope, false),
+            describeHookCopy('code-gate hook', codeGateCopy, scope, false)
+          ].filter((line): line is string => line !== null)
+        : [describeHookCopy('bridge hook', bridgeCopy, scope, false)].filter((line): line is string => line !== null);
       // Slice 2026-07-29-worktree-layer3-deny: emit L3 deny bookkeeping
       // in the JSON envelope so downstream automation (audit / sc) can
       // confirm Layer 3 was applied without re-reading the file. When

@@ -2,8 +2,8 @@
  * Slice 2026-07-28 — auto-compact mode table for 24h long-run awareness.
  *
  * The default `'standard'` mode preserves the v2.13.0 zero-pause contract
- * thresholds (preCompact=0.85, redLine=0.95). The `'partial'` mode fires
- * earlier for 24h long-run scenarios where the user has explicitly
+ * thresholds (autoFire=0.80, preCompact=0.85, redLine=0.95). The `'partial'`
+ * mode fires earlier for 24h long-run scenarios where the user has explicitly
  * opted into higher compaction cadence via `peaks session 24h-mode`.
  *
  * Slice 2026-07-29-context-evaluation-accuracy Part 22: a new
@@ -38,10 +38,27 @@ export function isValidMode(value: string): value is AutoCompactMode {
   return value === 'standard' || value === 'partial';
 }
 
+function pct(ratio: number): string {
+  return `${(ratio * 100).toFixed(0)}%`;
+}
+
+/**
+ * Human-readable form of a mode's threshold row.
+ *
+ * Derived from `AUTO_COMPACT_THRESHOLDS` rather than hand-written. Diagnosis
+ * 2026-09-15 (C1) found this string advertising `0.85/0.95` for `standard`
+ * while the table had auto-fired at `0.80` since slice
+ * 2026-07-29-context-evaluation-accuracy added the `autoFire` tier — the
+ * description named only the two thresholds that were left over from the
+ * v2.13.0 contract, and skipped the one that actually fires. Reading the
+ * numbers out of the table makes that drift unrepresentable.
+ */
 export function describeMode(mode: AutoCompactMode): string {
+  const { autoFire, preCompact, redLine } = AUTO_COMPACT_THRESHOLDS[mode];
+  const bands = `auto-fire ${pct(autoFire)} / pre-compact ${pct(preCompact)} / red-line ${pct(redLine)}`;
   return mode === 'standard'
-    ? 'standard (0.85/0.95 — v2.13.0 zero-pause contract)'
-    : 'partial (0.70/0.85 — 24h long-run mode)';
+    ? `standard (${bands} — v2.13.0 zero-pause contract)`
+    : `partial (${bands} — 24h long-run mode)`;
 }
 
 export function isPartialModeEligible(contextPercent: number): boolean {

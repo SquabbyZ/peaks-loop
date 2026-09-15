@@ -299,6 +299,9 @@ peaks code emit-handoff --project <repo> --job-id <jid> --json
 
 # v3.1.2 forced auto-compact: when --enforce-job-mode is set OR
 # job-shape.json says isJob=true, ≥0.85 is MANDATORY auto-compact.
+# The trigger line is actually 0.80, not 0.85: `peaks skill presence`
+# reports action='auto-fire' from ≥0.80 and that tier is already mandatory
+# in every mode, so context-now's 0.85 is the *second* line to arrive.
 # Code MUST call this without confirmation under Job mode.
 peaks code context-now --project <repo> --enforce-job-mode --json
 peaks code auto-compact --project <repo> --json

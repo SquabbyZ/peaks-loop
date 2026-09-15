@@ -45,7 +45,7 @@ Refuses to emit a final handoff while `remaining > 0` under Job mode. Pass `--fo
 
 ### 3. Forced auto-compact — `--enforce-job-mode`
 
-`peaks code context-now --enforce-job-mode` (auto-enabled when `job-shape.json` says `isJob=true`) returns `action: 'auto-compact-now'` at ≥ 0.85; Code MUST call `peaks code auto-compact` without confirmation.
+`peaks code context-now --enforce-job-mode` (auto-enabled when `job-shape.json` says `isJob=true`) returns `action: 'auto-compact-now'` at ≥ 0.85; Code MUST call `peaks code auto-compact` without confirmation. Note the earlier line: `peaks skill presence` reports `auto-fire` from ≥ 0.80, and that tier is already mandatory — the 0.80 line, not 0.85, is the one that fires first.
 
 ### 4. On-disk slice progress — `progress.json`
 

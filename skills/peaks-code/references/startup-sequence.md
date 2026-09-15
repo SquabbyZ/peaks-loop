@@ -31,7 +31,7 @@ After autonomous work (RD, QA, security, perf), invoke peaks-final-review for 4-
 
 ### Peaks-Loop Step N+2: Main-session context monitor (D6 + slice 2026-07-02)
 
-After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (`peaks code auto-compact`). Pass `--enforce-job-mode` for single-rid. **≥ 0.95** red line: next Bash/Task fires `peaks code auto-compact`. **Karpathy §4 exception**: compact red line keeps runner alive — zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
+After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.80 auto-fire / 0.85 pre-compact / 0.95 red-line** (v2.13.0). **At ≥ 0.80 (`auto-fire`, the tier `peaks skill presence` reports every turn) auto-compact is MANDATORY in every mode** (`peaks code auto-compact`). Pass `--enforce-job-mode` for single-rid. **≥ 0.95** red line: next Bash/Task fires `peaks code auto-compact`. **Karpathy §4 exception**: compact red line keeps runner alive — zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
@@ -65,7 +65,7 @@ The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peak
 
 **v3.1.2 mechanical gates** (recorder-only was bypassed twice):
 
-PreToolUse hook on `peaks code gate-step-08`; size-fear ban on `peaks code emit-handoff`; forced auto-compact at ≥ 0.85 in Job mode; on-disk slice progress via `peaks job checkpoint` (canonical reader `peaks job progress --job-id <jid>`). Full mechanics (judgement criteria, hook table, backup-regex rationale, hook wiring) at `references/step-0-8-gate.md`.
+PreToolUse hook on `peaks code gate-step-08`; size-fear ban on `peaks code emit-handoff`; forced auto-compact from ≥ 0.80 (`auto-fire`, every mode); on-disk slice progress via `peaks job checkpoint` (canonical reader `peaks job progress --job-id <jid>`). Full mechanics (judgement criteria, hook table, backup-regex rationale, hook wiring) at `references/step-0-8-gate.md`.
 
 ### Peaks-Loop Step 0.81 — per-slice 收尾
 

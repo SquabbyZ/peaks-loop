@@ -15,8 +15,8 @@ the lookup table the LLM must consult in lieu of intuition.
 
 | # | Signal source | Threshold | File / CLI | LLM action |
 |---|---|---|---|---|
-| 1 | prompt size (main session) | 50% / 75% / 80% / 90% | `src/services/context/threshold.ts`; probe via `peaks code context-now` | soft-warn at 50%; consider compact at 75%; MUST NOT auto-compact mid-batch (D6.e); Job mode ≥ 0.85 ⇒ MANDATORY `peaks code auto-compact` |
-| 2 | auto-compact zone | 0.85 pre-compact / 0.95 red-line | `src/services/code/auto-compact-orchestrator.ts`; `--enforce-job-mode` flag | Auto-fires `peaks code auto-compact`; LLM MUST NOT prompt user to compact (zero-pause contract v2.13.0) |
+| 1 | prompt size (main session) | 50% / 75% / 80% / 90% | `src/services/context/threshold.ts`; probe via `peaks code context-now` | soft-warn at 50%; consider compact at 75%; MUST NOT auto-compact mid-batch (D6.e); ≥ 0.80 (`auto-fire`) ⇒ MANDATORY `peaks code auto-compact` |
+| 2 | auto-compact zone | 0.80 auto-fire / 0.85 pre-compact / 0.95 red-line | `src/services/code/auto-compact-orchestrator.ts`; `--enforce-job-mode` flag | Auto-fires `peaks code auto-compact`; the 0.80 `auto-fire` tier is the one that fires first (`peaks skill presence` reports it); LLM MUST NOT prompt user to compact (zero-pause contract v2.13.0) |
 | 3 | sub-agent dispatch prompt size | 50% / 75% / 80% | `src/services/context/context-guard.ts`; `peaks sub-agent-dispatch-guard` PreToolUse hook | soft-warn at 50%; CONTEXT_NEAR_LIMIT at 75%; hard-reject at 80% (CLI + hook double-guard) |
 | 4 | statusline compact bar | visual | `src/services/compact-statusline/compact-statusline-service.ts` | ambient UI; surfaces queued/preparing/compacting/verifying/completed/failed/stalled |
 | 5 | in-flight batch deferral | D6.e | `src/services/code/auto-compact-modes.ts` | defer compact until batch lands (NOT "new session") |
@@ -44,6 +44,8 @@ LLM senses context pressure
   │   ├─ 0.75 ≤ ratio < 0.85 → compact-zone candidate
   │   │     ├─ Job mode → MUST auto-compact now
   │   │     └─ non-Job  → wait for next idle turn, then compact
+  │   ├─ 0.80 ≤ ratio < 0.85 → auto-fire zone; `peaks skill presence` reports
+  │   │     `action: 'auto-fire'` → auto-compact MUST fire (do NOT wait for 0.85)
   │   ├─ 0.85 ≤ ratio < 0.95 → pre-compact zone; auto-compact MUST fire
   │   └─ ratio ≥ 0.95       → red-line; compact REQUESTED, dispatch NOT blocked (Karpathy §4)
   │                                 keep working, re-probe, do not stall
