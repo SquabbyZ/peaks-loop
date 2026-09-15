@@ -21,5 +21,5 @@
     "sourceMap": false
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "tests/fixtures/bdd-reporter-tmp"]
 }

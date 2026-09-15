@@ -29,13 +29,31 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 /**
- * vitest's include glob in vitest.config.ts is `tests/unit/**\/*.test.ts`.
- * We must write our fixture test files under `tests/unit/` (not OS tmp)
- * so vitest actually discovers them. We nest under a `_bdd-reporter-tmp`
- * subdirectory and tear it down after every case; .gitignore already
- * excludes any underscore-prefixed scratch dir under tests/.
+ * The fixture test files must live OUTSIDE `vitest.config.ts`'s include glob
+ * (`tests/unit/**\/*.test.ts`). Writing them inside it — which this test used
+ * to do, under `tests/unit/_bdd-reporter-tmp/` — makes vitest's own collector
+ * race this test: the glob runs once at run start, the per-file import runs
+ * seconds later, and the `afterEach` below deletes the file in between. The
+ * collector then fails with `Cannot find module` and reports a file that no
+ * longer exists. `tsc` reads the same tree (`include: tests/**\/*.ts`), so a
+ * fixture deleted mid-type-check aborts the whole program with a lone
+ * `TS6053` — which is why a `tsc` count taken during a test run is worthless.
+ *
+ * OS tmp is not an option either: the fixture imports `vitest`, so it has to
+ * resolve from inside this repo. `tests/fixtures/bdd-reporter-tmp/` satisfies
+ * both — inside the repo for module resolution, outside both globs, and
+ * excluded from the tsc program. The nested run below is pointed at
+ * FIXTURE_CONFIG, which is what lets it still discover a file that the
+ * project's unit glob deliberately does not.
  */
-const FIXTURE_BASE = join(process.cwd(), 'tests', 'unit', '_bdd-reporter-tmp');
+const FIXTURE_BASE = join(process.cwd(), 'tests', 'fixtures', 'bdd-reporter-tmp');
+
+const FIXTURE_CONFIG = join(
+  process.cwd(),
+  'tests',
+  'fixtures',
+  'bdd-reporter.vitest.config.ts',
+);
 
 const REPORTER = join(
   process.cwd(),
@@ -54,10 +72,10 @@ afterEach(() => {
 });
 
 /**
- * Build a fresh fixture directory under `tests/unit/_bdd-reporter-tmp/`
- * and write a single test file into it. vitest's include glob picks it
- * up because it lives under `tests/unit/**`. The dir is removed in
- * `afterEach` so no state survives across cases.
+ * Build a fresh fixture directory under `tests/fixtures/bdd-reporter-tmp/`
+ * and write a single test file into it. The nested vitest run discovers it
+ * through `FIXTURE_CONFIG`, not through the project's unit glob. The dir is
+ * removed in `afterEach` so no state survives across cases.
  */
 function writeTestFile(name: string, body: string): string {
   mkdirSync(FIXTURE_BASE, { recursive: true });
@@ -91,6 +109,8 @@ function runWithReporter(testFileAbsPath: string): RunResult {
       vitestBin,
       'run',
       '--no-color',
+      '--config',
+      FIXTURE_CONFIG,
       '--reporter',
       REPORTER,
       testFileAbsPath,
