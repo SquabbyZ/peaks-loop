@@ -262,3 +262,60 @@ jobs:
           # (CLAUDE_CODE_SESSION_ID). The `test` job above passes the same 15
           # contracts on BOTH OSes purely because it already sets this.
           PEAKS_CALLER_ID: ci-runner
+
+  # S10 (2026-09-15): the `Co-Authored-By` red rule in `CLAUDE.md` — "effective
+  # 2026-07-01, no exceptions" — had no executor at all until this job: no
+  # husky / lefthook / commitlint, and `.git/hooks/` holds only `.sample`
+  # files. The guard is `tests/unit/standards/no-ai-co-author-trailer.test.ts`,
+  # which the `test` job above also runs.
+  #
+  # WHY THIS JOB EXISTS ANYWAY, given the test job already runs the file.
+  # `actions/checkout@v4` defaults to `fetch-depth: 1`, so in the `test` job
+  # the guard reads the TIP COMMIT ONLY. For a direct push to `main` that is
+  # exactly the pushed commit, so the check is real there — but a multi-commit
+  # push would leave every commit but the tip unchecked, and "reads one commit"
+  # and "reads 1876 commits" are not the same claim. This job checks out the
+  # full history so the whole-history claim is ENFORCED on a runner rather
+  # than asserted in a comment.
+  #
+  # ubuntu-latest ONLY: this is a property of commit messages, with no
+  # platform dimension in it, so a matrix would buy nothing and cost a
+  # full-history fetch three times. No `continue-on-error`, no `|| true`: a
+  # red here means a commit in this repository's history carries AI-assistant
+  # attribution, and the remedy is to rewrite it before it spreads.
+  #
+  # The guard has its own injection control (it builds a throwaway repo, commits
+  # a violating message into it, and asserts it goes red), so it cannot pass by
+  # being unable to fail.
+  commit-message-red-line:
+    name: 'commit-message red line (no AI co-author trailer, full history)'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole point of the job. See above.
+          fetch-depth: 0
+
+      - name: Setup pnpm (corepack)
+        # Same reason as every other job here: pnpm/action-setup's
+        # self-installer fails on the runner's default Node 24.
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.11.0 --activate
+          pnpm --version
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the red-line guard
+        # No `npm run build`: the guard imports nothing from `dist/` and spawns
+        # no CLI — it reads `git log` and matches strings.
+        run: pnpm exec vitest run tests/unit/standards/no-ai-co-author-trailer.test.ts --reporter=default --reporter=github-actions
+        env:
+          TZ: UTC
+          PEAKS_CALLER_ID: ci-runner

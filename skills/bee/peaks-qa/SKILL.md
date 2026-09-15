@@ -258,7 +258,6 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/artifact-per-request.md` | QA 3-file per-request artifact contract. |
 | `references/browser-validation-contracts.md` | Browser contracts (1) + (2) + AskUserQuestion. |
 | `references/codegraph-regression-focus.md` | Codegraph regression-surface evidence. |
-| `references/command-migration.md` | Legacy command migration map. |
 | `references/external-capability-guidance.md` | Playwright / Chrome DevTools / Agent Browser. |
 | `references/openspec-validation-gate.md` | OpenSpec validation + archive gate. |
 | `references/qa-compact-handoff.md` | QA compact handoff capsule. |

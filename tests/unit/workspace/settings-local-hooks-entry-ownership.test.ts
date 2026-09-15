@@ -95,16 +95,16 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //        writer of this file (the auto-compact installer)
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
-    expect(matchers(root)).toEqual(['Write|Edit|MultiEdit', 'Bash', 'Bash']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash']);
     installAutoCompactHook({ projectRoot: root });
-    expect(matchers(root)).toEqual(['Write|Edit|MultiEdit', 'Bash', 'Bash', 'Bash|Task']);
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
     // when: `peaks workspace init` runs again — twice, since one init only
     //       proves the entry was not deleted once
     const second = await materializeClaudeSettingsLocal(root, false);
     const third = await materializeClaudeSettingsLocal(root, false);
-    // then: the entry is still there at 4, both times
-    expect(matchers(root)).toEqual(['Write|Edit|MultiEdit', 'Bash', 'Bash', 'Bash|Task']);
-    expect(readPreToolUse(root).length).toBe(4);
+    // then: the entry is still there at 3, both times
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
+    expect(readPreToolUse(root).length).toBe(3);
     // and: neither init reported drift — a merge without the matching
     //      comparator change would report `refreshed` here on EVERY init
     expect(second.action).toBe('already-current');
@@ -128,8 +128,8 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //       drift entirely
     expect(result.action).toBe('refreshed');
     expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('hand-edited-by-a-user');
-    expect(readPreToolUse(root)[0]).toEqual({ matcher: 'Write|Edit|MultiEdit', hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]] });
-    expect(matchers(root)).toEqual(['Write|Edit|MultiEdit', 'Bash', 'Bash', 'Bash|Task']);
+    expect(readPreToolUse(root)[0]).toEqual({ matcher: 'Bash', hooks: [buildClaudeSettingsLocalJson().hooks.PreToolUse[0]!.hooks[0]] });
+    expect(matchers(root)).toEqual(['Bash', 'Bash', 'Bash|Task']);
   });
 
   it('when an undeclared event sits beside a drifted entry, should keep the event', async () => {
@@ -175,8 +175,8 @@ describe('the local hooks list is owned per entry, not per key', () => {
 
   it('when the offline copy is stale, should self-heal it', async () => {
     // given: an installed project whose offline copy is an OLDER release's
-    //        template — the env block (1.7.0) is missing, and the write-gate
-    //        handler still carries its pre-1.6.0 command
+    //        template — the env block (1.7.0) is missing, and the first
+    //        declared handler still carries an older command
     const root = makeProject();
     await materializeClaudeSettingsLocal(root, false);
     const stale = JSON.parse(readFileSync(offlineCopyPath(root), 'utf8')) as {
@@ -214,14 +214,14 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //      handler with a copy of its sibling leaves the count intact and is
     //      still drift
     const swapped = buildClaudeSettingsLocalJson();
-    swapped.hooks.PreToolUse[2] = { matcher: 'Bash', hooks: [swapped.hooks.PreToolUse[1]!.hooks[0]!] };
+    swapped.hooks.PreToolUse[1] = { matcher: 'Bash', hooks: [swapped.hooks.PreToolUse[0]!.hooks[0]!] };
     expect(templateContentMatches(generated, JSON.stringify(swapped))).toBe(false);
   });
 
   it('when the merge runs twice, should be a fixed point', () => {
     // given: an on-disk tree with extras and a drifted declared entry
     const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
-    const break0 = { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'echo broken' }] };
+    const break0 = { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo broken' }] };
     const onDisk = [break0, ...template.slice(1), { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }];
     // when: the merge is applied, then applied again to its own output
     const once = mergeTemplateOwnedHooks(onDisk, template);
@@ -230,5 +230,82 @@ describe('the local hooks list is owned per entry, not per key', () => {
     //       changes nothing
     expect(once).toEqual([...template, { matcher: 'Bash|Task', hooks: [{ type: 'command', command: 'echo extra' }] }]);
     expect(twice).toEqual(once);
+  });
+
+  it('when a pre-1.8.0 file still carries the retired write-gate entry, should drop it', () => {
+    // given: the entry TEMPLATE_VERSION 1.8.0 retired, exactly as an earlier
+    //        release emitted it — a `node "<abs>/services/hooks/write-gate.js"`
+    //        handler on the legacy matcher spelling
+    const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
+    const retired = {
+      matcher: 'Write|Edit|MultiEdit',
+      hooks: [
+        {
+          type: 'command',
+          command: 'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
+          shell: 'powershell'
+        }
+      ]
+    };
+    // when: the merge runs over a file that still holds it
+    const merged = mergeTemplateOwnedHooks([retired, ...template], template);
+    // then: it is gone — declaring less does not retire it, because preserving
+    //       undeclared entries is what the merge does
+    expect(merged).toEqual([...template]);
+    expect(JSON.stringify(merged)).not.toContain('write-gate.js');
+  });
+
+  it('when a pre-1.8.0 file is compared, should report drift so the retirement can reach it', async () => {
+    // Given: a file that declares every entry the template declares AND the
+    // env exemptions, plus the retired entry. Containment alone calls this
+    // "current" — measured against the real CLI, which then never rewrote and
+    // left the retired handler in place verbatim.
+    const root = makeProject();
+    const retired = {
+      matcher: 'Write|Edit|MultiEdit',
+      hooks: [
+        {
+          type: 'command',
+          command: 'node "C:/Users/x/AppData/Local/nvm/v24.14.0/node_modules/peaks-loop/dist/services/hooks/write-gate.js"',
+          shell: 'powershell'
+        }
+      ]
+    };
+    // Built as a new tree rather than `unshift`-ed into the generated one: the
+    // generated entry type pins the literal `type: 'command'`, and a widened
+    // fixture would not typecheck against it. (A cast here would work too and
+    // would be worse — it would hide a real mismatch in a future fixture.)
+    const generated = buildClaudeSettingsLocalJson();
+    const seeded = {
+      ...generated,
+      hooks: { PreToolUse: [retired, ...generated.hooks.PreToolUse] }
+    };
+    seedLocalSettings(root, seeded);
+    expect(
+      templateContentMatches(JSON.stringify(buildClaudeSettingsLocalJson()), JSON.stringify(seeded)),
+      'a file carrying a retired entry must not compare as current'
+    ).toBe(false);
+
+    // when: the materializer runs
+    const first = await materializeClaudeSettingsLocal(root, false);
+    // then: it rewrites, and the retired entry is gone…
+    expect(first.action).toBe('refreshed');
+    expect(readFileSync(localSettingsPath(root), 'utf8')).not.toContain('write-gate');
+    expect(matchers(root)).toEqual(['Bash', 'Bash']);
+    // …and the next run is the fixed point, not a rewrite loop
+    const second = await materializeClaudeSettingsLocal(root, false);
+    expect(second.action).toBe('already-current');
+  });
+
+  it('when a user owns a Write|Edit|MultiEdit entry, should keep it', () => {
+    // given: the same matcher with a command that is NOT the retired handler —
+    //        a user's own hook, or another tool's
+    const template = buildClaudeSettingsLocalJson().hooks.PreToolUse;
+    const userOwned = { matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'echo mine' }] };
+    // when: the merge runs
+    const merged = mergeTemplateOwnedHooks([userOwned, ...template], template);
+    // then: the retirement predicate did not reach it — a looser "drop anything
+    //       on this matcher" rule would have deleted a user's hook
+    expect(merged).toEqual([...template, userOwned]);
   });
 });

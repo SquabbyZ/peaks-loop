@@ -315,7 +315,6 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/artifact-per-request.md` | RD per-request artifact + per-slice vs per-session scope. |
 | `references/browser-self-test-contracts.md` | Browser self-test contracts (1) + (2). |
 | `references/codegraph-project-analysis.md` | Codegraph local analysis (untrusted evidence). |
-| `references/command-migration.md` | Legacy command migration map. |
 | `references/compact-handoff.md` | RD compact handoff capsule. |
 | `references/external-references.md` | External 3rd-party inventory. |
 | `references/frontend-project-generation.md` | React + Vite + shadcn/ui default. |

@@ -85,12 +85,14 @@ describe('rid-010 fix-claude-settings-template-hook-node-wrapper', () => {
     const commands = (settings.hooks?.PreToolUse ?? [])
       .flatMap((entry) => entry.hooks ?? [])
       .map((hook) => hook.command ?? '');
-    // Slice c5-write-hook-exec-form (TEMPLATE_VERSION 1.6.0): the Write|Edit|
-    // MultiEdit handler is still a JSON-safe `node` invocation, but the
-    // JavaScript is no longer inlined as `node -e "<js>"` — that form's escaping
-    // was bash-specific, so it could not take a platform `shell` pin. It now
-    // invokes the shipped gate script, which carries no escaped payload at all.
-    expect(commands.some((command) => /^node "[^"]*\/services\/hooks\/write-gate\.js"$/.test(command))).toBe(true);
+    // TEMPLATE_VERSION 1.8.0: no handler may be invoked as `node "<absolute
+    // path>"`. The command carried an absolute path resolved from the
+    // installing module's own location — which, for a global install, is a
+    // Node VERSION directory (`…/nvm/v24.14.0/node_modules/peaks-loop/…`), so
+    // `nvm use` switched `node` on PATH while the path stayed put. The
+    // retired handler was the only such command; this pins that none returns,
+    // rather than pinning that the one is present.
+    expect(commands.some((command) => /^node\s+"/.test(command))).toBe(false);
     expect(commands.some((command) => command.includes('process.argv[1]'))).toBe(false);
   });
 });

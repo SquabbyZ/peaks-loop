@@ -2,24 +2,31 @@
  * Slice 2.0.1-bug3-fact-forcing-bypass — pure-data template for the
  * consumer-project `.claude/settings.local.json` file.
  *
- * The template is a PreToolUse hook allow-list that bypasses the
- * Claude Code [Fact-Forcing Gate] for tool calls whose paths target
- * the peaks-managed `.peaks/` workspace. Without this bypass,
- * `peaks workspace init` (Step 0 of every peaks-code session) is
- * unrunnable in a consumer project because the gate blocks the very
- * first Write.
+ * The template exempts the peaks-managed `.peaks/` workspace from the
+ * Claude Code [Fact-Forcing Gate], so `peaks workspace init` (Step 0 of
+ * every peaks-code session) is runnable in a consumer project — without
+ * the exemption the gate blocks the very first Write.
+ *
+ * The exemption is declared in the `env` block
+ * (`EXTERNAL_GATE_EXEMPT_ENV`), which is what the gate actually reads.
+ * TEMPLATE_VERSION 1.7.0 moved it there; before that it was declared by a
+ * `Write|Edit|MultiEdit` handler that exited non-zero for non-`.peaks/`
+ * paths and was documented as "fall through to the gate". That concept does
+ * not exist in the Claude Code hook protocol (only exit 2 blocks; any other
+ * non-zero exit is a NON-BLOCKING ERROR reported once per edit), so the
+ * handler was corrected to abstain on every path — and an abstaining handler
+ * that is still INSTALLED is a no-op carrying a machine-specific absolute
+ * script path. TEMPLATE_VERSION 1.8.0 removed it rather than re-point it:
+ * it decided nothing, and the exemption it was written for lives in `env`.
  *
  * The template is a pure-data function (no filesystem, no clock) so
  * it can be unit-tested in isolation and so the on-disk file matches
  * the in-memory template byte-for-byte.
  *
- * One matcher is emitted:
- *   1. `Write|Edit|MultiEdit` — a `node <script>` handler that runs the
- *      path gate shipped at `src/services/hooks/write-gate.js`. Exits 0
- *      (allow) for the paths the gate skips, exit 1 (deny → fall through to
- *      gate) for everything else. TEMPLATE_VERSION 1.6.0 moved the decision
- *      out of an inlined `node -e "<js>"` one-liner, whose escaping was
- *      bash-specific and therefore could not take a platform `shell` pin.
+ * Two `Bash` matchers are emitted (the Step 0.8 mechanical gate and the
+ * SOP gate-enforce handler). No `Write|Edit|MultiEdit` entry is emitted:
+ * that matcher's gate is `peaks code-gate --json`, installed into the
+ * committed `.claude/settings.json` by `peaks hooks install`.
  *
  * The previous `Bash` matcher (which whitelisted a fixed `peaks
  * <subcommand>` prefix) was removed in TEMPLATE_VERSION 1.2.0. The
@@ -33,9 +40,6 @@
  * consumer project's `.claude/settings.json` and which exits 0
  * silently for any command not guarded by a registered SOP gate.
  */
-
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { EXTERNAL_GATE_EXEMPT_ENV, hasExternalGateExemptions, resolveHookShell, resolveHookSpec } from '../skills/hooks-codegate-superpowers.js';
 
@@ -87,8 +91,20 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *           (`EXTERNAL_GATE_EXEMPT_ENV`). The comparator now requires the
  *           on-disk file to declare those exemptions too, so a project
  *           installed by an earlier release refreshes once and converges.
+ *   1.8.0 — REMOVED the `Write|Edit|MultiEdit` handler and the shipped
+ *           script it invoked (`src/services/hooks/write-gate.js`, also
+ *           deleted). The handler abstained on every path by design (see
+ *           that file's header for the rationale — it is the reason this
+ *           is a deletion and not a repair), so the only things it still
+ *           contributed were a `node "<abs path>"` command pinned to the
+ *           Node version directory that happened to be on `$PATH` at
+ *           install time, and a `shell: powershell` pin. The exemption it
+ *           was written to provide is declared by the `env` block above.
+ *           `mergeTemplateOwnedHooks` drops the retired entry from
+ *           existing on-disk files, so an earlier install converges
+ *           instead of keeping a no-op with a stale absolute path.
  */
-export const TEMPLATE_VERSION = '1.7.0';
+export const TEMPLATE_VERSION = '1.8.0';
 
 /**
  * Compare two serialized template strings: does the on-disk file already
@@ -116,10 +132,11 @@ export const TEMPLATE_VERSION = '1.7.0';
  * detail).
  *
  * Returns `true` iff both strings parse to objects whose `hooks.PreToolUse`
- * arrays satisfy that containment AND the on-disk `env` already carries every
- * exemption the template declares (extra on-disk keys and extra globs are
- * allowed — a user may exempt other trees, and a requirement the file already
- * exceeds must not re-trigger a write).
+ * arrays satisfy that containment, the on-disk file carries NO entry this
+ * template has retired (`isRetiredTemplateEntry`), AND the on-disk `env`
+ * already carries every exemption the template declares (extra on-disk keys
+ * and extra globs are allowed — a user may exempt other trees, and a
+ * requirement the file already exceeds must not re-trigger a write).
  *
  * Returns `false` on any `JSON.parse` error, shape mismatch, or
  * missing `hooks.PreToolUse`. Whitespace and key order do NOT affect
@@ -157,6 +174,24 @@ export function templateContentMatches(generated: string, onDisk: string): boole
     unmatched.splice(at, 1);
   }
 
+  // A RETIRED entry on disk is drift, and this clause is what makes the
+  // retirement in `mergeTemplateOwnedHooks` reach an installed file at all.
+  //
+  // Containment alone cannot express it: a file still carrying
+  // `Write|Edit|MultiEdit` declares every entry the template declares, so
+  // `templateContentMatches` answered "current", no rewrite ran, and the merge
+  // never got the chance to drop it. Measured on a throwaway project root
+  // before this clause existed — init against the rebuilt CLI reported
+  // `already-current` and the retired entry survived verbatim. Declaring less
+  // is not a retirement; the comparator has to say so.
+  //
+  // One extra rewrite per affected install, then the fixed point holds: the
+  // merge emits no retired entry, so the next comparison finds none and
+  // answers `current`.
+  if (parsedOnDisk.hooks.PreToolUse.some((entry) => isRetiredTemplateEntry(entry))) {
+    return false;
+  }
+
   // A project installed by a release that predates a template-declared
   // exemption still needs the refresh this comparator gates — otherwise the
   // entry would only ever appear on a machine that re-ran `peaks hooks
@@ -191,6 +226,15 @@ export function templateContentMatches(generated: string, onDisk: string): boole
  * Non-conforming entries (no string `matcher`, no `hooks` array) are preserved
  * rather than dropped: guessing at their shape is how a user's entry gets
  * deleted.
+ *
+ * ONE exception to "preserve what I do not declare": an entry this template
+ * used to declare and RETIRED (TEMPLATE_VERSION 1.8.0's `Write|Edit|MultiEdit`
+ * gate — see `isRetiredTemplateEntry`) is dropped rather than preserved.
+ * Declaring less cannot retire an entry on its own, because preserving
+ * undeclared entries is exactly what this function does; without the drop, a
+ * pre-1.8.0 install would keep the no-op handler and its version-pinned script
+ * path forever. The predicate is narrow enough that only the exact command
+ * this template emitted matches.
  */
 export function mergeTemplateOwnedHooks(
   onDisk: ReadonlyArray<unknown>,
@@ -205,6 +249,10 @@ export function mergeTemplateOwnedHooks(
   const taken = new Map<string, number>();
   const preserved: unknown[] = [];
   for (const entry of onDisk) {
+    // Retired by this template — dropped, not carried across.
+    if (isRetiredTemplateEntry(entry)) {
+      continue;
+    }
     // Unowned by construction: not a shape the template could have declared.
     if (!isPreToolUseEntry(entry)) {
       preserved.push(entry);
@@ -282,46 +330,34 @@ function sameHooksArray(
 }
 
 /**
- * This module's own directory — `<root>/src/services/workspace` in the
- * source tree, `<root>/dist/services/workspace` in a build.
+ * The retired `Write|Edit|MultiEdit` gate entry, as an on-disk file written by
+ * a pre-1.8.0 release holds it.
  *
- * Anchored on the running module rather than on `process.argv[1]`: the
- * same reason `daemon-supervisor.ts` documents — `argv[1]` is a different
- * file in each way the CLI is entered (`bin/peaks.js`, `src/cli/index.ts`
- * under tsx, `dist/cli/index.js` when invoked directly), whereas the
- * module's own location is the one fact that is always true.
+ * TEMPLATE_VERSION 1.8.0 stopped emitting this entry. Declaring less is not
+ * enough on its own: `mergeTemplateOwnedHooks` preserves every on-disk entry
+ * the template does not declare — that is the whole point of the entry-level
+ * ownership rule (it is what keeps `installAutoCompactHook`'s `Bash|Task`
+ * entry alive) — so a project installed by an earlier release would keep the
+ * no-op handler, and its `node "C:/…/nvm/v24.14.0/…"` path, forever. This
+ * predicate is the retirement: `mergeTemplateOwnedHooks` drops a match.
+ *
+ * Deliberately narrow. It matches the exact command shape this template used
+ * to emit — one handler, `node "<…>/services/hooks/write-gate.js"` — under the
+ * exact legacy matcher spelling, so a user's OWN `Write|Edit|MultiEdit` entry
+ * (a different command, or more than one handler) is preserved like any other
+ * entry the template does not declare. A looser "drop anything on this
+ * matcher" rule would delete a user's hook, which is the failure the ownership
+ * rule exists to prevent.
  */
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const RETIRED_WRITE_GATE_MATCHER = 'Write|Edit|MultiEdit';
+const RETIRED_WRITE_GATE_COMMAND = /^node "[^"]*\/services\/hooks\/write-gate\.js"$/;
 
-/**
- * Absolute path of the shipped Write|Edit|MultiEdit gate script.
- *
- * `write-gate.js` is a plain `.js` (not a compiled `.ts`) precisely so this
- * single relative filename resolves in BOTH trees: `src/services/hooks/` for
- * `tsx` / vitest, `dist/services/hooks/` for an installed consumer (copied by
- * `scripts/copy-templates.mjs`; the `dist/**` `*.js` glob in
- * `package.json#files` already ships it).
- *
- * Separators are normalized to `/` so the emitted command contains no
- * backslash at all. That is what makes the handler shell-agnostic: bash
- * reduces `\X` inside `"..."` and PowerShell escapes with a backtick, so any
- * backslash in the string is one dialect's problem waiting to happen.
- */
-export function writeGateScriptPath(): string {
-  return resolve(MODULE_DIR, '..', 'hooks', 'write-gate.js').replaceAll('\\', '/');
-}
-
-/**
- * Build the Write|Edit|MultiEdit matcher command.
- *
- * TEMPLATE_VERSION 1.6.0: `node "<script>"` with NO inline payload. The
- * decision lives in `src/services/hooks/write-gate.js` and was relocated
- * there verbatim. Because there is nothing left to escape, this handler is
- * shell-dialect-independent and can carry the same platform `shell` pin as
- * its Bash siblings (see `resolveHookShell`).
- */
-function buildWriteHookCommand(): string {
-  return `node "${writeGateScriptPath()}"`;
+export function isRetiredTemplateEntry(entry: unknown): boolean {
+  if (!isPreToolUseEntry(entry)) return false;
+  if (entry.matcher !== RETIRED_WRITE_GATE_MATCHER) return false;
+  if (entry.hooks.length !== 1) return false;
+  const handler = entry.hooks[0]!;
+  return handler.type === 'command' && RETIRED_WRITE_GATE_COMMAND.test(handler.command);
 }
 
 /**
@@ -361,39 +397,22 @@ type ClaudeSettingsLocal = {
  * forcing gate is a core feature that PreToolUse hooks can short-
  * circuit but that the `permissions` block cannot.
  *
- * As of TEMPLATE_VERSION 1.2.0, only the `Write|Edit|MultiEdit`
- * matcher is emitted. Bash command enforcement is the responsibility
- * of `peaks gate enforce`, which `peaks hooks install` injects into
- * `.claude/settings.json` (not `.claude/settings.local.json`).
+ * As of TEMPLATE_VERSION 1.8.0 the template emits the two `Bash` matchers
+ * only. The `Write|Edit|MultiEdit` fact-forcing bypass is no longer a hook:
+ * it is the `env` exemption above, and that matcher's gate
+ * (`peaks code-gate --json`) is installed into the committed
+ * `.claude/settings.json` by `peaks hooks install`.
  */
 export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
-  // TEMPLATE_VERSION 1.6.0 — the write handler can now be shell-pinned for the
-  // same Windows reason as the two Bash handlers below: a shell-form command is
-  // executed by Git Bash / MSYS2, which force-allocates a console window on
-  // every matching tool call. It could NOT take the pin while its payload was
-  // inlined JavaScript, because PowerShell does not perform bash's backslash
-  // reduction and would have corrupted the payload. `undefined` on POSIX omits
-  // the key entirely.
-  const writeShell = resolveHookShell();
   return {
-    // Slice emit-gateguard-exemption — the third-party gate exemption. Peaks
-    // already bypasses its OWN fact-forcing gate for `.peaks/**` (the
-    // Write|Edit|MultiEdit handler below); this is the same intent declared in
-    // the currency an external PreToolUse gate reads. `peaks hooks install`
-    // merges the same row into this file, so the two writers agree.
+    // Slice emit-gateguard-exemption — the third-party gate exemption. This is
+    // now the ONLY mechanism carrying the `.peaks/**` bypass (TEMPLATE_VERSION
+    // 1.8.0 removed the abstaining `Write|Edit|MultiEdit` handler that used to
+    // be described here). `peaks hooks install` merges the same row into this
+    // file, so the two writers agree.
     env: { ...EXTERNAL_GATE_EXEMPT_ENV },
     hooks: {
       PreToolUse: [
-        {
-          matcher: 'Write|Edit|MultiEdit',
-          hooks: [
-            {
-              type: 'command',
-              command: buildWriteHookCommand(),
-              ...(writeShell !== undefined ? { shell: writeShell } : {})
-            }
-          ]
-        },
         {
           // v3.1.2 Step 0.8 — Mechanical PreToolUse gate. Runs
           // `peaks code gate-step-08 --project .` before every Bash
@@ -401,7 +420,6 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
           // describing the decision + optional `Next: slice #N+1 of
           // M (<currentSlice>)` line when progress.json exists). Exit
           // 2 = block (stderr contains the BLOCKED: ... reason).
-          // The existing Write|Edit|MultiEdit matcher is preserved.
           matcher: 'Bash',
           hooks: [buildBashGateStep08Handler()]
         },

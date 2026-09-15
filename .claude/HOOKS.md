@@ -155,7 +155,40 @@ pins the contract).
 |------------------------------------------------------|----------------------------------------------|------------------------------------------------------|--------------------------|-----------------------------------------------------|----------------------------------------------------------------|
 | `peaks gate enforce --project "${CLAUDE_PROJECT_DIR}"` | `PreToolUse` `Bash`                          | `src/cli/commands/gate-commands.ts` (claude-code)    | every Bash call          | `emitBlock` deny JSON on stdout, exit=2; `emitHint` on stderr for warnings / debug envelope | `tests/unit/gate-commands.test.ts` (10 tests) + `tests/unit/hooks/contract.test.ts` (cross-platform) |
 | `peaks hook handle --project ...`                    | `PreToolUse` (per-IDE `toolMatcher`); Trae uses `beforeToolCall` event name | `src/cli/commands/hook-handle.ts`                   | per-IDE hook event       | `emitDecision` for the IDE-shaped envelope; `emitHint` for warnings / debug; `emitBlock` reserved for the no-root-pollution deny path | `tests/unit/hooks/output.test.ts` (12 tests) + `tests/unit/hooks/contract.test.ts` |
-| `node "…/services/hooks/write-gate.js"` (`.claude/settings.local.json` Write\|Edit\|MultiEdit matcher) | `PreToolUse` `Write\|Edit\|MultiEdit`         | `src/services/hooks/write-gate.js` (emitted by `src/services/workspace/claude-settings-template.ts`) | every file write; reads the path from the payload on **stdin** (`tool_input.file_path`, with `path` / `notebook_path` fallbacks), argv as fallback | always abstains: exit 0, no stdout/stderr, on every path. Never returns 2, and deliberately never returns any other non-zero code either. In the Claude Code hook protocol only exit 2 blocks and only stderr of a blocking hook is surfaced to the model; any other non-zero exit is a NON-BLOCKING ERROR that the transcript reports as `hook error` / `Failed with non-blocking status code:` once per edit. The earlier contract here said "exit 1 = fall through to the gate" — there is no fall-through: all matching PreToolUse hooks run in parallel and their results merge (`deny` > `defer` > `ask` > `allow`), so abstaining neither approves the call nor suppresses a sibling's deny. | `tests/unit/workspace/write-gate-decision-table.test.ts` (32 cases) + `tests/unit/workspace-init-hooks.test.ts` |
+| `peaks code-gate --json` (`.claude/settings.json`, written by `peaks hooks install`) | `PreToolUse` `Edit\|Write\|MultiEdit`         | `src/cli/commands/code-gate-command.ts` → `src/services/hooks/pre-tool-code-gate.ts`; non-Node sibling `src/services/hooks/pre-tool-code-gate.sh` | every `Edit` / `Write` / `MultiEdit` call | `emitBlock` deny JSON + exit=2 on a hard-blocked path family; exit 0 (no decision) otherwise. Vendor-neutral: it reads the standard `{tool, input}` payload and never an IDE env var. | `tests/unit/services/hooks/code-gate.test.ts` + `tests/integration/hooks-install-preserves-workspace-init.test.ts` |
+| ~~`node "…/services/hooks/write-gate.js"`~~ **RETIRED (TEMPLATE_VERSION 1.8.0, S10)** | ~~`PreToolUse` `Write\|Edit\|MultiEdit`~~ (`.claude/settings.local.json`) | was `src/services/hooks/write-gate.js`, emitted by `src/services/workspace/claude-settings-template.ts`. The script and its install site are **deleted**; `mergeTemplateOwnedHooks` drops the entry from files an earlier release wrote. | was: every file write | **The abstention rationale is kept because it is WHY this was deleted and not repaired.** The handler always abstained: exit 0, no stdout/stderr, on every path. Never returned 2, and deliberately never returned any other non-zero code either — because in the Claude Code hook protocol only exit 2 blocks and only stderr of a blocking hook is surfaced to the model; any other non-zero exit is a NON-BLOCKING ERROR that the transcript reports as `hook error` / `Failed with non-blocking status code:` once per edit. The contract before it said "exit 1 = fall through to the gate" — there is no fall-through: all matching PreToolUse hooks run in parallel and their results merge (`deny` > `defer` > `ask` > `allow`), so abstaining neither approves the call nor suppresses a sibling's deny. Correct abstention, but an INSTALLED no-op — and installation was what made it wrong: it put a `node "C:/…/nvm/v24.14.0/…"` command in every consumer's file, pinned to whichever Node version directory the install resolved, plus a `shell: powershell` pin. The `.peaks/**` exemption this handler was originally written for is declared by the `env` block (`EXTERNAL_GATE_EXEMPT_ENV`) and is unaffected by the deletion. | was `tests/unit/workspace/write-gate-decision-table.test.ts`; retirement is pinned by `tests/unit/workspace/settings-local-hooks-entry-ownership.test.ts` |
+
+### 6.1 Who owns which `.claude/` settings file (and how the two writers coexist)
+
+`PreToolUse` entries for a Claude Code consumer come from **two writers writing
+two different files**. Neither deletes the other's entries.
+
+| File | Committed? | Writer | Owns |
+|---|---|---|---|
+| `.claude/settings.json` | yes (shared with the team) | `peaks hooks install` → `src/services/skills/hooks-settings-service.ts` | the peaks-managed entries whose `shell` is machine-independent, notably `peaks code-gate --json` on `Edit\|Write\|MultiEdit`. Merge is by **sentinel**: peaks-managed entries are stripped and re-emitted from `resolveHookEntries(ide)`; every non-peaks entry is preserved verbatim. |
+| `.claude/settings.local.json` | no (gitignored, machine-local) | `peaks workspace init` → `src/services/workspace/workspace-claude-settings-materializer.ts`; second writer `installAutoCompactHook` | the two shell-pinned `Bash` entries (`peaks code gate-step-08`, `peaks gate enforce`) plus the `env` exemption block. Merge is **per entry**: the template owns the entries IT DECLARES and carries every other on-disk entry across verbatim (`mergeTemplateOwnedHooks`). |
+
+Rules that keep them from fighting:
+
+1. **A command belongs to the file whose `shell` it needs.** A handler that must
+   be shell-pinned on Windows goes in the machine-local file — a `shell:
+   "powershell"` entry in the committed file would break every macOS / Linux
+   teammate, who has no `pwsh`.
+2. **One matcher, one owner per file.** `Edit|Write|MultiEdit` is owned by the
+   committed file (the code gate). The template emits no entry on that matcher
+   — before S10 it emitted a second one, spelled `Write|Edit|MultiEdit`, i.e.
+   the same regex in a different order and a duplicate gate on the same calls.
+   That duplicate is what S10 removed. **If a future slice needs a second gate
+   on this matcher, put it in `settings.json` (one writer), not here.**
+3. **Matcher spelling is `Edit|Write|MultiEdit`** (alternation order is
+   semantically inert, which is exactly why it drifted unnoticed). Any entry on
+   that matcher is written by `peaks hooks install`; it reads the spelling from
+   `HOOK_CODE_GATE_MATCHER` in `src/services/skills/hooks-codegate-superpowers.ts`.
+4. **`peaks hooks install` does not refresh `.claude/settings.local.json`, and
+   `peaks workspace init` does not refresh `.claude/settings.json`.** Only
+   `peaks workspace init` converges a stale local file; nothing converges a
+   stale installed template copy except `peaks upgrade --apply-init` (see
+   `docs/mac-auto-compact.md` and the generated-artifact stamp).
 
 ### Companion hooks (out of scope per NG5)
 

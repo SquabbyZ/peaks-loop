@@ -88,6 +88,9 @@ function readEnvObject(serialized: string): Record<string, unknown> | undefined 
  *   → installAutoCompactHook (installed, 4: … | Bash|Task)
  *   → init again (REFRESHED, 3: … )   ← the Bash|Task entry is gone
  *
+ * (The 3 is a 2 since TEMPLATE_VERSION 1.8.0 retired the
+ * `Write|Edit|MultiEdit` entry. The measurement above is left as taken.)
+ *
  * and nothing re-installs it: the hook's whole job was to fire on the next
  * Bash/Task call, so once it is deleted the auto-compact contract stops
  * silently.

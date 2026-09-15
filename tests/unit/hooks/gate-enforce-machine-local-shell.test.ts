@@ -276,7 +276,11 @@ describe('behavior — gate-enforce hook shell is machine-specific', () => {
     // moved from an inlined `node -e "<js>"` payload to `node <script>`.
     // 1.7.0 = slice emit-gateguard-exemption: the template gained the `env`
     // block exempting the peaks workspace from a third-party fact-forcing gate.
-    expect(TEMPLATE_VERSION).toBe('1.7.0');
+    // 1.8.0 = S10: the `Write|Edit|MultiEdit` handler was REMOVED (it abstained
+    // on every path, so it only contributed a `node "<absolute path>"` command
+    // pinned to the installing Node version directory) and the exempting `env`
+    // block is what remains.
+    expect(TEMPLATE_VERSION).toBe('1.8.0');
     expect(findGateEnforceHandler(readPreToolUseEntriesSync(serializedTemplate))?.shell).toBe('powershell');
   });
 

@@ -39,22 +39,22 @@ stays IDE-agnostic.
 **Command**:
 
 ```
-peaks sub-agent dispatch <role> --prompt <text> --graph-node <nid> [--workflow-id <wid>] [--request-id <rid>] [--session-id <sid>] [--project <repo>] [--batch-id <uuid>] --json
+peaks sub-agent dispatch <role> --prompt <text> [--graph-node <nid>] [--workflow-id <wid>] [--request-id <rid>] [--session-id <sid>] [--project <repo>] [--batch-id <uuid>] --json
 ```
 
-> **`--graph-node` is REQUIRED (RD §4 D4c, effective 4.0.8).** Every
-> single dispatch must bind to a prepared workflow graph node. Prepare
-> one first:
+> **`--graph-node` is OPTIONAL (relaxed from the 4.0.8 RD §4 D4c requirement).**
+> Slice 4.0.8 made it a `.requiredOption`; `provisionDispatchNode`
+> (`src/services/workflow/provision-dispatch-node.ts`) relaxed it because the
+> requirement was enforced but never validated and the recovery it prescribed
+> was unwalkable: `peaks workflow node prepare` never calls `writeGraph`, so
+> the node it reports is never persisted, and no CLI verb created the graph it
+> reads. Its only observable effect was to block dispatch in every project
+> without graph infrastructure.
 >
-> ```
-> peaks workflow init --skill peaks-code                    # → returns <wid>
-> peaks workflow node prepare --workflow <wid> --node <nid> --kind dispatch
-> ```
->
-> then dispatch with `--graph-node <nid> --workflow-id <wid>`. Omitting
-> `--graph-node` rejects with `PEAKS_GRAPH_NODE_REQUIRED`; a node that is
-> not prepared (or has the wrong kind) rejects with
-> `PEAKS_GRAPH_NODE_NOT_PREPARED` / `PEAKS_GRAPH_NODE_KIND_INVALID`.
+> Omitting both flags now provisions a `dispatch-<role>-<stamp>` node and the
+> graph on demand, so **plain `peaks sub-agent dispatch rd --prompt '<task>' --request-id <rid> --project . --json` succeeds**. Passing
+> `--graph-node <nid> --workflow-id <wid>` binds to a node you control and
+> persists it into `graphs/<wid>.json`.
 
 **Envelope** (AC-8) — **2.1.0** (slice 2026-06-23-audit-4th #E1):
 
@@ -356,13 +356,13 @@ grown unboundedly without this fix).
 When writing a SKILL.md that fans out sub-agents:
 
 1. Use `peaks sub-agent dispatch <role>` (never `Task(...)`).
-2. Prepare the graph node first (RD §4 D4c — `--graph-node` is required):
-   `peaks workflow init --skill peaks-code`, then
-   `peaks workflow node prepare --workflow <wid> --node <nid> --kind dispatch`.
+2. Graph binding is OPTIONAL — omit `--graph-node` and the CLI provisions a
+   node on demand. Pass `--graph-node <nid> --workflow-id <wid>` only when you
+   need the dispatch bound to a node you control (and note the node is
+   persisted by `provisionDispatchNode`, not by `peaks workflow node prepare`).
 3. Issue all dispatches in a single message; the LLM will fire all
    returned toolCalls in parallel.
-4. Pass `--graph-node <nid> --workflow-id <wid>` on every dispatch, plus
-   `--request-id` and `--session-id` (or omit and let the CLI resolve the
+4. Pass `--request-id` and `--session-id` (or omit and let the CLI resolve the
    active session).
 5. The sub-agent prompt **must** include the heartbeat instruction
    (30 s cadence; override via `heartbeatIntervalSec` if needed).
@@ -445,7 +445,7 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-
 
 ## Detached Mode (Phase A, slice 2026-08-10)
 
-`peaks sub-agent dispatch <role> --prompt <text> --graph-node <nid> --workflow-id <wid> --request-id <rid> --mode detached --vendor claude|codex|copilot [--no-throttle --max-concurrent <N>] --json` spawns a real OS process independent of the orchestrator IDE session. `--graph-node` remains required here (RD §4 D4c).
+`peaks sub-agent dispatch <role> --prompt <text> --graph-node <nid> --workflow-id <wid> --request-id <rid> --mode detached --vendor claude|codex|copilot [--no-throttle --max-concurrent <N>] --json` spawns a real OS process independent of the orchestrator IDE session. `--graph-node` is optional here too — the relaxation is on the shared option table, not on the in-process path only.
 
 - **Cross-platform spawn**: Windows uses `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP`; POSIX uses `setsid` + `nohup`. Implementation: `packages/peaks-loop-internal-runtime/src/process-supervisor.ts`.
 - **Minimum-context prompt**: `PromptBuilder` emits a 5–8KB slice `{rid, role, vendor, files, refs}` plus the verbatim `<peaks-auto-compact>` marker. The forbidden marker `@@@ORCHESTRATOR_SESSION_HISTORY_BOUNDARY@@@` MUST NOT appear in any prompt (unit-tested; regression fails vitest).
