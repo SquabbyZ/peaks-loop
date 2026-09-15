@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import type { GuardContext, GuardRunResult } from '../types.js';
+import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
 
 const FIXTURES: ReadonlyArray<readonly [string, string]> = [
   ['make', 'implement a CLI parser'],
@@ -12,9 +13,12 @@ const FIXTURES: ReadonlyArray<readonly [string, string]> = [
 ];
 
 export async function runJ01Contract(ctx: GuardContext): Promise<GuardRunResult> {
+  const row = requireBaselineRow(ctx);
+  const missing = missingSourceFiles(ctx, row);
   const bin = process.env.PEAKS_BIN_OVERRIDE ?? join(ctx.projectRoot, 'bin', 'peaks.js');
-  let allOk = true;
-  let firstFailure = '';
+
+  const failures: string[] = [];
+  let routed = 0;
   for (const [command, input] of FIXTURES) {
     try {
       const stdout = execFileSync('node', [bin, command, input], {
@@ -22,30 +26,32 @@ export async function runJ01Contract(ctx: GuardContext): Promise<GuardRunResult>
         env: { ...process.env, PEAKS_CALLER_ID: `guard-J01-${ctx.sessionId}` },
         windowsHide: true
       }).toString('utf8');
-      const env = JSON.parse(stdout) as { ok: boolean };
+      const env = JSON.parse(stdout) as { ok: boolean; data?: { routedSkill?: unknown } };
       if (!env.ok) {
-        allOk = false;
-        firstFailure = `${command} ${input}`;
-        break;
+        failures.push(`${command} ${input}: ok=false`);
+      } else if (typeof env.data?.routedSkill === 'string' && env.data.routedSkill.length > 0) {
+        routed += 1;
       }
     } catch (e) {
-      allOk = false;
-      firstFailure = `${command} ${input}: ${(e as Error).message}`;
-      break;
+      failures.push(`${command} ${input}: ${(e as Error).message.slice(0, 120)}`);
     }
   }
-  return allOk
-    ? {
-        journeyId: 'J01',
-        contract: 'envelope-arg-shapes',
-        status: 'pass',
-        artifactPath: 'tests/integration/super-command-routing.test.ts'
-      }
-    : {
-        journeyId: 'J01',
-        contract: 'envelope-arg-shapes',
-        status: 'fail',
-        diff: { before: 'all 6 routing cases ok', after: firstFailure, reason: 'J01#1 broken: super-command routing NL path deviates from frozen baseline' },
-        artifactPath: 'tests/integration/super-command-routing.test.ts'
-      };
+
+  const result = combineProbes([
+    probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
+    probe(failures.length === 0, `all ${String(FIXTURES.length)} NL routing cases return ok (failures: ${failures.join('; ') || 'none'})`),
+    // The invariant is that the SYSTEM picks the skill: a bare ok envelope is
+    // not enough, the answer must name the skill it chose.
+    probe(routed > 0, `the envelope names the routed skill (${String(routed)}/${String(FIXTURES.length)})`)
+  ]);
+
+  const artifact = row.sourceFiles[2] ?? 'tests/integration/super-command-routing.test.ts';
+  if (result.ok) return pass(ctx, artifact);
+  return fail(
+    ctx,
+    artifact,
+    'every NL fixture routes through the super-command surface and the envelope names the chosen skill',
+    result.detail,
+    'J01 invariant broken: super-command routing deviates from the frozen baseline'
+  );
 }

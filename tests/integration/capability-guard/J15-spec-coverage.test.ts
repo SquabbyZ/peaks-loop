@@ -1,12 +1,18 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runJ15Contract } from '~/src/services/capability-guard-runner/contracts/J15';
+import { getGuardContract } from '~/src/services/capability-guard-runner/registry';
+import { runGuard } from '~/src/services/capability-guard-runner/runner';
 
 const REPO = resolve(__dirname, '..', '..', '..');
+const JOURNEY = 'J15' as const;
 
+// Runs through the production path (registry -> runGuard), so the baseline-ref
+// assertion and the real contract body are both exercised. The previous shape
+// called the contract directly with `contract: {}`, which skipped the registry.
 describe('J15 spec-coverage contract', () => {
-  it('keeps the openspec archive service with Capability Mapping + coverage cross-check', async () => {
-    const r = await runJ15Contract({ projectRoot: REPO, sessionId: 'J15', contract: {} as any, baselineInvariant: 'J15#1' });
+  it('honours the fixed coverage-summary discovery order', async () => {
+    const contract = getGuardContract(JOURNEY)!;
+    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
     expect(r.status).toBe('pass');
-  });
+  }, 300_000);
 });

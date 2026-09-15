@@ -15,7 +15,7 @@ afterEach(() => { if (proj) rmSync(proj, { recursive: true, force: true }); proj
 describe('5th-dim injection', () => {
   it('a drifted audit forces the 5th dim to fail', async () => {
     proj = mkdtempSync(join(tmpdir(), 'cbl-inj-'));
-    const audit = await runAudit({ projectRoot: proj, sessionId: 'i', journeyId: 'J01', llmRunner: stubRunner, guardSummary: { pass: 0, fail: 1, skipped: 0, total: 1, results: [] } });
+    const audit = await runAudit({ projectRoot: proj, sessionId: 'i', journeyId: 'J01', scorerMode: 'live', llmRunner: stubRunner, guardSummary: { pass: 0, fail: 1, skipped: 0, total: 1, results: [] } });
     expect(audit.verdict).toBe('drifted');
   });
 });

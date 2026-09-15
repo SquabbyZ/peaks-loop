@@ -1,12 +1,18 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runJ04Contract } from '~/src/services/capability-guard-runner/contracts/J04';
+import { getGuardContract } from '~/src/services/capability-guard-runner/registry';
+import { runGuard } from '~/src/services/capability-guard-runner/runner';
 
 const REPO = resolve(__dirname, '..', '..', '..');
+const JOURNEY = 'J04' as const;
 
+// Runs through the production path (registry -> runGuard), so the baseline-ref
+// assertion and the real contract body are both exercised. The previous shape
+// called the contract directly with `contract: {}`, which skipped the registry.
 describe('J04 audit-goal-binding contract', () => {
-  it('registers the audit goal subcommand and rejects empty input', async () => {
-    const r = await runJ04Contract({ projectRoot: REPO, sessionId: 'J04', contract: {} as any, baselineInvariant: 'J04#1' });
+  it('accepts six audit dimensions and refuses any five', async () => {
+    const contract = getGuardContract(JOURNEY)!;
+    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
     expect(r.status).toBe('pass');
-  });
+  }, 300_000);
 });

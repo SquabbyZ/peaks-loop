@@ -1,12 +1,18 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runJ14Contract } from '~/src/services/capability-guard-runner/contracts/J14';
+import { getGuardContract } from '~/src/services/capability-guard-runner/registry';
+import { runGuard } from '~/src/services/capability-guard-runner/runner';
 
 const REPO = resolve(__dirname, '..', '..', '..');
+const JOURNEY = 'J14' as const;
 
+// Runs through the production path (registry -> runGuard), so the baseline-ref
+// assertion and the real contract body are both exercised. The previous shape
+// called the contract directly with `contract: {}`, which skipped the registry.
 describe('J14 issue-orchestrator-trace contract', () => {
-  it('keeps the issue-sweep surface with at least 2 of the 4 stages', async () => {
-    const r = await runJ14Contract({ projectRoot: REPO, sessionId: 'J14', contract: {} as any, baselineInvariant: 'J14#1' });
+  it('keeps the AI-modified declaration and the banned-target list', async () => {
+    const contract = getGuardContract(JOURNEY)!;
+    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
     expect(r.status).toBe('pass');
-  });
+  }, 300_000);
 });

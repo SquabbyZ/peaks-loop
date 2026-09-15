@@ -350,7 +350,29 @@ jobs:
             exit 1
           fi
           node bin/peaks.js baseline diff --project . --json
-          node bin/peaks.js baseline audit --project . --json | node -e 'process.stdin.on("data",d=>{const j=JSON.parse(d);if(j.data&&j.data.verdict==="drifted"){console.error("capability audit drifted");process.exit(1);}})'
+          # WHITELIST, not blacklist. Until 2026-09-15 this step rejected the
+          # single literal "drifted", so "partial" / "inconclusive" / any value
+          # added later released by default. Only "consistent" may release.
+          # `baseline audit` itself also exits non-zero on any other verdict;
+          # the exit code is captured rather than short-circuiting the step so
+          # the explicit whitelist below stays the decision point.
+          set +e
+          node bin/peaks.js baseline audit --project . --json > capability-audit.json
+          audit_rc=$?
+          set -e
+          echo "baseline audit exit code: ${audit_rc}"
+          node -e '
+            const fs = require("node:fs");
+            const lines = fs.readFileSync("capability-audit.json", "utf8").trim().split("\n");
+            const j = JSON.parse(lines[lines.length - 1]);
+            const d = (j && j.data) || {};
+            const failed = (d.dimensions || []).filter((x) => x.consistencyScore === 0).map((x) => x.journeyId);
+            if (d.verdict !== "consistent") {
+              console.error(`::error title=capability-audit-not-consistent::verdict=${d.verdict} degraded=${d.degraded} failing=[${failed.join(",")}]`);
+              process.exit(1);
+            }
+            console.log(`capability audit consistent: ${(d.dimensions || []).length} dimensions`);
+          '
 
       - name: Extract release notes from root CHANGELOG.md (per-version body, rid-017 D1)
         # 2026-07-27 follow-up (rid-017): GitHub Release body must be the

@@ -22,4 +22,10 @@ export interface CapabilityAuditResult {
   readonly dimensions: ReadonlyArray<AuditDimension>;
   readonly crossCheck: CrossCheck;
   readonly requiresUserDecision: boolean;
+  /**
+   * True when any input to the audit was not a real evaluation — today that
+   * means the independent scorer is a stub rather than a separate-context LLM.
+   * A degraded audit can never be `consistent`.
+   */
+  readonly degraded: boolean;
 }

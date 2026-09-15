@@ -1,57 +1,124 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  TEST_CACHE_DIR,
+  isCacheable,
+  mtimeOfFile,
+  readTestCache,
+  recordTestResult,
+  sha256OfFile,
+  testCacheDir,
+  writeTestCache
+} from '../../test-cache/test-cache-service.js';
 import type { GuardContext, GuardRunResult } from '../types.js';
+import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRow } from './_shared.js';
 
-// v2: existence-of-CLI + source-contains-vitest, not actual invocation.
-// v1 failed with `spawn vitest ENOENT` because the test runner spawns a child vitest
-// that needs `pnpm`/PATH configured; the test fixture doesn't have that. A dry-run
-// probe is enough to prove the `peaks test` subcommand is registered and the runner
-// is wired to vitest, without actually executing a vitest child process.
-const TEST_COMMAND_FILES: ReadonlyArray<string> = [
-  'src/cli/commands/test-commands.ts',
-  'src/services/test/',
-  'src/services/test-runner/'
-];
+const TEST_NAME = 'fingerprint probe';
 
-export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult> {
-  // 1. CLI probe: `peaks test --help` must produce non-empty output.
-  let helpOk = false;
+/** Highest vitest major the frozen baseline allows ("MUST NOT be locked at 5.x"). */
+const MAX_VITEST_MAJOR = 4;
+
+function vitestMajor(projectRoot: string): number | null {
   try {
-    const bin = join(ctx.projectRoot, 'bin', 'peaks.js');
-    const out = execFileSync('node', [bin, 'test', '--help'], {
-      cwd: ctx.projectRoot,
-      env: { ...process.env, PEAKS_CALLER_ID: `guard-J07-${ctx.sessionId}` },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true
-    }).toString('utf8');
-    helpOk = out.length > 0 && !out.includes('unknown command');
+    const pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const raw = pkg.devDependencies?.['vitest'] ?? pkg.dependencies?.['vitest'];
+    if (typeof raw !== 'string') return null;
+    const major = /(\d+)/.exec(raw);
+    return major === null ? null : Number(major[1]);
   } catch {
-    helpOk = false;
+    return null;
   }
+}
 
-  // 2. Source probe: at least one test command file references vitest.
-  const sourceMentionsVitest = TEST_COMMAND_FILES.some((f) => {
-    const abs = join(ctx.projectRoot, f);
-    if (!existsSync(abs)) return false;
-    if (existsSync(abs) && readFileSync(abs, 'utf8').includes('vitest')) return true;
-    return false;
-  });
+/**
+ * Behavioural probe of the (mtime, sha256) gate.
+ *
+ * A cache entry is written for a passing test, then the file's CONTENT is
+ * changed while its mtime is restored to the original value. If the gate ever
+ * degraded to an mtime-only (or filename-only) check, the cache would report a
+ * hit for a file whose bytes changed — exactly the fake-green the invariant
+ * forbids. The mtime-only and status gates are probed the same way.
+ */
+export async function runJ07Contract(ctx: GuardContext): Promise<GuardRunResult> {
+  const row = requireBaselineRow(ctx);
+  const missing = missingSourceFiles(ctx, row);
 
-  // 3. package.json probe: vitest is in dependencies.
-  const pkgPath = join(ctx.projectRoot, 'package.json');
-  let pkgHasVitest = false;
-  if (existsSync(pkgPath)) {
-    const pkg = readFileSync(pkgPath, 'utf8');
-    pkgHasVitest = /"vitest"\s*:/i.test(pkg);
+  const root = mkdtempSync(join(tmpdir(), 'cbl-J07-'));
+  const file = join(root, 'probe.test.ts');
+  try {
+    writeFileSync(file, 'export const a = 1;\n');
+    recordTestResult(root, file, 'vitest', {
+      testName: TEST_NAME,
+      status: 'passed',
+      durationMs: 1,
+      lastRun: new Date().toISOString()
+    });
+    const baseline = isCacheable(root, file, TEST_NAME);
+    const cached = readTestCache(root, file);
+
+    // Gate 1, isolated: the file's bytes change but the recorded mtime is
+    // up-to-date, so ONLY the sha check can catch it. If the gate degraded to
+    // an mtime-only check this reports a hit for a file nobody verified.
+    writeFileSync(file, 'export const a = 2;\n');
+    writeTestCache(root, { ...cached!, fileMtime: mtimeOfFile(file) });
+    const afterSilentEdit = isCacheable(root, file, TEST_NAME);
+
+    // Gate 2, isolated: the sha is up-to-date but the recorded mtime is stale.
+    writeTestCache(root, { ...cached!, fileSha256: sha256OfFile(file), fileMtime: cached!.fileMtime - 5_000 });
+    const afterTouch = isCacheable(root, file, TEST_NAME);
+
+    // A non-passing status must never be served as a hit.
+    recordTestResult(root, file, 'vitest', {
+      testName: 'skipped probe',
+      status: 'skipped',
+      durationMs: 0,
+      lastRun: new Date().toISOString()
+    });
+    const skipped = isCacheable(root, file, 'skipped probe');
+    const unknown = isCacheable(root, file, 'never recorded');
+
+    const major = vitestMajor(ctx.projectRoot);
+
+    const result = combineProbes([
+      probe(missing.length === 0, `baseline sourceFiles present (${row.sourceFiles.length})`),
+      probe(baseline.hit, `an unchanged passing test is a cache hit (reason=${String(baseline.reason)})`),
+      probe(
+        !afterSilentEdit.hit && afterSilentEdit.reason === 'sha-changed',
+        `a same-mtime content edit is NOT a hit (hit=${String(afterSilentEdit.hit)} reason=${String(afterSilentEdit.reason)})`
+      ),
+      probe(
+        !afterTouch.hit && afterTouch.reason === 'mtime-changed',
+        `a touched file is NOT a hit (hit=${String(afterTouch.hit)} reason=${String(afterTouch.reason)})`
+      ),
+      probe(
+        !skipped.hit && skipped.reason === 'previous-skipped',
+        `a previously skipped test is NOT a hit (hit=${String(skipped.hit)} reason=${String(skipped.reason)})`
+      ),
+      probe(!unknown.hit && unknown.reason === 'no-cache', `an unrecorded test is NOT a hit (reason=${String(unknown.reason)})`),
+      probe(
+        testCacheDir(ctx.projectRoot).replace(/\\/g, '/').endsWith(`.peaks/_runtime/${TEST_CACHE_DIR}`),
+        `the cache writes under .peaks/_runtime/${TEST_CACHE_DIR} (got ${testCacheDir(ctx.projectRoot)})`
+      ),
+      probe(
+        major !== null && major <= MAX_VITEST_MAJOR,
+        `vitest major is <= ${String(MAX_VITEST_MAJOR)} (saw ${String(major)})`
+      )
+    ]);
+
+    const artifact = row.sourceFiles[1] ?? 'src/services/test-cache/test-cache-service.ts';
+    if (result.ok) return pass(ctx, artifact);
+    return fail(
+      ctx,
+      artifact,
+      'the per-test fingerprint cache only serves a hit for a file whose mtime AND sha256 are unchanged and whose last status passed',
+      result.detail,
+      'J07 invariant broken: the fingerprint cache can return passed for an unverified file'
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
-
-  const ok = helpOk && sourceMentionsVitest && pkgHasVitest;
-  return {
-    journeyId: 'J07',
-    contract: 'cli-output-golden',
-    status: ok ? 'pass' : 'fail',
-    ...(ok ? {} : { diff: { before: 'peaks test --help works, test commands reference vitest, package.json has vitest', after: `helpOk=${helpOk} sourceMentionsVitest=${sourceMentionsVitest} pkgHasVitest=${pkgHasVitest}`, reason: 'J07#1 broken: peaks test does not delegate to vitest' } }),
-    artifactPath: 'src/cli/commands/test-commands.ts'
-  };
 }

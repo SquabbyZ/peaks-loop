@@ -1,12 +1,18 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runJ07Contract } from '~/src/services/capability-guard-runner/contracts/J07';
+import { getGuardContract } from '~/src/services/capability-guard-runner/registry';
+import { runGuard } from '~/src/services/capability-guard-runner/runner';
 
 const REPO = resolve(__dirname, '..', '..', '..');
+const JOURNEY = 'J07' as const;
 
+// Runs through the production path (registry -> runGuard), so the baseline-ref
+// assertion and the real contract body are both exercised. The previous shape
+// called the contract directly with `contract: {}`, which skipped the registry.
 describe('J07 test-runner-fidelity contract', () => {
-  it('peaks test is registered and delegates to vitest', async () => {
-    const r = await runJ07Contract({ projectRoot: REPO, sessionId: 'J07', contract: {} as any, baselineInvariant: 'J07#1' });
+  it('never serves a cache hit for an unverified test file', async () => {
+    const contract = getGuardContract(JOURNEY)!;
+    const r = await runGuard(contract, { projectRoot: REPO, sessionId: JOURNEY, contract, baselineInvariant: 'auto' });
     expect(r.status).toBe('pass');
-  });
+  }, 300_000);
 });
