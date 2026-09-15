@@ -260,7 +260,7 @@ const PRD_ARTIFACT_HANDOFF: RedLineCatalogEntry = {
 
 const RD_HANDOFF_CONTRACT: RedLineCatalogEntry = {
   id: 'rl-rd-handoff-contract-001',
-  rule: 'peaks-rd SKILL.md must declare the QA-handoff BLOCKING contract (tech-doc + perf-baseline)',
+  rule: 'peaks-rd must not hand off to QA without a non-empty RD artifact under rd/requests/',
   markers: ['BLOCKING'],
   phrases: ['do not hand off to qa without', 'tech-doc', 'perf-baseline'],
   enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',

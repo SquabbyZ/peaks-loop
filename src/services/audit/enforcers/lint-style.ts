@@ -64,13 +64,42 @@ function matchedText(lines: readonly string[], line: number): string {
   return (lines[line - 1] ?? '').trim();
 }
 
+/** A red-line marker that makes a contract line machine-visible. */
+const CONTRACT_MARKER = /\b(MANDATORY|BLOCKING|MUST NOT|RED LINE)\b/;
+
+/**
+ * Collect the body of the section that starts at `headingLine` (1-based):
+ * every line up to the next `## ` heading.
+ */
+function sectionBody(lines: readonly string[], headingLine: number): readonly string[] {
+  const body: string[] = [];
+  for (let i = headingLine; i < lines.length; i += 1) {
+    if (/^##\s/.test(lines[i] ?? '')) break;
+    body.push(lines[i] ?? '');
+  }
+  return body;
+}
+
 /** Theme A — section structure. Returns lint hits (positive = rule
  *  satisfied, so a missing heading fires the lint hit; downstream
- *  audit service decides whether to WARN or pass). */
+ *  audit service decides whether to WARN or pass).
+ *
+ *  A11 of the 2026-09-15 diagnosis: the `Hard contracts` rule used to
+ *  match the *heading text* and stop there. `peaks-perf-audit/SKILL.md`
+ *  carries `## Hard contracts (BLOCKING)` — the word BLOCKING is in the
+ *  heading — while every bullet beneath it is unmarked prose, so the
+ *  audit counted a BLOCKING red line with no contract behind it. The
+ *  rule now also requires at least one marker line inside the section
+ *  body, which is what makes a contract visible to the classifier. */
 export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];
-  const rules: ReadonlyArray<{ id: string; rule: string; pattern: RegExp }> = [
-    { id: 'rl-section-hard-contracts-001', rule: 'Hard contracts for browser/IO surface', pattern: SECTION_HARD_CONTRACTS_HEADING },
+  const rules: ReadonlyArray<{
+    id: string;
+    rule: string;
+    pattern: RegExp;
+    requiresBodyMarker?: boolean;
+  }> = [
+    { id: 'rl-section-hard-contracts-001', rule: 'Hard contracts for browser/IO surface', pattern: SECTION_HARD_CONTRACTS_HEADING, requiresBodyMarker: true },
     { id: 'rl-section-mandatory-artifact-001', rule: 'Mandatory per-request artifact', pattern: SECTION_MANDATORY_HEADING },
     { id: 'rl-section-default-runbook-001', rule: 'Default runbook pointer', pattern: SECTION_DEFAULT_RUNBOOK_HEADING },
     { id: 'rl-section-gate-index-001', rule: 'Gate index', pattern: SECTION_GATE_INDEX_HEADING },
@@ -86,6 +115,19 @@ export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
         line: 1,
         matchedText: '(missing section)'
       });
+      continue;
+    }
+    if (r.requiresBodyMarker === true) {
+      const declared = sectionBody(skill.lines, line).some((l) => CONTRACT_MARKER.test(l));
+      if (!declared) {
+        hits.push({
+          catalogId: r.id,
+          rule: r.rule,
+          file: skill.path,
+          line,
+          matchedText: `(heading at line ${line} but no BLOCKING/MANDATORY/MUST NOT/RED LINE line inside the section)`
+        });
+      }
     }
   }
   return hits;

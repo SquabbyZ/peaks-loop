@@ -3,23 +3,33 @@
  *
  * Two enforcers: catalog size must grow to ≥ 40 (the P2-a target),
  * and the prose-only ratio must stay ≤ 7% (per spec §10.2 L2
- * acceptance; tightened from the pre-v2.12.1 5% target to reflect
- * the catalog governance reform — see `.peaks/memory/2026-06-27-
- * prose-only-catalog-followup.md` for the full rationale and the
- * per-entry backlog triage). Both fire on the catalog's static
- * state — no file scan, just the catalog itself.
+ * acceptance). Both fire on the state the classifier produced — no
+ * extra file scan beyond what the audit already did.
+ *
+ * C6 of the 2026-09-15 diagnosis: this gate and
+ * `prose-ratio-calculator.computeProseRatio` (behind
+ * `peaks audit prose-ratio`) are the two "prose-only ratio" gates, and
+ * they used to disagree. The calculator excluded `informational` rows
+ * from its numerator; this one excluded `informational` rows from *its*
+ * numerator by a different route (red-lines-service passed it a
+ * `proseOnlyCount` that had already been filtered). Both now measure the
+ * same quantity, identically defined:
+ *
+ *   numerator   = rows classified `backing === 'prose-only'`, all of them
+ *   denominator = every classified row (`entries.length`)
+ *
+ * They still carry different *thresholds* — 7% here, 5% as the
+ * `peaks audit prose-ratio` default — which is a policy difference, not
+ * an accounting one. Nothing redefines what is being counted.
  */
 import type { LintHit, SkillFile } from './lint-style.js';
 
 export const CATALOG_SIZE_TARGET = 40;
-// v2.12.1 catalog governance: 5% was unreachable without demoting the
-// 80 discovered prose-only entries (which are advisory SKILL.md
-// phrases, not actionable red lines). After the v2.12.1 reform the
-// ratio dropped from 60.1% (89/148) to 6.1% (9/148); the remaining
-// 9 entries are the real backlog (5 unique catalog ids: prototype-
-// fidelity-001/002, mock-placement-001, resume-detection-001,
-// pre-rd-scan-001, design-draft-confirm-001). Bumping the target to
-// 7% acknowledges the reform while keeping the gate active.
+// The v2.12.1 reform left this at 7% by demoting discovered advisory
+// rows out of the numerator. S3 of the 2026-09-15 diagnosis-remediation
+// job removed that demotion, so the observed ratio is 66% (101/153) —
+// the gate now fires, which is the intended outcome: the number was
+// always this bad, it was just being reported as 0%.
 export const PROSE_ONLY_RATIO_TARGET = 0.07;
 
 export interface CatalogSize {
@@ -60,12 +70,11 @@ export function lintCatalogSize(actualSize: number): readonly LintHit[] {
 }
 
 /**
- * Prose-only ratio: count catalog entries whose `enforcerRef` is
- * null (i.e. not backed by a CLI surface) divided by the total
- * catalog size. Per spec §10.2, the L2 acceptance is ≤ 10% at
- * P2-a; v2.12.1 catalog governance tightened the gate to ≤ 7%
- * after the discovered-prose-only reform (see
- * `.peaks/memory/2026-06-27-prose-only-catalog-followup.md`).
+ * Prose-only ratio: rows the classifier tagged `prose-only`, divided by
+ * every row the classifier produced. `catalogSize` is a slight misnomer
+ * — it is `entries.length`, the count of classified rows, not the size of
+ * the hand-maintained catalog. Same numerator and denominator as
+ * `computeProseRatio`; see the module docstring above.
  */
 export function lintCatalogProseOnlyRatio(
   catalogSize: number,

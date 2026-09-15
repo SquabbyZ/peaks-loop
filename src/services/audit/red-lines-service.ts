@@ -17,6 +17,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { classifyFiles, type ClassifyFileInput } from './classifier.js';
 import { classifyBackingBatch } from './backing-detector.js';
+import { computeLiveEnforcers } from './enforcer-liveness.js';
+import { RED_LINE_CATALOG } from './red-line-catalog.js';
 import { scanSkillsTree } from './scanners/skills-tree-scanner.js';
 import { scanRulesTree } from './scanners/rules-tree-scanner.js';
 import { scanOpenSpecTree } from './scanners/openspec-scanner.js';
@@ -48,6 +50,10 @@ import {
   lintNoClosingPrompt,
   lintStatusHeader,
 } from './enforcers/lint-output-style.js';
+import {
+  lintRdHandoffContract,
+  lintRdCoverageDiscipline,
+} from './enforcers/lint-rd-handoff-coverage.js';
 import {
   lintOpenSpecAcceptanceBullets,
   lintOpenSpecSpecReference,
@@ -132,13 +138,14 @@ function tally(entries: readonly RedLineEntry[]): {
   let partial = 0;
   let proseOnly = 0;
   for (const entry of entries) {
-    // v2.12.1 catalog governance: informational entries (auto-discovered
-    // prose phrases without a catalog template) are counted in the
-    // total but excluded from `proseOnly` so the ratio (per spec §10.2
-    // ≤ 5%) reflects the actionable backlog only.
+    // S3 of the 2026-09-15 diagnosis-remediation job: `informational` is a
+    // triage label, not a ratio input. The pre-S3 version skipped
+    // informational rows here too, which is how the audit came to report
+    // `proseOnly: 0` while carrying 44 `"backing": "prose-only"` rows in
+    // the same envelope. Every prose-only row is now counted.
     if (entry.backing === 'cli-backed') cliBacked++;
     else if (entry.backing === 'partial') partial++;
-    else if (!entry.informational) proseOnly++;
+    else if (entry.backing === 'prose-only') proseOnly++;
   }
   return {
     totalRedLines: entries.length,
@@ -161,7 +168,17 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   const fileInputs = buildFileInputs(skills, rules, openspec);
   const classified = classifyFiles(fileInputs);
 
-  const backed = classifyBackingBatch(classified.entries, input.projectRoot);
+  // A9: `cli-backed` requires a call site, not just a file on disk. The
+  // live set is computed once for the whole catalog; `null` means the
+  // project has no `src/` tree and liveness is undecidable, in which case
+  // the detector falls back to the pre-A9 "file exists" rule.
+  const liveness = computeLiveEnforcers(
+    input.projectRoot,
+    RED_LINE_CATALOG.map((entry) => entry.enforcerRef).filter(
+      (ref): ref is string => ref !== null,
+    ),
+  );
+  const backed = classifyBackingBatch(classified.entries, input.projectRoot, liveness.live);
 
   // Sub-agent-sid enforcer (Task 2): dogfoods Slice 0.5 sid-naming-guard.
   const subAgentSids = findInvalidSubAgentSids(input.projectRoot);
@@ -173,7 +190,25 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     ...openspec.warnings,
     ...classified.warnings.map((message) => ({ file: '(classifier)', message })),
     ...backed.warnings.map((message) => ({ file: '(backing-detector)', message })),
+    ...liveness.warnings.map((message) => ({ file: '(enforcer-liveness)', message })),
   ];
+
+  // A9: name every enforcer that was downgraded, so the drop in
+  // `cliBacked` is attributable rather than mysterious.
+  if (liveness.unknown) {
+    warnings.push({
+      file: '(enforcer-liveness)',
+      message:
+        'no src/ tree under the project root; enforcer liveness is undecidable, so `cli-backed` falls back to the pre-A9 "the enforcer file exists" rule',
+    });
+  }
+  for (const ref of backed.deadEnforcers) {
+    warnings.push({
+      file: ref,
+      message:
+        'enforcer file exists but nothing outside src/services/audit/enforcers/ imports it; red lines backed by it are counted as prose-only',
+    });
+  }
 
   if (subAgentSids.scanned && subAgentSids.invalid.length > 0) {
     for (const sid of subAgentSids.invalid) {
@@ -341,11 +376,29 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     const skillsRoot = join(input.projectRoot, 'skills');
     if (existsSync(skillsRoot)) {
       const skillNames: string[] = [];
+      const skippedRoots: string[] = [];
       for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
         if (entry.name.startsWith('.')) continue;
-        if (!existsSync(join(skillsRoot, entry.name, 'SKILL.md'))) continue;
+        if (!existsSync(join(skillsRoot, entry.name, 'SKILL.md'))) {
+          skippedRoots.push(entry.name);
+          continue;
+        }
         skillNames.push(entry.name);
+      }
+      // A11 scope limit, declared rather than left implicit: only skills
+      // with a top-level `SKILL.md` are linted. Nested roots such as
+      // `skills/bee/` hold real skills (`peaks-perf-audit`, `peaks-rd`, …)
+      // that the classifier DOES see (their markers appear as
+      // `rl-discovered-skills-bee-*` rows) but that every Theme A–G
+      // lint-style enforcer skips. A clean Theme A result therefore means
+      // "clean among the linted skills", not "clean everywhere".
+      for (const root of skippedRoots) {
+        warnings.push({
+          file: `skills/${root}`,
+          message:
+            'no top-level SKILL.md — this directory and every skill nested under it are skipped by all lint-style enforcers (including rl-section-hard-contracts-001); their red-line rows are unverified',
+        });
       }
       const skillFiles = readSkillFiles(skillsRoot, skillNames);
 
@@ -370,6 +423,10 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           ...lintNoFluff(skill),
           ...lintNoClosingPrompt(skill),
           ...lintPeaksDoctorAcknowledged(skill),
+          // A10: the RD handoff gate reads the artifact, not the SKILL.md
+          // sentence that promises one. See lint-rd-handoff-coverage.ts.
+          ...lintRdHandoffContract(skill, input.projectRoot),
+          ...lintRdCoverageDiscipline(skill),
         ];
         for (const hit of lintHits) {
           enforcerFindings.push({

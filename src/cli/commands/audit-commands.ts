@@ -714,6 +714,7 @@ function emptyProseRatioResult(): ProseRatioResult {
     cliBacked: 0,
     partial: 0,
     proseOnly: 0,
+    discoveredProseOnly: 0,
     informational: 0,
     ratio: 0,
     target: 0.05,

@@ -1,35 +1,46 @@
 /**
- * Prose-only ratio calculator — Slice C Group G3 (v2.14.0).
+ * Prose-only ratio calculator — Slice C Group G3 (v2.14.0),
+ * corrected in S3 of the 2026-09-15 diagnosis-remediation job.
  *
- * Computes the prose-only ratio for a set of red-line entries. Per
- * spec §10.2 + the v2.12.1 reform (`.peaks/memory/2026-06-27-
- * prose-only-catalog-followup.md`), an entry counts as prose-only
- * only when BOTH:
- *   1. `backing === 'prose-only'`
- *   2. `informational !== true`
+ * An entry counts as prose-only when `backing === 'prose-only'`.
+ * Full stop. There is no second condition.
  *
- * The 80 discovered advisory SKILL.md phrases (auto-marked
- * `informational=true` by `classifier.ts:141`) are excluded from
- * the ratio so the gate (≤ 5% per slice C AC A3.1) reflects the
- * actionable backlog.
+ * The pre-S3 version also required `informational !== true`, on the
+ * reasoning that auto-discovered advisory SKILL.md phrases are "not
+ * actionable red lines". Whatever the merits of that reading, the effect
+ * was to move 44 of 152 rows — 29% of the catalog — out of the
+ * denominator, so the gate reported `proseOnly: 0` while the same JSON
+ * carried 44 rows with `"backing": "prose-only"`. A metric whose
+ * denominator can be redefined by the code it measures is not a metric.
  *
- * Karpathy §2 simplicity: one exported function plus a thin
- * calculator interface; no I/O. The pure form makes the ≥8
- * test cases in prose-ratio-calculator.test.ts trivial.
+ * `informational` survives as a triage label — `discoveredProseOnly`
+ * below counts those rows — but it no longer moves any number that the
+ * ratio is computed from. Expect the ratio to look much worse than it
+ * did; that is this correction working.
+ *
+ * Karpathy §2 simplicity: one exported function plus a thin calculator
+ * interface; no I/O.
  */
 
 import type { RedLineEntry } from './types.js';
 
 export interface ProseRatioResult {
-  /** Total catalog size (entries.length). */
+  /** Total entries considered (entries.length) — the denominator, always. */
   readonly totalRedLines: number;
   /** Count of entries with backing === 'cli-backed'. */
   readonly cliBacked: number;
   /** Count of entries with backing === 'partial'. */
   readonly partial: number;
-  /** Count of entries with backing === 'prose-only' AND informational !== true. */
+  /** Count of entries with backing === 'prose-only'. THE numerator. */
   readonly proseOnly: number;
-  /** Count of entries with informational === true (excluded from ratio). */
+  /**
+   * Breakdown only — the subset of `proseOnly` that carries
+   * `informational: true` (auto-discovered advisory phrases with no
+   * catalog template). Included in `proseOnly`; changing it changes
+   * nothing about `proseOnly` or `ratio`.
+   */
+  readonly discoveredProseOnly: number;
+  /** Count of entries with informational === true, whatever their backing. */
   readonly informational: number;
   /** proseOnly / totalRedLines. Returns 0 when totalRedLines === 0. */
   readonly ratio: number;
@@ -55,16 +66,17 @@ export function computeProseRatio(
   let cliBacked = 0;
   let partial = 0;
   let proseOnly = 0;
+  let discoveredProseOnly = 0;
   let informational = 0;
 
   for (const entry of entries) {
-    if (entry.informational === true) {
-      informational += 1;
-      continue;
-    }
+    if (entry.informational === true) informational += 1;
     if (entry.backing === 'cli-backed') cliBacked += 1;
     else if (entry.backing === 'partial') partial += 1;
-    else if (entry.backing === 'prose-only') proseOnly += 1;
+    else if (entry.backing === 'prose-only') {
+      proseOnly += 1;
+      if (entry.informational === true) discoveredProseOnly += 1;
+    }
   }
 
   const totalRedLines = entries.length;
@@ -74,6 +86,7 @@ export function computeProseRatio(
     cliBacked,
     partial,
     proseOnly,
+    discoveredProseOnly,
     informational,
     ratio,
     target,

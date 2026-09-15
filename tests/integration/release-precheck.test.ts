@@ -198,8 +198,16 @@ describe('peaks release precheck — integration', () => {
     }
   });
 
-  // AC-9: peaks audit red-lines still reports partial=0, proseOnly=0.
-  it('AC-9 — peaks audit red-lines still reports partial=0, proseOnly=0', async () => {
+  // AC-9: peaks audit red-lines reports an honest prose-only count.
+  //
+  // S3 of the 2026-09-15 diagnosis-remediation job: this assertion used to
+  // be `expect(data.proseOnly).toBe(0)` — it pinned the bug. The summary
+  // said `proseOnly: 0` while the same envelope carried rows marked
+  // `"backing": "prose-only"`, because the tally dropped every row the
+  // classifier had labelled `informational`. Anchoring the summary to the
+  // per-row counts is the invariant that makes that class of drift
+  // impossible to pass silently.
+  it('AC-9 — peaks audit red-lines summary agrees with the per-row backing counts', async () => {
     const r = await runCli(['audit', 'red-lines', '--project', '.', '--json'], process.cwd());
     // peaks audit red-lines is not part of this slice; skip if missing.
     // The test exists to prevent regression; if peaks CLI is unavailable on host,
@@ -208,8 +216,19 @@ describe('peaks release precheck — integration', () => {
       return;
     }
     const json = parseCliJson(r.stdout);
-    const data = json.data as { partial?: number; proseOnly?: number };
-    expect(data.partial).toBe(0);
-    expect(data.proseOnly).toBe(0);
+    const data = json.data as {
+      partial?: number;
+      proseOnly?: number;
+      cliBacked?: number;
+      totalRedLines?: number;
+      audit?: { backing?: string }[];
+    };
+    const rows = data.audit ?? [];
+    const countBy = (backing: string): number =>
+      rows.filter((row) => row.backing === backing).length;
+    expect(data.totalRedLines).toBe(rows.length);
+    expect(data.proseOnly).toBe(countBy('prose-only'));
+    expect(data.cliBacked).toBe(countBy('cli-backed'));
+    expect(data.partial).toBe(countBy('partial'));
   });
 });
