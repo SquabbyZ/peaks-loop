@@ -1,0 +1,18 @@
+{
+  "id": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
+  "name": "a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
+  "description": "Promoted from feedback memory .peaks/memory/a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard.md: \"注入式验证的探针必须先跑干净树对照组；探针本身出错会把每次注入都报成\\\"抓到了\\\"\"",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard.md"
+      }
+    }
+  ]
+}

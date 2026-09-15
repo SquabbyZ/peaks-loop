@@ -1,0 +1,16 @@
+{
+  "name": "use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\use-the-repos-existing-ast-guard-not-a-fresh-regex-scan.md",
+    ".peaks\\sops\\feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T15:05:59.009Z",
+  "promotedBy": "peaks-rd fork agent"
+}

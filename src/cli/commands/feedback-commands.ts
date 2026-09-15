@@ -25,6 +25,7 @@ import { getCurrentSessionId } from '../../services/skills/skill-presence-servic
 import {
   generatePromotionStub,
   isPromotionLayer,
+  listPromotionExempt,
   listUnpromotedFeedback,
   missingArtifacts,
   parseFeedbackMemory,
@@ -221,15 +222,21 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
     (opts: { project: string; strict?: boolean; json?: boolean }) => {
       try {
         const unpromoted = listUnpromotedFeedback({ projectRoot: opts.project });
+        const exempt = listPromotionExempt({ projectRoot: opts.project });
         const count = unpromoted.length;
         if (count === 0) {
           printResult(
             io,
             ok(
               'feedback.check-unpromoted',
-              { count: 0, unpromoted: [] },
+              { count: 0, unpromoted: [], exempt },
               [],
-              [`No unpromoted feedback found in .peaks/memory/.`]
+              [
+                `No unpromoted feedback found in .peaks/memory/.`,
+                ...(exempt.length === 0
+                  ? []
+                  : [`${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`])
+              ]
             ),
             opts.json
           );
@@ -249,7 +256,7 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
               'feedback.check-unpromoted',
               'UNPROMOTED_FEEDBACK_FOUND',
               message,
-              { count, unpromoted },
+              { count, unpromoted, exempt },
               nextActions
             ),
             opts.json
@@ -261,8 +268,13 @@ export function registerFeedbackCommands(program: Command, io: ProgramIO): void 
           io,
           ok(
             'feedback.check-unpromoted',
-            { count, unpromoted },
-            [message],
+            { count, unpromoted, exempt },
+            [
+              message,
+              ...(exempt.length === 0
+                ? []
+                : [`${exempt.length} memor${exempt.length === 1 ? 'y' : 'ies'} declare themselves not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}.`])
+            ],
             nextActions
           ),
           opts.json

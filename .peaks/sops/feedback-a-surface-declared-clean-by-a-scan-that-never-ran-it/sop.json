@@ -1,0 +1,18 @@
+{
+  "id": "feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it",
+  "name": "a-surface-declared-clean-by-a-scan-that-never-ran-it",
+  "description": "Promoted from feedback memory .peaks/memory/a-surface-declared-clean-by-a-scan-that-never-ran-it.md: 一个否定结论（\"这里没问题\"）被写进表里，而它背后没有任何一次执行；实测切片把 playwright stop --terminal 标为\"not a guard gap\"，而它一个 flag 就能杀掉指名进程并删掉项目根之外的文件",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/a-surface-declared-clean-by-a-scan-that-never-ran-it.md"
+      }
+    }
+  ]
+}

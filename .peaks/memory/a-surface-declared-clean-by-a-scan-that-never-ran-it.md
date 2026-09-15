@@ -7,6 +7,7 @@ metadata:
   originSessionId: e0ac1231-9059-438e-b036-c6cae372eb87
   modified: 2026-09-14T03:30:00.000Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **肯定结论错了要一次执行才能推翻；否定结论错了，连"有没有查过"都看不出来。**
 

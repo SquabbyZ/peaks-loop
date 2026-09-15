@@ -1,0 +1,18 @@
+{
+  "id": "feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+  "name": "a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+  "description": "Promoted from feedback memory .peaks/memory/a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md: 同一晚出现四次\"结论成立、证据本身有瑕\"；最隐蔽的一次是修复有效但覆盖范围主张建立在一份不完整的枚举上——机制可复现，主张不可",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md"
+      }
+    }
+  ]
+}

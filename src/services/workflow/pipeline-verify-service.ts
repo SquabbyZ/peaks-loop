@@ -5,7 +5,7 @@
  * returns a structured `PipelineVerification` envelope. Type
  * declarations live in `pipeline-verify-types.ts`; private gate
  * helpers (`rdGatesForType`, `qaGatesForType`, `extractState`,
- * `findRequestFile`, the `_runtime/` prefix strip, the RD/QA handoff
+ * `findRequestFile`, the RD/QA handoff
  * state sets, and the RD/QA evidence path probes) live in
  * `pipeline-verify-gate-support.ts`. The re-export shim at the
  * bottom preserves the original public surface so existing import
@@ -17,7 +17,7 @@
 import { isRequestType, type RequestType } from '../artifacts/artifact-prerequisites.js';
 import { readSkipState } from './workflow-state-store.js';
 import { getSessionIdCanonical } from '../session/session-manager.js';
-import { listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';
+import { listPromotionExempt, listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';
 import type { PipelineGate, PipelineVerification } from './pipeline-verify-types.js';
 import {
   QA_COMPLETE_STATES,
@@ -247,16 +247,23 @@ export async function verifyPipeline(options: {
   ];
   try {
     const unpromoted = listUnpromotedFeedback({ projectRoot: options.projectRoot });
+    // rid 2026-09-14-gate-h-promotion (classify slice): memories that declare
+    // themselves out of the gate are reported, never dropped. An exemption the
+    // gate does not show would be indistinguishable from a fixed violation.
+    const exempt = listPromotionExempt({ projectRoot: options.projectRoot });
+    const exemptNote = exempt.length === 0
+      ? ''
+      : `; ${exempt.length} declared not-to-be-promoted: ${exempt.map((e) => `${e.name} (${e.code})`).join('; ')}`;
     if (unpromoted.length === 0) {
       feedbackGates[0]!.passed = true;
-      feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/`;
+      feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/${exemptNote}`;
     } else {
       // rid 2026-09-14-gate-h-promotion: the gate no longer passes on a marker
       // alone. `listUnpromotedFeedback` now also reports markers whose layer
       // artifact is absent, so `unpromoted` mixes "never promoted" with
       // "promoted on paper only" — the reason on each entry says which.
-      feedbackGates[0]!.detail = `${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y' : 'ies'} without a backed promotion: ${unpromoted.map((u) => `${u.name} (${u.reason})`).join('; ')}`;
-      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer with a real artifact (${unpromoted.map((u) => u.name).join(', ')}). A marker alone does not count: layer A needs a registered SOP manifest, layer B a matcher in .peaks/.claude-settings-template.json, layer C a hard-floor category in src/services/code/mode-gate.ts. Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each and read what it reports. See sops/feedback-promotion-sop.md.`);
+      feedbackGates[0]!.detail = `${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y' : 'ies'} without a backed promotion: ${unpromoted.map((u) => `${u.name} (${u.reason})`).join('; ')}${exemptNote}`;
+      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer with a real artifact (${unpromoted.map((u) => u.name).join(', ')})${exemptNote}. A marker alone does not count: layer A needs a registered SOP manifest, layer B a hook command that runs something named after the rule in .peaks/.claude-settings-template.json, layer C a hard-floor category in src/services/code/mode-gate.ts. Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each and read what it reports. See sops/feedback-promotion-sop.md.`);
       nextActions.push(`Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each feedback memory without a backed promotion to satisfy Gate H.`);
     }
   } catch {

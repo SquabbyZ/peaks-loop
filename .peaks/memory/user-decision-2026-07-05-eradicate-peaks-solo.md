@@ -1,5 +1,5 @@
 ---
-name: user-decision-2026-07-05-eradicate-peaks-code
+name: user-decision-2026-07-05-eradicate-peaks-solo
 description: 2026-07-05 user 决定"彻底去根"——打破 rename spec AC-10 不动 .peaks/memory/ 的硬规则,107 文件全部 peaks-code → peaks-code
 metadata:
   type: feedback

@@ -41,6 +41,45 @@
       ]
     },
     {
+      "id": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
+      "path": "sops/feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
+          "phase": "apply",
+          "transition": "feedback-a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+      "path": "sops/feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+          "phase": "apply",
+          "transition": "feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it",
+      "path": "sops/feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it",
+          "phase": "apply",
+          "transition": "feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it:apply"
+        }
+      ]
+    },
+    {
       "id": "feedback-active-skill-cli-routing",
       "path": "sops/feedback-active-skill-cli-routing/sop.json",
       "gates": [
@@ -132,6 +171,19 @@
       ]
     },
     {
+      "id": "feedback-peaks-solo-to-peaks-code-rename-session-directive",
+      "path": "sops/feedback-peaks-solo-to-peaks-code-rename-session-directive/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-peaks-solo-to-peaks-code-rename-session-directive/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-peaks-solo-to-peaks-code-rename-session-directive",
+          "phase": "apply",
+          "transition": "feedback-peaks-solo-to-peaks-code-rename-session-directive:apply"
+        }
+      ]
+    },
+    {
       "id": "feedback-rd-gstack-dry-run",
       "path": "sops/feedback-rd-gstack-dry-run/sop.json",
       "gates": [
@@ -141,6 +193,32 @@
           "sopId": "feedback-rd-gstack-dry-run",
           "phase": "apply",
           "transition": "feedback-rd-gstack-dry-run:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+      "path": "sops/feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+          "phase": "apply",
+          "transition": "feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan:apply"
+        }
+      ]
+    },
+    {
+      "id": "feedback-user-decision-2026-07-05-eradicate-peaks-solo",
+      "path": "sops/feedback-user-decision-2026-07-05-eradicate-peaks-solo/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-user-decision-2026-07-05-eradicate-peaks-solo/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-user-decision-2026-07-05-eradicate-peaks-solo",
+          "phase": "apply",
+          "transition": "feedback-user-decision-2026-07-05-eradicate-peaks-solo:apply"
         }
       ]
     },
@@ -169,7 +247,20 @@
           "transition": "feedback-windows-shell-quoting-divergence:apply"
         }
       ]
+    },
+    {
+      "id": "feedback-writing-a-value-then-reading-it-back-locks-the-first-guess",
+      "path": "sops/feedback-writing-a-value-then-reading-it-back-locks-the-first-guess/sop.json",
+      "gates": [
+        {
+          "ref": "feedback-writing-a-value-then-reading-it-back-locks-the-first-guess/rule-source-present",
+          "gateId": "rule-source-present",
+          "sopId": "feedback-writing-a-value-then-reading-it-back-locks-the-first-guess",
+          "phase": "apply",
+          "transition": "feedback-writing-a-value-then-reading-it-back-locks-the-first-guess:apply"
+        }
+      ]
     }
   ],
-  "gateCount": 13
+  "gateCount": 20
 }

@@ -34,6 +34,11 @@ import { dirname, join, resolve } from 'node:path';
 import { registerSop } from '../sop/sop-registry-service.js';
 import { projectRegistryPath, projectSopManifestPath } from '../sop/sop-paths.js';
 import type { SopManifest } from '../sop/sop-types.js';
+import { artifactEvidenceFailure, type PromotionArtifactCheck, type PromotionEvidence } from './promotion-artifact-evidence.js';
+
+// Re-exported so callers keep importing the check shape from the service that
+// builds the table, even though the readers live in their own module.
+export type { PromotionArtifactCheck, PromotionEvidence };
 
 /**
  * PRD-002b slice 2 — extract magic numbers used by the promotion
@@ -81,23 +86,22 @@ export const PROMOTION_LAYER_DETAILS: readonly PromotionLayerDetail[] = [
  *     `readRegistry()`, so an unregistered manifest is off the enforcement path
  *     no matter how valid it is.
  *   - B (peaks-hooks PreToolUse): `.peaks/.claude-settings-template.json` must
- *     mention the rule. The file always exists, so existence proves nothing —
- *     the evidence is the registration inside it.
+ *     register the rule inside its `hooks` block. The file always exists, so
+ *     existence proves nothing — the evidence is the registration inside it.
  *   - C (mode-gate hardFloorCategory): `src/services/code/mode-gate.ts` must
- *     mention the rule, for the same reason. This is the repo's existing
- *     convention: the one real layer-C promotion cites its memory by path.
+ *     register the rule in the hard-floor vocabulary, for the same reason. This
+ *     is the repo's existing convention: the one real layer-C promotion cites
+ *     its memory by path, from the category's doc block.
+ *
+ * R2 (2026-09-14-gate-h-promotion): each of those is now a PARSE plus a shape
+ * assertion, in `promotion-artifact-evidence.ts`. Every check used to be a
+ * `text.includes(<rule>)` over the whole file, which certified a tree that was
+ * a refusal — an invalid-JSON registry, a template saying "do NOT add a
+ * matcher", a mode-gate line saying the rule is deliberately not a category —
+ * because in each case the rule's name was still in the file's bytes. A name in
+ * a file is not a registration, and a file that cannot be parsed is a finding,
+ * not a permit.
  */
-export type PromotionArtifactCheck = {
-  /** Project-relative POSIX path that must exist. */
-  path: string;
-  /**
-   * When set, the file's text must contain this literal. Used for the layers
-   * whose backing file is a shared registry that already exists on disk, where
-   * `existsSync` alone would pass for the wrong reason.
-   */
-  mustContain?: string;
-};
-
 /**
  * SOP id used for a feedback memory's layer-A artifact.
  *
@@ -109,25 +113,26 @@ export function sopIdForFeedback(memoryName: string): string {
   return `feedback-${memoryName}`;
 }
 
-/** The artifact(s) that must be present for `layer` to mean anything. */
+/** The artifact(s) and the structural evidence each must carry for `layer` to mean anything. */
 export function promotionArtifactChecks(memoryName: string, layer: PromotionLayer): PromotionArtifactCheck[] {
   if (layer === 'A') {
     const id = sopIdForFeedback(memoryName);
     return [
-      { path: `.peaks/sops/${id}/sop.json` },
-      { path: '.peaks/sops/registry.json', mustContain: `"${id}"` }
+      { path: `.peaks/sops/${id}/sop.json`, evidence: 'sop-manifest', id },
+      { path: '.peaks/sops/registry.json', evidence: 'sop-registry-entry', id }
     ];
   }
   if (layer === 'B') {
-    return [{ path: '.peaks/.claude-settings-template.json', mustContain: memoryName }];
+    return [{ path: '.peaks/.claude-settings-template.json', evidence: 'hook-registration', id: memoryName }];
   }
-  return [{ path: 'src/services/code/mode-gate.ts', mustContain: memoryName }];
+  return [{ path: 'src/services/code/mode-gate.ts', evidence: 'hard-floor-category', id: memoryName }];
 }
 
 /**
  * Which of `checks` are not satisfied under `projectRoot`. Empty means the
- * promotion is backed by its artifact. Never throws — an unreadable file is
- * reported as missing rather than crashing the gate.
+ * promotion is backed by its artifact. Never throws, and never permits: a file
+ * that is absent, unreadable, or unparseable is a finding, not a warning —
+ * "cannot read the evidence" must not read as "the evidence is good".
  */
 export function missingArtifacts(checks: readonly PromotionArtifactCheck[], projectRoot: string): string[] {
   const missing: string[] = [];
@@ -137,17 +142,16 @@ export function missingArtifacts(checks: readonly PromotionArtifactCheck[], proj
       missing.push(`${check.path} (absent)`);
       continue;
     }
-    if (check.mustContain !== undefined) {
-      let text: string;
-      try {
-        text = readFileSync(absolute, 'utf8');
-      } catch {
-        missing.push(`${check.path} (unreadable)`);
-        continue;
-      }
-      if (!text.includes(check.mustContain)) {
-        missing.push(`${check.path} (does not reference ${check.mustContain})`);
-      }
+    let text: string;
+    try {
+      text = readFileSync(absolute, 'utf8');
+    } catch {
+      missing.push(`${check.path} (unreadable)`);
+      continue;
+    }
+    const failure = artifactEvidenceFailure(check, text);
+    if (failure !== null) {
+      missing.push(`${check.path} (${failure})`);
     }
   }
   return missing;
@@ -177,6 +181,50 @@ export type UnpromotedFeedbackEntry = {
 };
 
 const COMMENT_MARKER_RE = /<!--\s*peaks-feedback-promoted:\s*layer=([ABC])\s*-->/;
+
+/**
+ * rid 2026-09-14-gate-h-promotion (classify slice) — the "not to be promoted"
+ * declaration.
+ *
+ * The gate used to know only `has artifact` / `has no artifact`, so a memory that
+ * prescribes no action could never pass: promoting it registers a SOP whose only
+ * gate is "the source file still exists", which asserts nothing about behaviour.
+ * That is a permanent false positive — the old vacuity defect facing the other way.
+ *
+ * The declaration closes it, but it must not become a way to silence the gate.
+ * It differs from the refused grandfather channel (`promotedAt` older than this
+ * rule) in that a grandfather exemption is a property of a memory's AGE: every
+ * legacy memory has it, it says nothing about content, and nobody has to assert
+ * or defend it. This is a bounded claim about the memory's CONTENT:
+ *
+ *   1. The code is drawn from a closed vocabulary — free text cannot be used.
+ *   2. Each code binds to a predicate over the memory's own frontmatter, which
+ *      the gate recomputes. The declaration may only RESTATE what the memory
+ *      already says; it cannot introduce a new fact.
+ *   3. A reason string is required (the `closedAt` escape hatch beside it has none).
+ *   4. Coexisting with a promotion marker is a contradiction and fails, so the
+ *      channel cannot be used to bury a promotion whose artifact is missing.
+ *   5. Exempted memories stay REPORTED via `listPromotionExempt`, so the
+ *      unpromoted count never drops silently.
+ */
+export const NOT_TO_PROMOTE_CODES = ['non-actionable', 'closed-slice-note'] as const;
+
+export type NotToPromoteCode = (typeof NOT_TO_PROMOTE_CODES)[number];
+
+/**
+ * What each code's predicate requires the memory to already say. The gate does not
+ * and cannot verify that "prescribes no action" is TRUE; it verifies that the
+ * declaration agrees with a claim the memory makes on its own.
+ */
+const NOT_TO_PROMOTE_CORROBORATION: Record<NotToPromoteCode, string> = {
+  'non-actionable': 'frontmatter `scope:` containing `non-actionable`, or `nonActionable: true`',
+  'closed-slice-note': 'frontmatter `sourceArtifact:` or `source:` naming the slice it was derived from'
+};
+
+export type NotToPromoteRead =
+  | { kind: 'none' }
+  | { kind: 'valid'; code: NotToPromoteCode; reason: string }
+  | { kind: 'invalid'; reason: string };
 
 /**
  * Parse a single `.peaks/memory/<file>.md` into a FeedbackMemory, or
@@ -290,6 +338,30 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
     // contradict the memory's own lifecycle. Verify-pipeline Gate H now
     // honours the closed state and reports `0 unpromoted` for closed records.
     if (isClosedMemory(join(memoryDir, entry.name))) continue;
+    // rid 2026-09-14-gate-h-promotion (classify slice): a memory may declare
+    // itself out of the gate. A malformed declaration is a FAILURE, not a skip —
+    // otherwise "make the fields unusable" would be the quietest way through.
+    const declaration = readNotToPromote(join(memoryDir, entry.name));
+    if (declaration.kind === 'invalid') {
+      out.push({
+        name: parsed.name,
+        path: parsed.path,
+        reason: `not-to-promote declaration rejected: ${declaration.reason}`
+      });
+      continue;
+    }
+    if (declaration.kind === 'valid') {
+      if (parsed.promotion !== null) {
+        out.push({
+          name: parsed.name,
+          path: parsed.path,
+          reason: `carries both a layer ${parsed.promotion.layer} promotion marker and a notToPromote: ${declaration.code} declaration — one of the two claims is false; remove one`
+        });
+        continue;
+      }
+      // Deliberately exempt; `listPromotionExempt` reports it so the count is visible.
+      continue;
+    }
     if (parsed.promotion === null) {
       out.push({
         name: parsed.name,
@@ -348,6 +420,107 @@ function isClosedMemory(filePath: string): boolean {
     }
   }
   return false;
+}
+
+/** Raw frontmatter text of a memory, or `null` when absent/unreadable. */
+function readFrontmatter(filePath: string): string | null {
+  if (!existsSync(filePath)) return null;
+  let raw: string;
+  try {
+    raw = readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+  const normalized = raw.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) return null;
+  const endIndex = normalized.indexOf('\n---\n', 4);
+  if (endIndex < 0) return null;
+  return normalized.slice(4, endIndex);
+}
+
+/** Flat `key: value` lookup over frontmatter text; `null` when unset or empty. */
+function frontmatterValue(frontmatter: string, key: string): string | null {
+  for (const rawLine of frontmatter.split('\n')) {
+    const line = rawLine.trim();
+    if (!line.startsWith(`${key}:`)) continue;
+    const value = line.slice(key.length + 1).trim();
+    if (value.length === 0 || value === '""' || value === "''") return null;
+    return value;
+  }
+  return null;
+}
+
+/** Does the memory's own frontmatter already say what `code` claims? */
+function corroborates(code: NotToPromoteCode, frontmatter: string): boolean {
+  if (code === 'non-actionable') {
+    const scope = frontmatterValue(frontmatter, 'scope');
+    if (scope !== null && scope.includes('non-actionable')) return true;
+    return frontmatterValue(frontmatter, 'nonActionable') === 'true';
+  }
+  return frontmatterValue(frontmatter, 'sourceArtifact') !== null
+    || frontmatterValue(frontmatter, 'source') !== null;
+}
+
+/**
+ * Read the memory's not-to-promote declaration. `invalid` is returned rather than
+ * `none` when the fields are present but unusable, so the gate fails with a reason
+ * instead of quietly treating a malformed declaration as "no declaration".
+ */
+export function readNotToPromote(filePath: string): NotToPromoteRead {
+  const frontmatter = readFrontmatter(filePath);
+  if (frontmatter === null) return { kind: 'none' };
+  const code = frontmatterValue(frontmatter, 'notToPromote');
+  const reason = frontmatterValue(frontmatter, 'notToPromoteReason');
+  if (code === null && reason === null) return { kind: 'none' };
+  if (code === null) {
+    return { kind: 'invalid', reason: '`notToPromoteReason` is set but the `notToPromote` code is missing' };
+  }
+  if (!(NOT_TO_PROMOTE_CODES as readonly string[]).includes(code)) {
+    return {
+      kind: 'invalid',
+      reason: `\`notToPromote: ${code}\` is not a recognised code (expected ${NOT_TO_PROMOTE_CODES.join(' | ')})`
+    };
+  }
+  if (reason === null) {
+    return { kind: 'invalid', reason: `\`notToPromote: ${code}\` has no \`notToPromoteReason\` — an exemption must state its own reason` };
+  }
+  const typedCode = code as NotToPromoteCode;
+  if (!corroborates(typedCode, frontmatter)) {
+    return {
+      kind: 'invalid',
+      reason: `\`notToPromote: ${typedCode}\` is not corroborated by the memory's own frontmatter (needs ${NOT_TO_PROMOTE_CORROBORATION[typedCode]})`
+    };
+  }
+  return { kind: 'valid', code: typedCode, reason };
+}
+
+export type PromotionExemptEntry = {
+  name: string;
+  path: string;
+  code: NotToPromoteCode;
+  reason: string;
+};
+
+/**
+ * The feedback memories that declare themselves out of the gate. Exposed so the
+ * gate can REPORT them: an exemption nobody can see is the vacuity this whole
+ * channel is required to avoid. Never throws.
+ */
+export function listPromotionExempt(opts: { projectRoot: string }): PromotionExemptEntry[] {
+  const memoryDir = resolve(opts.projectRoot, '.peaks', 'memory');
+  if (!existsSync(memoryDir)) return [];
+  const out: PromotionExemptEntry[] = [];
+  for (const entry of readdirSync(memoryDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name.startsWith('.')) continue;
+    const filePath = join(memoryDir, entry.name);
+    const parsed = parseFeedbackMemory(filePath);
+    if (parsed === null) continue;
+    const declaration = readNotToPromote(filePath);
+    if (declaration.kind !== 'valid') continue;
+    if (parsed.promotion !== null) continue; // contradiction — reported as a violation instead
+    out.push({ name: parsed.name, path: parsed.path, code: declaration.code, reason: declaration.reason });
+  }
+  return out;
 }
 
 /**
@@ -454,6 +627,15 @@ export async function promoteFeedback(opts: {
   const parsed = parseFeedbackMemory(opts.feedbackPath);
   if (parsed === null) {
     throw new Error(`Not a feedback memory: ${opts.feedbackPath}`);
+  }
+  // rid 2026-09-14-gate-h-promotion (classify slice): the tool must not create the
+  // contradiction the gate rejects — promoting a memory that declares itself out of
+  // the gate would print `effective: true` while Gate H reports a contradiction.
+  const declaration = readNotToPromote(opts.feedbackPath);
+  if (declaration.kind === 'valid') {
+    throw new Error(
+      `${opts.feedbackPath} declares \`notToPromote: ${declaration.code}\` — promoting it would contradict that declaration. Remove the declaration first if the memory is a rule after all.`
+    );
   }
   const stub = generatePromotionStub({
     layer: opts.layer,

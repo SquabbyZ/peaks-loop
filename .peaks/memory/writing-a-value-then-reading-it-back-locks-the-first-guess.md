@@ -7,6 +7,7 @@ metadata:
   originSessionId: bd89a11a-b66d-443c-b8b7-e9aa813190c2
   modified: 2026-09-12T18:12:04.709Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **一个组件若把"自己派生的值"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。**
 

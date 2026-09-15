@@ -8,8 +8,9 @@ metadata:
   source: user observation (squabbyZ)
   targetRelease: 4.0.0-beta.11
   scope: harness-level / non-actionable
+notToPromote: non-actionable
+notToPromoteReason: "records a Claude Code harness UI behaviour and prescribes no action for peaks-loop; promoting it would register a SOP whose only gate asserts that this file still exists"
 ---
-<!-- peaks-feedback-promoted: layer=A -->
 
 # Claude Code sub-agent display recycle — observation (NOT a fix)
 

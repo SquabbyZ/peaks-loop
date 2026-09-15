@@ -1,0 +1,16 @@
+{
+  "name": "a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md",
+    ".peaks\\sops\\feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-a-right-conclusion-resting-on-evidence-nobody-can-reproduce/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T15:05:44.289Z",
+  "promotedBy": "peaks-rd fork agent"
+}

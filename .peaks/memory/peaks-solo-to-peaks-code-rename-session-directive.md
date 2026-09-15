@@ -1,5 +1,5 @@
 ---
-name: peaks-code-to-peaks-code-rename-session-directive
+name: peaks-solo-to-peaks-code-rename-session-directive
 description: 2026-07-05 user 在 peaks-code → peaks-code rename brainstorm 末尾追加的硬约束,适用于所有 peaks-loop 长任务
 metadata:
   type: feedback

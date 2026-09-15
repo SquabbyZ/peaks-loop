@@ -7,6 +7,7 @@ metadata:
   originSessionId: bd89a11a-b66d-443c-b8b7-e9aa813190c2
   modified: 2026-09-13T04:21:16.513Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **用注入验证守卫时，探针本身出错的表现，与"守卫工作正常"**输出完全一样**。**
 

@@ -7,6 +7,7 @@ metadata:
   originSessionId: e0ac1231-9059-438e-b036-c6cae372eb87
   modified: 2026-09-14T02:45:00.000Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **"看起来验证过了"和"验证过了"在输出上可以完全一致。分开它们的只有一个动作：让下一个人重新量一遍 —— 而不是让他相信上一轮的报告。**
 

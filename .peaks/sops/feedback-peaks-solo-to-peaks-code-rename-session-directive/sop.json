@@ -1,0 +1,18 @@
+{
+  "id": "feedback-peaks-solo-to-peaks-code-rename-session-directive",
+  "name": "peaks-solo-to-peaks-code-rename-session-directive",
+  "description": "Promoted from feedback memory .peaks/memory/peaks-solo-to-peaks-code-rename-session-directive.md: 2026-07-05 user 在 peaks-code → peaks-code rename brainstorm 末尾追加的硬约束,适用于所有 peaks-loop 长任务",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/peaks-solo-to-peaks-code-rename-session-directive.md"
+      }
+    }
+  ]
+}

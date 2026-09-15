@@ -1,0 +1,16 @@
+{
+  "name": "a-surface-declared-clean-by-a-scan-that-never-ran-it",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "D:\\peaks-loop\\.peaks\\memory\\a-surface-declared-clean-by-a-scan-that-never-ran-it.md",
+    ".peaks\\sops\\feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it\\sop.json",
+    ".peaks\\sops\\registry.json"
+  ],
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-a-surface-declared-clean-by-a-scan-that-never-ran-it/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T15:05:48.378Z",
+  "promotedBy": "peaks-rd fork agent"
+}

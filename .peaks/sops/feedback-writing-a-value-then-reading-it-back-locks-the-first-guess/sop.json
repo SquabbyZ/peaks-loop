@@ -1,0 +1,18 @@
+{
+  "id": "feedback-writing-a-value-then-reading-it-back-locks-the-first-guess",
+  "name": "writing-a-value-then-reading-it-back-locks-the-first-guess",
+  "description": "Promoted from feedback memory .peaks/memory/writing-a-value-then-reading-it-back-locks-the-first-guess.md: 组件把派生值写进配置又读回当自己的输入时，会锁死首次猜测；若同时禁用该路径的修正机制，错误即永久化",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/writing-a-value-then-reading-it-back-locks-the-first-guess.md"
+      }
+    }
+  ]
+}

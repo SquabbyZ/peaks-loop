@@ -1,10 +1,16 @@
 {
-  "name": "user-decision-2026-07-05-eradicate-peaks-code",
+  "name": "user-decision-2026-07-05-eradicate-peaks-solo",
   "layer": "A",
   "layerDetail": "peaks-sop gate",
   "generatedFiles": [
-    "sops/user-decision-2026-07-05-eradicate-peaks-code.md"
+    "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
+    ".peaks\\sops\\feedback-user-decision-2026-07-05-eradicate-peaks-solo\\sop.json",
+    ".peaks\\sops\\registry.json"
   ],
-  "promotedAt": "2026-07-08T13:44:57.264Z",
+  "requiredArtifacts": [
+    ".peaks/sops/feedback-user-decision-2026-07-05-eradicate-peaks-solo/sop.json",
+    ".peaks/sops/registry.json"
+  ],
+  "promotedAt": "2026-09-14T15:08:14.699Z",
   "promotedBy": "peaks-rd fork agent"
 }

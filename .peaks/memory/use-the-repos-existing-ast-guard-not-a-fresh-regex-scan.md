@@ -7,6 +7,7 @@ metadata:
   originSessionId: bd89a11a-b66d-443c-b8b7-e9aa813190c2
   modified: 2026-09-13T01:30:18.464Z
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 **做"扫全仓找某类调用点"这类作业时，先找仓库里**已有的 AST 守卫**，扩它的射程；不要另写一个正则/文本扫描。**
 

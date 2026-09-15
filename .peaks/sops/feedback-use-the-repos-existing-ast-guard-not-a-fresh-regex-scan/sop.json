@@ -1,0 +1,18 @@
+{
+  "id": "feedback-use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+  "name": "use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
+  "description": "Promoted from feedback memory .peaks/memory/use-the-repos-existing-ast-guard-not-a-fresh-regex-scan.md: 扫描类作业先找仓库里已有的 AST 守卫并直接扩它的射程，不要另写正则扫描——本会话因此错了三次",
+  "phases": [
+    "apply"
+  ],
+  "gates": [
+    {
+      "id": "rule-source-present",
+      "phase": "apply",
+      "check": {
+        "type": "file-exists",
+        "path": ".peaks/memory/use-the-repos-existing-ast-guard-not-a-fresh-regex-scan.md"
+      }
+    }
+  ]
+}
