@@ -37,17 +37,16 @@ export function extractState(markdown: string): string {
 export async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; sessionId: string } | null> {
   const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
   if (artifact === null) return null;
-  // Slice 2026-06-28-code-mode-bypass-fix (defect #3): the legacy
-  // `showRequestArtifact` returns the FULL SCOPE (`_runtime/<sid>`)
-  // as `sessionId`, not just the trailing id segment. The canonical
-  // evidence lookup needs only the bare id (`.peaks/_runtime/change/<id>/`).
-  // When the scope starts with `_runtime/`, strip that prefix so the
-  // path resolver builds the right canonical location.
-  let sessionId = artifact.sessionId;
-  if (sessionId.startsWith('_runtime/') || sessionId.startsWith('_runtime\\')) {
-    sessionId = sessionId.replace(/^_runtime[\\/]/, '');
-  }
-  return { path: artifact.path, content: artifact.content, sessionId };
+  // Slice 2026-06-28-code-mode-bypass-fix (defect #3) used to strip a
+  // `_runtime/` prefix here, because `showRequestArtifact` then returned the
+  // FULL SCOPE (`_runtime/<sid>`) as `sessionId`. Repair R5 removed that
+  // round-trip at its source: `readSummary` now builds the summary from the
+  // already-resolved directory and the bare id, so `sessionId` is the bare id
+  // and the prefix strip could never fire. It was removed by repair R7 rather
+  // than left in place as dead code with a comment asserting a behaviour its
+  // callee no longer has — an artifact claiming something the code does not do
+  // is the defect class this line of work exists to remove.
+  return { path: artifact.path, content: artifact.content, sessionId: artifact.sessionId };
 }
 
 /**

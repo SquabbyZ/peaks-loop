@@ -28,6 +28,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Command } from 'commander';
+import { REQUEST_ID_PATTERN } from '../../services/artifacts/request-artifact-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 import {
@@ -233,6 +234,27 @@ export function registerFinalReviewCommands(program: Command, io: ProgramIO): vo
     //    in two places: the pre-flight existence check (here) and the
     //    stub-path envelope (below). The service computes it identically
     //    at `src/services/final-review/final-review-service.ts:45-52`.
+    //
+    //    Rid axis. The rid is the CLI positional and it is the FILENAME
+    //    segment below, so it is checked here, at the join. Added 2026-09-14
+    //    (repair R1): this join was a second-slot hole — the `--session-id`
+    //    validation above passed and the rid slot escaped. Found by the
+    //    widened rule D, not by a human reading the file.
+    if (!REQUEST_ID_PATTERN.test(rid)) {
+      printResult(
+        io,
+        fail<FinalReviewData>(
+          'final-review.prepare',
+          'RID_INVALID',
+          `Invalid request id: ${rid} (expected letters, digits, dots, underscores, or dashes)`,
+          emptyFinalReviewData(rid, options.sessionId, ''),
+          ['Pass the rid of the slice, e.g. 2026-09-14-some-slug']
+        ),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
     const auditGoalPath = join(
       projectValidation.projectRoot,
       '.peaks',

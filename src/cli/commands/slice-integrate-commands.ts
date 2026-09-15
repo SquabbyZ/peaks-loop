@@ -12,6 +12,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { SLICE_ID_PATTERN } from '../../services/sc/sc-service.js';
 import { integrateSlices } from '../../services/slice/slice-integration.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -27,6 +28,22 @@ function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds
   if (!existsSync(dir)) return [];
   const result: SliceContract[] = [];
   for (const sliceId of sliceIds) {
+    // Slice-id axis: the id becomes the FILENAME below, so `--slices a,../..`
+    // reads a JSON file outside the contracts dir. Guarded 2026-09-14 (repair
+    // R1, security audit F3 of `2026-09-14-cli-id-escape-instrumentation`) —
+    // the session guard above covers the other axis and this one was open.
+    // Skipped with a warning rather than thrown, matching this function's
+    // existing contract for a contract it cannot read.
+    //
+    // NOTE for the instrument: rule D in
+    // `tests/unit/runtime/no-runtime-input-guard.test.ts` does NOT see this
+    // site — its root is the local `const dir` above, not a same-file call, so
+    // it is that rule's limit (m). The guard is real; the coverage is not
+    // claimed.
+    if (!SLICE_ID_PATTERN.test(sliceId)) {
+      console.warn(`loadContractsForSlices: skipping invalid slice id ${JSON.stringify(sliceId)} (must be a single filename segment)`);
+      continue;
+    }
     const file = join(dir, `${sliceId}.json`);
     if (!existsSync(file)) continue;
     try {

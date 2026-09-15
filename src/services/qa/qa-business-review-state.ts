@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 
 export type QaReviewDecision = 'pending' | 'accepted' | 'rejected';
 
@@ -60,11 +61,17 @@ export function buildEmptyQaReview(requestId: string, sessionId: string, now: Da
 }
 
 export function getQaReviewDir(projectRoot: string, sessionId: string): string {
-  // Sid axis. Every `peaks qa-business-review|score|accept|reject` subcommand
-  // reaches the runtime tree through this one constructor, so one guard here
-  // covers the whole family — measured: `--session-id ../../../../…/PWNED`
-  // wrote `qa-business-reviews/<rid>.json` outside every project root under an
-  // `ok: true` envelope (RD sweep case A17).
+  // Sid axis ONLY. The guard here covers the session segment of every
+  // `peaks qa-business-review|score|accept|reject` subcommand — measured:
+  // `--session-id ../../../../…/PWNED` wrote `qa-business-reviews/<rid>.json`
+  // outside every project root under an `ok: true` envelope (RD sweep case A17).
+  //
+  // It does NOT cover the rid axis: the request id is joined one function later,
+  // in `getQaReviewPath` below. Corrected 2026-09-14 (repair R1) — this comment
+  // previously said "one guard here covers the whole family", and the security
+  // audit of `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that claim
+  // false: `qa-business-review '../../../../…/EVILQA3'` wrote a `.json` file
+  // outside the project root under `ok: true`.
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
@@ -72,6 +79,15 @@ export function getQaReviewDir(projectRoot: string, sessionId: string): string {
 }
 
 export function getQaReviewPath(projectRoot: string, sessionId: string, requestId: string): string {
+  // Rid axis. The requestId is the CLI positional (`qa-business-review
+  // <request-id>`), so it is caller-supplied and it becomes a filename segment
+  // here. `isUnsafePathInput` alone would admit `a/b`; the rid has a pinned
+  // format, so the format check is the control.
+  if (!REQUEST_ID_PATTERN.test(requestId)) {
+    throw new Error(
+      `Invalid request id: ${requestId} (expected letters, digits, dots, underscores, or dashes)`
+    );
+  }
   return join(getQaReviewDir(projectRoot, sessionId), `${requestId}.json`);
 }
 

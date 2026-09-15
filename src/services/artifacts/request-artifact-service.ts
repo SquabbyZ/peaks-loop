@@ -13,6 +13,7 @@ import { ensureSession, getSessionIdCanonical } from '../session/session-manager
 import { getNextNumber, buildNumberedFilename, slugifyDescription } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
 import { scanFileSize } from '../scan/file-size-scan.js';
@@ -104,6 +105,35 @@ function defaultSessionId(iso: string): string {
   return `${dateSlugFromIso(iso)}-session`;
 }
 
+/**
+ * The single place a request-artifact directory is built, and therefore the
+ * single place the ids that reach it are guarded.
+ *
+ * Repair R5. This join used to be written at four sites; `createRequestArtifact`
+ * guarded its session id and the other three did not. The two ids are the whole
+ * of the invariant — `role` is a path segment too, and the closed-set check its
+ * callers perform is not visible from here.
+ *
+ * The guard belongs HERE and not at the entry points because the invariant is
+ * the resolved path, not the flag. `transitionRequestArtifact` is the measured
+ * cost: it performs no join of its own (it delegates the path to
+ * `showRequestArtifact`), so it had no guard and no join to hang one on.
+ * `--session-id ../../../PWNED-R34` resolved `.peaks/_runtime/../../../PWNED-R34`,
+ * wrote `state: blocked` to a file outside the project root, and only then threw
+ * — from `emitObservabilityEvent`'s own session-id check, i.e. after the write.
+ */
+function requestArtifactRequestsDir(projectRoot: string, sessionId: string, role: RequestArtifactRole): string {
+  // Slice 2026-09-15 (runtime-path-unrepresentable): the two ids are branded by
+  // `guardRuntimeSegment`, which performs the same `isUnsafePathInput` check
+  // this function used to spell inline. The join itself now *requires* the
+  // brand, so a caller that reaches this dir without a guard does not compile.
+  return runtimeRoot(projectRoot).join(
+    guardRuntimeSegment(sessionId, 'session id'),
+    guardRuntimeSegment(role, 'role'),
+    guardRuntimeSegment('requests', 'leaf')
+  );
+}
+
 export async function createRequestArtifact(options: CreateRequestArtifactOptions): Promise<CreateRequestArtifactResult> {
   if (!VALID_ROLES.has(options.role)) {
     throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
@@ -156,7 +186,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // `mkdir(..., { recursive: true })`.
   const LOOKS_LIKE_SESSION_ID = /^\d{4}-\d{2}-\d{2}-session-/;
   if (LOOKS_LIKE_SESSION_ID.test(sessionId)) {
-    const sessionDir = join(options.projectRoot, '.peaks', '_runtime', sessionId);
+    const sessionDir = runtimeRoot(options.projectRoot).join(guardRuntimeSegment(sessionId, 'session id'));
     if (!(await isDirectory(sessionDir))) {
       const canonicalSid = getSessionIdCanonical(options.projectRoot);
       const hint = canonicalSid !== null
@@ -169,7 +199,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   }
 
   // Build numbered path under the session dir (canonical post-F3 home).
-  const requestsDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, options.role, 'requests');
+  const requestsDir = requestArtifactRequestsDir(options.projectRoot, sessionId, options.role);
 
   // Check if a file with this requestId already exists (regardless of number prefix)
   if (await isDirectory(requestsDir)) {
@@ -199,7 +229,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     // Slice 2026-06-29-change-id-root-removal: scopeDir is the
     // session-axis dir (`.peaks/_runtime/<sid>/`). Pre-resolved here
     // so dry-run output reports the canonical scope location.
-    const scopeDir = join(options.projectRoot, '.peaks', '_runtime', sessionId);
+    const scopeDir = runtimeRoot(options.projectRoot).join(guardRuntimeSegment(sessionId, 'session id'));
     return {
       role: options.role,
       requestId: options.requestId,
@@ -217,7 +247,10 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
   // The marker lives under the SESSION dir (canonical post-F3 home).
   if (options.role === 'qa') {
-    const qaDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, 'qa');
+    const qaDir = runtimeRoot(options.projectRoot).join(
+      guardRuntimeSegment(sessionId, 'session id'),
+      guardRuntimeSegment('qa', 'role')
+    );
     const initiatedPath = join(qaDir, '.initiated');
     if (!existsSync(initiatedPath)) {
       await mkdir(qaDir, { recursive: true });
@@ -232,7 +265,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     path,
     content,
     applied: true,
-    scopeDir: join(options.projectRoot, '.peaks', '_runtime', sessionId),
+    scopeDir: runtimeRoot(options.projectRoot).join(guardRuntimeSegment(sessionId, 'session id')),
     ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
   };
 }
@@ -311,35 +344,31 @@ function extractMetadata(markdown: string): { state: string; requestType: Reques
 }
 
 async function readSummary(
-  projectRoot: string,
-  sessionId: string,
+  dir: string,
   role: RequestArtifactRole,
-  fileName: string
+  fileName: string,
+  sessionId: string
 ): Promise<RequestArtifactSummary> {
-  const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
+  const path = join(dir, fileName);
   const body = await readFile(path, 'utf8');
   const { state, createdAt, requestType, sessionId: bodySessionId } = extractMetadata(body);
   // Strip numbered prefix (e.g., "001-requestId.md" -> "requestId")
   // Only strip 3-digit zero-padded prefixes (our incrementing number format)
   const requestId = fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
-  // The `sessionId` parameter is the *scope* path fragment
-  // (`_runtime/<sid>`); consumers expect the bare session id. Strip
-  // the `_runtime/` prefix when recording the summary so downstream
-  // calls (observability emit, prereq check, lint gate) see just the
-  // session id. Pre-2.19.0 the field carried the scope verbatim, which
-  // caused the observability metrics file to land at
-  // `.peaks/_runtime/_runtime/<sid>/...` instead of the canonical
-  // `.peaks/_runtime/<sid>/metrics/...`. `writerSessionId` falls back
-  // to the parsed body session line (or the bare sid) — same intent.
-  const bareSessionId = sessionId.replace(/^_runtime[\\/]/, '');
+  // Repair R5: this used to take the *scope* path fragment (`_runtime/<sid>`)
+  // and re-join it onto the project root, then strip the prefix back off to
+  // recover the bare session id. The round-trip was the escape's carrier — an
+  // unsafe id rode it into `path` unguarded. The directory now arrives already
+  // resolved and already guarded (`requestArtifactRequestsDir`), and the bare
+  // session id arrives as itself, so neither is re-derived here.
   const summary: RequestArtifactSummary = {
     role,
-    sessionId: bareSessionId,
+    sessionId,
     requestId,
     path,
     state,
     requestType,
-    writerSessionId: bodySessionId ?? bareSessionId
+    writerSessionId: bodySessionId ?? sessionId
   };
   if (createdAt !== undefined) {
     summary.createdAt = createdAt;
@@ -369,25 +398,27 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout —
   // the CLI guarantees no such dirs are created. See
   // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
+  // Repair R5: `scopes` holds bare session ids. It used to hold the joined
+  // fragment `_runtime/<sid>` so that `readSummary` could re-join it to the
+  // project root; the directory is built once, below, by the guard.
   const scopes: string[] = [];
   if (options.sessionId !== undefined) {
-    scopes.push(join('_runtime', options.sessionId));
+    scopes.push(options.sessionId);
   } else {
-    const runtimeRoot = join(peaksRoot, '_runtime');
-    if (await isDirectory(runtimeRoot)) {
-      for (const sid of await listDirectories(runtimeRoot)) {
-        scopes.push(join('_runtime', sid));
-      }
+    // Read-only enumeration of the root itself, so `dir()` and not `join()`.
+    const runtimeDir = runtimeRoot(options.projectRoot).dir();
+    if (await isDirectory(runtimeDir)) {
+      scopes.push(...(await listDirectories(runtimeDir)));
     }
   }
   const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
   const summaries: RequestArtifactSummary[] = [];
   for (const scope of scopes) {
     for (const role of roles) {
-      const dir = join(peaksRoot, scope, role, 'requests');
+      const dir = requestArtifactRequestsDir(options.projectRoot, scope, role);
       const fileNames = await listMarkdownFiles(dir);
       for (const fileName of fileNames) {
-        summaries.push(await readSummary(options.projectRoot, scope, role, fileName));
+        summaries.push(await readSummary(dir, role, fileName, scope));
       }
     }
   }
@@ -428,25 +459,23 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   // `.peaks/_runtime/<sid>/<role>/requests/` legacy home is no longer
   // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout.
   if (options.sessionId !== undefined) {
-    const dir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
-    const scope = join('_runtime', options.sessionId);
+    const dir = requestArtifactRequestsDir(options.projectRoot, options.sessionId, options.role);
     const found = await findFileInDir(dir);
     if (found === null) {
       return null;
     }
-    return await readRequestArtifact(options.projectRoot, scope, options.role, found);
+    return await readRequestArtifact(dir, options.role, found, options.sessionId);
   }
 
-  const peaksRoot = join(options.projectRoot, '.peaks');
-  const runtimeRoot = join(peaksRoot, '_runtime');
-  if (!(await isDirectory(runtimeRoot))) {
+  const runtimeDir = runtimeRoot(options.projectRoot).dir();
+  if (!(await isDirectory(runtimeDir))) {
     return null;
   }
-  for (const sid of await listDirectories(runtimeRoot)) {
-    const dir = join(runtimeRoot, sid, options.role, 'requests');
+  for (const sid of await listDirectories(runtimeDir)) {
+    const dir = requestArtifactRequestsDir(options.projectRoot, sid, options.role);
     const found = await findFileInDir(dir);
     if (found !== null) {
-      return await readRequestArtifact(options.projectRoot, join('_runtime', sid), options.role, found);
+      return await readRequestArtifact(dir, options.role, found, sid);
     }
   }
   return null;
@@ -456,12 +485,12 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
  * error on the content as "not found" so the caller can fall through
  * to the next candidate (the on-disk file may be partially written). */
 async function readRequestArtifact(
-  projectRoot: string,
-  scope: string,
+  dir: string,
   role: RequestArtifactRole,
-  found: { fileName: string; path: string }
+  found: { fileName: string; path: string },
+  sessionId: string
 ): Promise<ShowRequestArtifactResult | null> {
-  const summary = await readSummary(projectRoot, scope, role, found.fileName);
+  const summary = await readSummary(dir, role, found.fileName, sessionId);
   try {
     const content = await readFile(found.path, 'utf8');
     return { ...summary, content };

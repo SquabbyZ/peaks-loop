@@ -93,8 +93,11 @@ declareDimensions(
 // `src/` files exempt from invariant (b). Every entry MUST be load-bearing —
 // i.e. the file must contain a chain the scanner would otherwise flag — and
 // that is asserted below, so an exemption cannot silently outlive its reason.
-// Four entries are intentional legacy **reads**; one is a known scanner
-// false positive that is tracked rather than papered over.
+// Four entries are intentional legacy **reads**. The fifth was a known scanner
+// false positive (`request-artifact-service.ts`), retired by repair R5: its
+// exit condition — "remove the entry once that parameter is renamed to reflect
+// what it holds" — was met when `readSummary` stopped taking a pre-joined
+// `_runtime/<sid>` scope fragment.
 const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
   // Intentional legacy read, top-level probe of a 3-umbrella search
   // (`.peaks/<sid>`, `.peaks/retrospective/<sid>`, `.peaks/_dogfood/<sid>`).
@@ -113,13 +116,8 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
   // pre-F3 back-compat fallback (`:455`), consumed by
   // `resolvePrerequisiteAbsolutePathWithFallback`.
   'src/services/artifacts/artifact-prerequisites.ts',
-  // KNOWN SCANNER FALSE POSITIVE. `readSummary`'s `sessionId` parameter
-  // actually holds a pre-joined `_runtime/<sid>` scope fragment, so the
-  // composed path IS canonical — but the scanner cannot know that from a
-  // line. Verified: dropping this entry re-flags `:309` only. Remove the
-  // entry once that parameter is renamed to reflect what it holds.
-  'src/services/artifacts/request-artifact-service.ts',
 ];
+
 
 // `skills/` files exempt from invariant (c). Deliberately empty: the two
 // historical entries (`skills/peaks-code/references/a2a-artifact-mapping.md`

@@ -105,7 +105,14 @@ const MODERN_RETENTION_REQUIREMENTS: ReadonlyArray<string> = [
   'txt/handoff.md'
 ];
 
-const SLICE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
+/**
+ * The repo's slice-id control — no separator, no drive, no `..`, non-empty, and
+ * not a bare `.`/`..`. Exported 2026-09-14 (repair R1) so the slice-id axis has
+ * ONE control: `slice-review-state.getReviewPath` joins a caller-supplied slice
+ * id into a filename and previously had none, and a second copy of this regex
+ * there would be the same axis decided twice.
+ */
+export const SLICE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 
 /**
  * Resolution sources for `resolveArtifactSession`, in priority order.

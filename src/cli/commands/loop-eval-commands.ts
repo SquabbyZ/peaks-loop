@@ -217,11 +217,22 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
           process.exitCode = 1;
           return;
         }
-        // Sid axis. `--session` reaches two joins below (`dir` and, through
-        // `nextEvalCaptureIndex`, the same literal), so one guard here covers
-        // the whole `--capture-score` write path.
+        // Sid axis AND rid axis — the join below takes TWO ids, not one.
+        // Corrected 2026-09-14 (repair R1): this comment used to say one guard
+        // covers "the whole `--capture-score` write path". The security audit of
+        // `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that false —
+        // the `--session` guard passed and the `rid` slot escaped:
+        // `peaks loop eval '../../../../…/EVILCYC' --capture-score --session
+        // <legal>` created `<projectRoot>/../EVILCYC/cycles/cycle-1.json` under
+        // an `ok: true` envelope. The rid is the CLI positional and has no pinned
+        // format, so the segment check is the control for that axis.
         if (isUnsafePathInput(options.session)) {
           printResult(io, fail('loop.eval', 'INVALID_SESSION_ID', `Invalid session id: ${options.session} (must be a single path segment)`, { provided: options.session }, ['Pass a session id that is a single path segment']), options.json);
+          process.exitCode = 1;
+          return;
+        }
+        if (isUnsafePathInput(rid)) {
+          printResult(io, fail('loop.eval', 'INVALID_REQUEST_ID', `Invalid request id: ${rid} (must be a single path segment)`, { provided: rid }, ['Pass a request id that is a single path segment']), options.json);
           process.exitCode = 1;
           return;
         }
@@ -548,11 +559,16 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
  *  writes. The run-driver also writes to the same dir; the next
  *  index = max(prior)+1, or 1. */
 function nextEvalCaptureIndex(projectRoot: string, sid: string, rid: string): number {
-  // Sid axis: this function is the join for the capture-score cycle dir. The
-  // action guards `options.session` before calling in, but the seam is callable
-  // on its own, so the join states its own contract.
+  // BOTH id axes: this function is the join for the capture-score cycle dir.
+  // The action guards `options.session` and `rid` before calling in, but the
+  // seam is callable on its own, so the join states its own contract. The rid
+  // half was missing until 2026-09-14 (repair R1) — the same second-slot hole
+  // the action had, in the same file, one function below it.
   if (isUnsafePathInput(sid)) {
     throw new Error(`Invalid session id: ${sid} (must be a single path segment)`);
+  }
+  if (isUnsafePathInput(rid)) {
+    throw new Error(`Invalid request id: ${rid} (must be a single path segment)`);
   }
   const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
   if (!existsSync(dir)) return 1;

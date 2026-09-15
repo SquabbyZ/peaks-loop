@@ -3,6 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { pathExists } from 'peaks-loop-shared/fs';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
 
 export type RequestType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore';
@@ -556,6 +557,15 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
   if (requirements.length === 0) {
     return { ok: true, missing: [], warnings: [] };
+  }
+  // Repair R5. The session id is joined into BOTH roots below and then probed
+  // on disk. `transitionRequestArtifact` is the only caller and it passes
+  // `existing.sessionId`, which pre-R5 was the caller's raw `--session-id`: with
+  // `../../../PWNED-R34` the two joins resolved outside the project root and
+  // the prerequisite probes ran there. Guarded at the sink, not at the caller,
+  // for the same reason `requestArtifactRequestsDir` is.
+  if (options.sessionId !== undefined && isUnsafePathInput(options.sessionId)) {
+    throw new Error(`Invalid session id: ${options.sessionId} (must be a single path segment)`);
   }
   // Slice 006 simplifies the resolution to a 2-tier fallback. The
   // per-change-id scope (`.peaks/_runtime/<sessionId>/<role>/`) is gone — new

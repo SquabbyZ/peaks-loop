@@ -24,6 +24,27 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 
+import { guardRuntimeSegment, runtimeRoot } from '../../shared/runtime-root.js';
+
+/**
+ * The single place a job-progress directory is built, and therefore the single
+ * place the two ids that reach it are guarded.
+ *
+ * Slice 2026-09-15 (runtime-path-unrepresentable): this join used to be written
+ * at three sites, none of them guarded, and the shipped text rule could not see
+ * them — they sit in the service layer, outside the command layer it scans.
+ * Both ids are caller-supplied (`peaks job checkpoint` takes them from flags).
+ * The seam now requires `GuardedSegment`, so dropping either guard is a compile
+ * error rather than a finding someone has to notice.
+ */
+function jobProgressDir(projectRoot: string, sessionId: string, jobId: string): string {
+  return runtimeRoot(projectRoot).join(
+    guardRuntimeSegment(sessionId, 'session id'),
+    guardRuntimeSegment('job', 'role'),
+    guardRuntimeSegment(jobId, 'job id')
+  );
+}
+
 export const JOB_PROGRESS_SCHEMA_VERSION = 1 as const;
 
 export const JobProgressSchema = z.object({
@@ -52,7 +73,7 @@ export function writeJobProgress(
   sessionId: string,
   input: WriteProgressInput
 ): JobProgress {
-  const dir = join(projectRoot, '.peaks', '_runtime', sessionId, 'job', input.jobId);
+  const dir = jobProgressDir(projectRoot, sessionId, input.jobId);
   mkdirSync(dir, { recursive: true });
   const record: JobProgress = {
     schemaVersion: JOB_PROGRESS_SCHEMA_VERSION,
@@ -69,7 +90,7 @@ export function writeJobProgress(
 }
 
 export function readJobProgress(projectRoot: string, sessionId: string, jobId: string): JobProgress {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'job', jobId, 'progress.json');
+  const path = join(jobProgressDir(projectRoot, sessionId, jobId), 'progress.json');
   if (!existsSync(path)) {
     throw new Error(`JobProgressStore: no progress for ${jobId} at ${path}`);
   }
@@ -78,7 +99,7 @@ export function readJobProgress(projectRoot: string, sessionId: string, jobId: s
 }
 
 export function tryReadJobProgress(projectRoot: string, sessionId: string, jobId: string): JobProgress | null {
-  const path = join(projectRoot, '.peaks', '_runtime', sessionId, 'job', jobId, 'progress.json');
+  const path = join(jobProgressDir(projectRoot, sessionId, jobId), 'progress.json');
   if (!existsSync(path)) return null;
   try {
     const raw = readFileSync(path, 'utf8');

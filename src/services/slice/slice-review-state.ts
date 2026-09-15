@@ -16,6 +16,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
+import { SLICE_ID_PATTERN } from '../sc/sc-service.js';
 
 export type SliceReviewDecision = 'pending' | 'accepted' | 'rejected';
 
@@ -66,10 +67,17 @@ export function buildEmptySliceReview(sliceId: string, sessionId: string, now: D
 }
 
 export function getReviewDir(projectRoot: string, sessionId: string): string {
-  // Sid axis. Every `peaks slice-review|score|accept|reject` subcommand reaches
-  // the runtime tree through this one constructor. Measured: `--session-id
-  // ../../../../…/PWNED` wrote `slice-reviews/<slice-id>.json` outside every
-  // project root under an `ok: true` envelope (RD sweep case A26).
+  // Sid axis ONLY. Every `peaks slice-review|score|accept|reject` subcommand
+  // reaches the runtime tree through this one constructor. Measured:
+  // `--session-id ../../../../…/PWNED` wrote `slice-reviews/<slice-id>.json`
+  // outside every project root under an `ok: true` envelope (RD sweep case A26).
+  //
+  // It does NOT cover the slice-id axis: the slice id is joined one function
+  // later, in `getReviewPath` below. Corrected 2026-09-14 (repair R1) — this
+  // comment previously said one guard covered the whole family; the security
+  // audit of `2026-09-14-cli-id-escape-instrumentation` (F1b) measured that
+  // false: `slice-review '../../../../…/EVILSL'` wrote a `.json` file outside
+  // the project root under `ok: true`.
   if (isUnsafePathInput(sessionId)) {
     throw new Error(`Invalid session id: ${sessionId} (must be a single path segment)`);
   }
@@ -77,6 +85,15 @@ export function getReviewDir(projectRoot: string, sessionId: string): string {
 }
 
 export function getReviewPath(projectRoot: string, sessionId: string, sliceId: string): string {
+  // Slice-id axis. The slice id is the CLI positional (`slice-review
+  // <slice-id>`), so it is caller-supplied and it becomes a filename segment
+  // here. Same control as the rid axis: a pinned format beats the segment check,
+  // which admits `a/b`.
+  if (!SLICE_ID_PATTERN.test(sliceId)) {
+    throw new Error(
+      `Invalid slice id: ${sliceId} (expected letters, digits, dots, underscores, or dashes)`
+    );
+  }
   return join(getReviewDir(projectRoot, sessionId), `${sliceId}.json`);
 }
 
