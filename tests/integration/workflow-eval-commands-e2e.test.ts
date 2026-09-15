@@ -252,12 +252,11 @@ describe('peaks sop list (P2-B.5 sop e2e)', () => {
   test('a registry written by `sop register` is enumerated as a structured sops[] envelope', () => {
     // `sop registry` reads a `sops/registry.json` that `sop register` WRITES.
     // Committing a manifest is not enough: this repo commits
-    // `.peaks/sops/wechat-post-publish/sop.json` but has never run `sop
-    // register`, so `.peaks/sops/registry.json` does not exist and the command
-    // correctly returns `{sops: [], gateCount: 0}` for an absent registry
-    // (sop-registry-service.ts:55-65). The old assertion assumed the
-    // developer's PERSONAL `~/.peaks` SOP library was populated — red on every
-    // clean machine and in CI by construction.
+    // `.peaks/sops/wechat-post-publish/sop.json` but it appears in no
+    // registry, and for an absent registry the command correctly returns
+    // `{sops: [], gateCount: 0}` (sop-registry-service.ts:55-65). The old
+    // assertion assumed the developer's PERSONAL `~/.peaks` SOP library was
+    // populated — red on every clean machine and in CI by construction.
     //
     // The fixture therefore drives the real writer end to end instead of
     // hand-building JSON: `PEAKS_HOME` redirects the global layer into a tmp
@@ -300,9 +299,13 @@ describe('peaks sop list (P2-B.5 sop e2e)', () => {
     expect(Array.isArray(data.sops)).toBe(true);
     expect(data.sops).toBeDefined();
     expect((data.sops ?? []).length).toBeGreaterThan(0);
-    const first = data.sops?.[0];
-    expect(first).toBeDefined();
-    expect(first?.id).toBe(sopId);
+    // Assert the fixture is ENUMERATED, not that it ranks first. `sop registry`
+    // returns a MERGED, id-sorted envelope (sop-registry-service.ts:73-81), so
+    // `[0]` is a function of every registry entry committed anywhere in this
+    // repo rather than of the behaviour under test — the fixture would sort
+    // last behind the committed `feedback-*` entries.
+    const ids = (data.sops ?? []).map((sop) => sop.id);
+    expect(ids).toContain(sopId);
   });
 });
 
