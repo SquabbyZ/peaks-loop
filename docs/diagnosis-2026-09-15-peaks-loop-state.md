@@ -287,6 +287,44 @@ $ peaks workflow init --skill peaks-code → sessionId: "unknown-sid"
 
 ---
 
+**3.27 `skills/**` 下大规模悬空引用 —— 且引用完整性守卫的作用域不含它** `[实测]`
+
+根因是一次移动：`de0872b7`（2026-07-05）"demote 9 internal skills from `skills/` to `skills/bee/`" **移动了 9 个技能，但没有更新指向它们的路径**。手工点验三处，全部证实：
+
+| 引用处 | 被引用者 | 实测 |
+|---|---|---|
+| `skills/bee/peaks-qa/SKILL.md` | `tests/unit/skills/skills-skill-md-naming.test.ts` | **不存在** |
+| `skills/bee/peaks-perf-audit/SKILL.md` | `skills/peaks-security-audit/SKILL.md` | **不存在**（实际在 `skills/bee/` 下）|
+| `skills/bee/peaks-qa/references/qa-fanout-contract.md` | 自指 `skills/peaks-qa/references/qa-fanout-contract.md` | **不存在**（实际在 `skills/bee/` 下）|
+
+**而 S4 新增的 `repo-citation-integrity.test.ts` —— 那个专为抓这一类而生的守卫 —— 抓不到：**
+
+```ts
+const CORPUS_ENTRIES = ['CLAUDE.md', '.peaks/PROJECT.md', 'README.md'] as const;
+const CORPUS_DIRS = ['.peaks/standards'] as const;
+```
+
+**语料不含 `skills/**`。** 而 `REPO_ANCHORS` 正则里明明写着 `skills/` —— 锚点认识它，语料却不含它。
+
+这与仓库记忆里那条老病同型（`vendor-neutral-identity-guard` 的前身"作用域设在不含目标路径的目录上，于是恒返回 0"）。
+
+**规模未经权威测量。** 临时扫描器给出 `313 处引用 / 95 处不存在`，但本仓规矩明写"别自己写正则扫描，用已有的 AST 守卫"，且记忆记着临时扫描器**三版全错** —— 所以这个数字**只作线索，不作结论**。权威数字应由扩围后的守卫给出。
+
+**未修，刻意。** 影响面大、属既有缺陷（2026-07-05 起）、且当时发布在望 —— 发布前做大范围改动是弄坏发布的标准方式。**扩围守卫会使套件变红，故必须与修复同一片进行。**
+
+**3.28 我自己在 brief 里制造了一个悬空引用** `[实测]`
+
+S11 的判据 6 要求"把新 flag 镜像进 `references/runbook.md` 与 `tests/unit/skill-default-runbook.test.ts`"。实测：
+
+- `tests/unit/skill-default-runbook.test.ts` —— **不存在**
+- `skills/peaks-code/references/runbook.md` 里 `baseline` 出现 **0 次**
+
+而 S11 **拒绝**为了满足这个过时路径去伪造文档段落或测试，并把判据 6 标为"unsatisfiable as written"。
+
+**我在修了一整轮"悬空引用"之后，自己又写了一个。** 该判据的出处是 `skills/peaks-code/SKILL.md:321`（以及 `references/runbook.md:9`、`references/workflow-gates-and-types.md:9`）—— **同一类缺陷，在 3.27 的射程之内**。
+
+---
+
 ## 4. 病因
 
 十条一级/二级发现形状高度一致。**它们不是十个独立缺陷，是同一个机制失效的十个投影。**
