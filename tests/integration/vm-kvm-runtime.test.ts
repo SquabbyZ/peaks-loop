@@ -28,7 +28,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -57,7 +57,11 @@ function makeProject(): string {
 }
 
 function readVmId(pidFile: string): string {
-  return require('node:fs').readFileSync(pidFile, 'utf8').trim();
+  // Was `require('node:fs').readFileSync(...)` — `require` is not defined in
+  // this ESM module, so the teardown path would have thrown rather than
+  // best-effort-destroyed a domain. Never fired because it only runs when a
+  // pid file exists, which needs KVM.
+  return readFileSync(pidFile, 'utf8').trim();
 }
 
 function checkKvmAvailable(): { ok: boolean; reason: string } {
@@ -78,12 +82,36 @@ function checkKvmAvailable(): { ok: boolean; reason: string } {
 describe('peaks VM KVM runtime (Part 41)', () => {
   const probe = checkKvmAvailable();
 
-  test.skip(!probe.ok, `KVM runtime not available on this host: ${probe.reason}`);
+  // Diagnosis E7 (2026-09-15). This suite used to be guarded TWICE:
+  //   test.skip(!probe.ok, reason);            // suite-level
+  //   if (!probe.ok) return;                   // inside every test body
+  // The second guard is what made the file dangerous. A `return` with no
+  // assertion is a PASS, so on win32/darwin — where `checkKvmAvailable()`
+  // returns ok:false unconditionally — and on every Linux CI runner without
+  // /dev/kvm, the report said "2 passed" about a suite that had not executed
+  // a single line of the contract it exists to prove.
+  //
+  // The suite-level skip is now `test.runIf(probe.ok)` per test, so a
+  // non-KVM host reports SKIPPED (with this test naming the reason in the
+  // report), never PASSED. The in-body returns are gone.
+  test(
+    probe.ok
+      ? `KVM availability (${process.platform}): available — the two contract tests below WILL run`
+      : `KVM availability (${process.platform}): NOT available — the two contract tests below are SKIPPED. Reason: ${probe.reason}`,
+    () => {
+      // Deliberately always green: its job is to carry the probe verdict —
+      // the thing that decides whether the two contract tests below run —
+      // into the report BY NAME, so a reader of a "2 skipped" summary does
+      // not have to re-derive why.
+      expect(typeof probe.reason).toBe('string');
+      if (!probe.ok) {
+        // eslint-disable-next-line no-console
+        console.warn(`[vm-kvm] platform out of scope or host unprovisioned: ${probe.reason}`);
+      }
+    },
+  );
 
-  test('virsh create + virsh destroy round-trip succeeds', () => {
-    // Skip if the probe failed.
-    if (!probe.ok) return;
-
+  test.runIf(probe.ok)('virsh create + virsh destroy round-trip succeeds', () => {
     const project = makeProject();
 
     // Minimal domain XML with a tiny disk image. The disk path
@@ -126,10 +154,7 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     }
   });
 
-  test('peaks vm spawn + peaks vm release contract on Linux/KVM', () => {
-    // Skip if the probe failed.
-    if (!probe.ok) return;
-
+  test.runIf(probe.ok)('peaks vm spawn + peaks vm release contract on Linux/KVM', () => {
     // This test calls the actual peaks vm spawn / release
     // CLI commands (Part 35) and verifies the KVM domain is
     // created and destroyed. The contract is the same as
@@ -138,14 +163,13 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     // is missing or if /dev/kvm is not present.
     //
     // NOTE: this test invokes the full CLI which requires
-    // building the project first. If the CLI is not yet built,
-    // we skip with a clear log. Operators running this test
-    // locally should `pnpm build` first.
+    // building the project first. Diagnosis E7: a missing build used to be
+    // `console.error(...); return;` — another silent PASS. A build is not a
+    // platform property; if the CLI is absent the contract is unverified,
+    // and the assertion below says so. Operators running this locally
+    // should `pnpm build` first.
     const peaksBin = join(__dirname, '..', '..', 'bin', 'peaks.js');
-    if (!existsSync(peaksBin)) {
-      console.error('KVM runtime test skipped: peaks.js bin not built (run `pnpm build` first)');
-      return;
-    }
+    expect(existsSync(peaksBin), `bin/peaks.js missing at ${peaksBin}; run \`pnpm build\` first`).toBe(true);
 
     const project = makeProject();
     // Init a minimal cron schedule (not strictly required for

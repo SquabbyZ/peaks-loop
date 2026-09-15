@@ -30,7 +30,7 @@
 //   pnpm vitest run tests/unit/cli/codegraph-init-conflict.test.ts
 
 import { describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,13 +142,16 @@ describe('defaultCodegraphInitGuard (rid-CG-006)', () => {
       // returns 'noop-already-peaks-loop' when BOTH are present.
       writeFileSync(join(codegraphDir, CODEGRAPH_DB_NAME), 'schema\n', 'utf8');
       const markerPath = join(codegraphDir, CODEGRAPH_MARKER_NAME);
-      // No assertion on contents; just that the next guard call now
-      // sees the marker as 'noop-already-peaks-loop'.
+      // The real postcondition: writeCodegraphMarker PUT A FILE there. This
+      // assertion used to read `expect(markerPath.endsWith(CODEGRAPH_MARKER_NAME))`
+      // — true by construction, since the previous line joins that very
+      // constant onto the path. It could not fail for any implementation.
+      // (Diagnosis E4, 2026-09-15.)
+      expect(existsSync(markerPath)).toBe(true);
+      // And the next guard call now sees the marker as
+      // 'noop-already-peaks-loop'.
       const outcome = defaultCodegraphInitGuard(projectRoot);
       expect(outcome.status).toBe('noop-already-peaks-loop');
-      // Avoid the unused-var lint warning while still exercising the
-      // markerPath computation explicitly.
-      expect(markerPath.endsWith(CODEGRAPH_MARKER_NAME)).toBe(true);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

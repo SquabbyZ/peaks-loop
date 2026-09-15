@@ -222,12 +222,23 @@ function assertDistFresh(): void {
   for (const { label, source, dist } of SOURCE_DIST_PAIRS) {
     const srcPath = join(REPO_ROOT, source);
     const distPath = join(REPO_ROOT, dist);
-    if (!existsSync(distPath)) {
-      stale.push(`  - [${label}] dist file missing: ${distPath} (source: ${srcPath}). Run "pnpm build".`);
+    // Source is checked FIRST, and a missing source is a FAILURE, not a skip.
+    // Diagnosis E6 (2026-09-15): this used to be a bare
+    // `if (!existsSync(srcPath)) { continue; }` sitting after the dist check.
+    // SOURCE_DIST_PAIRS is a hand-maintained table, so renaming or deleting
+    // one of these sources left a dangling entry that the guard skipped in
+    // silence — a renamed file and an up-to-date file produced the identical
+    // outcome, and the guard the file exists for stopped guarding the very
+    // rename it is meant to catch.
+    if (!existsSync(srcPath)) {
+      stale.push(
+        `  - [${label}] SOURCE_DIST_PAIRS entry points at a source that does not exist: ${srcPath}\n` +
+          `    (dist path in the pair: ${distPath}). The pair is stale — fix the table, not the guard.`,
+      );
       continue;
     }
-    if (!existsSync(srcPath)) {
-      // Missing source is a different error (unrelated to freshness); skip.
+    if (!existsSync(distPath)) {
+      stale.push(`  - [${label}] dist file missing: ${distPath} (source: ${srcPath}). Run "pnpm build".`);
       continue;
     }
     const srcMtime = statSync(srcPath).mtimeMs;
@@ -243,7 +254,7 @@ function assertDistFresh(): void {
   }
   if (stale.length > 0) {
     throw new Error(
-      `dist/ is stale relative to source. The package pretest script would have rebuilt this; the suite guard catches a direct invocation.\n` +
+      `dist/ is stale relative to source, or the SOURCE_DIST_PAIRS table it is checked against has rotted. The package pretest script would have rebuilt dist/; the suite guard catches a direct invocation.\n` +
         stale.join('\n'),
     );
   }

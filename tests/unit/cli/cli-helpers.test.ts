@@ -342,17 +342,43 @@ describe("Scenario: a11y — error envelope hygiene", () => {
     process.exitCode = exitBefore;
   });
 
-  it("when invoked, should printErrorEnvelope preserves the original errorId across multi-line messages", () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
+  it("when invoked, should printErrorEnvelope emit exactly one fresh errorId per call and keep a multi-line message verbatim", () => {
+    // Renamed by diagnosis E5 (2026-09-15). The old name — "preserves the
+    // original errorId across multi-line messages" — named a behaviour
+    // printErrorEnvelope does not have: its signature is
+    // (io, command, code, message, data, nextActions), it takes no errorId,
+    // and it delegates to `fail()`, which mints a fresh UUID per call. The
+    // old body asserted only `expect(id).toBeDefined()`, so it passed for
+    // any implementation that printed any UUID-shaped string anywhere.
     const exitBefore = process.exitCode;
     process.exitCode = 0;
-    const { io, captured } = makeCapturedIo();
-    printErrorEnvelope(io, 'demo', 'CODE', 'line1\nline2', {}, []);
-    const text = captured.stderrText();
-    const id = text.match(/"errorId":\s*"([0-9a-f-]{36})"/)?.[1];
-    expect(id).toBeDefined();
-    process.exitCode = exitBefore;
+    try {
+      // given: the test setup
+      const first = makeCapturedIo();
+      // when:  the function under test is invoked
+      printErrorEnvelope(first.io, 'demo', 'CODE', 'line1\nline2', {}, []);
+      // then:  the result matches the expectation
+      const firstText = first.captured.stderrText();
+      // Exactly one id: a multi-line message must not be misread as a
+      // second envelope (nor may the message echo an id of its own).
+      expect(firstText.match(/"errorId":/g) ?? []).toHaveLength(1);
+      const id = firstText.match(/"errorId":\s*"([0-9a-f-]{36})"/)?.[1];
+      expect(id).toBeDefined();
+      // The message survives verbatim (JSON-escaped), which is what makes
+      // "one id, not derived from the message" a checkable claim.
+      expect(firstText).toContain('line1\\nline2');
+
+      // A second call with byte-identical arguments mints a DIFFERENT id.
+      // This is the assertion the old name asserted the opposite of.
+      const second = makeCapturedIo();
+      printErrorEnvelope(second.io, 'demo', 'CODE', 'line1\nline2', {}, []);
+      const secondId = second.captured
+        .stderrText()
+        .match(/"errorId":\s*"([0-9a-f-]{36})"/)?.[1];
+      expect(secondId).toBeDefined();
+      expect(secondId).not.toBe(id);
+    } finally {
+      process.exitCode = exitBefore;
+    }
   });
 });

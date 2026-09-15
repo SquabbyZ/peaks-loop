@@ -1,6 +1,14 @@
-// tests/unit/cli/readme-downstream-consumer-notes.test.ts
+// tests/lint/readme-downstream-consumer-notes.test.ts
 //
 // rid-CG-008 — Downstream consumer notes section (doc-only).
+//
+// MOVED here 2026-09-15 from tests/unit/cli/ by diagnosis E8. It is a
+// doc-linter: it reads two README files and asserts prose properties. It was
+// collected by the unit glob, so every `pnpm test` run reported it as six
+// passing unit tests of `src/` — a doc-drift failure and a code regression
+// were indistinguishable in the report, and the unit total counted coverage
+// that does not exist. The assertions are unchanged; only the address is.
+// It runs from vitest.config.lint.ts via `pnpm test:lint`.
 //
 // Verifies that both README files (English canonical + Chinese mirror)
 // expose the "Downstream consumer notes" section that downstream
@@ -18,22 +26,22 @@
 //   5. The Chinese mirror (README.md) has the same keywords.
 //
 // Run with:
-//   pnpm vitest run tests/unit/cli/readme-downstream-consumer-notes.test.ts
+//   pnpm test:lint
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { declareDimensions } from '../_setup/4dim-template.js';
+import { declareDimensions } from '../unit/_setup/4dim-template.js';
 
 declareDimensions(
-  'tests/unit/cli/readme-downstream-consumer-notes.test.ts',
+  'tests/lint/readme-downstream-consumer-notes.test.ts',
   ['render', 'behavior', 'integration', 'a11y'],
   []
 );
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const EN_README_PATH = resolve(projectRoot, 'README-en.md');
 const ZH_README_PATH = resolve(projectRoot, 'README.md');

@@ -54,6 +54,12 @@ export default defineConfig({
     exclude: [
       'tests/integration/**',
       'tests/e2e/**',
+      // Diagnosis E9 (2026-09-15): this file is the 4-dimension SAMPLE that
+      // `.peaks/standards/typescript/testing.md` points readers at. It was
+      // inside the collection glob, so every `pnpm test` run counted it as
+      // product coverage. It stays at this path (the standards doc cites it)
+      // but runs from vitest.config.e2e.ts, outside the unit total.
+      'tests/unit/_samples/**',
       'node_modules/**',
     ],
     setupFiles: ['./tests/unit/_setup/index.ts'],
