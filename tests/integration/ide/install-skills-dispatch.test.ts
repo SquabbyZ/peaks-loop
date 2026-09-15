@@ -119,18 +119,25 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(result.stdout).toMatch(/Peaks skills linked/);
   });
 
-  test('Trae-detected project (.trae/ present) installs to all 8 platforms including ~/.trae/skills/', async () => {
+  test('Trae-detected project (.trae/ present) installs to ~/.trae/skills/', async () => {
     // Per peaks-loop 2.0: Trae is a verified IDE with its own
     // skillInstall profile (the Trae user feedback fix from
-    // 2026-06-11). The postinstall fans out to all 8 platforms
-    // including the detected IDE. The 1.x-era "no skillInstall
-    // profile declared" warning is no longer emitted.
+    // 2026-06-11). The postinstall fans out to every platform the
+    // user HAS — and `.trae/` in the project root is what makes Trae
+    // one of them. The 1.x-era "no skillInstall profile declared"
+    // warning is no longer emitted.
+    //
+    // S6 (2026-09-15): this test used to be named "…installs to all 8
+    // platforms". The fan-out is no longer unconditional (D9: it created
+    // `~/.hermes`, `~/.openclaw`, `~/.qoder`, … for users who have never
+    // installed those tools), so that name described behaviour the product no
+    // longer has. The assertions below are unchanged and still pass — only the
+    // description was wrong.
     mkdirSync(join(project, '.trae'));
     const result = await runInstallSkills({}, project);
     expect(result.code).toBe(0);
     // No "no skillInstall profile" warning in 2.0 (Trae is verified).
     expect(result.stderr).not.toMatch(/trae.*no skillInstall profile declared/i);
-    // The 8-IDE fan-out installs to all 8 platforms.
     expect(result.stdout).toMatch(/Peaks skills linked/);
     // Trae's own skills dir is populated (the whole point of
     // the 2.0 fix — the Trae user reported the 1.x postinstall

@@ -152,8 +152,13 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
  * in a commit. Marked with a managed-by header so we can detect (and
  * not double-append) on subsequent inits.
  */
-const PEAKS_GITIGNORE_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
-const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-loop managed snippet';
+// Exported (S6, 2026-09-15) so the convergence tests can build a block with
+// the REAL delimiters. A test that retypes them gets a prefix and silently
+// exercises the append path instead of the converge path — which is exactly
+// what happened on the first run of
+// `tests/unit/services/workspace/gitignore-snippet-convergence.test.ts`.
+export const PEAKS_GITIGNORE_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
+export const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-loop managed snippet';
 
 const PEAKS_GITIGNORE_SNIPPET = [
   PEAKS_GITIGNORE_HEADER,
@@ -427,9 +432,36 @@ async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
       existing = '';
     }
   }
-  if (existing.includes(PEAKS_GITIGNORE_HEADER)) {
+
+  // D2 fix (2026-09-15): the block is now converged, not merely appended.
+  //
+  // Before this, a project that already had the header returned here forever:
+  // the snippet was written once by whichever release first initialized the
+  // project and NEVER updated, so a pattern added to the snippet by a later
+  // release (`slice 2.0.1-bug3` moved the block from `.peaks/.gitignore` to
+  // the root for exactly this class of reason) reached only projects that had
+  // not been initialized yet — i.e. new users got the fix and existing users
+  // did not, which is backwards.
+  //
+  // Scope of the rewrite is the managed block, and only the block. Every line
+  // outside `HEADER..FOOTER` is spliced through byte-for-byte, which is the
+  // "never overwrite the user's edits" semantic this function always had. The
+  // header itself says "do not edit by hand"; a user who did is the case
+  // `stripLegacyPeaksGitignoreSnippet` already refuses to guess at, and this
+  // does the same — a header with no footer is left alone rather than opened
+  // up and repaired at the risk of eating the rest of the file.
+  const start = existing.indexOf(PEAKS_GITIGNORE_HEADER);
+  if (start !== -1) {
+    const footerAt = existing.indexOf(PEAKS_GITIGNORE_FOOTER, start + PEAKS_GITIGNORE_HEADER.length);
+    if (footerAt === -1) return;
+    const end = footerAt + PEAKS_GITIGNORE_FOOTER.length;
+    const currentBlock = existing.slice(start, end);
+    const nextBlock = PEAKS_GITIGNORE_SNIPPET.trimEnd();
+    if (currentBlock === nextBlock) return;
+    await writeFile(gitignorePath, existing.slice(0, start) + nextBlock + existing.slice(end), 'utf8');
     return;
   }
+
   const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
   const next = existing + separator + (existing.length > 0 ? '\n' : '') + PEAKS_GITIGNORE_SNIPPET;
   await writeFile(gitignorePath, next, 'utf8');

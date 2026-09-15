@@ -13,7 +13,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # macos-latest added 2026-09-15 (S6, user-decided): macOS was in NO
+        # workflow at all, so every macOS-only defect class (the ESM
+        # `require` fake-green in `findTranscriptJsonl`, the absent
+        # CLAUDE_CONTEXT_USAGE_PERCENT, the four-way auto-compact stack)
+        # was invisible to CI by construction. This matrix is the only
+        # place a Mac signal can come from.
+        #
+        # NOT `continue-on-error`, NOT an allow-list of "known Mac
+        # failures": a red macOS cell is a finding about the product. If it
+        # goes red, triage it as a regression — do not suppress it, and do
+        # not narrow the matrix back without saying so in the commit.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         # node 20.x removed 2026-09-08: its pnpm install step failed on
         # windows-latest and could not be diagnosed (job logs are
         # admin-only). publish.yml targets node 22.x; 20.x is near EOL.
@@ -57,6 +68,21 @@ jobs:
         env:
           # Suppress per-platform timing flake; tests stub Date where needed.
           TZ: UTC
+
+      - name: Test e2e + documented-example suites
+        # Diagnosis E1/E9, added 2026-09-15. `tests/e2e/**` (5 real CLI
+        # critical-path tests) was excluded by BOTH vitest configs and
+        # selected by NO script and NO CI step — it had never run. It is
+        # selected here so "green" cannot again mean "checked nothing".
+        # These tests drive the CLI IN-PROCESS (`runCli`), so no build is
+        # needed and this step is cheap enough to sit in the main matrix.
+        run: pnpm test:e2e
+
+      - name: Lint README/doc contracts
+        # Diagnosis E8, added 2026-09-15: `tests/lint/**` was collected by
+        # the unit glob, so a README linter was reported as unit-test
+        # coverage. It is its own suite now, and it runs.
+        run: pnpm test:lint
 
       - name: Run capability guards
         # The J02/J* contracts spawn `bin/peaks.js`, whose caller-id
@@ -211,6 +237,16 @@ jobs:
         run: pnpm exec vitest run --config vitest.config.integration.ts tests/integration --reporter=default --reporter=github-actions
         env:
           TZ: UTC
+          # Diagnosis E2, added 2026-09-15. 7 tests in this suite
+          # (plan-cli.test.ts x6, ac8-empirical.test.ts x1) skip themselves
+          # unless this is '1', and nothing anywhere set it — so they had
+          # never executed. This job runs `npm run build` above, so the built
+          # CLI they spawn genuinely exists: the precondition is satisfied
+          # here and only here, so the switch is set here. Locally,
+          # vitest.config.integration.ts derives the same value from whether
+          # bin/peaks.js + dist/cli/program.js exist, so a built checkout
+          # runs them and an unbuilt one skips them truthfully.
+          PEAKS_BUILD_AVAILABLE: '1'
           # Same reason as the `test` job's capability-guard step (L61-69), and
           # the same env var: `tests/integration/capability-guard/**` is also
           # part of THIS suite, and the J* contracts spawn `bin/peaks.js`.

@@ -21,10 +21,20 @@
 // swallowing IO errors (`ENOENT`, `EACCES`, …) — the original "checkpoint
 // not readable" / "presence unreadable" semantic.
 //
+// S6 (2026-09-15) — THE RULE IS NOW THE OTHER WAY ROUND. Naming the two JS
+// error classes to rethrow is not the same as "swallow IO errors": it
+// swallowed every OTHER class instead, i.e. exactly the unexpected ones. The
+// predicate is now `isExpectedFsMiss` (`src/shared/fs-utils.ts`) — swallow the
+// fs-miss codes (`ENOENT`, `ENOTDIR`, `EISDIR`, `EACCES`, `EPERM`, `ELOOP`,
+// `ENAMETOOLONG`), propagate everything else. Case A (SyntaxError) and the new
+// Case C (TypeError) pin the propagate half; Case B pins the swallow half with
+// a fixture that throws the `{ code: 'EACCES' }` a real `readFileSync` throws.
+//
 // Dimensions covered:
 //   - render:     not applicable — no user-visible text in this module
-//   - behavior:   SyntaxError from broken checkpoint JSON surfaces, IO error
-//                 still returns `no-checkpoint-today`
+//   - behavior:   SyntaxError from broken checkpoint JSON surfaces, a non-IO
+//                 error surfaces, an fs-miss still returns
+//                 `no-checkpoint-today`
 //   - integration: real fs read of synthetic checkpoint under tmp project root
 //   - a11y:       not applicable — no user-visible text in this module
 //
@@ -141,12 +151,17 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
     // then:  the result matches the expectation
     // Backward-compat: the original "checkpoint unreadable" semantic MUST
     // be preserved for genuine IO failures (EACCES on a read-protected
-    // checkpoint). We simulate an IO error by handing the hoisted
-    // `__fsMocks` bag a fake readFileSync that throws a plain Error (not
-    // ReferenceError / SyntaxError) — the narrow catch must let plain
-    // IO errors through to `return null` so safeReadCheckpoint returns
-    // null and the caller falls through to the `no-checkpoint-today`
-    // branch instead of crashing Step 0.7.
+    // checkpoint). We simulate one by throwing what Node ACTUALLY throws —
+    // an Error carrying `code: 'EACCES'` — so the catch's predicate
+    // (`isExpectedFsMiss`) sees the same shape production sees.
+    //
+    // S6 (2026-09-15): this fixture used to throw a plain Error whose MESSAGE
+    // said "EACCES", and passed because the old catch rethrew only
+    // ReferenceError / SyntaxError. That made the fixture agree with a rule
+    // the prose above did not actually describe ("plain IO errors"): a plain
+    // Error is not an IO error, it is an error of unknown kind, and the old
+    // catch swallowed it. The assertion below is unchanged; only the fixture
+    // now matches the situation it claims to simulate.
     const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-pcr-io-'));
     const sessionId = '2026-07-31-test-session';
     const runtimeDir = join(tmpDir, '.peaks', '_runtime', sessionId);
@@ -157,7 +172,11 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
       'utf8',
     );
     __fsMocks.readFileSync = () => {
-      throw new Error('EACCES: permission denied');
+      throw Object.assign(new Error('EACCES: permission denied, open cp-good.json'), {
+        code: 'EACCES',
+        errno: -13,
+        syscall: 'open',
+      });
     };
     try {
       const out = await detectPostCompactResume({
@@ -169,6 +188,37 @@ describe("Scenario: behavior — safeReadCheckpoint catch narrows to IO errors o
       // no-checkpoint-today (no auto-resume).
       expect(out.shouldAutoResume).toBe(false);
       expect(out.reason).toBe('no-checkpoint-today');
+    } finally {
+      __fsMocks.readFileSync = null;
+    }
+  });
+
+  it("when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)", async () => {
+    // S6 (2026-09-15) — the half the old rule got backwards.
+    //
+    // The pre-S6 catch rethrew `ReferenceError` and `SyntaxError` by name and
+    // swallowed EVERYTHING else, so the more unexpected the failure the more
+    // certainly it was hidden: a `TypeError` from a bad field, an
+    // `ERR_INVALID_ARG_TYPE` from a wrong argument, an error thrown by a
+    // dependency — all read as "no checkpoint today". The rule is now the
+    // other way round: swallow the fs-miss codes, propagate the rest. This
+    // case fails against the old code by design.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-pcr-nonio-'));
+    const sessionId = '2026-07-31-test-session';
+    const runtimeDir = join(tmpDir, '.peaks', '_runtime', sessionId);
+    mkdirSync(join(runtimeDir, 'checkpoints'), { recursive: true });
+    writeFileSync(join(runtimeDir, 'checkpoints', 'cp-good.json'), '{"mode":"rd"}', 'utf8');
+    __fsMocks.readFileSync = () => {
+      throw new TypeError('cannot read properties of undefined (reading "utf8")');
+    };
+    try {
+      await expect(
+        detectPostCompactResume({
+          sessionId,
+          projectRoot: tmpDir,
+          activeSkill: 'peaks-code',
+        }),
+      ).rejects.toThrow(TypeError);
     } finally {
       __fsMocks.readFileSync = null;
     }

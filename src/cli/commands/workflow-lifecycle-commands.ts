@@ -11,6 +11,8 @@ import type { Command } from 'commander';
 import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { resolveCallerId } from '../../services/session/resolve-caller-id.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {
   initWorkflow,
   terminalizeWorkflow,
@@ -96,8 +98,68 @@ function deriveProjectRoot(options: { project?: string }): string {
   return options.project ?? process.cwd();
 }
 
-function deriveSessionId(options: { sessionId?: string }): string {
-  return options.sessionId ?? process.env.PEAKS_SESSION_ID ?? 'unknown-sid';
+/**
+ * The literal that means "no session could be resolved". Kept as a named
+ * constant because three call sites now have to ASK whether resolution
+ * failed rather than consume the value as if it were an id.
+ */
+export const UNKNOWN_SESSION_ID = 'unknown-sid';
+
+/**
+ * Resolve the session id for every `workflow *` command.
+ *
+ * Tier order (matches the idiom every other command family in this CLI
+ * already uses — see `job-commands.ts:85`, `container-commands.ts:138`):
+ *
+ *   1. `--session-id <sid>`             — explicit wins
+ *   2. `PEAKS_SESSION_ID` env var       — scripted / sub-process callers
+ *   3. `getCurrentSessionId(projectRoot)` — this caller's OWN binding
+ *      (`callers/<callerId>.json`) falling back to the project-global
+ *      `.peaks/_runtime/session.json`, the same resolver `peaks session
+ *      info --active` and `peaks session checkpoint` use
+ *   4. `unknown-sid`                    — nothing is bound
+ *
+ * Tier 3 was MISSING until 2026-09-15 (S6), and its absence is the whole
+ * defect: `workflow init` resolved on tiers 1–2 only, so with no flag and no
+ * env var it wrote the graph into `.peaks/_runtime/unknown-sid/graphs/`
+ * regardless of what the binding file said. `peaks workflow node prepare`
+ * then ran under the CORRECT session dir and reported `PEAKS_GRAPH_NOT_FOUND`
+ * — the graph it was asking for had been written one bucket over. The bucket
+ * accumulated artifacts from at least 4 distinct caller ids between 2026-09-01
+ * and 2026-09-15, i.e. it had never worked for anyone.
+ *
+ * The same prior-art sweep (`.peaks/memory/archived/2026-06-26-unknown-sid-root-cause.md`)
+ * converted six inline `?? 'unknown-sid'` sites to this 4-tier chain;
+ * `workflow-lifecycle-commands.ts` was missed. This is that site.
+ *
+ * The project root passed to tier 3 goes through the same `findProjectRoot`
+ * walk `session info` uses, so a command run from a SUBDIRECTORY of the
+ * project resolves the project's binding instead of `cwd`'s (which has none).
+ */
+function deriveSessionId(options: { sessionId?: string; project?: string }): string {
+  if (typeof options.sessionId === 'string' && options.sessionId.length > 0) return options.sessionId;
+  const fromEnv = process.env.PEAKS_SESSION_ID;
+  if (typeof fromEnv === 'string' && fromEnv.length > 0) return fromEnv;
+  return getCurrentSessionId(findProjectRoot(options.project ?? process.cwd()) ?? (options.project ?? process.cwd())) ?? UNKNOWN_SESSION_ID;
+}
+
+/**
+ * Tier 3 resolving to `unknown-sid` means NO session is bound at all. A
+ * `workflow` subcommand that WRITES must fail loudly on that rather than
+ * create a bucket named after a failure — `graph list` already does (see its
+ * `PEAKS_SESSION_NOT_BOUND` guard below); `init` did not.
+ */
+function buildSessionNotBoundEnvelope(sessionId: string, projectRoot: string): ReturnType<typeof fail> {
+  return fail(
+    'workflow.init',
+    'PEAKS_SESSION_NOT_BOUND',
+    `No peaks session is bound for '${projectRoot}' (derived session id '${sessionId}'): --session-id, PEAKS_SESSION_ID and the project binding are all absent.`,
+    { workflowId: null },
+    [
+      'Run `peaks workspace init --project <p>` to bind a session, then re-run.',
+      'Or pass `--session-id <sid>` explicitly.',
+    ]
+  );
 }
 
 export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO): void {
@@ -120,8 +182,13 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
     const asJson = options.json === true;
     try {
       const callerId = deriveCallerId();
-      const sessionId = deriveSessionId(options);
       const projectRoot = deriveProjectRoot(options);
+      const sessionId = deriveSessionId(options);
+      if (sessionId === UNKNOWN_SESSION_ID) {
+        printResult(io, buildSessionNotBoundEnvelope(sessionId, projectRoot), asJson);
+        process.exitCode = 1;
+        return;
+      }
       const workflowId = options.workflowId ?? `wf-${Date.now().toString(36)}`;
       if (!WORKFLOW_ID_REGEX.test(workflowId)) {
         throw new Error(`workflowId shape invalid: ${workflowId}`);
@@ -195,7 +262,7 @@ export function registerWorkflowLifecycleCommand(parent: Command, io: ProgramIO)
       const asJson = options.json === true;
       try {
         const sessionId = deriveSessionId(options);
-        if (!sessionId || sessionId === 'unknown-sid') {
+        if (sessionId === UNKNOWN_SESSION_ID) {
           throw new Error('PEAKS_SESSION_NOT_BOUND: no session id');
         }
         const result = { envelopeVersion: '4.0.8', sessionId, graphs: [] };

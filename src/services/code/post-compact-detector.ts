@@ -26,6 +26,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getSkillPresence, type SkillPresenceMode } from '../skills/skill-presence-service.js';
+import { isExpectedFsMiss } from '../../shared/fs-utils.js';
 
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 
@@ -130,10 +131,17 @@ function safeReadCheckpoint(absPath: string): CheckpointFile | null {
     }
     const content: CheckpointContent = mutable;
     return { path: absPath, mtime: stat.mtime, content };
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return null;                                    // only swallow IO errors
+  } catch (err) {
+    // P1 site (S6, 2026-09-15). The TODO(g2) marker this replaces said the
+    // catch "narrows to IO errors only" — it did not. It rethrew the two JS
+    // error classes it happened to name and swallowed everything else,
+    // including the ReferenceError an ESM `require()` bug produces on the one
+    // platform this file's whole defence exists for. Corrupt JSON stays loud
+    // (we cannot read a checkpoint we cannot parse); every non-fs-miss error
+    // now propagates. See `isExpectedFsMiss`.
+    if (err instanceof SyntaxError) throw err;
+    if (!isExpectedFsMiss(err)) throw err;
+    return null;
   }
 }
 
@@ -304,10 +312,12 @@ function readActiveSkillName(projectRoot: string): string | undefined {
   try {
     const presence = getSkillPresence(projectRoot);
     return presence?.skill;
-  } catch (err) { // TODO(g2): legacy silent catch — now narrows to IO errors only (grace: 1 minor release, v2.14.0)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs
-    return undefined;                               // only swallow IO errors
+  } catch (err) {
+    // P1 site (S6, 2026-09-15) — same correction as `safeReadCheckpoint`
+    // above: a non-fs-miss failure reading the active skill is a bug, not an
+    // absence, and no longer resolves to `undefined` (i.e. to "no skill").
+    if (!isExpectedFsMiss(err)) throw err;
+    return undefined;
   }
 }
 

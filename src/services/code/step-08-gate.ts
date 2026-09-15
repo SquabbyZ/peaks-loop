@@ -41,6 +41,7 @@ import {
   JobShapeDecisionError,
   JOB_SHAPE_NOT_DECIDED
 } from './job-shape-decision.js';
+import { isExpectedFsMiss } from '../../shared/fs-utils.js';
 
 export const STEP_08_GATE_FILE_NAME = 'job-shape.json' as const;
 export const STEP_08_PROGRESS_FILE_NAME = 'progress.json' as const;
@@ -110,10 +111,14 @@ function readProgressIfAny(projectRoot: string, sessionId: string, jid: string):
       };
     }
     return null;
-  } catch (err) { // narrows to IO errors only — surface ReferenceError / SyntaxError so future module-load or parse bugs fail loudly (instead of silently masking progress.json corruption)
-    if (err instanceof ReferenceError) throw err;  // surface module-load bugs
-    if (err instanceof SyntaxError) throw err;     // surface parse bugs (corrupt progress.json)
-    return null;                                    // only swallow IO errors (ENOENT, EACCES, …)
+  } catch (err) {
+    // P1 site (S6, 2026-09-15) — same correction as `readPromptFromLastPromptFile`
+    // below: corrupt progress.json stays loud, and a failure that is not an
+    // fs miss (module-load ReferenceError, TypeError from a bad field, …)
+    // propagates instead of reading as "no progress yet".
+    if (err instanceof SyntaxError) throw err;
+    if (!isExpectedFsMiss(err)) throw err;
+    return null;
   }
 }
 
@@ -122,7 +127,16 @@ function readPromptFromLastPromptFile(projectRoot: string, sessionId: string): s
   if (!existsSync(path)) return '';
   try {
     return readFileSync(path, 'utf8');
-  } catch {
+  } catch (err) {
+    // P1 site (S6, 2026-09-15). This catch was bare — it bound nothing and
+    // swallowed every error class. The sibling reads in this file had been
+    // narrowed; this one had not, so the ONE path that feeds the step-08
+    // backup regex was also the one that could not tell "no prompt file" from
+    // "the module is broken". On the platform this gate exists for, that is
+    // the difference between blocking a disavowal prompt and silently
+    // allowing it. Missing/unreadable text is an empty prompt; anything else
+    // propagates.
+    if (!isExpectedFsMiss(err)) throw err;
     return '';
   }
 }

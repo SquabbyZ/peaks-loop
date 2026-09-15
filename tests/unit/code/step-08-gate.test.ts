@@ -200,12 +200,15 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
     // then:  the result matches the expectation
     // Backward-compat: the original "progress file unreadable" semantic
     // MUST be preserved for genuine IO failures (EACCES on a read-protected
-    // progress.json). We simulate an IO error by handing the hoisted
-    // `__fsMocks` bag a fake readFileSync that throws a plain Error (not
-    // ReferenceError / SyntaxError) — the narrow catch must let plain IO
-    // errors through to `return null` so readProgressIfAny returns null and
-    // the gate still returns an allow-job verdict with progress: null
-    // (nextSliceLine: null) instead of crashing Step 0.8.
+    // progress.json). We simulate one by throwing what Node ACTUALLY throws —
+    // an Error carrying `code: 'EACCES'` — so the catch's predicate
+    // (`isExpectedFsMiss`) sees the shape production sees.
+    //
+    // S6 (2026-09-15): this fixture used to throw a plain Error whose MESSAGE
+    // said "EACCES", and passed because the old catch rethrew only
+    // ReferenceError / SyntaxError. The assertion below is unchanged; only the
+    // fixture now matches the situation it claims to simulate. See the new
+    // Case C for the half the old rule got backwards.
     const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-io-'));
     const sessionId = '2026-07-31-test-session-step08-io';
     writeValidJobShapeDecision(tmpDir, sessionId);
@@ -227,7 +230,11 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
     );
     __fsMocks.pathMatch = /progress\.json$/;
     __fsMocks.readFileSync = () => {
-      throw new Error('EACCES: permission denied');
+      throw Object.assign(new Error('EACCES: permission denied, open progress.json'), {
+        code: 'EACCES',
+        errno: -13,
+        syscall: 'open',
+      });
     };
     try {
       const out = evaluateStep08({
@@ -242,6 +249,39 @@ describe("Scenario: behavior — readProgressIfAny catch narrows to IO errors on
         expect(out.verdict.progress).toBeNull();
       }
       expect(out.nextSliceLine).toBeNull();
+    } finally {
+      __fsMocks.readFileSync = null;
+      __fsMocks.pathMatch = null;
+    }
+  });
+
+  it("when invoked, should Case C: a NON-IO error from readFileSync surfaces to caller (NOT swallowed)", () => {
+    // S6 (2026-09-15) — the half the old rule got backwards.
+    //
+    // The pre-S6 catch rethrew `ReferenceError` and `SyntaxError` by name and
+    // swallowed everything else, so the more unexpected the failure the more
+    // certainly it was hidden: this gate would read "no progress yet" and
+    // ALLOW the call. Step 0.8 is a fail-closed gate, so a swallowed failure
+    // here is a gate that reports allow. The rule is now the other way round:
+    // swallow the fs-miss codes, propagate the rest. This case fails against
+    // the old code by design.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'peaks-step08-nonio-'));
+    const sessionId = '2026-07-31-test-session-step08-nonio';
+    writeValidJobShapeDecision(tmpDir, sessionId);
+    const jobDir = join(tmpDir, '.peaks', '_runtime', sessionId, 'job', 'rid-step-08-gate-test');
+    mkdirSync(jobDir, { recursive: true });
+    writeFileSync(join(jobDir, 'progress.json'), '{"done":1}', 'utf8');
+    __fsMocks.pathMatch = /progress\.json$/;
+    __fsMocks.readFileSync = () => {
+      throw new TypeError('progress record is not an object');
+    };
+    try {
+      expect(() =>
+        evaluateStep08({
+          sessionId,
+          projectRoot: tmpDir,
+        }),
+      ).toThrow(TypeError);
     } finally {
       __fsMocks.readFileSync = null;
       __fsMocks.pathMatch = null;

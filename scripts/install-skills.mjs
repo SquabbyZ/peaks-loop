@@ -256,10 +256,6 @@ function validateConfigPath(root, peaksRoot, configPath, label) {
   }
 }
 
-function validateProjectConfigPaths(projectRoot, peaksRoot, configPath) {
-  validateConfigPath(projectRoot, peaksRoot, configPath, 'Project');
-}
-
 function validateUserConfigPaths(userRoot, peaksRoot, configPath) {
   validateConfigPath(userRoot, peaksRoot, configPath, 'User');
 }
@@ -345,10 +341,6 @@ function writeFileAtomically(configPath, content, errorMessage, validateBeforeWr
   }
 }
 
-function writeProjectConfig(projectRoot, peaksRoot, configPath, content) {
-  writeFileAtomically(configPath, content, 'Project config path changed during write', () => validateProjectConfigPaths(projectRoot, peaksRoot, configPath));
-}
-
 function writeUserConfig(userRoot, peaksRoot, configPath, content) {
   writeFileAtomically(configPath, content, 'User config path changed during write', () => validateUserConfigPaths(userRoot, peaksRoot, configPath));
 }
@@ -374,6 +366,16 @@ function resolveProjectRoot(options) {
  * + emits a stderr warning. The dispatch is conservative: the env-var
  * overrides `PEAKS_CLAUDE_SKILLS_DIR` / `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`
  * continue to work, and the legacy default is preserved.
+ *
+ * 2026-09-15 (D12 fix): `hermes` and `openclaw` have install profiles in
+ * `IDE_SKILL_INSTALL_PROFILES` but were absent from this table. A profile
+ * that no detector can ever return is reachable only through the
+ * every-platform fan-out — i.e. it is installed for users who do NOT have
+ * the tool and skipped for nobody. Both are listed here now, so detection
+ * and installation answer the same question with the same table.
+ *
+ * This table is ALSO the presence oracle for `isPlatformPresent` below: a
+ * directory here in the project root means the user has that tool.
  */
 export const IDE_DETECTION_DIRS = [
   { id: 'claude-code', dir: '.claude' },
@@ -384,23 +386,33 @@ export const IDE_DETECTION_DIRS = [
   { id: 'qoder', dir: '.qoder' },
   { id: 'tongyi-lingma', dir: '.tongyi-lingma' },
   { id: 'zcode', dir: '.zcode' },
+  { id: 'hermes', dir: '.hermes' },
+  { id: 'openclaw', dir: '.openclaw' },
 ];
 
 /**
  * Per-IDE skill install paths. Per peaks-loop tenet
  * "minimal-user-operation" (2026-06-11), the user should
  * never have to run a per-platform install command — the
- * `npm i -g peaks-loop` postinstall iterates ALL of these
- * and symlinks the peaks-* skill family to every platform
- * the user might be on.
+ * `npm i -g peaks-loop` postinstall iterates the platforms
+ * the user HAS and symlinks the peaks-* skill family into each
+ * (see `isPlatformPresent`; D9/2026-09-15 made "has" load-bearing).
  *
  * 1.x had only `claude-code` (the other 5 entries were
  * `null`); real Trae users reported the Trae skill
  * directory was never populated. 2.0 fixes this by giving
- * all 8 platforms canonical install paths.
+ * every platform a canonical install path.
  */
 export const IDE_SKILL_INSTALL_PROFILES = {
   'claude-code': {
+    // `alwaysPresent` — see `isPlatformPresent`. Declared HERE, in the
+    // vendor's own row, rather than as an `ideId === 'claude-code'` branch in
+    // the consumer: the guard at
+    // `tests/unit/runtime/vendor-neutral-identity-guard.test.ts` pins identity
+    // DECISIONS to the vendor declarations, and a comparison in the consumer
+    // is exactly the re-injection shape it exists to catch. A future vendor
+    // opts into the same policy by setting this field.
+    alwaysPresent: true,
     skillsDir: join(homedir(), '.claude', 'skills'),
     outputStylesDir: join(homedir(), '.claude', 'output-styles'),
     agentsDir: join(homedir(), '.claude', 'agents'),
@@ -489,6 +501,46 @@ function resolveIdeSkillInstallProfile(ideId) {
   return IDE_SKILL_INSTALL_PROFILES[ideId] ?? null;
 }
 
+/**
+ * Is this platform actually installed FOR? (D9 fix, 2026-09-15.)
+ *
+ * Before this gate, the postinstall ran `mkdirSync(targetRoot, {recursive:
+ * true})` for ALL 10 profiles unconditionally, so `npm i -g peaks-loop` created
+ * `~/.hermes`, `~/.openclaw`, `~/.qoder`, `~/.tongyi-lingma` and `~/.zcode` in
+ * the home of a user who has never installed those tools. The peaks-loop tenet
+ * is "the user never has to run a per-platform install command" — it is NOT
+ * "peaks-loop guesses which tools you have". Creating a directory for a tool
+ * the user does not own is the tenet misread, and it is visible on disk.
+ *
+ * Present means EITHER:
+ *   - the tool's marker directory exists in the project root (the same
+ *     directory `detectInstalledIdeId` consults above), OR
+ *   - the tool's own home directory (`~/.<tool>`, derived from its profile)
+ *     already exists on this machine.
+ *
+ * `claude-code` is unconditionally present: it is peaks-loop's primary runtime
+ * and the documented legacy install target, so a machine with no `~/.claude`
+ * yet still gets the trees the user is installing peaks-loop for. That fact is
+ * declared as `alwaysPresent: true` IN THE VENDOR'S OWN PROFILE ROW — not as an
+ * `ideId === 'claude-code'` branch here. This file sits outside the adapter
+ * layer, so an identity comparison in it is the re-injection shape
+ * `tests/unit/runtime/vendor-neutral-identity-guard.test.ts` pins; reading the
+ * vendor's declaration keeps the policy in one place and vendor-neutral.
+ *
+ * A named target bypasses this gate entirely — `options.targetRoot`,
+ * `options.ideId`, and the `PEAKS_<TOOL>_SKILLS_DIR` env vars are callers who
+ * have already said which platform they mean; guessing a second time there
+ * would break the 1.x back-compat contract that slice 2026-06-12 restored.
+ */
+function isPlatformPresent(ideId, profile, projectRoot) {
+  if (profile.alwaysPresent === true) return true;
+  const detection = IDE_DETECTION_DIRS.find((entry) => entry.id === ideId);
+  if (detection !== undefined && projectRoot !== null && existsSync(join(projectRoot, detection.dir))) {
+    return true;
+  }
+  return existsSync(dirname(profile.skillsDir));
+}
+
 function warnUnverifiedIde(ideId, projectRoot) {
   process.stderr.write(
     `peaks install-skills: IDE '${ideId}' has no skillInstall profile declared; ` +
@@ -540,29 +592,26 @@ export function installUserConfig(options = {}) {
   return writeMergedConfig(configPath, 'User', createConfigDefaults(options.packageRoot), (content) => writeUserConfig(userRoot, peaksRoot, configPath, content));
 }
 
-export function installProjectConfig(options = {}) {
-  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL === '1') {
-    return createConfigResult({ skipped: true });
-  }
-
-  const projectRoot = resolveProjectRoot(options);
-  if (!projectRoot) {
-    return createConfigResult({ skipped: true });
-  }
-
-  const peaksRoot = resolve(projectRoot, '.peaks');
-  const configPath = resolve(peaksRoot, 'config.json');
-  if (!isInsidePath(configPath, projectRoot)) {
-    throw new Error('Project config path must stay inside the project root');
-  }
-
-  if (!existsSync(peaksRoot)) {
-    mkdirSync(peaksRoot, { recursive: true });
-  }
-  validateProjectConfigPaths(projectRoot, peaksRoot, configPath);
-
-  return writeMergedConfig(configPath, 'Project', createConfigDefaults(options.packageRoot), (content) => writeProjectConfig(projectRoot, peaksRoot, configPath, content));
-}
+/*
+ * D11 (2026-09-15): `installProjectConfig` — plus its two private helpers
+ * `writeProjectConfig` and `validateProjectConfigPaths` — was DELETED here.
+ *
+ * It was dead: definition + `export`, and zero call sites in the whole repo
+ * (verified by a repo-wide grep for the identifier, excluding node_modules
+ * and dist). The `PEAKS_SKIP_PROJECT_CONFIG_INSTALL` env var existed only to
+ * disable it.
+ *
+ * Deleted rather than wired, because wiring it would be the bigger defect:
+ * `npm i -g peaks-loop` executed from inside a user's repo would write
+ * `<project>/.peaks/config.json` as a side effect of a GLOBAL install. The
+ * project-level config is owned by `peaks workspace init` and the config
+ * service at runtime; a postinstall reaching into the current working
+ * directory to create project state is the opposite of the "minimal user
+ * operation" tenet — an operation the user never asked for.
+ *
+ * The user-config sibling (`installUserConfig`, below) is live and is what
+ * the postinstall actually calls.
+ */
 
 export function installBundledSkills(options = {}) {
   const packageRoot = resolvePackageRoot(options);
@@ -684,6 +733,40 @@ export function installBundledSkills(options = {}) {
   return { installed, skipped };
 }
 
+/**
+ * DISPATCH STRATEGY — the three paths in this file, and why they differ
+ * (D10, written down 2026-09-15).
+ *
+ * This script installs three kinds of asset, and each one resolves its target
+ * by a different rule. That was undocumented and untested; it is now
+ * documented here and each rule is stated with its reason.
+ *
+ *   1. SKILLS  (`installBundledSkillsForAllPlatforms`)
+ *      Fan out to every platform the user HAS (`isPlatformPresent`).
+ *      Reason: a skill directory is per-tool; the same skill is legitimately
+ *      wanted in several tools at once, and peaks cannot know which tool the
+ *      user will open next. Fan-out is the tenet; presence is the licence.
+ *
+ *   2. AGENTS  (`installBundledAgentsForAllPlatforms`)
+ *      Fan out to present platforms, INTERSECTED with the profiles that
+ *      declare `agentsDir`. Reason: sub-agent loaders are not a universal
+ *      concept — only 6 of 10 profiles have one. The intersection is the fan
+ *      of (1) with a capability filter, not a third rule.
+ *
+ *   3. OUTPUT STYLES (`installBundledOutputStyles`, this function)
+ *      ONE target: the IDE detected in the project root, else the legacy
+ *      `~/.claude/output-styles`. Reason: an output style is not a
+ *      per-tool asset — it is registered as THE active style for the
+ *      session by writing a single `outputStyle` key into
+ *      `~/.claude/settings.json` (`installBundledOutputStyleDefault`). A
+ *      second copy in `~/.trae/output-styles` would be a file nothing reads
+ *      and a setting no one consults; fanning it out would be storing the
+ *      same answer in ten places and reading it from one.
+ *
+ * So: (1) and (2) share one predicate and differ only by capability; (3) is
+ * deliberately single-target, and this comment is the reason the brief asked
+ * for. If a future platform needs a different rule, state it here.
+ */
 export function installBundledOutputStyles(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const outputStylesRoot = join(packageRoot, 'output-styles');
@@ -1034,12 +1117,18 @@ export function installBundledAgents(options = {}) {
 }
 
 /**
- * Per-platform fan-out — iterate ALL 8 IdeIds and call
- * `installBundledAgents` for each platform that has an `agentsDir` profile
- * field. Only `claude-code` ships with `agentsDir` set today; the other 7
- * platforms return `installed: []` from their profile lookup. Future
- * platforms can add an `agentsDir` field to their `IDE_SKILL_INSTALL_PROFILES`
- * entry to opt in.
+ * Per-platform fan-out — iterate the platforms the user HAS and call
+ * `installBundledAgents` for each one that also declares an `agentsDir`
+ * profile field. 6 of the 10 profiles declare `agentsDir` today
+ * (claude-code, trae, trae-cn, codex, cursor, zcode); the other 4 have no
+ * sub-agent loader to write into and are skipped by construction. A future
+ * platform opts in by adding `agentsDir` to its
+ * `IDE_SKILL_INSTALL_PROFILES` entry.
+ *
+ * D9/D10 fix (2026-09-15): the platform set is filtered by
+ * `isPlatformPresent` (same predicate as the skills fan-out), so this no
+ * longer creates `~/.trae/agents`, `~/.codex/agents`, … for tools the user
+ * does not have.
  *
  * Per peaks-loop tenet "minimal-user-operation" (2026-06-11): the user
  * should never have to run a per-platform install command. Symlink /
@@ -1047,8 +1136,10 @@ export function installBundledAgents(options = {}) {
  * failure doesn't block the others.
  */
 export function installBundledAgentsForAllPlatforms(options = {}) {
+  const projectRoot = resolveProjectRoot(options);
   const platforms = Object.entries(IDE_SKILL_INSTALL_PROFILES)
-    .filter(([, profile]) => typeof profile.agentsDir === 'string');
+    .filter(([, profile]) => typeof profile.agentsDir === 'string')
+    .filter(([ideId, profile]) => isPlatformPresent(ideId, profile, projectRoot));
   const perPlatform = [];
   for (const [ideId, profile] of platforms) {
     try {
@@ -1091,29 +1182,37 @@ export function installBundledAgentsForAllPlatforms(options = {}) {
 }
 
 /**
- * Per-platform fan-out — iterate ALL 8 IdeIds and call
+ * Per-platform fan-out — iterate the platforms the user actually HAS and call
  * `installBundledSkills` for each. Per peaks-loop tenet
  * "minimal-user-operation" (2026-06-11): the user should
  * never have to run a per-platform install command. The
  * 1.x postinstall only handled the auto-detected single
  * IDE; 2.0 fixes this so the peaks-* skill family is
- * symlinked to every platform the user might be on.
+ * symlinked to every platform the user is on.
+ *
+ * D9/D10 fix (2026-09-15): the set is filtered by `isPlatformPresent`, not
+ * "all 10 profiles". See that helper for why, and see the DISPATCH STRATEGY
+ * note above `installBundledOutputStyles` for how this fan-out relates to the
+ * other two dispatch paths in this file.
  *
  * Returns an array of { ideId, skillsDir, installed, skipped }
  * per platform. Symlink failures are soft (logged to stderr,
  * never throw) so one platform's failure doesn't block the
- * other 7.
+ * others.
  */
 export function installBundledSkillsForAllPlatforms(options = {}) {
-  const platforms = Object.keys(IDE_SKILL_INSTALL_PROFILES);
+  const projectRoot = resolveProjectRoot(options);
+  const platforms = Object.keys(IDE_SKILL_INSTALL_PROFILES).filter((ideId) =>
+    isPlatformPresent(ideId, IDE_SKILL_INSTALL_PROFILES[ideId], projectRoot)
+  );
   const perPlatform = [];
   // Back-compat precedence (regression fix 2026-06-12,
   // slice 2026-06-12-postinstall-1x-detector-tdd):
-  // when iterating the 8 platforms, the claude-code install
+  // when iterating the present platforms, the claude-code install
   // must still honor the PEAKS_CLAUDE_SKILLS_DIR env var
-  // (the legacy back-compat surface from 1.x). The other 7
+  // (the legacy back-compat surface from 1.x). The other
   // platforms use their per-IDE profile paths unconditionally.
-  // Without this fix the 8-IDE fan-out regresses the
+  // Without this fix the fan-out regresses the
   // `peaks install-skills` env-var override contract that
   // user CI / 1.x → 2.0 migration scripts depend on.
   const claudeEnv = process.env.PEAKS_CLAUDE_SKILLS_DIR;
@@ -1298,10 +1397,12 @@ export async function autoUpgrade1xProjectIfPresent(options = {}) {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     // 2.0 fix for the 1.x Trae bug (per real user feedback
-    // 2026-06-11): iterate ALL 8 platforms, not just the
-    // auto-detected one. Per the "minimal-user-operation"
-    // tenet, the user should never have to run a
-    // per-platform install command.
+    // 2026-06-11): iterate every platform the user HAS, not just the
+    // one auto-detected in the project root. Per the
+    // "minimal-user-operation" tenet, the user should never have to run a
+    // per-platform install command — S6 (2026-09-15) narrowed "every" from
+    // "all 10 profiles" to `isPlatformPresent`, because creating a home
+    // directory for a tool the user does not own is that tenet misread.
     const perPlatform = installBundledSkillsForAllPlatforms();
     let totalInstalled = 0;
     for (const p of perPlatform) {

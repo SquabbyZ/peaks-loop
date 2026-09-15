@@ -481,6 +481,20 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     };
   }
 
+  const claudeSettings = await materializeClaudeSettingsLocal(
+    options.projectRoot,
+    options.noClaudeHooks === true
+  );
+
+  // G4 (2026-09-15): record which release generated this project's config.
+  // Without it there is nothing on disk for a LATER release to compare
+  // against, so "your generated config is behind the installed peaks-loop"
+  // is not a decidable question — which is the whole of D1. Written on every
+  // init (including the no-op ones): the stamp answers "when did a release
+  // last regenerate this project", not "when did the bytes change". See
+  // `generated-artifacts-stamp.ts`.
+  writeGeneratedArtifactsStamp(options.projectRoot);
+
   return {
     sessionId: options.sessionId,
     sessionRoot,
@@ -488,7 +502,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     alreadyExisted,
     bound,
     previousSessionId,
-    claudeSettings: await materializeClaudeSettingsLocal(options.projectRoot, options.noClaudeHooks === true),
+    claudeSettings,
     standardsMissing,
     ...(standardsApplied !== undefined ? { standardsApplied } : {})
   };
@@ -504,6 +518,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
 // are unchanged (verbatim move).
 import { materializeClaudeSettingsLocal } from './workspace-claude-settings-materializer.js';
 export { materializeClaudeSettingsLocal } from './workspace-claude-settings-materializer.js';
+import { writeGeneratedArtifactsStamp } from './generated-artifacts-stamp.js';
 
 /**
  * Slice C10 (2026-06-24-legacy-change-id-sibling): whole-dir shape check
