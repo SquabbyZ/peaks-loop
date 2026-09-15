@@ -59,9 +59,41 @@ const PEAKS_DIR = join(REPO_ROOT, '.peaks');
  */
 const DEFENSE_RULE = '.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/';
 
+/**
+ * The root `.gitignore` lines that git actually honours, in file order.
+ *
+ * The first version of this file asserted the rule with a plain
+ * `toContain(DEFENSE_RULE)` over the whole file text. S4 measured what that
+ * misses: prefixing the rule with `#` leaves the literal in the file, so a
+ * `.gitignore` whose rule had been commented out — i.e. a `.gitignore` with
+ * NO defense at all — passed the case that exists to detect exactly that. A
+ * substring is not a rule.
+ *
+ * Git's own comment rule is reproduced exactly rather than approximated:
+ *   - a line whose FIRST character is `#` is a comment (`#rule` and `# rule`
+ *     both are; an indented ` #rule` is not, and is not treated as one here);
+ *   - blank / all-whitespace lines are skipped;
+ *   - trailing whitespace is ignored (git does the same), LEADING whitespace
+ *     is significant (git does the same — a leading space makes the pattern
+ *     include the space, so an indented rule is NOT this rule and must not
+ *     count as it).
+ */
+function activeGitignoreRules(): string[] {
+  return readFileSync(GITIGNORE_PATH, 'utf8')
+    .split('\n')
+    .map((line) => line.replace(/\r$/, ''))
+    .filter((line) => line.trim().length > 0 && !line.startsWith('#'))
+    .map((line) => line.trimEnd());
+}
+
 /** `windowsHide: true` is repo convention for every spawn. */
 function git(args: readonly string[], cwd: string) {
   return spawnSync('git', [...args], { cwd, encoding: 'utf8', windowsHide: true });
+}
+
+/** A markdown body with every `<!-- ... -->` span removed. */
+function withoutHtmlComments(markdown: string): string {
+  return markdown.replace(/<!--[\s\S]*?-->/g, '');
 }
 
 function isDateStamped(name: string): boolean {
@@ -69,12 +101,34 @@ function isDateStamped(name: string): boolean {
 }
 
 describe('Scenario: integration — the root .gitignore still blocks a date-stamped sibling', () => {
-  it('when the root .gitignore is read, should still carry the date-prefix rule', () => {
+  it('when the root .gitignore is parsed, should still carry the date-prefix rule as an ACTIVE rule', () => {
     // given: the repository working tree
-    // when: the root .gitignore is read
-    // then: the defensive rule literal is present
+    // when: the root .gitignore is read and parsed the way git parses it
+    // then: the defensive rule is present as a rule git will honour — not
+    //       merely as a substring. `#.peaks/[...]/` and `# .peaks/[...]/` both
+    //       still CONTAIN the literal while defending nothing, and both are
+    //       exactly the edit someone disables a rule with.
     expect(existsSync(GITIGNORE_PATH)).toBe(true);
-    expect(readFileSync(GITIGNORE_PATH, 'utf8')).toContain(DEFENSE_RULE);
+    expect(activeGitignoreRules()).toContain(DEFENSE_RULE);
+  });
+
+  it('when the whole-file text alone is considered, should not be the shape this guard rests on', () => {
+    // The counter-control for the case above, kept because the defect it
+    // records was live for a release: the old assertion was a `toContain`
+    // over the raw text, and this case shows that the raw text still passes
+    // once the rule is commented out — so a guard built on it cannot fail.
+    // If this control ever stops passing, the parser above has drifted from
+    // what the file looks like and needs re-reading.
+    const raw = readFileSync(GITIGNORE_PATH, 'utf8');
+    const commentedOut = raw.replace(DEFENSE_RULE, `#${DEFENSE_RULE}`);
+    expect(commentedOut).toContain(DEFENSE_RULE);
+    expect(
+      commentedOut
+        .split('\n')
+        .map((line) => line.replace(/\r$/, ''))
+        .filter((line) => line.trim().length > 0 && !line.startsWith('#'))
+        .map((line) => line.trimEnd()),
+    ).not.toContain(DEFENSE_RULE);
   });
 
   it('when git evaluates a synthetic date-stamped sibling path, should ignore it via that rule', () => {
@@ -134,12 +188,16 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     expect(offenders).toEqual([]);
   });
 
-  it('when the two ban documents are read, should still name the rule that blocks the pattern', () => {
+  it('when the two ban documents are read, should name the rule that blocks the pattern in live prose', () => {
     // given: the two documents layer 4 consists of
-    // when: their bodies are read
-    // then: each still carries the defensive-rule literal
-    expect(readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8')).toContain(DEFENSE_RULE);
-    expect(readFileSync(join(REPO_ROOT, '.peaks', 'PROJECT.md'), 'utf8')).toContain(DEFENSE_RULE);
+    // when: their bodies are read with every HTML comment removed
+    // then: each still carries the defensive-rule literal OUTSIDE a comment.
+    //       The comment-stripping is the same defect as the `.gitignore`
+    //       case above: a citation wrapped in `<!-- -->` is still a
+    //       substring, and a reader is still told nothing.
+    for (const doc of ['CLAUDE.md', join('.peaks', 'PROJECT.md')]) {
+      expect(withoutHtmlComments(readFileSync(join(REPO_ROOT, doc), 'utf8')), doc).toContain(DEFENSE_RULE);
+    }
   });
 });
 

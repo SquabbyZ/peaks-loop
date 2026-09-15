@@ -154,13 +154,25 @@
 //        - generated `dist/**` (its ids are copies of `src/`, so scanning it
 //          would double every count).
 //      WHY `src/**/*.js` WAS ADDED (2026-09-13): `src/` is not all-TypeScript.
-//      It holds exactly ONE `.js` file — `src/services/hooks/write-gate.js` —
-//      and that file is the Write|Edit|MultiEdit PreToolUse hook documented in
-//      `.claude/HOOKS.md`, i.e. the very handler that runs on every edit of
-//      this repo. It was outside every shape of this guard for no reason but
-//      its extension. It is clean today (verified: no id literal, no
-//      comparison against one, no settings path), so the root costs no
-//      exemption; the anti-silence test pins that the walk still reaches it.
+//      At the time it held exactly ONE `.js` file — `src/services/hooks/
+//      write-gate.js`, the Write|Edit|MultiEdit PreToolUse hook documented in
+//      `.claude/HOOKS.md`, i.e. the very handler that ran on every edit of this
+//      repo. It sat outside every shape of this guard for no reason but its
+//      extension, so the extension was added.
+//      WHY IT IS STILL HERE (2026-09-16, slice 2026-09-15-s10-misc-cleanup):
+//      that file was DELETED — it was an installed handler that abstained on
+//      every path, so the installation was the defect, not the abstention.
+//      `src/` therefore holds NO `.js` file at all today and this extension has
+//      no subject; it matches nothing and costs nothing. It is retained on
+//      purpose rather than retired with its one subject: the blind spot it
+//      closed was "a file invisible to every shape of this guard because of its
+//      extension", which is a property of the ROOT, not of one file. A `.js`
+//      dropped into `src/` tomorrow is walked from the moment it lands rather
+//      than from the moment someone remembers this paragraph.
+//      The anti-silence test no longer names the deleted file. An anti-silence
+//      assertion that named it would turn its deliberate removal into a red
+//      suite — i.e. it would demand the thing be kept alive to satisfy the test
+//      that watches over it, which is the pattern this job exists to remove.
 //      The `scripts/**` root was added in the same revision for the same
 //      class of reason: that file SHIPS (`package.json#files` lists
 //      `scripts/install-skills.mjs`) and held two live
@@ -403,14 +415,18 @@ function listFilesRecursively(dir: string, extensions: readonly string[], out: s
  * stopped working fails that test rather than reporting clean.
  */
 const SCAN_ROOTS: readonly { readonly root: string; readonly extensions: readonly string[] }[] = [
-  // `.js` is here because `src/` is not all-TypeScript: it holds exactly one
-  // hand-written `.js`, `src/services/hooks/write-gate.js`, which is a SHIPPED
-  // PreToolUse hook (the shape gate documented in `.claude/HOOKS.md`) — and it
-  // was invisible to every shape of this guard purely because of its
-  // extension. It is clean today (no id literal, no comparison against one,
-  // no settings path), so this root costs nothing and is pinned by count in
-  // the anti-silence test; the point is that the NEXT edit to that file is
-  // seen. There is no `.tsx`/`.jsx`/`.mts`/`.cts` under `src/` today (limit 4).
+  // `.js` is here although `src/` holds no `.js` file today. It was added for
+  // `src/services/hooks/write-gate.js`, a SHIPPED PreToolUse hook that sat
+  // outside every shape of this guard purely because of its extension; slice
+  // 2026-09-15-s10-misc-cleanup deleted that file (an installed handler that
+  // abstained on every path — the installation was the defect), so the
+  // extension now has no subject and matches zero files. Kept deliberately: the
+  // blind spot was the CLASS, not the one file, and retiring an extension the
+  // day its last file leaves means the next file of that extension is unguarded
+  // until someone re-adds it — which is precisely how this root came to exist.
+  // This is the only root here whose subject count is zero, and that is stated
+  // rather than papered over.
+  // There is also no `.tsx`/`.jsx`/`.mts`/`.cts` under `src/` today (limit 4).
   { root: join(PROJECT_ROOT, 'src'), extensions: ['.ts', '.js'] },
   { root: join(PROJECT_ROOT, 'scripts'), extensions: ['.mjs', '.cjs', '.js'] }
 ];
@@ -1070,12 +1086,16 @@ const KNOWN_DEBT: readonly {
   },
   {
     file: 'src/cli/commands/hooks-commands.ts',
-    comparisons: 1,
+    comparisons: 0,
     ideValues: 0,
     settingsPaths: 2,
     reason:
-      'CLI-level per-IDE branch for the hooks install flow, plus the Claude Code ' +
-      'skill-bridge copy targets (`resolve(userHome, \'.claude\', \'skills\', …)`)'
+      'REMAINING: the Claude Code skill-bridge copy targets ' +
+      '(`resolve(userHome, \'.claude\', \'skills\', …)`). The `comparisons: 1` this ' +
+      'entry used to carry was the `ide === \'trae\'` branch in ' +
+      '`listExpectedEntriesForIde`; slice 2026-09-15-s7-doc-code-align removed it ' +
+      'by deriving the entry list from `resolveHookEntries(ide)`, so the count ' +
+      'drops to 0 and only the two literal `.claude` paths remain pinned.'
   },
   {
     file: 'src/services/dispatch/dispatch-record-upgrade.ts',
@@ -1234,11 +1254,18 @@ describe('vendor neutrality — IDE identity decisions outside the adapter layer
       SCAN.comparisons.some((hit) => relativeToRoot(hit.file) === 'scripts/install-skills.mjs'),
       'the scripts/ root was not walked'
     ).toBe(true);
-    // The SECOND root this guard added is an EXTENSION (`src/**/*.js`), not a
-    // directory, so it is pinned by naming the one file it exists for: a walk
-    // that filtered `.ts` only would still reach `src/services/**`'s ids and
-    // sail past every other assertion here.
-    expect(SCAN.scannedFileList, 'src/**/*.js was not walked').toContain('src/services/hooks/write-gate.js');
+    // These two names are what keep BOTH roots covered now. Each pins a root
+    // by naming a file that can only be in it: a `.mjs` in `scripts/`, a `.ts`
+    // in `src/`. A walk that silently stopped reaching either root fails here.
+    //
+    // Until 2026-09-16 this block ALSO asserted
+    // `toContain('src/services/hooks/write-gate.js')`, to pin the `.js`
+    // EXTENSION that the `src/` root carries. That file was deleted (an
+    // installed handler that abstained on every path), so the assertion went
+    // with it: naming a deleted file would make its deliberate removal read as
+    // a scanner regression. The extension itself is retained at SCAN_ROOTS —
+    // see the note there — and it has no file to name today, so the `src/` root
+    // is pinned by extension-agnostic evidence instead.
     expect(SCAN.scannedFileList, 'the scripts/ root was not walked').toContain('scripts/install-skills.mjs');
     expect(SCAN.scannedFileList).toContain('src/services/context/auto-compact-reader.ts');
     // The regex branch's measured cost, pinned as a fact: no regex literal in

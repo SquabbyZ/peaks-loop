@@ -360,18 +360,18 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     const adapter = getAdapter(ide);
     const dispatcher = adapter.subAgentDispatcher;
     if (typeof dispatcher.awaitBatch !== 'function') {
-      printResult(io, fail('sub-agent.await', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support awaitBatch (1.2 MVP only ships claude-code)`, { ok: false } as never, [
-        'Switch to claude-code, or rely on LLM-side await for non-claude-code IDEs in slice 1.3.'
+      printResult(io, fail('sub-agent.await', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support awaitBatch`, { ok: false } as never, [
+        'Every built-in adapter has an awaitBatch since slice 1.3; a dispatcher without one is a custom adapter registered outside the built-in set.'
       ]), asJson);
       process.exitCode = 1;
       return;
     }
-    // 1.2 MVP: we don't keep a separate record path index for DAG-dispatched
-    // batches yet; the caller is expected to have a single shared record
-    // directory. We pass the empty list — the MVP runner tracks outcomes
-    // through its own contract-store writes; the dispatcher just signals
-    // "ready to await" through the awaitBatch LRU queue (slice 1.3
-    // upgrades to cross-process heartbeat polling).
+    // No record-path index is kept for DAG-dispatched batches yet; the caller
+    // is expected to have a single shared record directory. We pass the empty
+    // list — the runner tracks outcomes through its own contract-store writes,
+    // so the dispatcher reaches no slot and reports no results (see the
+    // `recordPaths: []` case in tests/unit/services/dispatch/
+    // sub-agent-dispatchers.test.ts, which pins that empty shape).
     const input = {
       batchId: options.batch,
       dispatchCount: 1,
@@ -389,7 +389,14 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
         results,
         summary
       }, [], [
-        'For trae / trae-cn / codex / cursor, results will report status=timeout with note=`awaitByLlm: <ide> 1.2 fallback`. The calling LLM holds the real await.'
+        // Slice 2026-09-15-s9: corrected. This used to tell users that the
+        // four non-Claude IDEs would report `awaitByLlm: <ide> 1.2 fallback`,
+        // the slice-1.2 marker that slice 1.3 replaced with a real
+        // file-polling await. The text survived because nothing tested it —
+        // no adapter produces that note any more (asserted in
+        // sub-agent-dispatchers.test.ts), and the only code that still emits
+        // it, `awaitByLlmFallback`, has no callers.
+        `Each non-claude-code IDE labels its own results (see the \`note\` field), so a timed-out slot is attributable to the adapter it came from.`
       ]), asJson);
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'AWAIT_ERROR';

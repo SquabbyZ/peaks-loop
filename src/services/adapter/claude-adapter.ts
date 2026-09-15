@@ -1,3 +1,15 @@
+/**
+ * ⚠ DEAD CODE — not a live adapter. See the block comment on
+ * `src/services/adapter/adapter.ts` for the three same-named layers.
+ *
+ * This is the only file in the cluster with a real implementation, which is
+ * what makes it the most misleading one: it writes a real
+ * `~/.claude/skills/peaks-bee-<name>.peaks-generated/SKILL.md` scratch dir if
+ * you call it. Nothing calls it — zero importers in `src/`, `tests/`,
+ * `packages/` or `scripts/`. The live Claude Code knowledge lives in
+ * `src/services/ide/adapters/claude-code-adapter.ts` (IDE surface) and
+ * `src/services/runtime/vendors/claude-code.ts` (runtime compact).
+ */
 import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { Adapter, AdapterEnvelope, AdapterSegment } from "./adapter.js";
