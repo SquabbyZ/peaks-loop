@@ -86,13 +86,21 @@ describe('Scenario: integration — the root .gitignore still blocks a date-stam
     expect(result.stdout).toContain(DEFENSE_RULE);
   });
 
-  it('when git evaluates a session dir under .peaks/_runtime, should ignore it via the _runtime rule instead', () => {
-    // given: a legitimate session dir (the canonical two-axis location)
+  it('when git evaluates a bare-date sibling path, should leave it alone', () => {
+    // given: `.peaks/<YYYY-MM-DD>/` — a plain date, no slug, which is NOT the
+    //        auto-generated session shape the ban targets
     // when: git check-ignore resolves it
-    // then: it is ignored, but NOT by the date-prefix rule
-    const result = git(['check-ignore', '-v', '.peaks/_runtime/2026-01-01-fake-session/rd/note.md'], REPO_ROOT);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('.peaks/_runtime/');
+    // then: nothing ignores it: the rule's scope is `YYYY-MM-DD-*`, and a rule
+    //       that also swallowed bare dates would ban paths the ban is not about
+    //
+    // This case deliberately probes a date-prefixed sibling rather than a
+    // session dir under the runtime tree. A probe naming `.peaks/_runtime/…`
+    // against the repo root is exactly what `tests/unit/runtime/no-runtime-input-guard.test.ts`
+    // exists to reject, and it is red on CI by construction — the runtime tree
+    // is gitignored session state, and no test may take it as an input, not even
+    // to assert a `.gitignore` pattern about it.
+    const result = git(['check-ignore', '-v', '.peaks/2026-01-01/note.md'], REPO_ROOT);
+    expect(result.status).toBe(1);
     expect(result.stdout).not.toContain(DEFENSE_RULE);
   });
 
