@@ -21,7 +21,7 @@
 
 import { z } from 'zod';
 
-import { appendMetricLine, metricsFilePath, pruneMetricsFiles, readMetricLines } from './jsonl-store.js';
+import { appendMetricLine, pruneMetricsFiles, readMetricLines, tryMetricsFilePath } from './jsonl-store.js';
 
 export const OBSERVABILITY_SCHEMA_VERSION = 1 as const;
 
@@ -79,12 +79,16 @@ export type EmitOptions = {
   projectRoot: string;
 };
 
-export type EmitFailureReason = 'invalid-schema' | 'write-failed';
+export type EmitFailureReason = 'invalid-schema' | 'write-failed' | 'invalid-session-id';
 
 export type EmitResult = {
   /** True when the JSONL line was appended; false on any error path. */
   written: boolean;
-  /** Absolute path to the metrics file the event was written to (or would be). */
+  /**
+   * Absolute path to the metrics file the event was written to (or would
+   * be). Empty string when the session id named no session directory —
+   * there is no path to report, and `reason` says so.
+   */
   path: string;
   /** Set only when `written` is false. */
   reason?: EmitFailureReason;
@@ -101,7 +105,17 @@ export type EmitResult = {
  * session count is below `MAX_METRICS_FILES`.
  */
 export function emitObservabilityEvent(event: ObservabilityEvent, options: EmitOptions): EmitResult {
-  const path = metricsFilePath(options.projectRoot, event.sessionId);
+  // The session id is resolved through the axis's TOTAL entry, before anything
+  // else. The contract two doc comments above is that this function never
+  // throws; the previous first line called the axis's THROWING entry, so an
+  // unsafe session id made it throw — measured (repair R4) as
+  // `Invalid session id: ../../../../RD-R4-PWNED`, against a legal control
+  // that returned `written: true`. A guard refusal is a failure like any
+  // other here: it becomes a reason, not an exception.
+  const path = tryMetricsFilePath(options.projectRoot, event.sessionId);
+  if (path === null) {
+    return { written: false, path: '', reason: 'invalid-session-id' };
+  }
   const validation = ObservabilityEventSchema.safeParse(event);
   if (!validation.success) {
     return { written: false, path, reason: 'invalid-schema' };
@@ -121,7 +135,10 @@ export function emitObservabilityEvent(event: ObservabilityEvent, options: EmitO
  * lines and any record whose `schemaVersion` does not match the
  * current `OBSERVABILITY_SCHEMA_VERSION` (forward-compat per Q3).
  *
- * Returns [] when the session has no metrics file yet.
+ * Returns [] when the session has no metrics file yet, and [] when the
+ * session id names no session directory — both are "no events are
+ * readable here", and this reader does not throw (repair R6: it used to,
+ * via `readMetricLines` → `metricsFilePath`).
  */
 export function readObservabilityEvents(projectRoot: string, sessionId: string): ObservabilityEvent[] {
   const lines = readMetricLines(projectRoot, sessionId);

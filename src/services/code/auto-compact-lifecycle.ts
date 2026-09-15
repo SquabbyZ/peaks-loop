@@ -18,6 +18,7 @@ import {
   type CompactLifecycleStage
 } from '../compact-statusline/compact-lifecycle-store.js';
 import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
+import { tryGetSessionDir } from '../session/getSessionDir.js';
 
 /**
  * Stages a compact *attempt* can prove from inside the dispatching
@@ -80,6 +81,22 @@ export function newCompactRunId(now: Date): string {
 }
 
 /**
+ * The answer to "is there an open compact record for this session?".
+ *
+ * THREE states, not two. `none` and `unresolvable` both used to be
+ * `null`, and that conflation is the defect repair R6 exists to close:
+ * `readOpenDispatchRun` maps `none` to the ADMIT branch of the compact
+ * backoff ("no attempt is outstanding, dispatch freely"), so a session
+ * id that could not be resolved — and therefore could not be READ —
+ * was silently answered as "no attempt is outstanding". The backoff
+ * then failed to apply precisely where the id was malformed.
+ */
+type OpenCompactLifecycleRead =
+  | { readonly kind: 'found'; readonly record: CompactLifecycleRecord }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unresolvable'; readonly reason: string };
+
+/**
  * Slice 2026-08-01-compact-lifecycle (Task 5): read an open compact
  * record ignoring staleness.
  *
@@ -94,14 +111,21 @@ export function newCompactRunId(now: Date): string {
  * later. Wrapping that unbounded read here keeps the magic number out
  * of the settle path and makes the intent self-documenting.
  *
- * Returns `null` for any non-`valid` kind (missing / invalid /
- * stalled). Errors from the underlying read are swallowed — settling
- * is best-effort telemetry and must never bubble.
+ * The session id is resolved through `tryGetSessionDir` FIRST, so the
+ * guard's throw is answered before the store is entered and the failing
+ * branch is a value the caller must handle rather than a `catch` nobody
+ * reads. The residual `catch` is therefore unreachable for a bad id;
+ * anything that reaches it is a store fault, and a store fault is still
+ * not "there is no open run" — hence `unresolvable`, never `none`.
  */
 function readOpenCompactLifecycle(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
-}): CompactLifecycleRecord | null {
+}): OpenCompactLifecycleRead {
+  const resolved = tryGetSessionDir(input.projectRoot, input.sessionId);
+  if (!resolved.ok) {
+    return { kind: 'unresolvable', reason: resolved.reason };
+  }
   let out: ReturnType<typeof readCompactLifecycle>;
   try {
     out = readCompactLifecycle({
@@ -113,10 +137,10 @@ function readOpenCompactLifecycle(input: {
       // intentionally ignores staleness.
       staleAfterMs: Number.MAX_SAFE_INTEGER
     });
-  } catch {
-    return null;
+  } catch (error) {
+    return { kind: 'unresolvable', reason: summarizeLifecycleError(error) };
   }
-  return out.kind === 'valid' ? out.record : null;
+  return out.kind === 'valid' ? { kind: 'found', record: out.record } : { kind: 'none' };
 }
 
 /**
@@ -128,12 +152,12 @@ function readOpenCompactLifecycle(input: {
  * session, and the harness fires only at its own red line. So the dispatch
  * obligation became unsatisfiable and fired on every probe. Measured in one
  * real session (2026-09-13T22:43:33Z → 2026-09-14T14:15:02Z, ~15.5 h):
- * 1075 `dispatch` rows, 444 checkpoints, and ZERO compactions. The dispatch
- * itself is idempotent — `ide-native` only installs a PreToolUse hook, and a
- * second install of the same hook is a documented no-op — so 1074 of those
- * rows installed nothing (their own `dispatchMessage` says `already
- * installed`) and carried no new information. Only noise: a signal that fires
- * a thousand times is not a signal.
+ * 1035 `dispatch` rows, 444 checkpoints, and ZERO compactions — 1075 by
+ * 14:22:09.112Z. The dispatch itself is idempotent — `ide-native` only
+ * installs a PreToolUse hook, and a second install of the same hook is a
+ * documented no-op — so 1074 of those rows installed nothing (their own
+ * `dispatchMessage` says `already installed`) and carried no new information.
+ * Only noise: a signal that fires a thousand times is not a signal.
  *
  * WHY NO NEW STORE. The one-record-per-session lifecycle store already holds
  * the one fact the backoff needs: is a compact attempt dispatched and not yet
@@ -155,14 +179,34 @@ function readOpenCompactLifecycle(input: {
  * dispatch. `failed` is not open either, by the same argument: a failure is a
  * reason to try again, not a reason to stay quiet.
  */
+/**
+ * The answer to "is a compact attempt outstanding for this session?".
+ *
+ * `none` and `unresolvable` must not be the same value. The caller uses
+ * `none` to ADMIT a dispatch; `unresolvable` means the question could
+ * not be asked, and a caller that admits on "could not ask" has a gate
+ * that reads a string rather than the artifact it names.
+ */
+export type OpenDispatchRunRead =
+  | {
+      readonly kind: 'open';
+      readonly runId: string;
+      readonly stage: 'armed' | 'compacting';
+      readonly triggerRatio: number;
+    }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unresolvable'; readonly reason: string };
+
 export function readOpenDispatchRun(input: {
   readonly projectRoot: string;
   readonly sessionId: string;
-}): { readonly runId: string; readonly stage: 'armed' | 'compacting'; readonly triggerRatio: number } | null {
-  const record = readOpenCompactLifecycle(input);
-  if (record === null) return null;
-  if (record.stage !== 'armed' && record.stage !== 'compacting') return null;
-  return { runId: record.runId, stage: record.stage, triggerRatio: record.triggerRatio };
+}): OpenDispatchRunRead {
+  const read = readOpenCompactLifecycle(input);
+  if (read.kind === 'unresolvable') return read;
+  if (read.kind === 'none') return { kind: 'none' };
+  const record = read.record;
+  if (record.stage !== 'armed' && record.stage !== 'compacting') return { kind: 'none' };
+  return { kind: 'open', runId: record.runId, stage: record.stage, triggerRatio: record.triggerRatio };
 }
 
 /**
@@ -301,6 +345,18 @@ export function summarizeLifecycleError(error: unknown): string {
  * `afterRatio` to append the "observed compaction point" row that makes the
  * intent-vs-observed gap readable after a real session. The return value is
  * telemetry only — callers that ignore it are unaffected.
+ *
+ * `lifecycleWritten` (repair R6) makes the returned record honest about
+ * whether the RUN actually moved. Before it, a failed write still returned
+ * the full envelope, so a store that could not be written reported a settle
+ * on every probe, forever: the run stayed `armed`, the next probe found it
+ * open again, and each one added another "observed compaction point" row —
+ * an unbounded append driven by a write that never happened. A failed write
+ * is not an absent run (the facts are real and stay true, so the caller may
+ * still record the measurement), but it is also not a settled one. This is
+ * the same field `settleOpenLifecycleRunOnCompactEvent` carries, for the
+ * same reason, so the two settle paths no longer disagree about what a write
+ * failure means.
  */
 export function settleOpenLifecycleRun(input: {
   readonly projectRoot: string;
@@ -309,18 +365,31 @@ export function settleOpenLifecycleRun(input: {
   readonly source: string;
   readonly autoFireThreshold: number;
   readonly onLifecycleStage?: ((stage: CompactLifecycleStage, record: CompactLifecycleRecord) => void) | undefined;
-}): { readonly runId: string; readonly triggerRatio: number; readonly afterRatio: number } | null {
+  /** Failure injection for the write below — the seam `CompactLifecyclePublisher` already takes. */
+  readonly failLifecycleWrite?: boolean | undefined;
+}): {
+  readonly runId: string;
+  readonly triggerRatio: number;
+  readonly afterRatio: number;
+  /** `false` when the `completed` write threw, so the run is STILL open. */
+  readonly lifecycleWritten: boolean;
+} | null {
   // A `conservative-fallback` probe means no signal was available at
   // all. Its `ratio: 0` is the absence of a measurement, so it can
   // never be evidence that the context shrank.
   if (input.source === 'conservative-fallback') return null;
   if (input.measuredRatio >= input.autoFireThreshold) return null;
 
-  const prior = readOpenCompactLifecycle({
+  const openRead = readOpenCompactLifecycle({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId
   });
-  if (prior === null) return null;
+  // Both `none` and `unresolvable` mean "nothing to settle" HERE, and the
+  // collapse is legitimate on this path rather than a fail-open: settling
+  // ADMITS nothing. No record can exist under an id that names no session
+  // directory, so there is nothing this probe could have been about.
+  if (openRead.kind !== 'found') return null;
+  const prior = openRead.record;
   // Only a run that was actually dispatched can be completed by a
   // post-compact measurement. Both `compacting` (the in-band trigger is
   // satisfied) and `armed` (a trigger was registered and could fire at
@@ -328,7 +397,7 @@ export function settleOpenLifecycleRun(input: {
   // landed, and this is the only open run to attribute it to.
   if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
 
-  const emit = (stage: 'verifying' | 'completed', withAfterRatio: boolean): void => {
+  const emit = (stage: 'verifying' | 'completed', withAfterRatio: boolean): boolean => {
     const record: CompactLifecycleRecord = {
       schemaVersion: 1,
       runId: prior.runId,
@@ -339,26 +408,32 @@ export function settleOpenLifecycleRun(input: {
       ...(withAfterRatio ? { afterRatio: input.measuredRatio } : {})
     };
     try {
+      if (input.failLifecycleWrite) throw new Error('lifecycle store unavailable');
       writeCompactLifecycle({
         projectRoot: input.projectRoot,
         sessionId: input.sessionId,
         record
       });
     } catch {
-      return;
+      // Best-effort telemetry, as everywhere in this file — but the failure is
+      // REPORTED to the caller as `lifecycleWritten: false` rather than folded
+      // into a record that reads as settled.
+      return false;
     }
     try {
       input.onLifecycleStage?.(stage, record);
     } catch {
       // Observer failures are not ours to propagate.
     }
+    return true;
   };
 
   // `verifying` = we hold a measurement and are checking it.
   emit('verifying', false);
-  // `completed` = the measurement confirms the drop; publish it.
-  emit('completed', true);
-  return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio };
+  // `completed` = the measurement confirms the drop; publish it. This write
+  // is the one that closes the run, so it is the one that is reported.
+  const lifecycleWritten = emit('completed', true);
+  return { runId: prior.runId, triggerRatio: prior.triggerRatio, afterRatio: input.measuredRatio, lifecycleWritten };
 }
 
 /**
@@ -439,11 +514,15 @@ export function settleOpenLifecycleRunOnCompactEvent(input: {
    */
   readonly lifecycleWritten: boolean;
 } | null {
-  const prior = readOpenCompactLifecycle({
+  const openRead = readOpenCompactLifecycle({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId
   });
-  if (prior === null) return null;
+  // Same collapse as `settleOpenLifecycleRun` above, for the same reason:
+  // an unresolvable id names no session directory, so no open run exists
+  // for this event to be about, and `null` here admits nothing.
+  if (openRead.kind !== 'found') return null;
+  const prior = openRead.record;
   if (prior.stage !== 'compacting' && prior.stage !== 'armed') return null;
 
   const afterRatio =
@@ -521,11 +600,13 @@ export function fillEventSettledMeasurement(input: {
 }): { readonly runId: string; readonly triggerRatio: number; readonly afterRatio: number } | null {
   if (input.source === 'conservative-fallback') return null;
 
-  const prior = readOpenCompactLifecycle({
+  const openRead = readOpenCompactLifecycle({
     projectRoot: input.projectRoot,
     sessionId: input.sessionId
   });
-  if (prior === null) return null;
+  // Same collapse as the two settle paths above — `null` here admits nothing.
+  if (openRead.kind !== 'found') return null;
+  const prior = openRead.record;
   // Exactly one shape is owed a number: the one the EVENT path leaves behind.
   // `settleOpenLifecycleRun` never writes it (it always carries `afterRatio`),
   // and a `failed` run never dispatched, so it has no row to pair with.

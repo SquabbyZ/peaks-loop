@@ -22,7 +22,7 @@
  * Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -41,6 +41,7 @@ import { runAutoCompact } from '~/src/services/code/auto-compact-orchestrator';
 import { readCompactLifecycle, writeCompactLifecycle } from '~/src/services/compact-statusline/compact-lifecycle-store';
 import {
   computeWindowCalibration,
+  summarizeCompactHistory,
   type CompactHistoryEvent
 } from '~/src/services/compact-history/compact-history-service';
 
@@ -438,12 +439,20 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
     expect(read.record.stage).toBe('compacting');
   });
 
-  it('when the lifecycle record cannot be written, should still record the observation', () => {
-    // The second consequence of the conflation: the `observed` row is evidence
-    // about the HARNESS's statement, not about the lifecycle write, so losing
-    // the write must not discard the observation with it. The two outcomes are
-    // reported as two separate facts, because a caller told only one of them
-    // cannot say which half of the settlement landed.
+  it('when the lifecycle record cannot be written, should DEFER the observation rather than assert it', () => {
+    // REVERSED BY REPAIR R9, and the reversal is the point. Read alone, the
+    // harness's statement is evidence independent of the lifecycle write — which
+    // is why this row used to be appended anyway. Read against the sibling
+    // path, it is not: R6 made the probe caller defer its row on exactly this
+    // failure, and the row this path appended claimed `kind: 'observed'`,
+    // `ok: true` and `afterRatio` for a run the store still holds at
+    // `compacting` — a settled measurement the store never made, one row per
+    // arrival, and a SECOND row for the same compaction once the store
+    // recovered. `compact-event-settle.ts` and `auto-compact-orchestrator.ts`
+    // are two answers to one question and must not disagree.
+    //
+    // Nothing is lost by deferring: the run stays open, so the retry that does
+    // land settles it and owns the row, measuring the ratio at that moment.
     // given: an open run
     const root = makeProject();
     const sid = '2026-09-13-session-settle-a2';
@@ -460,13 +469,188 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
     expect(result.settled).toBe(true);
     if (!result.settled) return;
     expect(result.lifecycleWritten).toBe(false);
-    expect(result.historyWritten).toBe(true);
-    // ...and the observation really is on disk
+    expect(result.historyWritten).toBe(false);
+    // ...nothing asserting a settlement is on disk...
+    expect(readHistory(root, sid)).toEqual([]);
+    // ...the run is demonstrably still where it was...
+    const still = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    if (still.kind !== 'valid') throw new Error(`expected a valid record, got ${still.kind}`);
+    expect(still.record.stage).toBe('compacting');
+    // ...and the retry, once the write lands, appends exactly one row — at the
+    // ratio IT measured, which is the settlement the row is about
+    const retry = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'auto',
+      measure: ruler({ ratio: 0.05, ide: 'claude-code', windowTokens: null, windowSource: null })
+    });
+    expect(retry.settled).toBe(true);
+    if (!retry.settled) return;
+    expect(retry.historyWritten).toBe(true);
     const rows = readHistory(root, sid);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.pathway).toBe('post-compact-hook');
     expect(rows[0]?.trigger).toBe('auto');
-    expect(rows[0]?.afterRatio).toBe(0.04);
+    expect(rows[0]?.afterRatio).toBe(0.05);
+  });
+});
+
+describe('C — the sibling settle path, aligned (repair R9)', () => {
+  /** The file `writeCompactLifecycle` renames its temp file onto. */
+  function lifecycleRecordPath(projectRoot: string, sessionId: string): string {
+    return join(projectRoot, '.peaks', '_runtime', sessionId, 'compact-lifecycle.json');
+  }
+
+  /** The measurement both tests below are taken at: the same drop, three times. */
+  const drop: PostCompactMeasurement = { ratio: 0.04, ide: 'claude-code', windowTokens: null, windowSource: null };
+
+  it('when the lifecycle record cannot be written, should append no row for a compaction the store never recorded', () => {
+    // AC1 + AC2. The PROBE caller defers its `observed` row when the lifecycle
+    // write fails (repair R6, `auto-compact-orchestrator.ts`); this path did not,
+    // so ONE failure produced a row here and nothing there.
+    //
+    // THE FAILURE IS GENUINE, and the injection is proved to fire before either
+    // direction is believed. `chmod 0444` on the record makes
+    // `writeCompactLifecycle`'s `renameSync` really throw — measured on this OS,
+    // EPERM. It is deliberately NOT `failLifecycleWrite`, but NOT because that
+    // seam is absent on the path under test: `settleCompactFromHarnessEvent` →
+    // `settleOpenLifecycleRunOnCompactEvent` is exactly where the seam EXISTS and
+    // is LIVE pre-fix (measured: the write is refused, the record stays
+    // `compacting`), and a seam fixture on it goes RED against the defect with 3
+    // rows — the fixture shape describe A's reversed test uses, and the reverse
+    // of repair R9 (that test is red pre-fix for the same reason, measured). The
+    // seam is inoperative on the SIBLING path only: `settleOpenLifecycleRun`'s
+    // pre-fix signature does not carry it, the flag is ignored and the record
+    // advances to `completed` anyway, which is why R6's measurement of that path
+    // could not have expressed this defect. `chmod` is preferred because it is
+    // independent of the code under test (an injection that never fires reads
+    // exactly like a passing guard), not because a flag would be ignored here.
+    // given: an open run whose record cannot be rewritten
+    const root = makeProject();
+    const sid = '2026-09-13-session-settle-r9a';
+    openRun(root, sid, 0.92);
+    const recordPath = lifecycleRecordPath(root, sid);
+    chmodSync(recordPath, 0o444);
+
+    // when: the injection is confirmed live — the write really does refuse
+    expect(() =>
+      writeCompactLifecycle({
+        projectRoot: root,
+        sessionId: sid,
+        record: {
+          schemaVersion: 1,
+          runId: 'injection-canary',
+          stage: 'completed',
+          updatedAt: new Date().toISOString(),
+          triggerRatio: 0.92,
+          redLine: false
+        }
+      })
+    ).toThrow();
+
+    // when: the harness reports the SAME compaction three times
+    const results = [0, 1, 2].map(() =>
+      settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) })
+    );
+    chmodSync(recordPath, 0o644);
+
+    // then: every arrival reports the run still unsettled — the three facts are
+    // read off the OPEN run, so they stay true; the SETTLE is what is refused
+    for (const result of results) {
+      expect(result.settled).toBe(true);
+      if (!result.settled) continue;
+      expect(result.lifecycleWritten).toBe(false);
+      expect(result.historyWritten).toBe(false);
+    }
+
+    // ...and NOT ONE row was appended. PRE-FIX this was 3 rows, each carrying
+    // `afterRatio: 0.04` — a settled measurement asserted for a run the store
+    // still holds at `compacting`, one per arrival, bounded only by how often
+    // the harness fires.
+    expect(readHistory(root, sid)).toEqual([]);
+    const still = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    if (still.kind !== 'valid') throw new Error(`expected a valid record, got ${still.kind}`);
+    expect(still.record.stage).toBe('compacting');
+
+    // and the control that falsifies "this path never appends anything": with
+    // the write restored, the SAME event appends exactly one row
+    const recovered = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
+    expect(recovered.settled).toBe(true);
+    if (!recovered.settled) return;
+    expect(recovered.lifecycleWritten).toBe(true);
+    expect(recovered.historyWritten).toBe(true);
+    expect(readHistory(root, sid)).toHaveLength(1);
+  });
+
+  it('when the row is deferred, should leave the calibration pair open for the retry that lands it', async () => {
+    // AC3, readers 1 and 2 of 3, measured rather than argued.
+    //
+    // The justification for deferring is that the row is DEFERRED, not lost: the
+    // pair `computeWindowCalibration` builds is still owed a measurement, and the
+    // retry — the settlement this row is about — pays it. That only holds if
+    // neither reader reads an ABSENT row as "a compact landed". It does not:
+    // `computeWindowCalibration` skips an `observed` row carrying no number and
+    // `summarizeCompactHistory` reports counts and the last row, never a
+    // conclusion. What would close a pair on nothing is a row that is there but
+    // describes a settlement the store never made — which is what was removed.
+    // given: a real dispatch, so there is a pair to close
+    const root = makeProject();
+    const sid = '2026-09-13-session-settle-r9c';
+    const dispatched = await runAutoCompact({ projectRoot: root, sessionId: sid, env: envAtRatio(0.93) });
+    expect(dispatched.code).toBe('AUTO_COMPACT_DISPATCHED');
+
+    // when: the harness event arrives while the lifecycle record cannot be written
+    chmodSync(lifecycleRecordPath(root, sid), 0o444);
+    const deferred = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
+    chmodSync(lifecycleRecordPath(root, sid), 0o644);
+    expect(deferred.settled).toBe(true);
+    if (!deferred.settled) return;
+    expect(deferred.historyWritten).toBe(false);
+
+    // then: the pair is OPEN — an unmeasured dispatch, not a measurement attached
+    // to nothing — and the bar's total is the dispatch row alone
+    let calibration = computeWindowCalibration(readHistory(root, sid));
+    expect(calibration.pairs).toHaveLength(1);
+    expect(calibration.unmeasured).toBe(1);
+    expect(calibration.pairs[0]?.observedRatio).toBeNull();
+    expect(summarizeCompactHistory(readHistory(root, sid)).totalCompacts).toBe(1);
+
+    // when: the retry lands — the same run, still open
+    const retry = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
+    expect(retry.settled).toBe(true);
+    if (!retry.settled) return;
+    expect(retry.historyWritten).toBe(true);
+
+    // then: exactly ONE observed row, and the pair closes on it
+    calibration = computeWindowCalibration(readHistory(root, sid));
+    expect(calibration.unmeasured).toBe(0);
+    expect(calibration.pairs).toHaveLength(1);
+    expect(calibration.pairs[0]?.observedRatio).toBe(0.04);
+    expect(readHistory(root, sid).filter((e) => e.kind === 'observed')).toHaveLength(1);
+  });
+
+  it('when the lifecycle record cannot be written, should still report the harness trigger it was told', () => {
+    // The deferred/deferred asymmetry, pinned: what the row loses is the
+    // SETTLEMENT claim, not the harness's own word. A caller told "unsettled"
+    // still learns which compaction this was.
+    // given: an open run whose record cannot be rewritten
+    const root = makeProject();
+    const sid = '2026-09-13-session-settle-r9b';
+    openRun(root, sid, 0.92);
+    chmodSync(lifecycleRecordPath(root, sid), 0o444);
+    // when: the event arrives with the harness's trigger
+    const result = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'manual', measure: ruler(drop) });
+    chmodSync(lifecycleRecordPath(root, sid), 0o644);
+    // then: the outcome is reported, the row is not written, and the two are
+    // separate fields rather than one collapsed value
+    expect(result.settled).toBe(true);
+    if (!result.settled) return;
+    expect(result.trigger).toBe('manual');
+    expect(result.runId).toBe('compact-test-run');
+    expect(result.beforeRatio).toBe(0.92);
+    expect(result.lifecycleWritten).toBe(false);
+    expect(result.historyWritten).toBe(false);
+    expect(readHistory(root, sid)).toEqual([]);
   });
 });
 

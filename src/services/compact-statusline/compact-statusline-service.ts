@@ -9,8 +9,8 @@
 //
 // Decision priority (explicit, no implicit fall-through):
 //   1. lifecycle missing  → fall back to legacy (pending → queued,
-//      recent history → completed WITHOUT an invented after-ratio,
-//      else none)
+//      a recent `observed` history row → completed WITHOUT an invented
+//      after-ratio, else none)
 //   2. lifecycle invalid  → 'invalid' (NEVER fall back to legacy
 //      — a corrupted lifecycle is not a green progress bar)
 //   3. lifecycle valid    → map stage to filledCells via the
@@ -38,9 +38,10 @@
 // carries a real one; otherwise the bar shows a stable "no
 // measurement" hint.
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { AUTO_COMPACT_RED_LINE_RATIO } from '../context/auto-compact-types.js';
+import { readCompactHistory } from '../compact-history/compact-history-service.js';
 import {
   readCompactLifecycle,
   type CompactLifecycleRecord,
@@ -89,7 +90,12 @@ const DEFAULT_STALE_AFTER_MS = 120_000;
  */
 export const COMPLETED_EXPIRY_MS = 10_000;
 
-/** Legacy mtime window for the "just compacted" indicator. */
+/**
+ * How recently the last history row must itself have been written for the
+ * legacy path to report it as "just compacted". Measured against the row's own
+ * `ts` — the fact — rather than the file's mtime, which is only a proxy for it
+ * and is also moved by rows that record no compaction (repair R9).
+ */
 const LEGACY_JUST_COMPACTED_WINDOW_MS = 30_000;
 
 // PRD-002b slice 2 — extract cell-table magic numbers (4/6/8) into named
@@ -195,6 +201,7 @@ export function decideCompactStatusline(input: {
   // lifecycle.kind === 'missing' → fall back to legacy files.
   return decideLegacyFallback({
     projectRoot: input.projectRoot,
+    sessionId: input.sessionId,
     sessionDir,
     now: input.now,
   });
@@ -247,6 +254,7 @@ function stateFromStalled(record: CompactLifecycleRecord): CompactStatuslineStat
 
 function decideLegacyFallback(input: {
   readonly projectRoot: string;
+  readonly sessionId: string;
   readonly sessionDir: string;
   readonly now: number;
 }): CompactStatuslineState {
@@ -273,24 +281,54 @@ function decideLegacyFallback(input: {
     }
   }
 
-  // Priority 2 within legacy: a recent history event within 30s.
-  if (existsSync(historyPath)) {
-    try {
-      const mtimeMs = statSync(historyPath).mtimeMs;
-      if (now - mtimeMs <= LEGACY_JUST_COMPACTED_WINDOW_MS) {
-        // CRITICAL: no invented after-ratio. The history event may
-        // carry a beforeRatio, but never a measured after-ratio;
-        // this is the legacy path and we honour the "no measurement"
-        // default.
-        return {
-          kind: 'completed',
-          filledCells: 8,
-          detail: historyPath,
-        };
-      }
-    } catch {
-      // fall through to idle
+  // Priority 2 within legacy: a history row TESTIFIES that a compaction was
+  // witnessed, recently enough to still be the one being reported.
+  //
+  // Repair R9 (AC4). This used to read the file's mtime — freshness taken as
+  // evidence that "a compact just landed". Freshness is evidence of neither:
+  // the same file takes a `dispatch` row every time peaks-loop ASKS for a
+  // compact, and an ask is an intent, not an outcome. One real session
+  // (2026-09-13, ~15.5 h) holds 1075 dispatch rows and ZERO compactions
+  // (`auto-compact-orchestrator.ts`), so a fresh file was the NORMAL state of a
+  // session in which nothing had compacted at all — and each of those asks
+  // painted this 8-cell "completed" bar.
+  //
+  // So the row's own testimony is read instead, through the same reader the CLI
+  // uses. Only `kind: 'observed'` means a compaction was witnessed (a row with
+  // no `kind` is a dispatch — every pre-`kind` row is one), and the row's `ts`
+  // is the moment compared, not the filesystem's.
+  //
+  // Repair R11. The testimony is looked for in EVERY row inside the window, not
+  // only in the last one. Reading the last row alone made the indicator depend
+  // on the ASK: a `dispatch` row lands on every probe, so an `observed` row
+  // stopped counting the moment peaks-loop asked again — `[observed, dispatch]`
+  // one second apart answered `none` for a compaction that had just been
+  // witnessed — i.e. it deleted the very indicator the mtime read had shown,
+  // the one the replacement was meant to keep honest. A `dispatch` row alone
+  // still testifies
+  // to nothing (the direction R9 closed): what is required is an `observed` row
+  // inside the window, wherever in the file it sits.
+  try {
+    // The reader answers `file-missing` / `empty` itself; the `catch` is for the
+    // read itself, which it does not guard.
+    const read = readCompactHistory({ projectRoot: input.projectRoot, sessionId: input.sessionId });
+    const witnessed =
+      read.kind === 'ok' &&
+      read.events.some(
+        (row) => row.kind === 'observed' && now - Date.parse(row.ts) <= LEGACY_JUST_COMPACTED_WINDOW_MS
+      );
+    if (witnessed) {
+      // CRITICAL: no invented after-ratio. The row may carry a measured
+      // afterRatio, but this is the legacy path and we honour the
+      // "no measurement" default.
+      return {
+        kind: 'completed',
+        filledCells: 8,
+        detail: historyPath,
+      };
     }
+  } catch {
+    // fall through to idle
   }
 
   return { kind: 'none', filledCells: 0 };

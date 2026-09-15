@@ -128,13 +128,22 @@ export type AutoCompactResult =
     }
   | {
       readonly ok: true;
-      readonly code: 'AUTO_COMPACT_SKIP' | 'AUTO_COMPACT_WAIT' | 'AUTO_COMPACT_ALREADY_ARMED';
+      readonly code: 'AUTO_COMPACT_SKIP' | 'AUTO_COMPACT_WAIT' | 'AUTO_COMPACT_ALREADY_ARMED' | 'AUTO_COMPACT_UNRESOLVED_SESSION';
       readonly message: string;
       readonly data: {
         readonly sessionId: string;
         readonly ratio: number;
         readonly source: string;
-        readonly decision: 'below-threshold' | 'in-flight-batch' | 'already-armed';
+        /**
+         * `unresolved-session` (repair R6): the session id named no session
+         * directory, so the compact backoff's question — "is an attempt already
+         * outstanding?" — could not be asked. It is NOT `already-armed` (no run
+         * was found; the record could not be read at all) and NOT an admit: the
+         * dispatch is left undone because an unanswerable question is not a
+         * "no", and admitting on one is how a gate ends up reading a string
+         * instead of the artifact the string names.
+         */
+        readonly decision: 'below-threshold' | 'in-flight-batch' | 'already-armed' | 'unresolved-session';
         /**
          * rid `2026-09-14-compact-dispatch-backoff`, `already-armed` only: the
          * ratio the open run was dispatched at, and its id. `ratio` above is the

@@ -137,7 +137,7 @@ describe('Scenario: behavior — AC1, the bound on dispatch rows', () => {
     // only on a settle — which requires the ratio to fall, which by hypothesis
     // never happens. So the one run opened by the crossing is never superseded,
     // and the crossing admits exactly one dispatch.
-    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })?.stage).toBe('armed');
+    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({ kind: 'open', stage: 'armed' });
   });
 
   it('when invoked, should Case 2 (AC1): the bound is 1 per crossing, not 1 per session — it is the RUN that is open, not a global latch', async () => {
@@ -237,7 +237,8 @@ describe('Scenario: behavior — AC2, the crossing is still recorded and still l
     expect(later.data.decision).toBe('already-armed');
     // and the open attempt is still the one the crossing opened
     const open = readOpenDispatchRun({ projectRoot, sessionId: SID });
-    expect(open?.triggerRatio).toBeCloseTo(0.87, 5);
+    expect(open).toMatchObject({ kind: 'open' });
+    expect(open.kind === 'open' ? open.triggerRatio : null).toBeCloseTo(0.87, 5);
   });
 
   it('when invoked, should Case 8 (AC2): the suppressed probe writes NO checkpoint, which is where 444 of the 15.5-hour session\'s files came from', async () => {
@@ -283,7 +284,7 @@ describe('Scenario: integration — AC3, the control group (a real compaction st
     await runAutoCompact({ projectRoot, sessionId: SID, env: envAtRatio(0.9) });
     // then: no `observed` row is invented, and the run is still open
     expect(readRows(projectRoot).map((r) => r['kind'] ?? 'dispatch')).toEqual(['dispatch']);
-    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })?.stage).toBe('armed');
+    expect(readOpenDispatchRun({ projectRoot, sessionId: SID })).toMatchObject({ kind: 'open', stage: 'armed' });
   });
 });
 

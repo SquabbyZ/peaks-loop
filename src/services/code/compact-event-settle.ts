@@ -87,18 +87,30 @@ export type CompactSettleResult =
       /** Present only when the harness reported one. */
       readonly trigger?: CompactTrigger;
       /**
-       * False when the run settled but the `observed` row could not be
-       * appended. The settlement is the load-bearing half and is never undone
-       * for this, but the two outcomes are not the same fact.
+       * Whether the `observed` row for this event is on disk. `false` means
+       * there is none, for one of two DIFFERENT reasons, told apart by
+       * `lifecycleWritten`:
+       *
+       *   - `lifecycleWritten: true` — the append was attempted and threw.
+       *   - `lifecycleWritten: false` — the append was deliberately not made,
+       *     because the settle it would describe is one the store never
+       *     recorded (see `lifecycleWritten`).
        */
       readonly historyWritten: boolean;
       /**
        * False when the lifecycle record could not be written. The run is then
-       * still open, so a later probe will settle it from its own measurement —
-       * but the `observed` row is appended anyway, because the harness's
-       * statement is evidence independent of that write. The two failures are
-       * reported separately rather than collapsed: a caller that sees only one
-       * of them cannot say which half of the settlement landed.
+       * still open, and this path does NOT append the `observed` row: the row
+       * would assert a settled measurement for a run the store still holds at
+       * `armed` / `compacting`, and each arrival would add another one. The
+       * row is deferred rather than lost — the run stays open, so the retry
+       * that does land owns the row and measures the ratio at that moment.
+       * This is repair R6's answer on the probe path
+       * (`auto-compact-orchestrator.ts`), applied here so the two settle
+       * paths agree.
+       *
+       * The two halves are reported separately rather than collapsed: a caller
+       * that sees only one of them cannot say which half of the settlement
+       * landed.
        */
       readonly lifecycleWritten: boolean;
     }
@@ -240,6 +252,28 @@ export function settleCompactFromHarnessEvent(input: {
   });
   if (settled === null) {
     return { settled: false, reason: 'nothing-to-settle' };
+  }
+
+  if (!settled.lifecycleWritten) {
+    // Repair R9 (AC2): a settle whose lifecycle write FAILED has not settled the
+    // run. The record is still resting at `armed` / `compacting`, so the next
+    // arrival — another `PostCompact`, or a probe — finds the SAME run open and
+    // settles it again. Appending the row anyway writes one per arrival for a
+    // compaction the lifecycle store never recorded, each one carrying an
+    // `afterRatio` that reads as a settled measurement; and when the store does
+    // recover, the retry appends a SECOND row for the same compaction, which
+    // `computeWindowCalibration` is free to attach to a later dispatch pair.
+    // Nothing is lost by deferring: `probe.ratio` is re-measured at the retry,
+    // and the retry is the settlement this row is about.
+    return {
+      settled: true,
+      runId: settled.runId,
+      beforeRatio: settled.triggerRatio,
+      afterRatio: settled.afterRatio,
+      historyWritten: false,
+      lifecycleWritten: false,
+      ...(input.trigger !== undefined ? { trigger: input.trigger } : {})
+    };
   }
 
   const event: CompactHistoryEvent = {

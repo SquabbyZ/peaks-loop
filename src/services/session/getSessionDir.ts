@@ -56,3 +56,42 @@ export function getSessionDir(projectRoot: string, sessionId: string): string {
   }
   return join(projectRoot, '.peaks', '_runtime', sessionId);
 }
+
+/**
+ * The TOTAL entry to the same axis. Same predicate, same path; the only
+ * difference is that this one is total — it never throws.
+ *
+ * WHY TWO ENTRIES RATHER THAN ONE. The partial entry above is correct
+ * for a caller that cannot proceed without a session dir: a throw is
+ * the one failure a caller cannot forget to handle. It is the WRONG
+ * shape for a frame whose own doc promises never to throw — the
+ * statusline, the fire-and-forget telemetry writer, the best-effort
+ * probe. Each of those frames had to wrap the partial entry in a
+ * `try { } catch { return null }`, and that swallow cannot be told
+ * apart from a real "there is nothing here" answer. Measured on the
+ * compact backoff (`auto-compact-lifecycle.ts`), the conflation turned
+ * an unresolvable id into the ADMIT branch and re-opened a dispatch
+ * that the open run should have suppressed.
+ *
+ * The split does NOT make a swallow unwriteable — TypeScript has no
+ * checked exceptions, so nothing here can. It makes the swallow
+ * UNNECESSARY at a named place, and it gives every checker a stable
+ * name to key on: a frame that degrades must say so by calling this
+ * function, and the degrading branch (`ok: false`) is then a value the
+ * caller has to handle rather than a `catch` nobody reads.
+ *
+ * `reason` is a single-line English sentence fit for an envelope — no
+ * stack traces, no CLI verbs (see `human-nl-choice-only-tenet`).
+ */
+export function tryGetSessionDir(
+  projectRoot: string,
+  sessionId: string
+): { readonly ok: true; readonly dir: string } | { readonly ok: false; readonly reason: string } {
+  // Deliberately NOT `try { return {ok:true, dir: getSessionDir(...)} } catch`.
+  // That would re-introduce the swallow this function exists to remove, and it
+  // would also catch a throw from `join` for reasons that are not a bad id.
+  if (isUnsafePathInput(sessionId)) {
+    return { ok: false, reason: `Invalid session id: ${sessionId} (must be a single path segment)` };
+  }
+  return { ok: true, dir: join(projectRoot, '.peaks', '_runtime', sessionId) };
+}

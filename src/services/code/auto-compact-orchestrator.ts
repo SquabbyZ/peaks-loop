@@ -36,6 +36,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { resolveOuterSessionId } from '../session/binding-status-service.js';
 import { resolveCanonicalProjectRoot } from '../config/config-service.js';
 import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../context/harness-window-config.js';
@@ -371,7 +372,10 @@ function appendAutoDecisionLog(input: {
   readonly sessionId: string;
   readonly plan: ConvergencePlan;
 }): void {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'txt');
+  // Repair R6: same hand-rolled join as `writePreCompactCheckpoint`. All four
+  // session-scoped paths in this file now go through the axis builder; none
+  // composes the join itself, so none can resolve outside the project root.
+  const dir = join(getSessionDir(input.projectRoot, input.sessionId), 'txt');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const logPath = join(dir, 'auto-decisions.md');
   const row = [
@@ -417,7 +421,7 @@ function writeMainSessionCompactIntent(input: {
   readonly redLine: boolean;
   readonly now: Date;
 }): void {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'txt');
+  const dir = join(getSessionDir(input.projectRoot, input.sessionId), 'txt');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = join(dir, 'auto-compact-pending.json');
   const payload = {
@@ -442,7 +446,12 @@ function writePreCompactCheckpoint(input: {
   readonly now: Date;
   readonly redLine?: boolean;
 }): string {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'checkpoints');
+  // Repair R6: this used to hand-roll the session join, which is the one shape
+  // `getSessionDir`'s own header records as NOT covered by the guard — an
+  // unsafe id resolved outside the project root and the checkpoint was written
+  // there. The gate above now refuses an unresolvable id before this point, but
+  // `--force` outranks that gate, so this join has to hold on its own.
+  const dir = join(getSessionDir(input.projectRoot, input.sessionId), 'checkpoints');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const prefix = input.redLine === true ? 'red-line-' : 'pre-compact-';
   const filename = `${prefix}${input.now.toISOString().replace(/[:.]/g, '-')}.json`;
@@ -573,15 +582,27 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     // still open at `compacting`. Nothing is written when there is no
     // open run, when the ratio is still high, or when the probe could
     // not measure at all.
+    const settleRead = settleOpenLifecycleRun({
+      projectRoot: input.projectRoot,
+      sessionId,
+      measuredRatio: probe.ratio,
+      source: probe.source,
+      autoFireThreshold: thresholdFor(mode, 'autoFire'),
+      onLifecycleStage: input.onLifecycleStage,
+      failLifecycleWrite: input.testHooks?.failLifecycleWrite
+    });
+    // Repair R6 (AC3): a settle whose lifecycle write FAILED has not settled the
+    // run — the record is still resting at `armed` / `compacting`, so the next
+    // probe finds the same run open and settles it again. Appending the
+    // "observed compaction point" row anyway writes one row per probe for a
+    // compaction the lifecycle store never recorded: an unbounded append driven
+    // by a write that did not happen, and a history row whose paired lifecycle
+    // record does not exist. Nothing is lost by deferring the row — `probe.ratio`
+    // is re-measured on every probe, so the retry carries a fresh number.
     const settled =
-      settleOpenLifecycleRun({
-        projectRoot: input.projectRoot,
-        sessionId,
-        measuredRatio: probe.ratio,
-        source: probe.source,
-        autoFireThreshold: thresholdFor(mode, 'autoFire'),
-        onLifecycleStage: input.onLifecycleStage
-      }) ??
+      settleRead !== null && !settleRead.lifecycleWritten
+        ? null
+        : (settleRead ??
       // Repair R1 (`2026-09-13-compact-event-settle`): the HARNESS event may
       // already have closed this run WITHOUT an honest post-compact number —
       // in which case the call above finds nothing open, and without this the
@@ -592,7 +613,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
         sessionId,
         measuredRatio: probe.ratio,
         source: probe.source
-      });
+      }));
     // Slice 2026-09-13-auto-compact-trigger-ownership (T4): a settle means a
     // dispatched compact demonstrably landed. Append an `observed` row
     // carrying the measured ratio, so `peaks compact history` can show
@@ -683,8 +704,36 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   // `force` (the `--force` test seam, "force compact at any ratio") outranks
   // the inference: an explicit instruction must not be silently reduced to a
   // no-op, which would make the published flag a lie.
+  // Repair R6: `readOpenDispatchRun` answers in THREE states, not two. `none`
+  // admits the dispatch; `unresolvable` means the backoff's question could not
+  // be asked — the session id names no session directory, so no lifecycle
+  // record can exist under it and the gate used to read that as "nothing is
+  // outstanding". Measured on ONE directory before this: a legal sid found the
+  // open `armed` run and suppressed the dispatch; `./<legal sid>`, which joins
+  // to the identical path, returned `null` and dispatched. A gate that reads a
+  // string instead of the artifact the string names is the defect the whole
+  // id axis exists to close, so an unanswerable question is NOT an admit: the
+  // conservative direction is to leave the dispatch undone and say why.
   const openRun = readOpenDispatchRun({ projectRoot: input.projectRoot, sessionId });
-  if (openRun !== null && input.force !== true) {
+  if (openRun.kind === 'unresolvable' && input.force !== true) {
+    return {
+      ok: true,
+      code: 'AUTO_COMPACT_UNRESOLVED_SESSION',
+      message:
+        `Context at ${(probe.ratio * 100).toFixed(1)}%; a compact may be warranted, but this session's ` +
+        `directory could not be resolved (${openRun.reason}), so whether a compact was already dispatched ` +
+        `for this crossing cannot be answered. Not dispatching: an unanswered question is not a 'no'. ` +
+        `The session id comes from the active binding or from the caller.`,
+      data: {
+        sessionId,
+        ratio: probe.ratio,
+        source: probe.source,
+        decision: 'unresolved-session',
+        harnessWindow
+      }
+    };
+  }
+  if (openRun.kind === 'open' && input.force !== true) {
     return {
       ok: true,
       code: 'AUTO_COMPACT_ALREADY_ARMED',
@@ -970,7 +1019,7 @@ export function appendCompactHistoryEvent(input: {
   readonly sessionId: string;
   readonly event: CompactHistoryEvent;
 }): void {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId);
+  const dir = getSessionDir(input.projectRoot, input.sessionId);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = join(dir, 'compact-history.jsonl');
   appendFileSync(path, JSON.stringify(input.event) + '\n', 'utf8');

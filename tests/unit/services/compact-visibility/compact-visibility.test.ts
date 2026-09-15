@@ -24,7 +24,7 @@
 //
 // Run with: pnpm vitest run tests/unit/services/compact-visibility/compact-visibility.test.ts
 
-import { mkdirSync, writeFileSync, utimesSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
@@ -466,14 +466,24 @@ describe("Scenario: behavior — legacy migration priority (no lifecycle, fall b
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
+    //
+    // REPAIR R9: the row must be one that SAYS a compaction was witnessed. This
+    // fixture used to be a bare `dispatch` row — an ASK — read off the file's
+    // mtime, and it asserted `completed`. That is the defect: the same file
+    // takes a dispatch row every time peaks-loop asks, so 1075 such asks in one
+    // real session (and zero compactions) each painted a full 8-cell bar. The
+    // elapsed window is now measured against the row's own `ts`, not the
+    // filesystem's, so the row is written at the timestamp being tested rather
+    // than back-dated.
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
-    const path = join(dir, 'compact-history.jsonl');
-    writeFileSync(path, JSON.stringify(makeEvent({ beforeRatio: 0.92 })) + '\n', 'utf8');
-    // Set mtime to NOW so the 30s window evaluates against the same
-    // timestamp the decision layer sees.
     const now = Date.now();
-    utimesSync(path, new Date(now), new Date(now));
+    const path = join(dir, 'compact-history.jsonl');
+    writeFileSync(
+      path,
+      JSON.stringify({ ...makeEvent({ beforeRatio: 0.92 }), kind: 'observed', afterRatio: 0.04, ts: new Date(now).toISOString() }) + '\n',
+      'utf8',
+    );
     const out = decideCompactStatusline({
       projectRoot: process.cwd(),
       sessionId: SID,
@@ -485,15 +495,76 @@ describe("Scenario: behavior — legacy migration priority (no lifecycle, fall b
     expect(out.afterRatio).toBeUndefined();
   });
 
-  it("when invoked, should legacy history mtime older than 30s + no pending → none", () => {
+  it("when invoked, should a DISPATCH row is not a completed compaction, however fresh the file is", () => {
+    // AC4, measured. A dispatch row records that peaks-loop ASKED for a compact.
+    // The file it lands in is at its freshest immediately after that ask — which
+    // is exactly when the old mtime read reported `completed` — so freshness is
+    // evidence for the opposite of what it was used to claim.
+    const dir = join(process.cwd(), '.peaks', '_runtime', SID);
+    mkdirSync(dir, { recursive: true });
+    const now = Date.now();
+    const path = join(dir, 'compact-history.jsonl');
+    writeFileSync(path, JSON.stringify({ ...makeEvent({ beforeRatio: 0.95 }), kind: 'dispatch', ts: new Date(now).toISOString() }) + '\n', 'utf8');
+    utimesSync(path, new Date(now), new Date(now));
+    // NON-VACUITY CONTROL, so a green here cannot mean "the file happened to be
+    // old": the pre-fix predicate was `now - statSync(path).mtimeMs <= 30_000`,
+    // and this fixture satisfies it. PRE-FIX this test was RED — the fixture
+    // reported `completed` / 8 cells.
+    expect(now - statSync(path).mtimeMs).toBeLessThanOrEqual(30_000);
+    const out = decideCompactStatusline({
+      projectRoot: process.cwd(),
+      sessionId: SID,
+      now,
+    });
+    expect(out.kind).toBe('none');
+    expect(out.filledCells).toBe(0);
+  });
+
+  it("when invoked, should an observed row the ask landed after is STILL the compaction it witnessed", () => {
+    // REPAIR R11. The reverse of the case above, and the one R9's own fix got
+    // wrong: reading only the LAST row makes an `observed` row invisible as soon
+    // as any later row exists — and a `dispatch` row lands on every probe, so a
+    // witnessed compaction was dropped the moment peaks-loop asked again. On
+    // this fixture the last-row read answers `none` / 0 cells while the mtime
+    // read it replaced reported the compaction, i.e. the fix deleted an
+    // indicator it was meant to make honest.
+    const dir = join(process.cwd(), '.peaks', '_runtime', SID);
+    mkdirSync(dir, { recursive: true });
+    const now = Date.now();
+    const path = join(dir, 'compact-history.jsonl');
+    writeFileSync(
+      path,
+      JSON.stringify({ ...makeEvent({ beforeRatio: 0.92 }), kind: 'observed', afterRatio: 0.04, ts: new Date(now - 1000).toISOString() }) + '\n' +
+        JSON.stringify({ ...makeEvent({ beforeRatio: 0.93 }), kind: 'dispatch', ts: new Date(now).toISOString() }) + '\n',
+      'utf8',
+    );
+    // NON-VACUITY CONTROL, as above: the file is fresh, so a `none` here is the
+    // new predicate's doing rather than the fixture's age.
+    expect(now - statSync(path).mtimeMs).toBeLessThanOrEqual(30_000);
+    const out = decideCompactStatusline({
+      projectRoot: process.cwd(),
+      sessionId: SID,
+      now,
+    });
+    expect(out.kind).toBe('completed');
+    expect(out.filledCells).toBe(8);
+  });
+
+  it("when invoked, should an observed history row older than 30s + no pending → none", () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const dir = join(process.cwd(), '.peaks', '_runtime', SID);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'compact-history.jsonl');
-    writeFileSync(path, JSON.stringify(makeEvent()) + '\n', 'utf8');
     const past = new Date(Date.now() - 60_000);
+    // A witnessed compaction, but not a recent one: the window is what this
+    // pins, so the row must be one that WOULD qualify on kind alone.
+    writeFileSync(
+      path,
+      JSON.stringify({ ...makeEvent(), kind: 'observed', afterRatio: 0.04, ts: past.toISOString() }) + '\n',
+      'utf8',
+    );
     utimesSync(path, past, past);
     const out = decideCompactStatusline({
       projectRoot: process.cwd(),

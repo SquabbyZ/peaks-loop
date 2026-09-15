@@ -728,11 +728,7 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
                 ? result.historyWritten
                   ? `Settled run ${result.runId}; appended a kind:'observed' row with pathway 'post-compact-hook'.`
                   : `Settled run ${result.runId}, but the kind:'observed' row could NOT be appended — check that .peaks/_runtime/<sid>/ is writable.`
-                : `The harness reported a compaction for run ${result.runId}, but the lifecycle record could NOT be written — that run is still open, so a later probe will settle it from its own measurement.${
-                    result.historyWritten
-                      ? " A kind:'observed' row was still appended for this event."
-                      : " The kind:'observed' row could not be appended either."
-                  }`
+                : `The harness reported a compaction for run ${result.runId}, but the lifecycle record could NOT be written — that run is still open, so a later probe will settle it from its own measurement and append the row then. Nothing was recorded for this event: a row here would assert a settlement the store never made.`
               : result.reason === 'different-session'
                 ? `The hook payload names a different harness session, so this project's open compact run was left alone.`
                 : 'No compact run was open, so nothing was settled and no history row was appended.'

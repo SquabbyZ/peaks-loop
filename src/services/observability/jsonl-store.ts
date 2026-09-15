@@ -18,7 +18,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getSessionDir } from '../session/getSessionDir.js';
+import { getSessionDir, tryGetSessionDir } from '../session/getSessionDir.js';
 
 export const METRICS_DIR = 'metrics';
 export const METRICS_FILENAME = 'slices.jsonl';
@@ -32,6 +32,23 @@ export function metricsFilePath(projectRoot: string, sessionId: string): string 
 /** Absolute path to a session's metrics directory. */
 export function metricsDirPath(projectRoot: string, sessionId: string): string {
   return join(getSessionDir(projectRoot, sessionId), METRICS_DIR);
+}
+
+/**
+ * Absolute path to a session's metrics JSONL file, or `null` when the
+ * session id names no session directory.
+ *
+ * Total sibling of `metricsFilePath`, built on the axis's own total
+ * entry (`tryGetSessionDir`) so the two agree on the predicate. It
+ * exists because this module has frames whose contract is never-throws
+ * (`readMetricLines`, and through it `readObservabilityEvents`) and
+ * `metricsFilePath` was the one call in them that could still throw.
+ * `null` here means exactly one thing — the id could not be resolved —
+ * and every caller below handles it in the same statement that reads it.
+ */
+export function tryMetricsFilePath(projectRoot: string, sessionId: string): string | null {
+  const resolved = tryGetSessionDir(projectRoot, sessionId);
+  return resolved.ok ? join(resolved.dir, METRICS_DIR, METRICS_FILENAME) : null;
 }
 
 /**
@@ -57,9 +74,18 @@ export function appendMetricLine(projectRoot: string, sessionId: string, line: s
  * Returns [] when the file does not exist. Does NOT parse — callers
  * decide what counts as valid (see `observability-service.ts`
  * `readObservabilityEvents` for the schema-aware reader).
+ *
+ * Returns [] for an unresolvable session id too: this is the read half
+ * of a fire-and-forget store, and `readObservabilityEvents` documents
+ * that a session with no readable metrics file has no events. Throwing
+ * here used to escape as a raw guard error out of a documented
+ * never-throws reader (repair R6).
  */
 export function readMetricLines(projectRoot: string, sessionId: string): string[] {
-  const path = metricsFilePath(projectRoot, sessionId);
+  const path = tryMetricsFilePath(projectRoot, sessionId);
+  if (path === null) {
+    return [];
+  }
   if (!existsSync(path)) {
     return [];
   }
