@@ -1,14 +1,19 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { crossCheck } from './cross-check.js';
+import { runIndependentCheck } from './independent-checker.js';
 import type { CapabilityAuditResult, AuditDimension } from './types.js';
-import type { JourneyId } from '../capability-baseline/types.js';
-import type { GuardRunResult } from '../capability-guard-runner/types.js';
+import type { CapabilityBaselineRow, JourneyId } from '../capability-baseline/types.js';
+import type { GuardContract, GuardRunResult } from '../capability-guard-runner/types.js';
 
 /**
  * `stub` means the "independent" verdict came from a hard-coded response, not
  * from a separate context. A stub is not an evaluation, so an audit that used
  * one is marked `degraded` and can never report `consistent`.
+ *
+ * `live` runs the deterministic independent checker: a real separate-context
+ * evaluation that needs no credentials, which is why it is the only kind that
+ * can run inside the secretless OIDC publish gate.
  */
 export type AuditScorerMode = 'stub' | 'live';
 
@@ -17,11 +22,12 @@ export interface RunAuditInput {
   readonly sessionId: string;
   readonly journeyId: JourneyId;
   readonly scorerMode: AuditScorerMode;
-  readonly llmRunner: { call(system: string, user: string, opts: { maxTokens: number }): Promise<{ output: string; tokens: { input: number; output: number } }> };
+  /** The frozen claim set under audit. */
+  readonly baselineRows: ReadonlyArray<CapabilityBaselineRow>;
+  /** The arming witness: which frozen invariants some contract enforces. */
+  readonly contracts: ReadonlyArray<GuardContract>;
   readonly guardSummary: { readonly pass: number; readonly fail: number; readonly skipped: number; readonly total: number; readonly results: ReadonlyArray<GuardRunResult> };
 }
-
-const SYSTEM = 'You are an INDEPENDENT audit scorer. Compare the supplied capability baseline to the supplied current behavior summary. Output a single JSON object: {"verdict":"consistent" | "drifted" | "inconclusive"}. No prose.';
 
 function scoreFor(status: GuardRunResult['status']): number {
   return status === 'pass' ? 1 : status === 'fail' ? 0 : 0.5;
@@ -29,23 +35,37 @@ function scoreFor(status: GuardRunResult['status']): number {
 
 export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditResult> {
   const degraded = input.scorerMode === 'stub';
-  const userPayload = JSON.stringify({ baselineJourneyId: input.journeyId, guard: input.guardSummary });
-  const r = await input.llmRunner.call(SYSTEM, userPayload, { maxTokens: 200 });
-  const { verdict: independentVerdict } = JSON.parse(r.output) as { verdict: 'consistent' | 'drifted' | 'inconclusive' };
+  // A stub run performs no evaluation, so the checker is not run either — its
+  // result would be misread as an evaluation that happened.
+  const check = degraded
+    ? null
+    : runIndependentCheck({
+      projectRoot: input.projectRoot,
+      baselineRows: input.baselineRows,
+      contracts: input.contracts,
+      guardResults: input.guardSummary.results
+    });
 
   const xc = crossCheck({
     guardPass: input.guardSummary.pass,
     guardFail: input.guardSummary.fail,
-    independentPass: independentVerdict === 'consistent' ? 1 : 0,
-    independentFail: independentVerdict === 'drifted' ? 1 : 0,
+    // A degraded run has no independent verdict to compare; 0/0 keeps the
+    // cross-check shape without inventing one.
+    independentPass: check?.verdict === 'consistent' ? 1 : 0,
+    independentFail: check?.verdict === 'drifted' ? 1 : 0,
     karpathy: 'skipped'
   });
 
-  // A stub verdict is ignored for the outcome: `{"verdict":"consistent"}` from a
-  // hard-coded runner is a restatement of the stub, not evidence about the
-  // product. Live runs keep the previous cross-check behaviour.
-  let verdict: CapabilityAuditResult['verdict'] = degraded ? 'inconclusive' : independentVerdict;
-  if (!degraded && xc.guardVsAudit === 'diverge') verdict = 'inconclusive';
+  // S1's rule is unchanged and load-bearing: a run that performed no separate
+  // evaluation can never be `consistent`. S11 adds the live branch. Every
+  // concrete deviation — a failed guard contract, or a finding from the
+  // independent checker — reports `drifted` instead of hiding behind
+  // `inconclusive`. So `inconclusive` is now reachable only when no evaluation
+  // ran at all, which is what it should mean.
+  let verdict: CapabilityAuditResult['verdict'] = 'consistent';
+  if (degraded) verdict = 'inconclusive';
+  else if (input.guardSummary.fail > 0) verdict = 'drifted';
+  else if ((check?.findings.length ?? 0) > 0) verdict = 'drifted';
 
   // One dimension per journey actually run, scored from the guard result —
   // previously this was a single row whose score was derived from the stub.
@@ -62,7 +82,7 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
     });
   }
 
-  const independentRef = degraded ? 'audit-llm-context:stub' : 'audit-llm-context';
+  const independentRef = degraded ? 'audit-independent-checker:stub' : 'audit-independent-checker:deterministic';
   const first = dimensions[0]!;
   dimensions[0] = {
     ...first,
@@ -71,9 +91,9 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
       {
         kind: 'independent-eval',
         ref: independentRef,
-        summary: degraded
-          ? `degraded: stub scorer (not an independent context) returned ${independentVerdict}; ignored for the verdict`
-          : `independent verdict: ${independentVerdict}`
+        summary: check === null
+          ? 'degraded: stub scorer (no independent context ran); the verdict was not derived from an evaluation'
+          : `independent verdict: ${check.verdict}; observations ${String(check.coverage.observations)}/${String(check.coverage.observationsExpected)}; invariants armed ${String(check.coverage.invariantsArmed)}/${String(check.coverage.invariantsFrozen)}; findings: ${check.findings.length === 0 ? 'none' : check.findings.map((f) => `${f.code}(${f.journeyId})`).join(',')}`
       }
     ]
   };
@@ -86,7 +106,9 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
     dimensions,
     crossCheck: xc,
     requiresUserDecision: verdict === 'inconclusive',
-    degraded
+    degraded,
+    findings: check === null ? null : check.findings,
+    coverage: check === null ? null : check.coverage
   };
 
   const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'capability-audit');

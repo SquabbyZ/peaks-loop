@@ -26,6 +26,20 @@ function ok(io: ProgramIO, command: string, data: Record<string, unknown>, nextA
 const CURRENT_DIR = (root: string): string => join(root, 'openspec', 'baselines', 'current');
 const HISTORY_DIR = (root: string, version: string): string => join(root, 'openspec', 'baselines', 'history', version);
 
+/** Whitelist of supported `--scorer` values for `peaks baseline audit`. */
+const SCORER_MODES = ['live', 'stub'] as const;
+type ScorerMode = (typeof SCORER_MODES)[number];
+/**
+ * `live` is the default because it is the credential-free one. Defaulting to
+ * `stub` would leave the publish gate permanently inconclusive; defaulting to a
+ * scorer that needs a key would leave it unrunnable in CI.
+ */
+const DEFAULT_SCORER_MODE: ScorerMode = 'live';
+
+function isScorerMode(v: string | undefined): v is ScorerMode {
+  return v !== undefined && (SCORER_MODES as ReadonlyArray<string>).includes(v);
+}
+
 /** The guard `run-guard` / `audit` execute against. */
 function guardContext(projectRoot: string): GuardContext {
   return { projectRoot, sessionId: 'cli', contract: {} as never, baselineInvariant: 'auto' };
@@ -133,10 +147,15 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
   baseline
     .command('audit')
     .description('Run the capability audit (independent-context scorer). Exits non-zero unless the verdict is consistent.')
+    .option('--scorer <mode>', `Scorer to run: ${SCORER_MODES.join('|')}. 'live' (default) runs the deterministic independent checker, which needs no credentials; 'stub' performs no evaluation and can never be consistent.`, DEFAULT_SCORER_MODE)
     .option('--project <path>', 'Project root', '.')
     .option('--json', 'Emit JSON envelope')
-    .action(async (opts: { project?: string }) => {
+    .action(async (opts: { scorer?: string; project?: string }) => {
       const projectRoot = opts.project ?? '.';
+      if (!isScorerMode(opts.scorer)) {
+        fail(io, 'UNKNOWN_SCORER', `unknown scorer "${String(opts.scorer)}"; expected one of ${SCORER_MODES.join(', ')}`);
+        return;
+      }
       const r = readBaselineFile(projectRoot);
       if (!r.ok) { fail(io, r.error.code, r.error.message); return; }
 
@@ -144,22 +163,19 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
       // be a literal `{pass:15,fail:0,skipped:0,total:15}` that no run produced.
       const guardSummary = await runAllGuards(GUARD_CONTRACTS, guardContext(projectRoot));
 
-      // No separate-context scorer is wired into the CLI, so the run is
-      // explicitly degraded: `runAudit` refuses to return `consistent` for it.
-      const stub = {
-        call: async (_system: string, _user: string, _opts: { maxTokens: number }) => ({
-          output: JSON.stringify({ verdict: 'consistent' }),
-          tokens: { input: _system.length, output: _user.length }
-        })
-      } as const;
-
+      // `live` is the deterministic independent checker: a real
+      // separate-context evaluation that needs no credentials, which is why it
+      // is the only kind that can run inside the secretless OIDC publish gate.
+      // It is handed the frozen rows and the registry, not just the guard
+      // summary — a scorer that only sees the guard result is a restatement.
       const { runAudit } = await import('../../services/capability-audit-service/runner.js');
       const audit = await runAudit({
         projectRoot,
         sessionId: 'cli',
         journeyId: 'J01',
-        scorerMode: 'stub',
-        llmRunner: stub,
+        scorerMode: opts.scorer,
+        baselineRows: r.file.rows,
+        contracts: GUARD_CONTRACTS,
         guardSummary
       });
       const data = audit as unknown as Record<string, unknown>;
