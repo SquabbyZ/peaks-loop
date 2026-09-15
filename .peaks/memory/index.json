@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-14T14:29:11.523Z",
+  "updatedAt": "2026-09-15T14:34:24.528Z",
   "hot": {
     "rule": [
       {
@@ -354,10 +354,10 @@
       {
         "name": "2026-07-16-claude-code-subagent-display-recycle-observation",
         "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> Claude Code sub-agent display recycle — observation (NOT a fix) **Date:** 2...",
+        "description": "Claude Code sub-agent display recycle — observation (NOT a fix) **Date:** 2026-07-16 **Session:** 2026-07-16-session-...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-16-claude-code-subagent-display-recycle-observation.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
@@ -408,28 +408,44 @@
         "updatedAt": "2026-09-14"
       },
       {
+        "name": "a-fixture-that-forces-failure-by-file-mode-is-platform-scoped",
+        "kind": "feedback",
+        "description": "**一个用文件模式强制\"写入必须失败\"的夹具，只在 Windows 上成立。** 实测 于是\"强制失败\"在 Linux 上根本没发生，写入照常成功，断言去读成功路径 → 全红。 在  上真实发生过：4 处 ，CI 报 3 个断言失败（...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-fixture-that-forces-failure-by-file-mode-is-platform-scoped.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-15"
+      },
+      {
         "name": "a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard",
         "kind": "feedback",
-        "description": "**用注入验证守卫时，探针本身出错的表现，与\"守卫工作正常\"**输出完全一样**。** 2026-09-13 实测（peaks-loop vendor 守卫的收口轮）：RD 的注入探针用  启动。在 Windows 上，不经 shel...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **用注入验证守卫时，探针本身出错的表现，与\"守卫工作正常\"**输出完全一样**。** 2026-09-13 实测（peaks-loop vendor...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-probe-that-always-says-caught-is-indistinguishable-from-a-working-guard.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
+      },
+      {
+        "name": "a-review-that-measured-against-the-real-artifact",
+        "kind": "feedback",
+        "description": "**一次\"只读\"的性能评审，把 2054 行灌进了真实的  —— 而它的指令里没有任何一条禁止写真实产物。** 事实（逐字节可复算） benchmark 做了两遍，都是对着**真文件**： **因为载荷是从文件里读回来的，每次重放逐字...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-review-that-measured-against-the-real-artifact.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "a-right-conclusion-resting-on-evidence-nobody-can-reproduce",
         "kind": "feedback",
-        "description": "**\"看起来验证过了\"和\"验证过了\"在输出上可以完全一致。分开它们的只有一个动作：让下一个人重新量一遍 —— 而不是让他相信上一轮的报告。** 实测：同一晚四次 | # | 结论 | 证据的瑕 | |---|---|---| | 1 ...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **\"看起来验证过了\"和\"验证过了\"在输出上可以完全一致。分开它们的只有一个动作：让下一个人重新量一遍 —— 而不是让他相信上一轮的报告。** 实测：...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-right-conclusion-resting-on-evidence-nobody-can-reproduce.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "a-surface-declared-clean-by-a-scan-that-never-ran-it",
         "kind": "feedback",
-        "description": "**肯定结论错了要一次执行才能推翻；否定结论错了，连\"有没有查过\"都看不出来。** 实测（2026-09-14） 一个把\"调用方 id 拼进路径\"整类摸清的切片，产出了一张分类表，把  标为 **\"not a guard gap\"**...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **肯定结论错了要一次执行才能推翻；否定结论错了，连\"有没有查过\"都看不出来。** 实测（2026-09-14） 一个把\"调用方 id 拼进路径\"整类...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-surface-declared-clean-by-a-scan-that-never-ran-it.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "active-skill-cli-routing",
@@ -512,14 +528,6 @@
         "updatedAt": "2026-09-14"
       },
       {
-        "name": "peaks-code-to-peaks-code-rename-session-directive",
-        "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
-        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
-      },
-      {
         "name": "peaks-current-directory-scope",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=B --> Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于...",
@@ -530,10 +538,10 @@
       {
         "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
         "kind": "feedback",
-        "description": "<!-- peaks-feedback-promoted: layer=A --> The  skill's step 5 references a \"thin helper\" for the audit log writer.",
+        "description": "The  skill's step 5 references a \"thin helper\" for the audit log writer.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "peaks-loop-2026-07-30-nightshift-test-failures-fix",
@@ -556,6 +564,14 @@
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> When the user uses Peaks skills from  in any project, the response should l...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-skill-output-style.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-14"
+      },
+      {
+        "name": "peaks-solo-to-peaks-code-rename-session-directive",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-14"
       },
@@ -586,18 +602,18 @@
       {
         "name": "use-the-repos-existing-ast-guard-not-a-fresh-regex-scan",
         "kind": "feedback",
-        "description": "**做\"扫全仓找某类调用点\"这类作业时，先找仓库里**已有的 AST 守卫**，扩它的射程；不要另写一个正则/文本扫描。** 2026-09-13 实测：为了统计\"全仓有多少  调用点没带 \"，我临时写了三版扫描器，**三版都错**： 1.",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **做\"扫全仓找某类调用点\"这类作业时，先找仓库里**已有的 AST 守卫**，扩它的射程；不要另写一个正则/文本扫描。** 2026-09-13 实...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\use-the-repos-existing-ast-guard-not-a-fresh-regex-scan.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
       },
       {
-        "name": "user-decision-2026-07-05-eradicate-peaks-code",
+        "name": "user-decision-2026-07-05-eradicate-peaks-solo",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 u...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-14"
       },
       {
         "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
@@ -618,10 +634,10 @@
       {
         "name": "writing-a-value-then-reading-it-back-locks-the-first-guess",
         "kind": "feedback",
-        "description": "**一个组件若把\"自己派生的值\"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（peaks-loop 方案 A1，QA 在副本复现）：peaks-loop 把解析出的上...",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> **一个组件若把\"自己派生的值\"写进某处、又在后续运行里把该值读回来当作自己的输入，它就把自己锁在了首次猜测上。** 2026-09-13 实测（pe...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\writing-a-value-then-reading-it-back-locks-the-first-guess.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-13"
+        "updatedAt": "2026-09-14"
       }
     ],
     "convention": [
@@ -798,6 +814,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "a-citation-that-outlives-its-referent-is-silent",
+        "kind": "lesson",
+        "description": "**\"验证的输入来自被验证者自己\" 有两种形态。第一种（自证）已经被记过很多次；第二种是\"来自一份不会再被核对的静态清单\"—— 这一条在本仓没有专门记录，而它同样致命。** 被引用者消失时，**没有任何机制报警**。于是引用可以无限期...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-citation-that-outlives-its-referent-is-silent.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-15"
+      },
+      {
         "name": "a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers",
         "kind": "lesson",
         "description": "S1, S2 and S3 of  each needed **one** repair pass.",
@@ -900,6 +924,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-07-20-monorepo-test-fix-sediment.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-20-session-a8211f/txt/handoff-monorepo-test-fix.md",
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "one-point-observed-concluded-about-the-whole",
+        "kind": "lesson",
+        "description": "2026-09-15 的 peaks-loop 诊断会话里，**我在一个小时内犯了三次同一类错，并把三个错误数字报给了用户**： **① 量错了 3 倍，还据此下了结论** 文件多时  会**拆成多批**，每批各打印一行 。 只拿到*...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\one-point-observed-concluded-about-the-whole.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-15"
       },
       {
         "name": "openspec-peaks-code-peaks-runtime-source-of-truth",
@@ -2106,6 +2138,14 @@
         "updatedAt": "2026-09-13"
       },
       {
+        "name": "baseline-guard-audit-fabricates-fifteen-passes",
+        "kind": "project",
+        "description": "**RL-10 亲自指定的能力漂移检测机制，在 2026-09-15 的坐标上是自证的。** 全部经我本人手跑复核： 机制在源码里： 是 ； 把  硬编码为 ； 的 LLM 打桩返回常量 。 **RL-10 自己的文本把\"An LLM...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\baseline-guard-audit-fabricates-fifteen-passes.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-15"
+      },
+      {
         "name": "capability-baseline-4-0-8-freeze",
         "kind": "project",
         "description": "**What happened**: Task 6 of 5-slice plan wrote the candidate input (commit d92d8c5, 452-line JSON, 15 rows).",
@@ -2770,6 +2810,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-02-publish-runbook.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "ci-status-is-readable-without-gh-auth",
+        "kind": "reference",
+        "description": "**本机  未登录**（ → not logged in），但  是**公开仓库**，所以 CI 状态**不需要认证**就能读到。2026-09-15 实测两个端点都是 ： ** 是关键的那个** —— check-run 自己的  ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ci-status-is-readable-without-gh-auth.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-09-15"
       },
       {
         "name": "claude-code-has-no-llm-invocable-compact",
