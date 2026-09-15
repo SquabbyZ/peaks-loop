@@ -22,7 +22,7 @@
  * Style: BDD given/when/then per peaks-loop 4.0.11+ contract.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -496,13 +496,59 @@ describe('A — a lifecycle write that failed is not "nothing to settle"', () =>
 });
 
 describe('C — the sibling settle path, aligned (repair R9)', () => {
-  /** The file `writeCompactLifecycle` renames its temp file onto. */
-  function lifecycleRecordPath(projectRoot: string, sessionId: string): string {
-    return join(projectRoot, '.peaks', '_runtime', sessionId, 'compact-lifecycle.json');
-  }
-
   /** The measurement both tests below are taken at: the same drop, three times. */
   const drop: PostCompactMeasurement = { ratio: 0.04, ide: 'claude-code', windowTokens: null, windowSource: null };
+
+  /**
+   * Force the lifecycle write to fail, portably, and OBSERVE that it did.
+   *
+   * The forcing used to be `chmodSync(recordPath, 0o444)`, which was a property
+   * of the OS that ran the test rather than of the fixture. `rename(2)` replaces
+   * an existing target according to the CONTAINING DIRECTORY's write permission
+   * and ignores the target's own mode, so on POSIX the rename SUCCEEDS, the
+   * write is never forced to fail and the cases below read the success path —
+   * green here three times, red on CI's ubuntu. Only Windows turns the
+   * read-only attribute into a refusal (measured on Windows: `renameSync` onto a
+   * `0o444` target throws EPERM).
+   *
+   * No file mode replaces it portably. `0o555` on the session directory blocks
+   * the rename on POSIX but is a no-op on Windows, whose directory read-only
+   * attribute does not gate creation (measured: `writeFileSync` into a `0o555`
+   * directory succeeds). A directory in the record's place refuses the rename on
+   * both platforms by syscall semantics, but it also makes the record UNREADABLE
+   * (measured: `readFileSync` on a directory throws EISDIR) — and the settle
+   * reads the open run BEFORE it writes, so `readOpenCompactLifecycle` would
+   * collapse to `unresolvable`, return null, and the injection would destroy the
+   * premise it exists to hold fixed.
+   *
+   * The portable mechanism is the seam the production code already carries for
+   * this — the same `failLifecycleWrite` describe A uses. It is not OS-scoped by
+   * construction. What it costs is the independence file modes had: a seam that
+   * stops firing reads exactly like a passing guard. So the canary is NOT a
+   * restatement of the flag it just passed — it reads the STORE, which a write
+   * that landed would have advanced to `completed`.
+   */
+  function forceWriteRefusal(root: string, sid: string): void {
+    const before = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    expect(before.kind).toBe('valid');
+    if (before.kind !== 'valid') return;
+
+    const canary = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      failLifecycleWrite: true,
+      measure: ruler(drop)
+    });
+    expect(canary.settled).toBe(true);
+    if (!canary.settled) return;
+    expect(canary.lifecycleWritten).toBe(false);
+
+    const after = readCompactLifecycle({ projectRoot: root, sessionId: sid, nowMs: Date.now(), staleAfterMs: 60_000 });
+    expect(after.kind).toBe('valid');
+    if (after.kind !== 'valid') return;
+    expect(after.record.stage).toBe(before.record.stage);
+    expect(after.record.stage).not.toBe('completed');
+  }
 
   it('when the lifecycle record cannot be written, should append no row for a compaction the store never recorded', () => {
     // AC1 + AC2. The PROBE caller defers its `observed` row when the lifecycle
@@ -510,49 +556,37 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     // so ONE failure produced a row here and nothing there.
     //
     // THE FAILURE IS GENUINE, and the injection is proved to fire before either
-    // direction is believed. `chmod 0444` on the record makes
-    // `writeCompactLifecycle`'s `renameSync` really throw — measured on this OS,
-    // EPERM. It is deliberately NOT `failLifecycleWrite`, but NOT because that
-    // seam is absent on the path under test: `settleCompactFromHarnessEvent` →
-    // `settleOpenLifecycleRunOnCompactEvent` is exactly where the seam EXISTS and
-    // is LIVE pre-fix (measured: the write is refused, the record stays
-    // `compacting`), and a seam fixture on it goes RED against the defect with 3
-    // rows — the fixture shape describe A's reversed test uses, and the reverse
-    // of repair R9 (that test is red pre-fix for the same reason, measured). The
-    // seam is inoperative on the SIBLING path only: `settleOpenLifecycleRun`'s
-    // pre-fix signature does not carry it, the flag is ignored and the record
-    // advances to `completed` anyway, which is why R6's measurement of that path
-    // could not have expressed this defect. `chmod` is preferred because it is
-    // independent of the code under test (an injection that never fires reads
-    // exactly like a passing guard), not because a flag would be ignored here.
+    // direction is believed. It is deliberately not a file mode any more: the
+    // objection a seam fixture once met here — that an injection which never
+    // fires reads exactly like a passing guard — is answered by
+    // `forceWriteRefusal` reading the refusal off the store, and the reason the
+    // seam is used now is that it is the only forcing here whose effect does not
+    // depend on which OS runs the test (see that helper). The seam is live on the
+    // path under test — `settleCompactFromHarnessEvent` →
+    // `settleOpenLifecycleRunOnCompactEvent` carries it, and a seam fixture on it
+    // goes RED against the defect with 3 rows, the reverse of repair R9 (that
+    // test is red pre-fix for the same reason, measured). It was inoperative on
+    // the SIBLING path only, whose pre-fix signature did not carry it: the flag
+    // was ignored and the record advanced to `completed` anyway, which is why
+    // R6's measurement of that path could not have expressed this defect.
     // given: an open run whose record cannot be rewritten
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r9a';
     openRun(root, sid, 0.92);
-    const recordPath = lifecycleRecordPath(root, sid);
-    chmodSync(recordPath, 0o444);
 
     // when: the injection is confirmed live — the write really does refuse
-    expect(() =>
-      writeCompactLifecycle({
-        projectRoot: root,
-        sessionId: sid,
-        record: {
-          schemaVersion: 1,
-          runId: 'injection-canary',
-          stage: 'completed',
-          updatedAt: new Date().toISOString(),
-          triggerRatio: 0.92,
-          redLine: false
-        }
-      })
-    ).toThrow();
+    forceWriteRefusal(root, sid);
 
     // when: the harness reports the SAME compaction three times
     const results = [0, 1, 2].map(() =>
-      settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) })
+      settleCompactFromHarnessEvent({
+        projectRoot: root,
+        sessionId: sid,
+        trigger: 'auto',
+        failLifecycleWrite: true,
+        measure: ruler(drop)
+      })
     );
-    chmodSync(recordPath, 0o644);
 
     // then: every arrival reports the run still unsettled — the three facts are
     // read off the OPEN run, so they stay true; the SETTLE is what is refused
@@ -600,9 +634,14 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     expect(dispatched.code).toBe('AUTO_COMPACT_DISPATCHED');
 
     // when: the harness event arrives while the lifecycle record cannot be written
-    chmodSync(lifecycleRecordPath(root, sid), 0o444);
-    const deferred = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'auto', measure: ruler(drop) });
-    chmodSync(lifecycleRecordPath(root, sid), 0o644);
+    forceWriteRefusal(root, sid);
+    const deferred = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'auto',
+      failLifecycleWrite: true,
+      measure: ruler(drop)
+    });
     expect(deferred.settled).toBe(true);
     if (!deferred.settled) return;
     expect(deferred.historyWritten).toBe(false);
@@ -637,10 +676,16 @@ describe('C — the sibling settle path, aligned (repair R9)', () => {
     const root = makeProject();
     const sid = '2026-09-13-session-settle-r9b';
     openRun(root, sid, 0.92);
-    chmodSync(lifecycleRecordPath(root, sid), 0o444);
+    // when: the injection is confirmed live — the write really does refuse
+    forceWriteRefusal(root, sid);
     // when: the event arrives with the harness's trigger
-    const result = settleCompactFromHarnessEvent({ projectRoot: root, sessionId: sid, trigger: 'manual', measure: ruler(drop) });
-    chmodSync(lifecycleRecordPath(root, sid), 0o644);
+    const result = settleCompactFromHarnessEvent({
+      projectRoot: root,
+      sessionId: sid,
+      trigger: 'manual',
+      failLifecycleWrite: true,
+      measure: ruler(drop)
+    });
     // then: the outcome is reported, the row is not written, and the two are
     // separate fields rather than one collapsed value
     expect(result.settled).toBe(true);
