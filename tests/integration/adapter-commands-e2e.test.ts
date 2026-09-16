@@ -405,10 +405,18 @@ interface HookIdeExpectation {
   readonly removed?: boolean;
 }
 
+// Sentinel pinned to what each IDE actually writes to disk, not what the
+// pre-S7-C4 install command claimed to write. S7's hook-commands.ts C4 fix
+// derives `listExpectedEntriesForIde` from `resolveHookEntries(ide)` instead
+// of a hard-coded literal. That fixed a self-inconsistency in the previous
+// table: for codex and cursor, the install command reported `peaks gate
+// enforce` as its first entry while the on-disk file actually contained
+// `peaks hook handle`. The install path is now honest; the table must
+// match what is on disk, not what the old (lying) summary said.
 const HOOK_IDE_EXPECTATIONS: readonly HookIdeExpectation[] = [
   { ide: 'trae', install: 'pass', matcher: 'terminal', sentinel: 'peaks hook handle', statusEntries: 1, removed: true },
-  { ide: 'codex', install: 'pass', matcher: 'shell', sentinel: 'peaks gate enforce', statusEntries: 0, removed: false },
-  { ide: 'cursor', install: 'pass', matcher: 'Bash', sentinel: 'peaks gate enforce', statusEntries: 0, removed: false },
+  { ide: 'codex', install: 'pass', matcher: 'shell', sentinel: 'peaks hook handle', statusEntries: 0, removed: false },
+  { ide: 'cursor', install: 'pass', matcher: 'Bash', sentinel: 'peaks hook handle', statusEntries: 0, removed: false },
   { ide: 'qoder', install: 'unsupported', removed: false },
   { ide: 'tongyi-lingma', install: 'unsupported', removed: false },
   { ide: 'hermes', install: 'pass', matcher: 'Bash', sentinel: 'peaks gate enforce', statusEntries: 1, removed: true },

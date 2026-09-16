@@ -95,9 +95,22 @@ describe('Phase 2 critical paths', () => {
   // a freshly-initialized workspace has no envelope, so the CLI
   // prints { "exists": false, "source": "missing" } which is the
   // canonical surface marker for "no plan yet".
+  //
+  // --project is tmpRoot, NOT the repo root. This test is the
+  // reason the assertion below is worth writing: pointed at the
+  // repo root it passed on a developer's machine and failed on a
+  // clean checkout, because the repo has a session binding (and
+  // several historic session directories) that a fresh clone does
+  // not, and `plan read` answers NO_ACTIVE_SESSION instead of the
+  // missing-envelope marker. The scenario this test names is "a
+  // freshly-initialized workspace", and tmpRoot — initialized by
+  // test 1 above — is that workspace. Depending on the repo's own
+  // gitignored runtime state is what no-runtime-input-guard exists
+  // to forbid; that guard covers tests/unit/** and did not see
+  // tests/e2e/**.
   test('peaks workflow plan read', async () => {
     const result = await runCli(
-      ['workflow', 'plan', 'read', '--type', 'perf', '--project', PROJECT_ROOT],
+      ['workflow', 'plan', 'read', '--type', 'perf', '--project', tmpRoot],
       tmpRoot
     );
 

@@ -143,13 +143,21 @@ function isSourcePath(path: string): boolean {
  * read as two deleted cases; a class that is half-counted is worse than a class
  * that is not counted at all.
  *
+ * Word-boundary simulation, not `\b`. The JS regex could spell this as `\b`
+ * directly, but the POSIX ERE side of the count has to run on macOS too —
+ * where `git grep -E` is BSD grep, and BSD grep's POSIX ERE has no `\b`
+ * (it is a literal `b`). The two expressions therefore both spell the boundary
+ * as `(^|[^A-Za-z0-9_])`: start of line OR a non-word character. The two
+ * sides MUST agree, and `git grep -c` counts matched lines (not occurrences)
+ * so the extra prefix group does not shift the count.
+ *
  * What is deliberately NOT modelled: an occurrence inside a comment or a string
  * literal still matches. That is symmetric — the same expression is evaluated on
  * both sides — so it cancels out of the DELTA, which is the only thing a removal
  * is ever derived from.
  */
-const TEST_CASE_LINE_RE = /\b(it|test)(\.[A-Za-z]+)*\(/;
-const TEST_CASE_ERE = '\\b(it|test)(\\.[A-Za-z]+)*\\(';
+const TEST_CASE_LINE_RE = /(?:^|[^A-Za-z0-9_])(it|test)(\.[A-Za-z]+)*\(/;
+const TEST_CASE_ERE = '(^|[^A-Za-z0-9_])(it|test)(\\.[A-Za-z]+)*\\(';
 /**
  * Column-0 `export` — an export STATEMENT, not a type-checked symbol.
  *

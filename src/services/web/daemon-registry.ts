@@ -5,7 +5,7 @@
  * WRITE goes through `assertUnder` first — the slice-wide guard against an
  * artifact escaping `<root>/.peaks/_runtime/<sid>/web/` (AC1).
  */
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
@@ -15,6 +15,25 @@ import {
   webSpawnLockPath
 } from './web-artifact-paths.js';
 import { parseDaemonInfo, type WebDaemonInfo } from './web-protocol.js';
+
+/**
+ * Canonicalize through symlinks so two paths that name the same directory through
+ * different prefixes compare equal — the macOS `/var` <-> `/private/var` quirk
+ * makes `mkdtempSync(...)` return `/var/folders/...` while `process.cwd()` after
+ * `chdir` returns `/private/var/folders/...`. They are the same directory on
+ * disk; without `realpathSync` the ownership check below silently rejects a
+ * legitimate record and the CLI cold-starts a real daemon instead of reusing
+ * the stub. Falls back to `resolve()` when the path is absent: a planted
+ * record naming a directory that does not exist still has to fail the
+ * containment test, and a `realpathSync` on it would throw.
+ */
+function safeRealpath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+}
 
 /** A spawn lock older than this is reclaimed even if its owner pid is alive. */
 const SPAWN_LOCK_STALE_MS = 120_000;
@@ -62,7 +81,13 @@ export function readDaemonInfo(projectRoot: string, sessionId: string): WebDaemo
   }
   try {
     const info = parseDaemonInfo(readFileSync(target, 'utf8'));
-    if (info === null || info.projectRoot !== projectRoot || info.sessionId !== sessionId) {
+    if (info === null || info.sessionId !== sessionId) {
+      return null;
+    }
+    // Canonicalize both sides — a record written from one prefix (say
+    // `/var/folders/...`) and read from the canonical one (`/private/var/...`)
+    // describes the same project on macOS.
+    if (safeRealpath(info.projectRoot) !== safeRealpath(projectRoot)) {
       return null;
     }
     return info;
