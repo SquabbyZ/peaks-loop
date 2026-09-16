@@ -231,9 +231,16 @@ export async function runWebOp(
     }
 
     const info = await ensureDaemon(projectRoot, sessionId);
+    // The daemon reads `projectRoot` back from `daemon.json` — the record it
+    // itself wrote — and that round-trip is the only path that survives the
+    // macOS `/var` <-> `/private/var` symlink: the writer's prefix may not
+    // match `projectRoot` resolved from `process.cwd()` (the kernel resolves
+    // symlinks on `chdir`), and the integration test asserts on that exact
+    // round-tripped value.
+    const daemonProjectRoot = info.projectRoot;
     const response = await new WebDaemonClient(info).call<Record<string, unknown>>(
       op,
-      { ...opArgs, dispatchId: dispatchId(), projectRoot, sessionId },
+      { ...opArgs, dispatchId: dispatchId(), projectRoot: daemonProjectRoot, sessionId },
       OP_TIMEOUT_MS
     );
 
