@@ -9,7 +9,25 @@
  * both sides were parsed AND the recorded interface was fully readable.
  */
 
+import { realpathSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
+
+/**
+ * Canonicalize through symlinks so two paths that name the same directory through
+ * different prefixes (the macOS `/var` <-> `/private/var` quirk the brief calls
+ * out) line up as the same literal on both sides of the prefix test below.
+ * Falls back to `resolve()` when the path does not exist yet — `realpathSync`
+ * throws on missing paths, and several callers in the suite inspect not-yet-
+ * created paths (e.g. the "string prefix of a sibling" guard at
+ * api-diff-service.test.ts:462).
+ */
+function safeRealpath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
 
 /** The honest boundary of the feature. Printed in the output, not just documented. */
 export const NOT_DETECTABLE: readonly string[] = [
@@ -126,8 +144,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  * the misleading `archive/docs/api.json`.
  */
 export function toDisplayPath(projectRoot: string, file: string): string {
-  const rootParts = resolve(projectRoot).split(sep);
-  const fileParts = resolve(file).split(sep);
+  const rootParts = safeRealpath(projectRoot).split(sep);
+  const fileParts = safeRealpath(file).split(sep);
   const inside = fileParts.length > rootParts.length
     && rootParts.every((part, index) => part === fileParts[index]);
   return (inside ? fileParts.slice(rootParts.length) : fileParts).join('/');
