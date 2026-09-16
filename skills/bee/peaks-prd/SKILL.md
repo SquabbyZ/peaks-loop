@@ -147,7 +147,7 @@ PRD 模板在原 7 段基础上,增加 4 个**质量前置必填块**(user 写,A
 3. **UI 装配意图**(页面模式 / 关键交互 / 信息密度;**不画 ASCII 视觉**,视觉由选定的开源组件库自动决定)
 4. **上游基线**(fork 场景必填:当前 fork 基于哪个 tag / 偏离度 / 业务 patch 集)
 
-**反伪选择原则:** user 不参与技术决策(库/框架/语言/性能/安全/架构),只写业务/产品意图。AI 据业务场景块选库选架构。详见 `.peaks/memory/peaks-loop-prd-template-design.md`。
+**反伪选择原则:** user 不参与技术决策(库/框架/语言/性能/安全/架构),只写业务/产品意图。AI 据业务场景块选库选架构。详见 `.peaks/memory/peaks-cli-prd-template-design.md`。
 
 ## Project-scan gate (v2.11.0 D3 — read before brainstorm)
 
@@ -264,7 +264,7 @@ Use gstack as a concrete workflow reference for the product-facing parts of `Thi
 
 ## Authenticated product document workflow
 
-When the source PRD is an authenticated web document such as Feishu/Lark, use the Playwright MCP headed-browser surface rather than unauthenticated fetch tools. Chrome DevTools MCP is a secondary surface that only connects to an already-running Chrome (`--remote-debugging-port=9222`); it does not launch a browser on its own. The canonical browser workflow lives in `peaks-code/references/browser-workflow.md`; the rules below are the PRD-specific application.
+When the source PRD is an authenticated web document such as Feishu/Lark, use the Playwright MCP headed-browser surface rather than unauthenticated fetch tools. Chrome DevTools MCP is a secondary surface that only connects to an already-running Chrome (`--remote-debugging-port=9222`); it does not launch a browser on its own. The canonical browser workflow lives in `../../peaks-code/references/browser-workflow.md`; the rules below are the PRD-specific application.
 
 1. Confirm Playwright MCP is installed: check the LLM tool list for any Playwright MCP entry in the LLM tool list. If absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or the IDE-native install command. Do not hand-edit `.claude/settings.json`.
 2. Before navigation, verify the user-provided document URL uses `https:` and belongs to an approved Feishu/Lark tenant domain such as `*.feishu.cn`, `*.larksuite.com`, `*.larksuite.com.cn`, or a project-configured tenant. Reject `file:`, `data:`, `javascript:`, `http:`, localhost, loopback, link-local, private IP, and raw IP hosts unless the user explicitly approves a controlled local test target.
@@ -294,7 +294,7 @@ Summarize business context only when it changes implementation priority, scope, 
 
 When the user explicitly says the target is a frontend project, transform the product document into frontend implementation inputs before RD starts:
 
-> **v2.15.0+ 校准:** UI 视觉 = 开源组件库装配(shadcn / Radix / antd / mui),不是原创设计。prd 不画 ASCII 视觉,只描述"页面模式 + 关键交互 + 信息密度"。AI 据此选组件库 + 装配。详见 `.peaks/memory/peaks-loop-prd-template-design.md`。
+> **v2.15.0+ 校准:** UI 视觉 = 开源组件库装配(shadcn / Radix / antd / mui),不是原创设计。prd 不画 ASCII 视觉,只描述"页面模式 + 关键交互 + 信息密度"。AI 据此选组件库 + 装配。详见 `.peaks/memory/peaks-cli-prd-template-design.md`。
 
 1. identify target pages, routes, components, forms, tables, modals, empty/loading/error states, permissions, data dependencies, edge cases, and affected user flows;
 2. separate frontend-only work from API/backend联调 assumptions;

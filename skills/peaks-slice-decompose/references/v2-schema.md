@@ -76,7 +76,7 @@ The CLI serialises via `SchemaRouter.writeResult()` → `JSON.stringify(result, 
 | `toPass` | `PassNumber` | The lower (finer) pass number. Always `fromPass < toPass`. |
 | `fromSliceId` | `string` | Slice id in `fromPass`. |
 | `toSliceId` | `string` | Slice id in `toPass`. |
-| `kind` | `CrossPassEdgeKind` (`'type-shares' \| 'fixture-shares' \| 'import-re-export' \| 'llm-arbitrated'`) | See `references/cross-pass-edge-interpretation.md`. |
+| `kind` | `CrossPassEdgeKind` (`'type-shares' \| 'fixture-shares' \| 'import-re-export' \| 'llm-arbitrated'`) | See `cross-pass-edge-interpretation.md`. |
 | `confidence` | `EdgeConfidence \| 'llm'` | `'llm'` only when `kind === 'llm-arbitrated'`. Structural detectors emit `'structural'`. |
 | `evidence` | `string` | Human-readable: the import line, the shared fixture id, or `llm:<callId>: <reason>` for LLM edges. |
 | `arbitratedBy` | `string \| null` | The `LlmArbitration.callId` that produced this edge, or `null` for static-detected edges. |
@@ -140,6 +140,6 @@ Any future schema change MUST:
 2. Extend `SchemaRouter.readResult()` to accept and dispatch it.
 3. Bump `DecompositionResultV3.schemaVersion: 'v3'`.
 4. Keep the v2 reader path intact (no in-place rewrite of v2 files).
-5. Update this reference + add a `references/v3-schema.md`.
+5. Update this reference + add a sibling v3 schema reference next to it.
 
 In-place edits to v1/v2 fields are forbidden: any consumer that already wrote a v2 file expects its schema to remain stable.

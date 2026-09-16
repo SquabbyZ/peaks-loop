@@ -41,7 +41,7 @@ denied again after a long pause. That is the gate resetting, not you regressing.
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Normative by documentation only — the guard that once asserted (a) zero bare `<sid>`, (b) an axis label on every runtime path, and (c) this callout's presence was deleted in `457b9a87`. Comply by convention.
 
 ## Read via `SchemaRouter.readResult()` — never parse the file directly
 
@@ -164,7 +164,7 @@ Why: RID-003 SC §3.5 originally specified the CJS guard for `scripts/install-sk
 
 ### Rule 2 — Whitelist fixture sync is NOT collateral (D-009a)
 
-When a slice adds a new entry to a **whitelist fixture** (e.g. `tests/unit/ide/ide-registry.test.ts` asserting `expect(adapters).toHaveLength(7)` after adding the 8th adapter), that fixture sync is a **primary task**, not a "by the way" footnote.
+When a slice adds a new entry to a **whitelist fixture** (a test that asserts an exact set size, e.g. `expect(adapters).toHaveLength(7)`, and must be bumped when the 8th adapter is added), that fixture sync is a **primary task**, not a "by the way" footnote.
 
 Mandatory structure for any slice that adds to a known set:
 
@@ -175,8 +175,8 @@ Mandatory structure for any slice that adds to a known set:
 |---|---|---|
 | T-1 | `src/services/ide/ide-types.ts` | Add `'zcode'` to IdeId |
 | T-2 | `src/services/ide/ide-registry.ts` | Register ZCODE_ADAPTER |
-| T-3 | `tests/unit/ide/ide-registry.test.ts` | Update whitelist: 7 → 8 adapters, add 'zcode' |
-| T-4 | `tests/unit/install-skills-script.test.ts` | Update whitelist: 5 → 6 platforms, add 'zcode' |
+| T-3 | the adapter-registry whitelist fixture | Update whitelist: 7 → 8 adapters, add 'zcode' |
+| T-4 | the install-skills platform whitelist fixture | Update whitelist: 5 → 6 platforms, add 'zcode' |
 ```
 
 If you find a whitelist fixture during execution but didn't pre-list it as a task, treat it as a **NEW TASK** and run the SC ↔ QA repair loop, not as "necessary collateral". Pre-listing prevents surprises at Gate 1.

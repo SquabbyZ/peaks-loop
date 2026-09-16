@@ -56,8 +56,7 @@ export const CODEX_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.codex', 'settings.json');
-    },
-    supportsScope: (scope) => scope === 'project' || scope === 'global'
+    }
   },
   envVar: 'CODEX_PROJECT_DIR', // UNVERIFIED — see slice #13 PRD R-3; fallback path still works
   hookEvent: 'pre_tool_use', // UNVERIFIED — Codex lowercase snake_case pattern; re-verify against Codex docs

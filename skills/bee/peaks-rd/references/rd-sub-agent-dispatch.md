@@ -49,11 +49,11 @@ If the upstream superpowers chain suggests raw `git worktree add`:
 > single-dispatch path.
 >
 > This constraint is **text-locked** in this reference (so the LLM
-> runner sees the rule every time it reads the dispatch contract) and
-> **test-locked** by
-> `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts` (≥ 8 cases
-> covering 1-leaf, 2-leaf, 3+-leaf, config/docs/chore type-bypass, and
-> the preferences-with-serial-default fan-out escape hatch). See also
+> runner sees the rule every time it reads the dispatch contract). It is
+> no longer test-locked: the unit test that carried the ≥ 8 cases
+> (1-leaf, 2-leaf, 3+-leaf, config/docs/chore type-bypass, and the
+> preferences-with-serial-default fan-out escape hatch) was deleted in
+> `f17aa377` and has not been replaced. See also
 > `skills/peaks-code/references/fanout-mandatory.md` for the
 > orchestrator-side rationale; the two files share the same wording by
 > design — if either changes, update the other.
@@ -109,7 +109,7 @@ Any RD/QA/SC sub-agent dispatched by `peaks sub-agent dispatch --from-dag` (or b
 
 **Where the orchestrator reads the values from**: `data.orchestratorVisibleHint` (one line, copy verbatim) and `data.artifactsPublicPaths` (the public list of artifact paths the sub-agent will own). The CLI fills these in; the orchestrator just transcribes.
 
-**Regression guard**: `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts` parses `rd-sub-agent-dispatch.md` and asserts the G11.5 heading is present. Do not delete the heading without updating the guard.
+**Regression guard**: none. The unit test that parsed `rd-sub-agent-dispatch.md` and asserted the G11.5 heading is present was deleted in `f17aa377`. The heading is held by convention only — do not delete it.
 
 ---
 
@@ -161,7 +161,7 @@ Touch only what you must. Clean up only your own mess. When editing existing cod
 Define success criteria. Loop until verified. "Add validation" → write tests for invalid inputs, then make them pass. "Fix the bug" → write a test that reproduces it, then make it pass. For multi-step tasks, state a brief plan with verify checkpoints. Strong success criteria let you loop independently. Weak criteria require constant clarification.
 ```
 
-Sub-agents MUST NOT silently drop this block. The regression test `tests/unit/skills/karpathy-prompt-injection.test.ts` asserts this block is present. The canonical skill id for the full guidelines text is `andrej-karpathy-skills:karpathy-guidelines`.
+Sub-agents MUST NOT silently drop this block. Nothing asserts its presence automatically — the unit test that did was deleted in `f17aa377`, so a dropped block fails silently. The canonical skill id for the full guidelines text is `andrej-karpathy-skills:karpathy-guidelines`.
 
 ## BDD Test Style Contract (effective rid-2026-08-05-bdd-test-style, v4.0.11+)
 

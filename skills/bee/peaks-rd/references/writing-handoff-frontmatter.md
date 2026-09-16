@@ -53,14 +53,14 @@ schemaVersion: '2.0'
 - `gateEvidence` — paths to the gate files peaks-qa will validate. Missing keys → Gate C failure.
 - `schemaVersion: '2.0'` — pinned (bumped from `'1.0'` in v2.11.0); bump only when the field set changes.
 
-> **v2.11.0 Group A change:** the validation tests at `tests/unit/artifacts/handoff-frontmatter-shape.test.ts` now assert `schemaVersion === '2.0'`. Files still carrying `'1.0'` will fail validation until upgraded.
+> **v2.11.0 Group A change:** `schemaVersion` was bumped to `'2.0'`. The consumers listed under §Validation anchor on that value, so a file still carrying `'1.0'` is rejected at read time.
 
 ## Validation
 
-The frontmatter MUST parse as valid YAML. The regression test `tests/unit/artifacts/handoff-frontmatter-shape.test.ts` (≥ 4 cases) enforces (a) required fields present, (b) `gateEvidence` keys match the per-request-type matrix in `peaks-rd/SKILL.md` Gate C table, (c) `schemaVersion: '1.0'`. Run before commit:
+The frontmatter MUST parse as valid YAML. Two automated consumers read it, and both anchor on `schemaVersion` + `sha256`: the `AUDIT_REQUIRES_HANDOFF` prereq in `src/services/artifacts/artifact-prerequisites.ts` and the independent audit services under `src/services/audit-independent/`. The serializer that writes it is `src/services/prd/handoff-frontmatter.ts`. No unit test pins the field set — the "regression test" this section used to name never existed in this repository — so required-field and `gateEvidence` completeness are conventions the publisher must honour.
 
 ```bash
-./node_modules/.bin/vitest run tests/unit/artifacts/handoff-frontmatter-shape.test.ts
+# No command validates the frontmatter today; review the consumers above by hand.
 ```
 
 ## Body (prose, free-form)

@@ -26,8 +26,8 @@ checkpoint as often as it wants.
 > (i.e. on each 20-call mark, not "approximately every 20"). The CLI
 > does **not** expose a `--periodic-every <n>` override flag — the
 > cadence is owned by the skill, not the CLI. Any patch that relaxes
-> this must update both files in lockstep or fail the
-> `tests/unit/code/checkpoint-periodic-frequency.test.ts` guard.
+> this must update both files in lockstep; no guard fails on the drift
+> — the test that pinned the cadence was deleted in `f17aa377`.
 
 ## Checkpoint CLI contract
 

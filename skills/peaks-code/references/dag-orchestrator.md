@@ -50,7 +50,6 @@ trae / trae-cn / cursor 30s, codex 45s, claude-code 60s; uniform
 - Contract store: `src/services/dispatch/contract-store.ts`
 - CLI surface: `peaks sub-agent dispatch --from-dag <file> --batch-id <id>`
   and `peaks sub-agent await --batch <id> [--timeout <ms>]`
-- Tests: `tests/unit/code/dag-orchestrator.test.ts` (cancel-on-fail),
-  `tests/unit/dispatch/run-dag-dogfood-mvp.test.ts` (MVP dogfood),
-  `tests/unit/dispatch/slice-dag-dispatcher-5ide-dogfood.test.ts`
-  (5 IDE end-to-end).
+- Tests: none. The three suites that covered this — cancel-on-fail,
+  MVP dogfood, and the 5-IDE end-to-end — were deleted in `f17aa377`
+  and have not been replaced.

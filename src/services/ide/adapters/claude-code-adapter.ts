@@ -654,7 +654,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.claude', 'settings.json');
     },
-    supportsScope: () => true,
   },
   envVar: 'CLAUDE_PROJECT_DIR',
   hookEvent: 'PreToolUse',

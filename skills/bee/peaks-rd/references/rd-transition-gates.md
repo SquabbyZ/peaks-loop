@@ -1,6 +1,6 @@
 # Peaks-Loop RD transition verification gates
 
-> Extracted from `skills/peaks-rd/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim "Transition verification gates" section that was previously inline; nothing was paraphrased, just relocated.
+> Extracted from `skills/bee/peaks-rd/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `.peaks/standards/common/coding-style.md`. The content below is the verbatim "Transition verification gates" section that was previously inline; nothing was paraphrased, just relocated.
 
 ## Transition verification gates (MANDATORY — full per-gate contract)
 

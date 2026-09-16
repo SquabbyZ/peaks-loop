@@ -52,8 +52,7 @@ export const TRAE_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.trae', 'settings.json');
-    },
-    supportsScope: (scope) => scope === 'project' || scope === 'global'
+    }
   },
   envVar: 'TRAE_PROJECT_DIR',
   hookEvent: 'beforeToolCall', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture at tests/fixtures/trae/trae-1x-payload.json

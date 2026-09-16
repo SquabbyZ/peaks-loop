@@ -170,4 +170,4 @@ section is the source of new sediment rows; the format is:
 - Service: `src/services/audit-independent/perf-audit-service.ts`
 - Template: `.peaks/project-scan/perf-template.md`
 - Schema: `.peaks/project-scan/audit-output-schema.md`
-- Companion: `skills/peaks-security-audit/references/audit-protocol.md`
+- Companion: `skills/bee/peaks-security-audit/references/audit-protocol.md`

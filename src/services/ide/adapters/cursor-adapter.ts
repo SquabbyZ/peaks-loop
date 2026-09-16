@@ -46,8 +46,7 @@ export const CURSOR_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.cursor', 'settings.json');
-    },
-    supportsScope: (scope) => scope === 'project' || scope === 'global'
+    }
   },
   envVar: 'CURSOR_PROJECT_DIR', // UNVERIFIED — see slice #12 PRD R-2; fallback path still works
   hookEvent: 'beforeShellExecution', // UNVERIFIED — see slice #12 PRD R-1; re-verify against Cursor's published hook schema

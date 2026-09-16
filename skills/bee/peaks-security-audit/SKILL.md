@@ -81,7 +81,7 @@ MUST NOT invoke this skill — the `security-audit run` CLI exits with
 
 ## Workflow (5 steps)
 
-### Step 1 — Detect (mirrors `detectEcc` from `services/code-review/ecc-bridge.ts`)
+### Step 1 — Detect (mirrors `detectEcc` from `src/services/code-review/ecc-bridge.ts`)
 
 ```bash
 peaks security-audit detect --rid <id> --sid <sid> --project <repo>
@@ -186,8 +186,8 @@ The `peaks-rd` aggregator picks up the artifact from
 - Schema: `.peaks/project-scan/audit-output-schema.md`
 - Service: `src/services/audit-independent/security-audit-service.ts`
 - CLI: `src/cli/commands/security-audit-commands.ts`
-- Tests: `tests/unit/services/audit-independent/security-audit-service.test.ts`
-- Companion: `skills/peaks-perf-audit/SKILL.md` (symmetric structure)
+- Tests: none — the unit suite for the service was deleted in `f17aa377`.
+- Companion: `skills/bee/peaks-perf-audit/SKILL.md` (symmetric structure)
 
 ## Karpathy alignment
 

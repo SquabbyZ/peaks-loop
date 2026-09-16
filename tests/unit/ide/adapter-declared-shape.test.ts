@@ -281,18 +281,6 @@ describe('Scenario: behavior — the nine declarations stay mutually distinct wh
       autoCompactWindowEnvVar: 'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
     });
   });
-
-  it('when the standard install scopes are asked for, should accept both scopes on every adapter', () => {
-    // Characterisation: each adapter's `supportsScope` predicate is a
-    // tautology over its own parameter type today, so this cannot fail by
-    // receiving a bad value — it fails only if an adapter starts refusing a
-    // scope, which is the change worth noticing.
-    for (const ide of EXPECTED_ORDER) {
-      const settings = getAdapter(ide).settings;
-      expect(settings.supportsScope('project')).toBe(true);
-      expect(settings.supportsScope('global')).toBe(true);
-    }
-  });
 });
 
 describe('Scenario: behavior — caller id resolves from the adapter own vendor signal, never a sibling one', () => {

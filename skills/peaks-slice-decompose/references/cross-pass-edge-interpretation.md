@@ -1,6 +1,6 @@
 # Cross-pass edge interpretation
 
-Source of truth: `src/services/slice/cross-pass-edge-merger.ts` (`merge` function) + `src/services/slice/llm-arbitrator.ts` (`arbitrate`). Read this together with `references/v2-schema.md` for the field-level definitions.
+Source of truth: `src/services/slice/cross-pass-edge-merger.ts` (`merge` function) + `src/services/slice/llm-arbitrator.ts` (`arbitrate`). Read this together with `v2-schema.md` for the field-level definitions.
 
 ## What is a `CrossPassEdge`
 

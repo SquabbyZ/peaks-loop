@@ -32,8 +32,7 @@ export const HERMES_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.hermes', 'settings.json');
-    },
-    supportsScope: (scope) => scope === 'project' || scope === 'global'
+    }
   },
   envVar: 'HERMES_PROJECT_DIR', // UNVERIFIED
   hookEvent: 'PreToolUse', // UNVERIFIED

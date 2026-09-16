@@ -155,7 +155,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #         --rid <rid> --project <repo> --json
 #     The sub-agent reads `~/.claude/agents/karpathy-reviewer.md` (user-installed)
 #     which is the project-internal draft at
-#     `skills/peaks-rd/references/karpathy-reviewer-prompt.md` plus a
+#     `skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md` plus a
 #     `rd/karpathy-reviewer-agent-handoff.md` install guide.
 #     Hard gate: missing karpathy-reviewer sub-agent OR missing rd/karpathy-review-<rid>.md
 #     → `peaks request transition --state qa-handoff` returns `code: PREREQUISITES_MISSING`.

@@ -56,11 +56,11 @@ The boundary is closed under this slice:
 
 ## Single-scope-axis naming convention (2.7.1)
 
-The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). Reviewable artifacts live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored); the change-id is an optional filename slug and does NOT route filesystem writes. CLI: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
+The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). Reviewable artifacts live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored); the change-id is an optional filename slug and does NOT route filesystem writes. CLI: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Normative by documentation only — the guard that once asserted (a) zero bare `<sid>`, (b) axis labels, and (c) this callout's presence was deleted in `457b9a87`. Comply by convention.
 
 ## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
 
-Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Append the verbatim block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" to the dispatch prompt. Canonical skill id: `andrej-karpathy-skills:karpathy-guidelines`. Summary: **#1 Think Before Coding**, **#2 Simplicity First**, **#3 Surgical Changes**, **#4 Goal-Driven Execution**.
+Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Append the verbatim block from `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" to the dispatch prompt. Canonical skill id: `andrej-karpathy-skills:karpathy-guidelines`. Summary: **#1 Think Before Coding**, **#2 Simplicity First**, **#3 Surgical Changes**, **#4 Goal-Driven Execution**.
 
 ## Hard ban (effective 2.8.3 — read every session, no exceptions)
 
@@ -72,7 +72,7 @@ Peaks-Loop Code is the orchestration facade for the Peaks-Loop short skill famil
 
 ## 产品定位(2026-06-28 校准)
 
-> peaks-loop 真实定位 = 24h AI 程序员编排器;user 角色 = 业务/产品审阅者,不参与技术决策。详见 `.peaks/memory/peaks-loop-24h-ai-programmer-positioning.md`。
+> peaks-loop 真实定位 = 24h AI 程序员编排器;user 角色 = 业务/产品审阅者,不参与技术决策。详见 `.peaks/memory/peaks-cli-24h-ai-programmer-positioning.md`。
 
 ## Skill-first architecture note (read once, internalise)
 
@@ -91,7 +91,7 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 | `tests/integration/` | `tests/integration/x.test.ts` |
 | `config/` | `config/peaks.json`, `tsconfig.json` |
 | `bin/` | `bin/peaks.js` |
-| `scripts/` | `scripts/release.sh` |
+| `scripts/` | `scripts/release-pack.mjs` |
 
 ANY direct `Edit` / `Write` / `MultiEdit` of these paths from the orchestrator context is a **hard error**. The orchestrator's role is ONLY to dispatch sub-agents; it never owns a code-change tool call against these families.
 
@@ -298,7 +298,7 @@ The 6-type table + 11-step order + 7 transition gates (A-G) live in `references/
 
 > **Slice 5:** when the slice DAG has ≥ 2 leaves at one topological level, dispatch via `peaks sub-agent dispatch --from-dag <dag-file>` (wall-time ≈ max, not sum).
 
-Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。详见 `.peaks/memory/peaks-loop-24h-ai-programmer-positioning.md`。
+Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。详见 `.peaks/memory/peaks-cli-24h-ai-programmer-positioning.md`。
 
 ### Hard constraint: fan-out is mandatory (slice 2026-06-24-audit-5th-p2)
 
@@ -308,7 +308,7 @@ Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-ag
 
 ## Slice 调度:分层并行 + 上游同步(2026-06-28 校准)
 
-> 分层并行(G12)+ 上游同步(G11)见 `.peaks/memory/peaks-loop-fork-sync-and-layered-parallel.md`。
+> 分层并行(G12)+ 上游同步(G11)见 `.peaks/memory/peaks-cli-fork-sync-and-layered-parallel.md`。
 
 ## Peaks-Loop Mandatory RD QA repair loop (AUTO-PROCEED)
 
@@ -318,7 +318,7 @@ After `peaks-rd` finishes, Code MUST auto-route to `peaks-qa` without waiting fo
 
 The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`24h` auto-proceed. At a `[CONFIRM]` gate the CLI never prompts: the transition throws `CONFIRMATION_REQUIRED`, so Code asks the user via `AskUserQuestion` and, on approval, re-runs the same command with `--confirm`. Never expect or ask for a terminal `y/N` prompt.
 
-When adding new CLI commands, mirror into `references/runbook.md` and `tests/unit/skill-default-runbook.test.ts` (test falls back to the reference).
+When adding new CLI commands, mirror into `references/runbook.md` (the CLI falls back to that reference; no test asserts the mirror).
 
 ## RD micro-cycle (TDD small-step rapid-test loop)
 
@@ -370,4 +370,4 @@ Three CLI primitives: `peaks sub-agent share / shared-read / await` (last-write-
 
 ## References
 
-Index of every `references/` file. Read on demand. The 35 reference files are listed in `references/references-index.md` (auto-generated, kept outside the SKILL.md byte cap). Top-5 by usage: `runbook.md`, `sub-agent-dispatch.md`, `micro-cycle.md`, `worktree-governance.md`, `workflow-gates-and-types.md`.
+Index of every `references/` file. Read on demand. There is no separate generated index — list `references/` directly (kept outside the SKILL.md byte cap). Top-5 by usage: `runbook.md`, `sub-agent-dispatch.md`, `micro-cycle.md`, `worktree-governance.md`, `workflow-gates-and-types.md`.

@@ -110,6 +110,6 @@ Then tell the user: "Resuming from `<gate>`. The main peaks-code skill will take
 
 ## Cross-references
 
-- The detection logic is canonical at `tests/fixtures/skill-resume-mode-detect.sh` (added in slice 003). The 8 vitest cases in `tests/unit/skill-resume-mode.test.ts` cover all classification outcomes.
+- The detection logic is canonical at `tests/fixtures/skill-resume-mode-detect.sh` (added in slice 003). Nothing covers the classification outcomes in unit tests today — the 8-case suite was deleted in `f17aa377`.
 - The SKILL.md prose at `skills/peaks-code/SKILL.md` Step 0.7 (added in slice 003) is the same logic, written for LLM consumption. This wrapper reuses the same script — there is no parallel implementation.
 - The "drives a CLI on the user's behalf" pattern (mirror of `peaks-sop`) is the closest existing precedent for this wrapper.

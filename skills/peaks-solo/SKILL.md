@@ -247,6 +247,5 @@ peaks-solo 是 dispatcher,**不**是 orchestrator,**不**是 implementer。下�
 - `references/triage-decision-table.md` — 关键词 → leaf skill 完整映射表(≥ 10 行)
 - `references/fallback-tool-inventory.md` — 自规划允许 + 禁止工具清单
 - `references/sediment-prompt-template.md` — 4-option AskUserQuestion 沉淀模板
-- spec: `docs/superpowers/specs/2026-07-08-peaks-solo-dispatcher-design.md` §3.1, §3.3, §3.4, §3.5
-- plan: `docs/superpowers/plans/2026-07-08-peaks-solo-dispatcher/s1-peaks-solo-skill.md`
+- spec / plan: the `2026-07-08-peaks-solo-dispatcher` design + plan docs were retired in `e6e35842`; the surviving record of that slice is `.peaks/memory/2026-07-08-peaks-solo-dogfood.md` and the decision memo below.
 - decision memo: `.peaks/memory/user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md`

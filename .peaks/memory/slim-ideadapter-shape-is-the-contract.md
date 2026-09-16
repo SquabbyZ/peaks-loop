@@ -6,4 +6,4 @@ metadata:
   sourceArtifact: .peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md
 ---
 
-Slice #1 established the slim `IdeAdapter` shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings function (resolveSettingsFile + supportsScope) + 1 capabilities marker. New IDE adapters are "fill the table" not "rewrite the CLI". Future slices MUST register new adapters via `_setAdapterForTesting` (test seam) or follow-up production code, NOT by adding CLI-level `if (ide === 'trae')` branches.
+Slice #1 established the slim `IdeAdapter` shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings function (resolveSettingsFile) + 1 capabilities marker. New IDE adapters are "fill the table" not "rewrite the CLI". Future slices MUST register new adapters via `_setAdapterForTesting` (test seam) or follow-up production code, NOT by adding CLI-level `if (ide === 'trae')` branches. (A second settings member, `supportsScope`, was dropped in N3 / 2026-09-16: all nine implementations were tautologies over the `'project' | 'global'` parameter type and no production caller existed.)

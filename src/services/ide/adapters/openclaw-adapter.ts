@@ -25,8 +25,7 @@ export const OPENCLAW_ADAPTER: IdeAdapter = {
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.openclaw', 'settings.json');
-    },
-    supportsScope: (scope) => scope === 'project' || scope === 'global'
+    }
   },
   envVar: 'OPENCLAW_PROJECT_DIR', // UNVERIFIED
   hookEvent: 'PreToolUse', // UNVERIFIED

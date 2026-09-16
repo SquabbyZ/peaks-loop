@@ -9,7 +9,7 @@
 
 The rid is part of the filename (slice `2026-09-14-audit-artifact-rid-scoping`): every slice in a session shares `.peaks/_runtime/<sessionId>/audit/`, so a ridless name means the second slice's audit silently replaces the first slice's. The ridless locations are still read as fallbacks.
 
-Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and the project-scoped audit templates under `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`. The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq. The 1-minor-release back-compat window (`v2.12.0`) keeps the old `rd/{security-review,perf-baseline}.md` paths readable via `mustContainAny` — see `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (8 cases) and `tests/unit/artifact-prerequisites-typed.test.ts`.
+Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and the project-scoped audit templates under `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`. The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq. The 1-minor-release back-compat window (`v2.12.0`) keeps the old `rd/{security-review,perf-baseline}.md` paths readable via `mustContainAny` — see `RD_DEPRECATED_REVIEWERS` in `src/services/rd/reviewer-dispatch-policy.ts`. The unit tests that once pinned this were deleted in `f17aa377` and have not been replaced.
 
 The current fan-out is therefore **3 sub-agents**:
 
@@ -67,7 +67,7 @@ Note: sub-agent 1 (code-reviewer) and sub-agent 3 (karpathy-reviewer) write to `
 - Read `.peaks/_runtime/<sessionId>/prd/handoff.md` (v2.11.0: architecture summary — the immutable peaks-prd handoff replaces `rd/tech-doc.md`).
 - Output: `.peaks/_runtime/<sessionId>/rd/karpathy-review-<rid>.md` containing a `## Karpathy-Gate` header and the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). (Rid in the filename, same reason as the code review; the ridless `rd/karpathy-review.md` is still read as a fallback.)
 - Required for the `KARPATHY_REVIEW` prereq. The transition CLI gate reads those markers and refuses `rd:qa-handoff` when the file is missing or the markers are absent.
-- See `references/rd-fanout-contracts.md` §"karpathy-reviewer contract" for the JSON envelope shape + file format.
+- See `rd-fanout-contracts.md` §"karpathy-reviewer contract" for the JSON envelope shape + file format.
 
 **Hard prohibitions on all 3 sub-agents:**
 - Do NOT call `Skill(skill="...")` — would re-enter RD or another skill and break the fan-out.

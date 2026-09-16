@@ -87,5 +87,5 @@ The artifact-scoped extract is canonical; the batch-scoped sibling is for non-ha
 
 ## Related
 
-- `references/runbook.md` §Step 11 — full bash + flow.
-- `references/project-memory-loading.md` — Step 2.3 memory loading (read-side).
+- `runbook.md` §Step 11 — full bash + flow.
+- `project-memory-loading.md` — Step 2.3 memory loading (read-side).

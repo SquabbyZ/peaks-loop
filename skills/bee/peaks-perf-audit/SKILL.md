@@ -184,8 +184,8 @@ required fixes deduped by `(file, line, hint)`).
 - Schema: `.peaks/project-scan/audit-output-schema.md`
 - Service: `src/services/audit-independent/perf-audit-service.ts`
 - CLI: `src/cli/commands/perf-audit-commands.ts`
-- Tests: `tests/unit/services/audit-independent/perf-audit-service.test.ts`
-- Companion: `skills/peaks-security-audit/SKILL.md` (symmetric structure)
+- Tests: none — the unit suite for the service was deleted in `f17aa377`.
+- Companion: `skills/bee/peaks-security-audit/SKILL.md` (symmetric structure)
 
 ## Karpathy alignment
 

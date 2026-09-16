@@ -6,10 +6,10 @@
 // the loop is CONFIGURED with, which the real loop cannot expose without
 // waiting out a 30–45 s budget.
 //
-// The four non-Claude dispatchers differ from claude-code in exactly two
+// The three non-Claude dispatchers differ from claude-code in exactly two
 // numbers and one string, and all three are per-IDE claims:
 //
-//   - `defaultTimeoutMs` — trae / trae-cn / cursor 30 s, codex 45 s (Codex's
+//   - `defaultTimeoutMs` — trae / cursor 30 s, codex 45 s (Codex's
 //     documented heartbeat is slower), claude-code 60 s.
 //   - `notePrefix` — the per-IDE label that makes a timeout attributable.
 //   - `hardCapMs` — deliberately NOT set. Asserted as absent: a per-IDE cap
@@ -64,7 +64,6 @@ vi.mock('~/src/services/dispatch/await-batch.js', () => ({
 const {
   claudeCodeSubAgentDispatcher,
   traeSubAgentDispatcher,
-  traeCnSubAgentDispatcher,
   codexSubAgentDispatcher,
   cursorSubAgentDispatcher,
 } = await import('../../../../src/services/dispatch/sub-agent-dispatcher.js');
@@ -91,12 +90,6 @@ const CASES = [
     dispatcher: traeSubAgentDispatcher,
     defaultTimeoutMs: 30_000,
     notePrefix: 'trae 1.3 real awaitBatch',
-  },
-  {
-    ide: 'trae-cn',
-    dispatcher: traeCnSubAgentDispatcher,
-    defaultTimeoutMs: 30_000,
-    notePrefix: 'trae-cn 1.3 real awaitBatch',
   },
   {
     ide: 'codex',
@@ -153,27 +146,26 @@ describe('Scenario: behavior — each dispatcher hands the join loop its own per
     }
   });
 
-  it('when the per-IDE budgets are collected, should hold codex apart from the other four', () => {
+  it('when the per-IDE budgets are collected, should hold codex apart from the other three', () => {
     // Codex is the only adapter whose default is 45 s, on the documented
-    // grounds that its heartbeat is slower. Pinned as a triple: the three 30 s
+    // grounds that its heartbeat is slower. Pinned as a set: the two 30 s
     // IDEs, codex at 45 s, claude-code at 60 s. If a slice sets codex back to
     // 30 s by copying a neighbour's row, this fails.
     const budgets = Object.fromEntries(CASES.map((c) => [c.ide, c.defaultTimeoutMs]));
     expect(budgets).toEqual({
       'claude-code': 60_000,
       trae: 30_000,
-      'trae-cn': 30_000,
       codex: 45_000,
       cursor: 30_000,
     });
   });
 
-  it('when the note prefixes are collected, should be distinct for the four prefixed IDEs', () => {
+  it('when the note prefixes are collected, should be distinct for the three prefixed IDEs', () => {
     // The prefix is the ONLY per-IDE value on the wire. Two IDEs sharing one
     // makes a cross-IDE timeout misattributable — which is the failure the
     // 1.4 dogfood contract added the prefix to prevent.
     const prefixes = CASES.filter((c) => c.notePrefix !== undefined).map((c) => c.notePrefix);
-    expect(new Set(prefixes).size).toBe(4);
+    expect(new Set(prefixes).size).toBe(3);
     for (const prefix of prefixes) {
       expect(prefix).toMatch(/^[a-z-]+ 1\.3 real awaitBatch$/);
     }

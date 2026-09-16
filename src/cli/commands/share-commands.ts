@@ -11,8 +11,8 @@
  * Not peer-to-peer — pseudo-swarm property 3 preserved.
  */
 import type { Command } from 'commander';
-import { realpathSync as realpathSyncNative } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, realpathSync as realpathSyncNative } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -367,19 +367,39 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       process.exitCode = 1;
       return;
     }
-    // No record-path index is kept for DAG-dispatched batches yet; the caller
-    // is expected to have a single shared record directory. We pass the empty
-    // list — the runner tracks outcomes through its own contract-store writes,
-    // so the dispatcher reaches no slot and reports no results (see the
-    // `recordPaths: []` case in tests/unit/services/dispatch/
-    // sub-agent-dispatchers.test.ts, which pins that empty shape).
-    const input = {
-      batchId: options.batch,
-      dispatchCount: 1,
-      recordPaths: [] as readonly string[],
-      ...(timeoutMs !== undefined ? { timeoutMs } : {})
-    };
     try {
+      // Slice 2026-09-16-n1-await-reports: resolve the batch's records from the
+      // session's dispatch directory. `recordPaths` used to be hardcoded to
+      // `[]`, and `awaitBatch` short-circuits on an empty list
+      // (await-batch.ts:134) — so `await` reported zero results and exited 0
+      // for every batch, forever. A batch we cannot locate is now a failure,
+      // not a success with nothing in it.
+      const { readRecord } = await import('../../services/dispatch/dispatch-record-writer.js');
+      const scan = resolveBatchRecords({
+        projectRoot,
+        sessionId: sid,
+        batchId: options.batch,
+        readOne: readRecord
+      });
+      if (scan.recordPaths.length === 0) {
+        const unreadableNote = scan.unreadable.length > 0
+          ? ` ${scan.unreadable.length} dispatch record(s) there could not be read, so they could not be matched to this batch: ${scan.unreadable.join(', ')}`
+          : '';
+        printResult(io, fail('sub-agent.await', 'NO_DISPATCH_RECORDS', `No dispatch record with batchId=${options.batch} under ${scan.sessionDir}.${unreadableNote}`, {
+          ok: false,
+          batchId: options.batch,
+          sessionDir: scan.sessionDir,
+          unreadableRecords: scan.unreadable
+        } as never, [awaitErrorNextActions('NO_DISPATCH_RECORDS')]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      const input = {
+        batchId: options.batch,
+        dispatchCount: scan.recordPaths.length,
+        recordPaths: scan.recordPaths as readonly string[],
+        ...(timeoutMs !== undefined ? { timeoutMs } : {})
+      };
       const results = await dispatcher.awaitBatch(input);
       const summary = summarizeBatchResults(results);
       printResult(io, ok('sub-agent.await', {
@@ -388,15 +408,18 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
         batchId: options.batch,
         ide: dispatcher.label,
         results,
-        summary
-      }, [], [
+        summary,
+        unreadableRecords: scan.unreadable
+      }, scan.unreadable.length > 0
+        ? [`${scan.unreadable.length} unreadable dispatch record(s) in this session were skipped and are NOT part of the results: ${scan.unreadable.join(', ')}`]
+        : [], [
         // Slice 2026-09-15-s9: corrected. This used to tell users that the
         // four non-Claude IDEs would report `awaitByLlm: <ide> 1.2 fallback`,
         // the slice-1.2 marker that slice 1.3 replaced with a real
         // file-polling await. The text survived because nothing tested it —
         // no adapter produces that note any more (asserted in
-        // sub-agent-dispatchers.test.ts), and the only code that still emits
-        // it, `awaitByLlmFallback`, has no callers.
+        // sub-agent-dispatchers.test.ts), and the emitter that produced it,
+        // `awaitByLlmFallback`, has since been removed.
         `Each non-claude-code IDE labels its own results (see the \`note\` field), so a timed-out slot is attributable to the adapter it came from.`
       ]), asJson);
     } catch (error: unknown) {
@@ -415,6 +438,9 @@ function awaitErrorNextActions(code: string): string {
   }
   if (code === 'IDE_NOT_SUPPORTED') {
     return 'Switch to claude-code, or rely on LLM-side await for non-claude-code IDEs in slice 1.3.';
+  }
+  if (code === 'NO_DISPATCH_RECORDS') {
+    return 'Check --session-id / --project: records live under .peaks/_sub_agents/<sessionId>/. Use the batchId exactly as printed by the dispatch envelope.';
   }
   return 'See error message; check that --batch matches the dispatch envelope and --timeout is a positive integer ms.';
 }
@@ -454,6 +480,49 @@ function safeRecordPath(p: string): string {
   } catch {
     return p;
   }
+}
+
+/**
+ * Slice 2026-09-16-n1-await-reports: which on-disk records belong to a batch.
+ *
+ * Reuses the conventions already in the repo instead of inventing a new one:
+ *   - records live at `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json`
+ *     (`dispatchRecordPath`, src/services/security/safe-settings-path.ts);
+ *   - a record's batch is its own `batchId` field, written by
+ *     `writeInitialDispatchRecord`. The `--batch` branch of `finalize` (below)
+ *     and `findBatchRecords` in heartbeat-watch-command.ts resolve a batch the
+ *     same way: scan the session dir, filter `dispatch-*.json`, compare field.
+ *
+ * `unreadable` lists the `dispatch-*.json` candidates whose batch could NOT be
+ * determined. The caller must not fold them into "no such batch": a record it
+ * cannot read is not evidence that the batch is empty.
+ */
+function resolveBatchRecords(input: {
+  projectRoot: string;
+  sessionId: string;
+  batchId: string;
+  readOne: (recordPath: string) => DispatchRecord;
+}): { sessionDir: string; recordPaths: string[]; unreadable: string[] } {
+  const sessionDir = resolve(input.projectRoot, '.peaks', '_sub_agents', input.sessionId);
+  const recordPaths: string[] = [];
+  const unreadable: string[] = [];
+  if (!existsSync(sessionDir)) return { sessionDir, recordPaths, unreadable };
+  for (const name of readdirSync(sessionDir)) {
+    // `active-dispatches.json` (the index) and `batch-<uuid>.counter.json` are
+    // not records; neither carries a `version`, so `readRecord` would reject
+    // them as "version mismatch". Same filter as the `--batch` branch below.
+    if (!name.startsWith('dispatch-') || !name.endsWith('.json')) continue;
+    const recordPath = safeRecordPath(join(sessionDir, name));
+    let batchId: string;
+    try {
+      batchId = input.readOne(recordPath).batchId;
+    } catch {
+      unreadable.push(recordPath);
+      continue;
+    }
+    if (batchId === input.batchId) recordPaths.push(recordPath);
+  }
+  return { sessionDir, recordPaths, unreadable };
 }
 
 export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {

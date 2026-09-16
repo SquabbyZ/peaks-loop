@@ -2,11 +2,11 @@
 
 > **Maintenance**: The numbered workflow list in `skills/peaks-code/SKILL.md` (steps 0-11) is the canonical phase sequence. This runbook is the executable CLI transcription. When updating, keep both in lockstep — a change to one must be reflected in the other.
 >
-> **Why this is a reference, not inline**: the runbook is a stable, copy-pasteable shell (~150 lines of bash) that does not change between skill runs. Inlining it bloats the orchestrator skill body past the 800-line cap (per `common/coding-style.md`). Extracting it here keeps SKILL.md focused on flow / decisions / contracts, while the runbook stays as the canonical place for the CLI sequence.
+> **Why this is a reference, not inline**: the runbook is a stable, copy-pasteable shell (~150 lines of bash) that does not change between skill runs. Inlining it bloats the orchestrator skill body past the 800-line cap (per `.peaks/standards/common/coding-style.md`). Extracting it here keeps SKILL.md focused on flow / decisions / contracts, while the runbook stays as the canonical place for the CLI sequence.
 >
 > **How peaks-loop tooling reads this file**:
-> - `peaks skill runbook peaks-code` (CLI) reads the `## Default runbook` section in either SKILL.md or `references/runbook.md` (whichever has the bash code).
-> - The test in `tests/unit/skill-default-runbook.test.ts` looks for `## Default runbook` in SKILL.md first, then falls back to `references/runbook.md` here.
+> - `peaks skill runbook peaks-code` (CLI) reads the `## Default runbook` section in either SKILL.md or `runbook.md` (whichever has the bash code).
+> - The CLI applies the same fallback: `## Default runbook` in SKILL.md first, then `runbook.md` here. The test that asserted this was deleted in `f17aa377`.
 
 ## Default runbook — CLI sequence
 

@@ -15,7 +15,7 @@
 > rules. As of 2.8.4 the `'serial'` opt-out was removed by user
 > direction — single-sub-agent dispatch is no longer permitted when
 > ≥ 2 leaves exist at one topological level (see
-> `references/fanout-mandatory.md`).
+> `fanout-mandatory.md`).
 
 The Swarm phase is the **default** for any DAG with ≥ 2 leaves at
 the same topological level. Code derives the fan-out set from the

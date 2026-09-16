@@ -4,7 +4,7 @@ QA reads the RD handoff's YAML frontmatter **before** reading the body prose. Th
 
 ## Required frontmatter fields (mirror RD writer)
 
-`requestId`, `scope`, `files`, `decisions[]`, `risks[]`, `nextActions[]`, `gateEvidence`, `schemaVersion: '1.0'`. Field schema: `../peaks-rd/references/writing-handoff-frontmatter.md`.
+`requestId`, `scope`, `files`, `decisions[]`, `risks[]`, `nextActions[]`, `gateEvidence`, `schemaVersion: '1.0'`. Field schema: `../../peaks-rd/references/writing-handoff-frontmatter.md`.
 
 ## Mechanical cross-checks (run before body read)
 
@@ -27,4 +27,4 @@ After the frontmatter passes, read the body prose to derive the test plan:
 
 - All 5 mechanical cross-checks above pass (or are explicitly waived via `--allow-incomplete --confirm`).
 - Test plan covers every new code path mentioned in body prose.
-- Frontmatter YAML parses cleanly (vitest guard: `tests/unit/artifacts/handoff-frontmatter-shape.test.ts`).
+- Frontmatter YAML parses cleanly. No vitest guard covers this; see `../../peaks-rd/references/writing-handoff-frontmatter.md` §Validation for the consumers that read the file.

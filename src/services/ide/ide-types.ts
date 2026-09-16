@@ -53,8 +53,6 @@ export interface IdeSettingsLocation {
   readonly localSettingsFileName?: string;
   /** 解析出 settings.json 绝对路径 */
   resolveSettingsFile(scope: 'project' | 'global', projectRoot: string | undefined): string;
-  /** 该 IDE 是否支持此 scope(用于清晰报错) */
-  supportsScope(scope: 'project' | 'global'): boolean;
 }
 
 /**

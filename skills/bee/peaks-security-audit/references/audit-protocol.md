@@ -172,4 +172,4 @@ The schema for new rows is documented in the template itself.
 - Service: `src/services/audit-independent/security-audit-service.ts`
 - Template: `.peaks/project-scan/security-template.md`
 - Schema: `.peaks/project-scan/audit-output-schema.md`
-- Companion: `skills/peaks-perf-audit/references/audit-protocol.md`
+- Companion: `skills/bee/peaks-perf-audit/references/audit-protocol.md`

@@ -12,8 +12,8 @@ status: shipped-4.0.16
 `@alibaba-group/open-code-review@1.8.9` replaces the 2.0.3-era
 GitHub Releases HTTPS download with per-platform `optionalDependencies`
 (`@alibaba-group/ocr-{darwin,linux,win32}-{arm64,x64}`). `npm install`
-hits the registry only; postinstall runs the embedded Node installer
-(`scripts/install.js`) and resolves the platform binary locally.
+hits the registry only; postinstall runs the Node installer the package
+itself ships and resolves the platform binary locally.
 
 Sandbox evidence (2026-08-06, `npm@10.9.4`):
 

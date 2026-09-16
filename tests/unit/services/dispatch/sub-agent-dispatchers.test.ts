@@ -1,14 +1,16 @@
 // tests/unit/services/dispatch/sub-agent-dispatchers.test.ts
 //
-// Slice 2026-09-15-s9-platform-vendor-coverage, D7 — before this file, all
-// five exported dispatchers in `src/services/dispatch/sub-agent-dispatcher.ts`
-// were referenced by ZERO tests. Four of them (`trae` / `trae-cn` / `codex` /
-// `cursor`) are the ONLY route by which a sub-agent fan-out leaves
+// Slice 2026-09-15-s9-platform-vendor-coverage, D7 — before this file, the
+// exported tool-call dispatchers in `src/services/dispatch/sub-agent-dispatcher.ts`
+// were referenced by ZERO tests. Three of them (`trae` / `codex` / `cursor`)
+// are the ONLY route by which a sub-agent fan-out leaves
 // claude-code: every non-Claude adapter in `src/services/ide/adapters/`
 // carries one of them as its `subAgentDispatcher`, and nothing asserted that
 // the route existed, that the per-IDE label reached the caller, or that the
 // per-IDE `awaitBatch` behaved. A break in it — an adapter pointed at the
 // wrong dispatcher, a lost note prefix — would have been invisible.
+// (A fourth dispatcher was in that set as well; no adapter ever referenced it
+// and N3 deleted it — see the 1.2-marker check below.)
 //
 // What is asserted here is the route END TO END: adapter → dispatcher →
 // batch result, over a real filesystem, with the per-IDE label present in the
@@ -33,13 +35,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 import { getAdapter, listAdapterIds } from '../../../../src/services/ide/ide-registry.js';
 import {
-  awaitByLlmFallback,
   claudeCodeSubAgentDispatcher,
   codexSubAgentDispatcher,
   cursorSubAgentDispatcher,
   nullSubAgentDispatcher,
   SubAgentNotSupportedError,
-  traeCnSubAgentDispatcher,
   traeSubAgentDispatcher,
   type SubAgentDispatcher,
 } from '../../../../src/services/dispatch/sub-agent-dispatcher.js';
@@ -74,19 +74,17 @@ afterEach(() => {
   }
 });
 
-/** The five dispatchers that build a tool call, paired with their label. */
+/** The four dispatchers that build a tool call, paired with their label. */
 const TOOL_CALL_DISPATCHERS: ReadonlyArray<readonly [string, SubAgentDispatcher]> = [
   ['claude-code', claudeCodeSubAgentDispatcher],
   ['trae', traeSubAgentDispatcher],
-  ['trae-cn', traeCnSubAgentDispatcher],
   ['codex', codexSubAgentDispatcher],
   ['cursor', cursorSubAgentDispatcher],
 ];
 
-/** The four that carry a per-IDE `awaitBatch` note prefix. */
+/** The three that carry a per-IDE `awaitBatch` note prefix. */
 const PREFIXED: ReadonlyArray<readonly [string, string, SubAgentDispatcher]> = [
   ['trae', 'trae 1.3 real awaitBatch', traeSubAgentDispatcher],
-  ['trae-cn', 'trae-cn 1.3 real awaitBatch', traeCnSubAgentDispatcher],
   ['codex', 'codex 1.3 real awaitBatch', codexSubAgentDispatcher],
   ['cursor', 'cursor 1.3 real awaitBatch', cursorSubAgentDispatcher],
 ];
@@ -103,7 +101,7 @@ describe('Scenario: behavior — every dispatcher announces itself and accepts a
     });
   }
 
-  it('when the labels are collected, should be five distinct values', () => {
+  it('when the labels are collected, should be four distinct values', () => {
     const labels = TOOL_CALL_DISPATCHERS.map(([, d]) => d.label);
     expect(new Set(labels).size).toBe(TOOL_CALL_DISPATCHERS.length);
   });
@@ -129,9 +127,9 @@ describe('Scenario: behavior — every dispatcher announces itself and accepts a
   });
 });
 
-describe('Scenario: behavior — the five tool-call shapes agree, and carry the request through', () => {
+describe('Scenario: behavior — the four tool-call shapes agree, and carry the request through', () => {
   it('when the same input is handed to every dispatcher, should produce the same tool call', () => {
-    // given: one dispatch, asked of all five
+    // given: one dispatch, asked of all four
     const input = { role: 'qa', prompt: 'verify the slice', requestId: 'rid-1', sessionId: 'sid-1' };
     const [firstLabel, first] = TOOL_CALL_DISPATCHERS[0] as readonly [string, SubAgentDispatcher];
     const expected = first.buildToolCall(input);
@@ -139,9 +137,8 @@ describe('Scenario: behavior — the five tool-call shapes agree, and carry the 
     // then: each returns the same `name` + `args`. Those two fields ARE the
     // documented uniform shape ("byte-level identical across adapters", the
     // CLI envelope's contract). `toolCallVersion` is deliberately outside the
-    // comparison: trae-cn omits it, which is a real divergence from its own
-    // "mirrors Trae's shape" doc — pinned separately below rather than
-    // smoothed over here.
+    // comparison: it has its own case below, so a dispatcher dropping it
+    // cannot hide behind this one.
     for (const [label, dispatcher] of TOOL_CALL_DISPATCHERS) {
       const actual = dispatcher.buildToolCall(input);
       expect(actual.name, label).toBe(expected.name);
@@ -181,21 +178,22 @@ describe('Scenario: behavior — the five tool-call shapes agree, and carry the 
     expect(JSON.stringify(call.args)).not.toContain('sid-secret');
   });
 
-  it('when the tool-call version is read, should record that one of the five omits it', () => {
-    // A pinned DIVERGENCE, discoverable rather than latent: `trae-cn` is the
-    // only dispatcher that never stamps `toolCallVersion`. The field is
-    // optional and the record reader defaults it to '2.0.0', so this is not a
-    // defect today — but it is the kind of asymmetry that looks like a bug
-    // and is invisible without this case. If a future slice unifies them,
-    // update this list deliberately.
+  it('when the tool-call version is read, should be stamped by every dispatcher', () => {
+    // `toolCallVersion` is optional in the interface and the record reader
+    // defaults it to '2.0.0' when absent, so a dispatcher that stops stamping
+    // it produces records that still read — silently losing the "which arg
+    // shape wrote this" signal. Named per dispatcher so a drop is attributable
+    // rather than a count that stayed right by accident.
     const input = { role: 'rd', prompt: 'p', requestId: 'r', sessionId: 's' };
-    const stamped = TOOL_CALL_DISPATCHERS.filter(([, d]) => d.buildToolCall(input).toolCallVersion === '2.0.0');
-    expect(stamped.map(([label]) => label)).toEqual(['claude-code', 'trae', 'codex', 'cursor']);
-    expect(traeCnSubAgentDispatcher.buildToolCall(input).toolCallVersion).toBeUndefined();
+    const unstamped = TOOL_CALL_DISPATCHERS
+      .filter(([, d]) => d.buildToolCall(input).toolCallVersion !== '2.0.0')
+      .map(([label]) => label);
+    expect(unstamped).toEqual([]);
+    expect(claudeCodeSubAgentDispatcher.buildToolCall(input).toolCallVersion).toBe('2.0.0');
   });
 });
 
-describe('Scenario: integration — the four non-Claude awaitBatch calls attribute their results per IDE', () => {
+describe('Scenario: integration — the three non-Claude awaitBatch calls attribute their results per IDE', () => {
   for (const [label, prefix, dispatcher] of PREFIXED) {
     it(`when a ${label} batch times out, should report the timeout under the ${label} label`, async () => {
       // given: a batch whose only record never reaches a terminal state
@@ -210,7 +208,7 @@ describe('Scenario: integration — the four non-Claude awaitBatch calls attribu
       });
 
       // then: one slot, timed out, labelled with THIS IDE — the whole reason
-      // the four prefixes exist is cross-IDE attribution in one session
+      // the three prefixes exist is cross-IDE attribution in one session
       expect(results).toHaveLength(1);
       expect(results?.[0]?.dispatchIndex).toBe(0);
       expect(results?.[0]?.recordPath).toBe(missing);
@@ -260,9 +258,9 @@ describe('Scenario: integration — the four non-Claude awaitBatch calls attribu
   }
 
   it('when a claude-code batch times out, should carry no IDE prefix on the note', async () => {
-    // The negative control for the four cases above: claude-code passes no
+    // The negative control for the three cases above: claude-code passes no
     // note prefix, so its timeout note is bare. If a future slice gives
-    // claude-code a prefix, this fails and the four above stop being evidence
+    // claude-code a prefix, this fails and the three above stop being evidence
     // of anything specific to the non-Claude IDEs.
     const results = await claudeCodeSubAgentDispatcher.awaitBatch?.({
       batchId: 'b',
@@ -341,11 +339,11 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
 
   it('when the 1.2 fallback note would reach a caller, should be checked for on every adapter', async () => {
     // The `awaitByLlm` marker is slice 1.2's shape: it was dropped in 1.3 when
-    // the four IDEs got a real file-polling await. It survives ONLY as the
-    // exported `awaitByLlmFallback` below, which nothing calls. No adapter may
-    // still produce that note — `peaks sub-agent share` told users to expect
-    // it, and a reader trusting that text would wait for a marker that never
-    // arrives.
+    // the non-Claude IDEs got a real file-polling await. The last exported
+    // helper that could still emit it had zero callers and was deleted in N3
+    // (2026-09-16) — so this case is the guard now: the `peaks sub-agent await`
+    // next-action once told users to expect that marker, and a reader trusting
+    // such text would wait for a note that never arrives.
     const stale: string[] = [];
     for (const ide of listAdapterIds()) {
       const dispatcher = getAdapter(ide).subAgentDispatcher;
@@ -370,29 +368,4 @@ describe('Scenario: integration — each adapter fans out through the dispatcher
     expect(stale).toEqual([]);
   });
 
-  it('when the 1.2 fallback is called directly, should still return its labelled marker', async () => {
-    // Exported for back-compat, so it is kept working rather than deleted.
-    // Its note text is what `peaks sub-agent share` used to describe; the
-    // assertion is here so that text cannot change unnoticed while the CLI
-    // help still quotes it.
-    const results = await awaitByLlmFallback(
-      { batchId: 'b', dispatchCount: 2, recordPaths: ['a', 'b'] },
-      'cursor',
-    );
-    expect(results).toHaveLength(2);
-    expect(results[0]?.note).toBe('awaitByLlm: cursor 1.2 fallback (real impl in 1.3)');
-    expect(results[0]?.status).toBe('timeout');
-  });
-
-  it('when the trae-cn dispatcher is looked for among adapters, should find no adapter using it', () => {
-    // `traeCnSubAgentDispatcher` is exported and maintained, and NO registered
-    // adapter references it: there is no `trae-cn` id in the `IdeId` union and
-    // no `trae-cn` adapter file. It is reachable only by direct import.
-    // Pinned so that the day a trae-cn adapter is registered, this fails and
-    // the wiring map above gets the entry it needs.
-    const users = listAdapterIds().filter(
-      (ide) => getAdapter(ide).subAgentDispatcher === traeCnSubAgentDispatcher,
-    );
-    expect(users).toEqual([]);
-  });
 });

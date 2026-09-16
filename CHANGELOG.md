@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0.51 — 2026-09-16 (子代理 await 永远报不出结果 + 49 处"声称有测试守护、测试早已删除" + 9 个恒真断言 + 三个不可达导出)
+
+**Highlights**:
+
+1. **`peaks sub-agent await` 永远不可能报告任何结果。** `share-commands.ts` 把 `recordPaths` **硬编码成空数组**，而 `await-batch.ts` 在它为空时**直接短路** —— 于是这个命令每次都走空分支，静默返回。文件自己的注释就承认了这个状态（*"`recordPaths: []` case"*）。现在：新增 `resolveBatchRecords` 扫 `.peaks/_sub_agents/<sid>/dispatch-*.json` 并按 record **自己的 `batchId`** 匹配 —— 用的是 `finalize --batch` 与 `findBatchRecords` **已经在用的同一套约定**，没有另发明路径约定；`dispatchCount` 是真实计数；**零匹配 → `NO_DISPATCH_RECORDS` + exit 1**；ok 信封新增 `unreadableRecords` 与告警，**不可读的候选不再沉默**。反例对照：把 `recordPaths: []` 重新注入 → 新增的 7 个测试**全部失败**；还原 → 7/7 通过。
+
+2. **49 处在文档里声称"由某个测试守护"，而那些测试早就被删了 —— 包括守卫自己文件头里写的那次提交删掉的那个。** 引用完整性守卫原先的语料是 `CLAUDE.md` / `.peaks/PROJECT.md` / `README.md` / `.peaks/standards` —— **不含 `skills/**`**，而它的锚点正则里明明列着 `skills/`。把 `skills/**` 加进语料后，**守卫自己吐出 178 处悬空引用 / 64 文件**（此前临时扫描器估的 95 **低了近一倍**，且它归因的 `de0872b7` 只占 11 处）。修了 93 处后剩 85 处，**全部逐条处置、零白名单化**：其中 **43 处引用 21 个测试** —— 1 个删于 `457b9a87`（**正是守卫文件头自称"它存在的理由"的那次提交**）、20 个删于 `f17aa377`（*"delete 559 legacy unit tests"*）、**2 个从未在任何 commit 里存在过**；另有 6 处悬空文档互引。**每一条都逐站改写，不做批量正则替换**（"由 X 守护"与"见 X"语义不同）。**残留如实披露而非关闭**：这 49 站现在如实说明"无物钉住它"，并逐个点名了真实的覆盖缺口 —— `isDeprecatedReviewer` / `RD_DEPRECATED_REVIEWERS`、prereq 向后兼容形态、G11.5 标题锁、20-次调用节奏、handoff frontmatter（`gateEvidence` 在 `src/` 里**无人读取**）、superpowers 四条款规则、`peaks-ide` 审计日志助手。**未补测试（超出本片范围），也未放宽或删除任何一个。**
+
+3. **9 个 `supportsScope` 断言全部恒真，且唯一消费者是一个循环论证的测试。** 接口声明 `supportsScope(scope: 'project' | 'global')`，9 个 adapter 的实现是 1 个 `() => true` 加 8 个逐字相同、**在类型上必然为真**的表达式 —— 没有一个能返回 `false`。**生产零调用者**：全仓唯一消费者是一个把它"characterise"成两个 scope 都返回 true 的新测试。**删除**（接口 + 9 实现 + 那个测试）。理由：参数类型即值域、无 adapter 只支持单一 scope（9/9 `resolveSettingsFile` 双 scope 对称），且真实属性已被 `adapter-runtime-surfaces.test.ts` 钉住。
+
+4. **两个不可达导出与一处死参数。** `traeCnSubAgentDispatcher` 有导出、有测试、**没注册到任何 adapter**（8 个 adapter 分别注册了 claudeCode / codex / cursor / trae / null —— 且**没有 `trae-cn` adapter**，`IdeId` 里也没有）。它唯一可引的"支持"证据是 postinstall 的目录映射，**不是适配器注册** —— 给它建 adapter 等于**发明一条不存在的接线**，故删除。`awaitByLlmFallback` 生产零调用者（它的"向后兼容测试"只证明它自己存在 —— 与第 3 条同型的循环），且其注释里承诺的目标在 1.3 已兑现，故删除。另报出：`PollDispatchRecordsOptions.ide` **从未被 `pollDispatchRecords` 读取**（既有死表面，属三项目标之外，仅报出未修）。共 15 文件 **+61/−170**。
+
+5. **守卫的射程缺口与被裁掉的候选一起被记录。** 本片为 31 处误报新增了 5 条**带理由**的候选排除规则（省略号族、`./` 消费者根、`<…>` 模板、illustration 提示、`isDocumentRelative`），为 5 处运行时路径新增 `RUNTIME_STATE_PREFIXES`（`_runtime/` / `cron/` / `cache/`，各带理由）—— `OPTIONAL_RUNTIME_PATHS` **未增长（仍 2 条）**。**同时如实报出两个未修的射程缺口**：裸文件名引用（如 `skills-skill-md-naming.test.ts`）与围栏 ` ```bash ` 代码块对候选规则**不可见**。守卫的注入验证含**一条负对照**：同一路径写成 `mappers/…` 保持绿 —— 那正是本片唯一收窄候选集的地方，公开标注以免被读成"全都能抓"。
+
 ## 4.0.50 — 2026-09-16 (自审把 29% 从分母里排除 + 反漂移闸门报 15/15 而只跑了 1 条 + 一条"no exceptions"的红线没有任何执行者 + 五个测试套件从未运行过 + macOS 从未进 CI)
 
 **Highlights**:

@@ -21,12 +21,13 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq.
 > The 1-minor-release back-compat window (`v2.12.0`) keeps the old
 > `rd/{security-review,perf-baseline}.md` paths readable via `mustContainAny` —
-> see `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (8 cases) and
-> `tests/unit/artifact-prerequisites-typed.test.ts`.
+> see `RD_DEPRECATED_REVIEWERS` in
+> `src/services/rd/reviewer-dispatch-policy.ts`. The two unit tests that
+> once pinned this were deleted in `f17aa377` and have not been replaced.
 
 ## The 3 sub-agents
 
-> **Karpathy pointer (Slice 1/6):** Each of the 3 sub-agents below operates under the 4 Karpathy guidelines. The canonical reference is `andrej-karpathy-skills:karpathy-guidelines` (full text) and `peaks-rd/SKILL.md` §"Karpathy enforcement". The dispatch primitive also injects the verbatim context block from `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" into every sub-agent prompt. Sub-agents MUST NOT silently drop the block.
+> **Karpathy pointer (Slice 1/6):** Each of the 3 sub-agents below operates under the 4 Karpathy guidelines. The canonical reference is `andrej-karpathy-skills:karpathy-guidelines` (full text) and `../SKILL.md` §"Karpathy enforcement". The dispatch primitive also injects the verbatim context block from `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" into every sub-agent prompt. Sub-agents MUST NOT silently drop the block.
 
 - **Sub-agent 1 — code-reviewer** runs `code-review` against the diff and
   writes `rd/code-review-<rid>.md`. **v2.11.0 Tier 7 (Group D) + 2026-09-09-ecc-dynamic:**
@@ -77,9 +78,9 @@ end of implementation, RD fires 3 sub-agents in parallel via
 >   `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` remains readable
 >   via `mustContainAny` for the v2.12.0 1-minor-release window.
 >
-> See `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (8 cases)
-> and `RD_DEPRECATED_REVIEWERS` in
-> `src/services/rd/reviewer-dispatch-policy.ts`.
+> See `RD_DEPRECATED_REVIEWERS` in
+> `src/services/rd/reviewer-dispatch-policy.ts`. The unit test that once
+> pinned this was deleted in `f17aa377` and has not been replaced.
 
 ## Hard prohibitions on all 3 sub-agents (single block)
 
@@ -201,8 +202,10 @@ failing the gate.
   `mustContainAny: [...]` on the `AUDIT_SECURITY` / `AUDIT_PERF` prereqs
   during the back-compat window. v2.13.0 hard-deletes the legacy paths.
 
-**Pinning:** `tests/unit/rd/deprecated-reviewer-back-compat.test.ts`
-(8 cases) pins the dispatch routing + the legacy-path acceptance.
+**Pinning:** none. The routing + legacy-path acceptance live in
+`RD_DEPRECATED_REVIEWERS` / `isDeprecatedReviewer` in
+`src/services/rd/reviewer-dispatch-policy.ts`; the unit test that pinned
+them (8 cases) was deleted in `f17aa377` and has not been replaced.
 
 ## Gate C evidence (RD-side, type-specific)
 

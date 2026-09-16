@@ -23,7 +23,7 @@ The 3 layers stack. L3 is the strongest because it operates BELOW the LLM's tool
 ## L1 — Sub-agent system prompt
 
 The explicit `MUST NOT` block lives in:
-- `peaks-rd/references/rd-sub-agent-dispatch.md`
+- `../../bee/peaks-rd/references/rd-sub-agent-dispatch.md`
 - `peaks-qa/...`
 - `peaks-ui/...`
 - `peaks sub-agent dispatch` CLI prompt template

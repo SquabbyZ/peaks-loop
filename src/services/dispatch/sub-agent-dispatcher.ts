@@ -231,39 +231,12 @@ export const traeSubAgentDispatcher: SubAgentDispatcher = {
 };
 
 /**
- * Trae-CN dispatcher. Mirrors Trae's shape with a separate label so
- * the CLI's IDE detection can distinguish a Trae install region
- * (Trae-CN differs in skill install path / log location only;
- * dispatch surface is identical per slice #011 framework rule).
- *
- * Slice 1.3: real `awaitBatch` — same polling core as Trae.
- */
-export const traeCnSubAgentDispatcher: SubAgentDispatcher = {
- label: 'trae-cn',
- supportsRole: (role) => role.length >0,
- buildToolCall: ({ role, prompt, requestId }) => ({
- name: 'Task',
- args: {
- subagent_type: 'general-purpose',
- description: `${role} for rid=${requestId}`,
- prompt,
- },
- }),
- awaitBatch: async (input) =>
- pollDispatchRecords(input, {
- ide: 'trae-cn',
- defaultTimeoutMs: 30_000,
- notePrefix: 'trae-cn 1.3 real awaitBatch'
- })
-};
-
-/**
  * Codex (OpenAI CLI IDE) dispatcher.
  *
  * Slice #13 noted Codex's sub-agent tool name is TBD; per slice #009
  * rationale, the dispatcher mirrors Claude Code's shape so the
- * adapter contract stays uniform. Slice 1.3 promotes Codex from
- * `awaitByLlmFallback` to a real `awaitBatch` (file-based polling,
+ * adapter contract stays uniform. Slice 1.3 promotes Codex from the
+ * 1.2 marker to a real `awaitBatch` (file-based polling,
  * Codex default 45s — Codex's documented heartbeat is slightly
  * slower per slice #13 R-3).
  */
@@ -379,14 +352,14 @@ export async function awaitClaudeCodeBatch(
  // service. The back-compat envelope shape is preserved (one
  // `SubAgentBatchResult` per record path) so the S3 characterization
  // test stays green; the underlying loop is identical to the trae /
- // trae-cn / codex / cursor wrappers below. The new typed outcome
+ // codex / cursor wrappers below. The new typed outcome
  // lives on the unified service; the S4 fail-fast test pins it.
  //
  // Slice 2026-07-30-nightshift: claude-code does NOT use a
  // per-IDE note prefix. The 1.4 dogfood contract says the done
  // note is `null` (raw outcome) and the failed note is the raw
- // `outcome` string with no prefix. The 4 non-Claude IDEs
- // (trae / trae-cn / codex / cursor) prefix the note with their
+ // `outcome` string with no prefix. The 3 non-Claude IDEs
+ // (trae / codex / cursor) prefix the note with their
  // per-IDE label so cross-IDE attribution is visible to the LLM.
  // Passing no `notePrefix` here keeps the legacy contract.
  const unified = await awaitBatchUnified(
@@ -420,24 +393,22 @@ function readDispatchOutcome(recordPath: string): { status: SubAgentBatchResult[
 }
 
 /**
- * Slice 1.3 — shared per-IDE polling core for trae / trae-cn / codex /
- * cursor. Same polling loop shape as `awaitClaudeCodeBatch`, with
- * per-IDE default timeout + note prefix. The 4 IDEs differ only in
- * (a) `defaultTimeoutMs` (Trae / Trae-CN / Cursor = 30s, Codex = 45s
- * per slice #13 R-3) and (b) the `note` label surfaced when an IDE
- * times out (so 1.4 dogfood can attribute a timeout to the right
- * IDE).
+ * Slice 1.3 — shared per-IDE polling core for trae / codex / cursor.
+ * Same polling loop shape as `awaitClaudeCodeBatch`, with per-IDE
+ * default timeout + note prefix. The 3 IDEs differ only in
+ * (a) `defaultTimeoutMs` (Trae / Cursor = 30s, Codex = 45s per slice
+ * #13 R-3) and (b) the `note` label surfaced when an IDE times out
+ * (so 1.4 dogfood can attribute a timeout to the right IDE).
  *
- * MVP rationale (per Karpathy §2 Simplicity First): the 4 IDEs
+ * MVP rationale (per Karpathy §2 Simplicity First): the 3 IDEs
  * currently share the same file-based polling transport. The only
  * per-IDE distinction is the timeout + label. Future per-IDE
  * divergence (real IPC / shell hooks) is a 1.4 dogfood concern —
  * here we keep the dispatcher interface uniform while each IDE's
- * `awaitBatch` is now a real implementation rather than the 1.2
- * `awaitByLlmFallback` marker.
+ * `awaitBatch` is a real implementation.
  */
 export interface PollDispatchRecordsOptions {
- readonly ide: 'trae' | 'trae-cn' | 'codex' | 'cursor';
+ readonly ide: 'trae' | 'codex' | 'cursor';
  readonly defaultTimeoutMs: number;
  readonly notePrefix: string;
 }
@@ -463,28 +434,6 @@ export async function pollDispatchRecords(
  }
  );
  return unified.results;
-}
-
-/**
- * 1.2 fallback for trae / trae-cn / codex / cursor. Deprecated by
- * slice 1.3 — kept exported for legacy callers + back-compat tests
- * (the 1.2 marker is still a valid envelope shape; the 1.4 dogfood
- * tests can compare the marker note vs the 1.3 real note to verify
- * per-IDE attribution).
- */
-export async function awaitByLlmFallback(
- input: SubAgentAwaitBatchInput,
- ide: string
-): Promise<readonly SubAgentBatchResult[]> {
- const startedAt = Date.now();
- return input.recordPaths.map((p, i) => ({
- dispatchIndex: i,
- recordPath: p,
- status: 'timeout' as const,
- durationMs: 0,
- note: `awaitByLlm: ${ide} 1.2 fallback (real impl in 1.3)`
- }));
- void startedAt;
 }
 
 /**

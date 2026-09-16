@@ -47,7 +47,7 @@ denied again after a long pause. That is the gate resetting, not you regressing.
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Normative by documentation only — the guard that once asserted (a) zero bare `<sid>`, (b) an axis label on every runtime path, and (c) this callout's presence was deleted in `457b9a87`. Comply by convention.
 
 ## peaks-context auto-build (v3.0)
 
@@ -92,7 +92,7 @@ The canonical scope dir for this request is provided as `envelope.data.scopeDir`
 
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Code already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.
 
-> **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
+> **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
 
 → see `references/qa-sub-agent-dispatch.md` for the full contract + hard prohibitions.
 
@@ -106,7 +106,7 @@ Project-level security + perf plans live at `.peaks/_runtime/<sessionId>/qa/secu
 
 When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out only the **business verification** sub-agent: `qa-business`. Security and performance review are **NOT** peaks-qa's responsibility in v2.11.0 — they are owned by peaks-rd's 4-way audit fan-out (code-review + security-review + perf-baseline + karpathy-review) and the rd-side evidence files (`audit/security-<rid>.md`, `audit/perf-<rid>.md`). peaks-qa reads those files by reference; it does NOT re-do them.
 
-> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `audit/security-<rid>.md` + `audit/perf-<rid>.md`。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
+> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `audit/security-<rid>.md` + `audit/perf-<rid>.md`。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
 
 If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`. Subdivision must stay ≤ 2 levels deep (RL-4).
 
@@ -182,7 +182,7 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 **Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
 
-> **v2.15.0+ 校准:** 业务验证层(user 必审) = 4-5 项业务/产品清单。技术验证层(AI 自决) = 覆盖率 / P99 / 安全扫描 / 自动化。两层解耦:技术不过 → AI 内部重跑;业务不过 → user 反馈修。user **不看**技术指标。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md` G5。
+> **v2.15.0+ 校准:** 业务验证层(user 必审) = 4-5 项业务/产品清单。技术验证层(AI 自决) = 覆盖率 / P99 / 安全扫描 / 自动化。两层解耦:技术不过 → AI 内部重跑;业务不过 → user 反馈修。user **不看**技术指标。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md` G5。
 
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 
@@ -198,7 +198,7 @@ QA cannot pass a change until the report contains evidence for every applicable 
 
 If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 
-> **v2.15.0+ 校准:** 存量项目无 UT 兜底,QA 验证必须有"轻量回归"(G14):5-10 分钟跑 10 条关键路径(关键路径来源:prd 业务场景块 / 老板强调的流程 / 历史事故 / G13 影响面扫描),**不跑完整 E2E 1-2 小时**。上线后必须走"观察期"(G15):灰度 → 监控 → 反馈聚合 → 紧急修复 → 修复回灌关键路径(防下次再犯)。详见 `.peaks/memory/peaks-loop-fast-iteration-quality-loop.md`。
+> **v2.15.0+ 校准:** 存量项目无 UT 兜底,QA 验证必须有"轻量回归"(G14):5-10 分钟跑 10 条关键路径(关键路径来源:prd 业务场景块 / 老板强调的流程 / 历史事故 / G13 影响面扫描),**不跑完整 E2E 1-2 小时**。上线后必须走"观察期"(G15):灰度 → 监控 → 反馈聚合 → 紧急修复 → 修复回灌关键路径(防下次再犯)。详见 `.peaks/memory/peaks-cli-fast-iteration-quality-loop.md`。
 
 ## Local intermediate artifacts
 
@@ -297,4 +297,4 @@ QA contracts to assert on the L2 surface (a minimal acceptance test set):
 
 ## Sub-role detached mode (Phase C, slice 2026-08-10)
 
-QA sub-roles (`qa-business`, `qa-perf`, `qa-security`, `qa-business-api`, `qa-business-frontend`, `qa-business-regression`) accept `--mode detached --vendor <vendor>` for parallel test-case execution. Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached`, isolated from the orchestrator session. Use detached mode when the test-case writer's expected runtime exceeds 60s OR it processes ≥ 20 source files. The default remains `in-process` (backward compat; existing 106+ dispatch tests untouched). When `--mode detached` is used, the child QA agent receives the `<peaks-auto-compact>` marker (corrected 2026-09-13, rid `2026-09-13-defects-e`): it asks the child to persist durable state to `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` before its own harness compacts the session — the child cannot compact itself, and nothing is spliced back into its prompt. See `peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.
+QA sub-roles (`qa-business`, `qa-perf`, `qa-security`, `qa-business-api`, `qa-business-frontend`, `qa-business-regression`) accept `--mode detached --vendor <vendor>` for parallel test-case execution. Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached`, isolated from the orchestrator session. Use detached mode when the test-case writer's expected runtime exceeds 60s OR it processes ≥ 20 source files. The default remains `in-process` (backward compat; existing 106+ dispatch tests untouched). When `--mode detached` is used, the child QA agent receives the `<peaks-auto-compact>` marker (corrected 2026-09-13, rid `2026-09-13-defects-e`): it asks the child to persist durable state to `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` before its own harness compacts the session — the child cannot compact itself, and nothing is spliced back into its prompt. See `skills/peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.

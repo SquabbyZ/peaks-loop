@@ -315,9 +315,10 @@ reply. The two surfaces are not redundant — the field is for
 downstream tooling, the prose is for the human. Same payload,
 different readers.
 
-**Regression guard**: `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts`
-parses the same SKILL.md text and asserts the G11.5 paragraph is
-present; do not delete the heading without also updating the guard.
+**Regression guard**: none. The unit test that parsed the same SKILL.md
+text and asserted the G11.5 paragraph is present was deleted in
+`f17aa377`; do not delete the heading — convention is the only thing
+holding it now.
 
 ---
 
@@ -379,7 +380,7 @@ When writing a SKILL.md that fans out sub-agents:
 - `.peaks/memory/sub-agent-resource-lifecycle-red-line.md` (G5 red line)
 - `.peaks/memory/sub-agent-heartbeat-progress-red-line.md` (G6 red line)
 - `skills/peaks-code/references/swarm-dispatch-contract.md` (predecessor contract)
-- `skills/peaks-qa/references/qa-fanout-contract.md` (QA-specific fan-out)
+- `skills/bee/peaks-qa/references/qa-fanout-contract.md` (QA-specific fan-out)
 
 ---
 
@@ -404,7 +405,7 @@ peaks sub-agent dispatch <role> \
 
 Then the LLM takes `data.toolCall` from the envelope (a `{name, args}` descriptor), looks up the tool by `name` in its environment, and invokes it with `args` — IDE-private, no SKILL.md hardcoding.
 
-The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `references/swarm-dispatch-contract.md`):
+The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `swarm-dispatch-contract.md`):
 
 | Role | Writes | Reads (PRD-side) |
 |---|---|---|
@@ -433,7 +434,7 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
       `verdict: blocked-by-orchestrator-policy` and explain. Do NOT commit
       yourself even in emergencies.
     ```
-- **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
+- **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
 
 After every sub-agent dispatch returns, Code **restores presence** once (not per-agent), then continues to Gate B verification:
 

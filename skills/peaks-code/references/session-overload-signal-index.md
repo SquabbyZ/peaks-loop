@@ -8,7 +8,7 @@
 When the LLM senses context pressure, it must consult these 7 signals before
 deciding to (a) auto-compact, (b) refuse the next slice, or (c) ask the user to
 open a new session. The contract is: **LLM never re-asks the user about
-cost/length/context** (red line #2 of `references/job-loop.md`). This index is
+cost/length/context** (red line #2 of `job-loop.md`). This index is
 the lookup table the LLM must consult in lieu of intuition.
 
 ## The 7 signals
@@ -25,7 +25,7 @@ the lookup table the LLM must consult in lieu of intuition.
 
 ## Hard rules
 
-- peaks-code SKILL.md red line #2 (see `references/job-loop.md`):
+- peaks-code SKILL.md red line #2 (see `job-loop.md`):
   **Re-ask the user about cost / length / context is forbidden**.
   The LLM MUST NOT prompt the user to open a new session based on overload
   intuition alone; it MUST consult the 7 signals above and prefer auto-compact /

@@ -46,4 +46,4 @@ Single-service feature → single-pass PRD. Do not force a Pass 2 layer if the w
 - Pass 2 ACs each name a file path under one of the Pass 1 services.
 - A `peaks slice audit-prd --rid <rid>` (when present) returns zero cross-cutting flags.
 
-See `../peaks-slice-decompose/SKILL.md` for the envelope contract and `../peaks-rd/references/reading-v2-slice-results.md` for the RD-side read.
+See `../../../peaks-slice-decompose/SKILL.md` for the envelope contract and `../../peaks-rd/references/reading-v2-slice-results.md` for the RD-side read.

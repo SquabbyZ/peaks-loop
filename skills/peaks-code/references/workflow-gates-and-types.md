@@ -2,11 +2,11 @@
 
 > **Maintenance**: This reference holds the canonical contract for (a) how Code sequences the 11 workflow steps, (b) which `--type` to pass to `peaks request init` for which slice shape, and (c) the executable `ls` / `grep` gate commands that physically block progression. SKILL.md keeps the narrative ("what peaks-code does"); this file keeps the contract.
 >
-> **Why extracted from SKILL.md**: this content is 165 lines of mostly-tabular + bash-block contract — reference data, not orchestration prose. Inlining it bloats SKILL.md past the 800-line cap (per `common/coding-style.md`). The numbers, gate command shapes, and type-classification rules change rarely; the SKILL.md prose around them (orchestration flow, repair-loop intent, swarm fan-out shape) changes more often.
+> **Why extracted from SKILL.md**: this content is 165 lines of mostly-tabular + bash-block contract — reference data, not orchestration prose. Inlining it bloats SKILL.md past the 800-line cap (per `.peaks/standards/common/coding-style.md`). The numbers, gate command shapes, and type-classification rules change rarely; the SKILL.md prose around them (orchestration flow, repair-loop intent, swarm fan-out shape) changes more often.
 >
 > **How peaks-loop tooling reads this file**:
 > - `peaks skill runbook peaks-code` (CLI) and the in-line LLM reading the SKILL.md should reference this file when the gate-machine or type-classification contract is in play.
-> - The test `tests/unit/skill-default-runbook.test.ts` does NOT check this file (it only checks the runbook). Future tests can add a similar fallback for the gates-and-types contract.
+> - No test reads this file, so nothing detects drift between it and the SKILL.md prose. The test that once checked the runbook fallback was deleted in `f17aa377`.
 
 ## Peaks-Loop Request type classification (MANDATORY before `peaks request init`)
 
@@ -30,7 +30,7 @@ When Peaks-Loop Code coordinates development in a code repository, keep this ord
 0. **Peaks-Loop Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
 0.5. **Peaks-Loop Workspace initialization** — `.peaks/_runtime/<session-id>/` created, directory structure verified;
 0.6. **Peaks-Loop Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/project-scan/project-scan.md`;
-0.7. **Peaks-Loop Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/_runtime/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
+0.7. **Peaks-Loop Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/_runtime/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
 1. **Peaks-Loop Standards preflight** — `peaks standards init/update --dry-run`, must reference concrete project-scan findings (never emit generic templates);
 2. **Peaks-Loop PRD phase** — capture request as canonical artifact, extract scope and acceptance criteria:
    - Full-auto/Swarm: auto-transition to `confirmed-by-user` once the artifact is complete;

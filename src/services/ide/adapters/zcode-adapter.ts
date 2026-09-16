@@ -160,7 +160,6 @@ export const ZCODE_ADAPTER: IdeAdapter = {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.zcode', 'settings.json');
     },
-    supportsScope: (scope) => scope === 'project' || scope === 'global',
   },
   // UNVERIFIED — z-code 桌面应用未公开 `ZCODE_PROJECT_DIR` env var,这里
   // 用占位符,RD 阶段假设 z-code 借用了 Anthropic-compatible 协议并可能

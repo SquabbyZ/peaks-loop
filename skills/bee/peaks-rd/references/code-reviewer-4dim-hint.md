@@ -3,7 +3,7 @@
 > Hint block appended to the code-reviewer sub-agent prompt at dispatch
 > time. The RD main loop injects the verbatim block below after the
 > Karpathy-guidelines context block (see
-> `references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context").
+> `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context").
 > The block is the canonical promotion surface for the convention at
 > `.peaks/standards/typescript/testing.md`.
 

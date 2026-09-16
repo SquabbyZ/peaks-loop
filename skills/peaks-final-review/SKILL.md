@@ -41,7 +41,7 @@ denied again after a long pause. That is the gate resetting, not you regressing.
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Normative by documentation only — the guard that once asserted (a) zero bare `<sid>`, (b) an axis label on every runtime path, and (c) this callout's presence was deleted in `457b9a87`. Comply by convention.
 
 # Peaks-Loop Final Review
 
@@ -80,7 +80,7 @@ The service is the **gate primitive** that closes the 10% human / 90% LLM loop. 
 All of the following MUST be true before invoking this skill:
 
 - **RD complete** — implementation merged and the slice boundary recorded at `.peaks/sc/slice-decomposition/<rid>.json` (or `peaks slice check --rid <rid> --json` returns `pass`).
-- **QA complete** — `test-cases` + `test-reports` + `security-findings` + `performance-findings` present under `.peaks/_runtime/<sessionId>/qa/...` and all applicable gates A/A2/A3/A4/B/C/E/F satisfied (per `skills/peaks-qa/references/qa-transition-gates.md`).
+- **QA complete** — `test-cases` + `test-reports` + `security-findings` + `performance-findings` present under `.peaks/_runtime/<sessionId>/qa/...` and all applicable gates A/A2/A3/A4/B/C/E/F satisfied (per `skills/bee/peaks-qa/references/qa-transition-gates.md`).
 - **Security check complete** — slice 025 project-level security test plan executed; no open CRITICAL/HIGH findings.
 - **Performance baseline complete** — slice 025 project-level perf baseline recorded; no regression beyond the agreed threshold.
 - **Approved audit-goal on disk** — `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json` exists and contains `successCriteria` (the service feeds these into the LLM user prompt verbatim).
@@ -231,5 +231,5 @@ When handing off, emit: rid, `allPass`, `needsAttention[]`, output path, source 
 | `src/services/audit/audit-goal-service.ts:16` | Line of evidence that `LlmRunner` is reusable across audit + final-review (service-level integration). |
 | `tests/unit/final-review/final-review-service.test.ts` | Service-level unit tests (8 cases: evidence inlining, the no-evidence⇒no-`pass` gate, prompt bounds, plus contract guards). |
 | `docs/superpowers/plans/2026-06-25-slice-topology-multipass-phase-4.md:127` | Phase-4 plan prose (Task 14). |
-| `skills/peaks-qa/SKILL.md` | Upstream QA skill — 4-dim review is downstream of all QA gates. |
+| `skills/bee/peaks-qa/SKILL.md` | Upstream QA skill — 4-dim review is downstream of all QA gates. |
 | `skills/peaks-audit/SKILL.md` | Sibling skill — produces the `audit-goal` JSON that this skill consumes. |

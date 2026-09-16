@@ -65,7 +65,7 @@ Every RD action MUST align with the 4 Karpathy guidelines (full text at `andrej-
 3. **Surgical Changes** — touch only what the user's request requires. Remove imports / variables / functions that *your* changes made unused. Do not refactor adjacent code. Every changed line must trace to the user's request.
 4. **Goal-Driven Execution** — define verifiable success criteria (`peaks request show --role rd` carries ACs from PRD). For multi-step work, state plan + verify checkpoints before acting.
 
-Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-injection.test.ts` (4-point assertion guard). The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+Cross-references: Slice 1 PRD §AC-1. The 4-point assertion guard that PRD named was deleted in `f17aa377`; the block below is held by documentation only. The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
@@ -189,7 +189,7 @@ Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) 
 
 ## Reviewer fan-out detached mode (Phase C, slice 2026-08-10)
 
-Reviewer fan-out may run in detached mode for any of the 3-way fan-out roles (`code-reviewer`, `qa-test-cases-writer`, `karpathy-reviewer`). Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached --vendor <vendor>`, isolated from the orchestrator session. Use detached mode when the reviewer's expected runtime exceeds 60s OR processes ≥ 20 source files. Pass `--mode detached` explicitly per reviewer role; the default remains `in-process` (backward compat). The karpathy-reviewer's `<peaks-auto-compact>` marker is honored automatically when `--mode detached` is used. Note what that marker does and does not do (corrected 2026-09-13, rid `2026-09-13-defects-e`): it asks the child to persist durable state to `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` before its own harness compacts the session — the child cannot compact itself, and nothing is spliced back into its prompt. See `peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.
+Reviewer fan-out may run in detached mode for any of the 3-way fan-out roles (`code-reviewer`, `qa-test-cases-writer`, `karpathy-reviewer`). Detached mode spawns a real OS process via `peaks sub-agent dispatch --mode detached --vendor <vendor>`, isolated from the orchestrator session. Use detached mode when the reviewer's expected runtime exceeds 60s OR processes ≥ 20 source files. Pass `--mode detached` explicitly per reviewer role; the default remains `in-process` (backward compat). The karpathy-reviewer's `<peaks-auto-compact>` marker is honored automatically when `--mode detached` is used. Note what that marker does and does not do (corrected 2026-09-13, rid `2026-09-13-defects-e`): it asks the child to persist durable state to `.peaks/_runtime/<sid>/detached/<rid>/compact/<n>.json` before its own harness compacts the session — the child cannot compact itself, and nothing is spliced back into its prompt. See `../../peaks-code/references/sub-agent-dispatch.md` §"Detached Mode" for the full contract.
 
 ## Refactor hard gates
 

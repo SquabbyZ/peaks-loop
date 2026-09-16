@@ -51,4 +51,4 @@ Legacy v1 envelopes use `result.dependencyDAG.edges` and `result.workUnits`. `Sc
 - No CC receives a `sliceId` outside its pass.
 - Child CCs run after their parent completes (when `parentSliceId` is set).
 
-See `../peaks-slice-decompose/SKILL.md` for the v2 envelope contract.
+See `../../../peaks-slice-decompose/SKILL.md` for the v2 envelope contract.

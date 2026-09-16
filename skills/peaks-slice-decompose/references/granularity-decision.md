@@ -61,7 +61,7 @@ The function returns one of three branches:
 
 ### Tie-break behavior
 
-`auto` mode does NOT itself consult the LLM — the `'tie-break'` branch only signals that the workUnit is borderline. The actual LLM call happens during cross-pass edge detection in `cross-pass-edge-merger.ts` (see `references/cross-pass-edge-interpretation.md`). The merge step may add an `llm-arbitrated` edge even when the parent was subdivided as `'tie-break'`.
+`auto` mode does NOT itself consult the LLM — the `'tie-break'` branch only signals that the workUnit is borderline. The actual LLM call happens during cross-pass edge detection in `cross-pass-edge-merger.ts` (see `cross-pass-edge-interpretation.md`). The merge step may add an `llm-arbitrated` edge even when the parent was subdivided as `'tie-break'`.
 
 ## `auto` decision tree
 

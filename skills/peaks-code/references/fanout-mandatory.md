@@ -95,9 +95,9 @@ shape it had pre-slice — the difference is that anything outside
 
 ## Tests
 
-- `tests/unit/code/skills-code-fanout-mandatory.test.ts` — pins that
-  SKILL.md still mentions `--from-dag`, does NOT mention `serial`
-  opt-out, and references `references/fanout-mandatory.md`.
+- Nothing pins the SKILL.md wording (`--from-dag` present, no `serial`
+  opt-out, `fanout-mandatory.md` referenced) — the suite that did was
+  deleted in `f17aa377` and has not been replaced.
 - `tests/integration/code/multi-sub-agent-fanout.test.ts` — pins the
   runtime fan-out behavior; not affected by this slice.
 

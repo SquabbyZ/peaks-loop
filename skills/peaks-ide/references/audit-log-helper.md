@@ -44,9 +44,10 @@ node scripts/peaks-ide-audit-log.mjs --project <repo> --event <name> --adapter <
 The log file path is `<projectRoot>/.peaks/audit/peaks-ide-<UTC-date>.log`
 and is gitignored per the repo root `.gitignore` (`.peaks/audit/`).
 
-## Contract pinned by tests
+## Contract
 
-`tests/unit/skills/peaks-ide/audit-log-helper.test.ts` pins 4 sub-cases
-(per AC-5): helper is at the documented path, write emits one JSONL line
-with `timestamp + event + adapter + ok`, the log path is in `.gitignore`,
+No test pins this — the suite that asserted the 4 sub-cases below (per
+AC-5) was deleted in `f17aa377`. They remain the contract: helper is at
+the documented path, write emits one JSONL line with
+`timestamp + event + adapter + ok`, the log path is in `.gitignore`,
 and `--dry-run` returns the would-be line without writing.

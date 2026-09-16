@@ -44,11 +44,13 @@ v2.13.0 hard-deletes the legacy paths.
 
 ## Pinning
 
-- `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` — 6 cases pinning the 3-element `reviewerListFor('feat')` shape.
-- `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` — 8 cases pinning `isDeprecatedReviewer` + the legacy-path acceptance.
-- `tests/unit/artifact-prerequisites-typed.test.ts` — back-compat for the prereq forms.
-- `tests/unit/parallel-fan-out.test.ts` — 18 cases pinning the 3-way SKILL.md + reference content.
-- `tests/unit/skills/karpathy-5way-fanout.test.ts` — 17 cases pinning the v2.12.0 collapse invariants.
+**None.** The five unit-test files this section used to list — padding the
+`reviewerListFor('feat')` shape, `isDeprecatedReviewer` + the legacy-path
+acceptance, the prereq back-compat forms, the 3-way SKILL.md + reference
+content, and the v2.12.0 collapse invariants — were all deleted in
+`f17aa377` and have not been replaced. The behaviour itself lives in
+`src/services/rd/reviewer-dispatch-policy.ts` and
+`src/services/artifacts/artifact-prerequisites.ts`.
 
 ## Migration sequence
 

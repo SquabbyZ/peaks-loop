@@ -1,6 +1,6 @@
 # Peaks-Loop Frontend-only development mode
 
-> Extracted from `skills/peaks-code/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim Frontend-only development mode section that was previously inline; nothing was paraphrased, just relocated.
+> Extracted from `skills/peaks-code/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `.peaks/standards/common/coding-style.md`. The content below is the verbatim Frontend-only development mode section that was previously inline; nothing was paraphrased, just relocated.
 >
 > **2026-09-12 (`rd-routing-by-integration-mode`):** this file is now the routing home for all three integration modes, not just `prd-only`. `### Integration-mode routing (RD)` was added and the boolean-era text in `### Mode determination` was retargeted onto `.integrationMode`; the mock table and placeholder layout below belong to `prd-only`.
 
@@ -55,7 +55,7 @@ RD reads `.integrationMode` from `## Project mode` in `.peaks/project-scan/proje
 3. **Boundary:** write the mapper against the *interface*, never against the mock module. That is what keeps the guess cheap: when the real document lands, the mock file is deleted and the mapper's import target changes — no component, hook, or store is touched.
 4. **Produces:** `mock-plan.md`, the `*-api.types.ts` interfaces, `mock/<feature>-mock.ts`, and the mapper.
 5. **MUST NOT** write mock data inline in a component file — mock files live in the mock directory, and an inline mock literal in a changed file under `src/` fails `rl-mock-placement-001`. Every mock file carries the `// MOCK: Replace with real API call when swagger.json is available` header (mock rule 4 below).
-6. **Exit path:** when a document appears, run `peaks scan api-diff <doc> --project <repo>` and follow §"Mock-to-real migration path" below. **Not checkable in this repo:** nothing detects "a real document now exists for this domain" automatically, and the conditional contract artifact (`.peaks/api-contract.json` with staleness detection, design spec §2.6 / S3) is **not built**. Until it is, step 1 of the migration is a run RD schedules manually.
+6. **Exit path:** when a document appears, run `peaks scan api-diff <doc> --project <repo>` and follow §"Mock-to-real migration path" below. **Not checkable in this repo:** nothing detects "a real document now exists for this domain" automatically, and the conditional contract artifact under `.peaks/` (with staleness detection, design spec §2.6 / S3) is **not built**. Until it is, step 1 of the migration is a run RD schedules manually.
 
 ### Mock data strategy selection
 

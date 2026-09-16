@@ -203,4 +203,4 @@ Two layers:
 - **CLI 兜底** — `peaks sub-agent dispatch` validates prompt size; `--force` allowed.
 - **PreToolUse hook** — `peaks sub-agent-dispatch-guard` re-validates; **NO `--force`** at hook layer (RL-30 strict).
 
-The sub-agent prompt template (G8.6 + G9 self-check) is in `references/context-governance.md`.
+The sub-agent prompt template (G8.6 + G9 self-check) is in `context-governance.md`.
