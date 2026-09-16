@@ -76,12 +76,29 @@ export function assertSafeDispatchRecordPath(recordPath: string, projectRoot: st
     // to create it). Fall back to lexical comparison against the
     // canonical projectRoot — the write will then create the file,
     // and any symlink in the parent will be caught on the next read.
+    //
+    // macOS note: the project's own realpath may still resolve the
+    // `/var -> /private/var` symlink even when the sub-agent dir does
+    // not exist yet, so the caller can compare on a stable prefix
+    // instead of having one side of the comparison on `/var/...` and
+    // the other on `/private/var/...`. We still validate that the
+    // canonical record path lives under the canonical projectRoot.
     const fallback = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR);
     const rel2 = relative(fallback, recordPath);
     if (rel2.startsWith('..') || isAbsolute(rel2)) {
       throw invalidPathError(recordPath, 'must be under .peaks/_sub_agents/');
     }
-    return recordPath;
+    try {
+      realRoot = realpathSync(projectRoot);
+      const canonicalRecord = resolve(realRoot, '.peaks', SUB_AGENTS_DIR, recordPath.slice(fallback.length + 1));
+      const realRel = relative(realRoot, canonicalRecord);
+      if (realRel.startsWith('..' + sep) || realRel === '..' || isAbsolute(realRel)) {
+        throw invalidPathError(recordPath, 'escapes project root via symlink');
+      }
+      return canonicalRecord;
+    } catch {
+      return recordPath;
+    }
   }
 
   const realRel = relative(realRoot, realRecord);
