@@ -69,11 +69,25 @@ export async function runAudit(input: RunAuditInput): Promise<CapabilityAuditRes
 
   // One dimension per journey actually run, scored from the guard result —
   // previously this was a single row whose score was derived from the stub.
-  const dimensions: AuditDimension[] = input.guardSummary.results.map((g) => ({
-    journeyId: g.journeyId,
-    consistencyScore: scoreFor(g.status),
-    evidence: [{ kind: 'guard-run', ref: `capability-guard-runner:${g.journeyId}`, summary: `${g.contract} → ${g.status}` }]
-  }));
+  const dimensions: AuditDimension[] = input.guardSummary.results.map((g) => {
+    // When the contract fails, include the diff detail in the evidence summary
+    // so the gate step log (and any artifact) carries a real diagnostic
+    // instead of just "workflow-trace → fail". The summary is bounded so a
+    // runaway diff can't bloat every dimension; the contract itself is the
+    // authoritative source.
+    const detail = g.status === 'fail' && g.diff
+      ? ` | ${g.diff.reason}: ${g.diff.after}`.slice(0, 4000)
+      : '';
+    return {
+      journeyId: g.journeyId,
+      consistencyScore: scoreFor(g.status),
+      evidence: [{
+        kind: 'guard-run',
+        ref: `capability-guard-runner:${g.journeyId}`,
+        summary: `${g.contract} → ${g.status}${detail}`
+      }]
+    };
+  });
   if (dimensions.length === 0) {
     dimensions.push({
       journeyId: input.journeyId,

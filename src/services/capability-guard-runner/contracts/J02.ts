@@ -7,6 +7,14 @@ import { combineProbes, fail, missingSourceFiles, pass, probe, requireBaselineRo
 
 const STATES: ReadonlyArray<string> = ['spec-locked', 'implemented', 'qa-handoff', 'handed-off'];
 
+// Per-child timeout. J02 runs six peaks CLIs in a fresh cwd; on cold CI
+// runners the first invocation pays tsx startup before the resolved file is
+// hot, and any single child that hangs would block the whole guard run until
+// the default node timeout (forever). 60s is comfortable on warm hosts and
+// tight enough that a genuine hang surfaces in the gate step within the
+// publish workflow's per-step budget.
+const CHILD_TIMEOUT_MS = 60_000;
+
 export async function runJ02Contract(ctx: GuardContext): Promise<GuardRunResult> {
   const row = requireBaselineRow(ctx);
   const missing = missingSourceFiles(ctx, row);
@@ -14,21 +22,70 @@ export async function runJ02Contract(ctx: GuardContext): Promise<GuardRunResult>
   // `bin/peaks.js` would be resolved against the temp workspace.
   const bin = resolve(ctx.projectRoot, 'bin', 'peaks.js');
   const tmp = mkdtempSync(join(tmpdir(), 'cbl-J02-'));
+  // Each peaks-CLI invocation in this contract is wrapped so a child that
+  // hangs (or a child that produces no stdout) cannot silently pin the gate
+  // step until CI's job-level timeout fires. `execFileSync` already throws on
+  // non-zero exit; we additionally enforce timeout and surface the actual
+  // stderr in the error so a future failure can be diagnosed without re-running
+  // with a debugger.
+  const run = (args: ReadonlyArray<string>): { stdout: string; stderr: string } => {
+    try {
+      const stdout = execFileSync('node', [bin, ...args], {
+        cwd: tmp,
+        windowsHide: true,
+        timeout: CHILD_TIMEOUT_MS,
+        encoding: 'utf8',
+        // The contract spawns peaks CLIs in a temp workspace; on a CI runner
+        // there is no IDE context, so peaks would refuse every `request.*`
+        // command with CALLER_ID_INVALID. Provide a deterministic caller id
+        // tied to the contract name. The contract is the only producer of
+        // this artifact, so the synthetic id cannot collide with anything
+        // real a developer is working on.
+        env: { ...process.env, PEAKS_CALLER_ID: `guard-J02-${ctx.sessionId}` }
+      }) as unknown as string;
+      return { stdout, stderr: '' };
+    } catch (e) {
+      const err = e as Error & { stdout?: Buffer | string; stderr?: Buffer | string };
+      const stderr = typeof err.stderr === 'string'
+        ? err.stderr
+        : Buffer.isBuffer(err.stderr) ? err.stderr.toString('utf8') : '';
+      const stdout = typeof err.stdout === 'string'
+        ? err.stdout
+        : Buffer.isBuffer(err.stdout) ? err.stdout.toString('utf8') : '';
+      // Preserve the original error type/message but attach stderr so the
+      // outer try-catch's `e.message.slice(0, 160)` sees something useful.
+      // Truncate stdout aggressively to keep the audit envelope bounded, but
+      // pick the HEAD and TAIL of the buffer so the leading envelope header
+      // and the trailing error are both visible.
+      const stdoutHead = stdout.slice(0, 600);
+      const stdoutTail = stdout.length > 1200 ? stdout.slice(-400) : '';
+      const stdoutPart = stdoutTail
+        ? `${stdoutHead}...<truncated ${stdout.length - 1000}B>...${stdoutTail}`
+        : stdoutHead;
+      const wrapped = new Error(
+        `${err.message} | stderr=${stderr.slice(0, 400)} | stdout=${stdoutPart}`
+      ) as Error & { stdout: string };
+      wrapped.stdout = stdout;
+      throw wrapped;
+    }
+  };
   try {
-  const ws = execFileSync('node', [bin, 'workspace', 'init', '--project', tmp, '--json'], { cwd: tmp, windowsHide: true }).toString('utf8');
-  const { data: { sessionId } } = JSON.parse(ws) as { data: { sessionId: string } };
+  const ws = run(['workspace', 'init', '--project', tmp, '--json']);
+  const { data: { sessionId } } = JSON.parse(ws.stdout) as { data: { sessionId: string } };
   const rid = '2026-08-03-j02-fixture';
-  const initOut = execFileSync('node', [bin, 'request', 'init', '--role', 'rd', '--id', rid, '--project', tmp, '--session-id', sessionId, '--apply', '--json'], { cwd: tmp, windowsHide: true }).toString('utf8');
-  const initEnv = JSON.parse(initOut) as { data: { path: string } };
+  const initOut = run(['request', 'init', '--role', 'rd', '--id', rid, '--project', tmp, '--session-id', sessionId, '--apply', '--json']);
+  const initEnv = JSON.parse(initOut.stdout) as { data: { path: string } };
   // `request init` writes the file as `NNN-<id-slug>.md`. The transition CLI accepts
   // the file's basename (without .md) as the requestId. Derive it from data.path.
   const baseName = initEnv.data.path.split(/[\\/]/).pop() ?? '';
   const requestId = baseName.replace(/\.md$/i, '');
 
   const transition = (state: string, extra: ReadonlyArray<string>): string =>
-    execFileSync('node', [bin, 'request', 'transition', requestId, '--role', 'rd', '--state', state,
+    run([
+      'request', 'transition', requestId, '--role', 'rd', '--state', state,
       '--project', tmp, '--session-id', sessionId, '--confirm',
-      '--reason', 'J02 contract fixture', ...extra, '--json'], { cwd: tmp, windowsHide: true }).toString('utf8');
+      '--reason', 'J02 contract fixture', ...extra, '--json'
+    ]).stdout;
 
   // Hard-gate probe, run FIRST: from the freshly initialised state, jumping
   // straight to the terminal state skips every intermediate gate and must not
