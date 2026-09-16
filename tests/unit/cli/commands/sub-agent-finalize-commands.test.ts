@@ -24,7 +24,7 @@
 //   - a11y:        the non-zero exit code the previous failure produced
 
 import { Command } from 'commander';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,13 +95,30 @@ function dispatchRecordFor(ws: TmpWorkspace, requestId: string, now: () => Date 
  * the right filename shape (so the directory scan does NOT skip it) and a
  * `version` the upgrader refuses, which is what a stale record from an older
  * peaks-loop looks like on disk.
+ *
+ * The returned path is canonicalized through `realpathSync` so the fixture's
+ * value matches the canonical form the CLI's `--request-id` / `--batch` scan
+ * reports. macOS exposes `os.tmpdir()` as `/var/folders/...` (a symlink to
+ * `/private/var/folders/...`), so a path built from `ws.path` differs from the
+ * scan's `realpathSync`-normalized record path string-to-string even though
+ * both names the same physical file. Canonicalizing here keeps the assertion
+ * `expect(errors[0]?.recordPath).toBe(corruptPath)` meaningful on every
+ * platform; the invariant under test (a corrupt record is reported with the
+ * path the scan found) is unchanged.
  */
 function seedUnreadableDispatchRecord(ws: TmpWorkspace): string {
   const dir = subAgentDir(ws);
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, 'dispatch-2026-09-12-stale-foreign-2026-09-12T00-00-00-000Z.json');
-  writeFileSync(path, `${JSON.stringify({ version: '0.0.1', role: 'rd' })}\n`, 'utf8');
-  return path;
+  const rawPath = join(dir, 'dispatch-2026-09-12-stale-foreign-2026-09-12T00-00-00-000Z.json');
+  writeFileSync(rawPath, `${JSON.stringify({ version: '0.0.1', role: 'rd' })}\n`, 'utf8');
+  // Canonicalize AFTER the write so the value matches the form the CLI scan
+  // reports. macOS exposes `os.tmpdir()` as `/var/folders/...` (a symlink to
+  // `/private/var/folders/...`); without this realpath the assertion
+  // `expect(errors[0]?.recordPath).toBe(corruptPath)` would compare a
+  // symlinked fixture path against a canonicalized scan path that names the
+  // same physical file. The invariant (a corrupt record is reported with
+  // the path the scan found) is unchanged.
+  return realpathSync(rawPath);
 }
 
 /**
