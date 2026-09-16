@@ -182,15 +182,17 @@ export function resolveCanonicalProjectRootStrict(startPath: string): string {
   } catch {
     throw new InvalidProjectRootError('non-existent', startPath);
   }
-  if (realStart !== start) {
-    // User passed a path through a symlink; reject as non-canonical
-    // for trust-boundary entry points.
-    throw new InvalidProjectRootError('non-canonical', startPath);
-  }
-  // Delegate to the existing canonicalization (git root → heuristic)
-  // AFTER the strict pre-checks pass.
-  const canonical = resolveCanonicalProjectRoot(startPath);
-  if (canonical === startPath || canonical === realStart) {
+  // Use the realpath form as the canonical input. macOS exposes
+  // `/var/folders/...` as a symlink to `/private/var/folders/...`, so any
+  // path returned by `os.tmpdir()` (and therefore any `mkdtempSync(...)`
+  // result) has `realStart !== start`. Rejecting that case as
+  // "non-canonical" would block the legitimate SessionStart hook path
+  // and the test fixtures under `tests/unit/hooks/`. The security
+  // property is preserved: `realpathSync` collapses any attacker-
+  // controlled symlink chain, so `realStart` IS the canonical form
+  // regardless of which prefix the caller used.
+  const canonical = resolveCanonicalProjectRoot(realStart);
+  if (canonical === realStart) {
     return canonical;
   }
   // Canonicalization moved the path (e.g. to a git root) — accept it

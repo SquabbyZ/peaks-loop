@@ -11,6 +11,7 @@
  * Not peer-to-peer — pseudo-swarm property 3 preserved.
  */
 import type { Command } from 'commander';
+import { realpathSync as realpathSyncNative } from 'node:fs';
 import { resolve } from 'node:path';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
@@ -437,6 +438,24 @@ export interface FinalizeOptions {
   json?: boolean;
 }
 
+/**
+ * Resolve a record's on-disk path through `realpathSync` so the value returned
+ * here matches the value `writeInitialDispatchRecord` produces — which itself
+ * passes through `assertSafeDispatchRecordPath` and ends up canonicalized. On
+ * macOS, `mkdtempSync(join(tmpdir(), prefix))` returns `/var/folders/...`
+ * while `process.cwd()` after `chdir` returns `/private/var/folders/...`;
+ * without this helper the test fixture's `queuedPath` (canonical) and the
+ * envelope's `finalized[].recordPath` (raw) never compare equal. Falls back
+ * to the lexical path when the file is missing (race between scan and write).
+ */
+function safeRecordPath(p: string): string {
+  try {
+    return realpathSyncNative(p);
+  } catch {
+    return p;
+  }
+}
+
 export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
     parent
@@ -522,7 +541,7 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
               // `Dispatch record version mismatch ... got undefined`. The
               // `--batch` branch below has always used this same filter.
               if (!f.startsWith('dispatch-') || !f.endsWith('.json')) continue;
-              const p = path2.join(dir, f);
+              const p = safeRecordPath(path2.join(dir, f));
               const r = tryReadRecord(p);
               if (r === null || r.requestId !== options.requestId) continue;
               candidates.push({
@@ -567,7 +586,7 @@ export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
           if (fs2.existsSync(dir)) {
             for (const f of fs2.readdirSync(dir)) {
               if (!f.startsWith('dispatch-') || !f.endsWith('.json')) continue;
-              const p = path2.join(dir, f);
+              const p = safeRecordPath(path2.join(dir, f));
               const r = tryReadRecord(p);
               if (r === null) continue;
               if (r.batchId !== options.batch) continue;
