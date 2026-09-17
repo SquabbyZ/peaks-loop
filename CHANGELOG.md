@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.0.52 — 2026-09-17 (codegraph 索引完整性检测闸门 + repair-index 强制重建 + 套用到本仓：include gap 31→0、dead rows 4→0、strict-mode exit 75→0)
+
+**Highlights**:
+
+1. **codegraph 索引完整性的"不能评估"路径是一个静默假绿（exit 0）。** `codegraph-index-integrity.ts` 的 `try/catch` 只裹住 `new Database(...)`；`db.prepare('SELECT path FROM files').all()` 在 `try { … } finally { db.close() }` 里 —— `no such table: files`（上游 schema 漂移）会**裸抛**到 `codegraph-commands.ts:304-309`，那里把 `indexIntegrity` 写成 `null`，下游 `integrity?.gap === true || indexGap ? … : undefined` 把 null 视作 false，stdout 一行 `[WARN] codegraph index integrity not evaluated` 然后 `process.exitCode = 0`。这是**本仓签名缺陷**：`codegraph-exclude-reconciler.ts:76-82` 自己的注释 verbatim 写着 *"`peaks codegraph status` turned that into `[WARN] … not evaluated` with exit 0 — a silent false pass over a real index gap, which is precisely what this module exists to prevent"* —— exclude 轴曾用这条理由加固过；index 轴却**重新引入**。现在：不可读 = 失败（exit 75、stderr），advisory by default（`peaks codegraph status` 仍以非阻塞告警呈现），strict mode 通过 `PEAKS_CODEGRAPH_INDEX_STRICT=1` 让任何 gap 强制 exit 1。注入验证：基线 → `consistent`；把基线 `sourceFiles` 里一条指到磁盘上不存在的路径 → `drifted` + `SOURCE_FILE_MISSING` 点名 J01。
+
+2. **repair-index：把同一条 repair 缝（`repairCodegraphExcludeFromProject`）扩到 include 轴，并把"清死行"做成端到端可执行的命令。** `peaks codegraph repair-index` 是新公开命令，先调上游 `cg.clear()` 再 `index --force`；不修缝就修不了"旧的无效的也要删除"那条 directive —— 增量 `index` 永不删行（`.peaks/memory/codegraph-status-ok.md` 已记），只有 `--force` 会。**execution proven, not inferred**：在 throwaway fixture 上跑 `peaks codegraph repair-index --project <tmp>` → `git rm` 后的死行从 3 → 2（fixture 三个文件、删一个、强制重建剩两个）；同时 `peaks codegraph init` 走同一缝自动给 fresh project 补 include（无需手动改 `.codegraph/config.json`，directive 3 对新项目成立）。缝的 3 个调用点（`init` / preflight / post-slice auto-refresh）都自动受益，没有新增平行缝。**两件本轮发现并报出的事，未在本片修**：旧 `--force` 在并行负载下与 slice-003 的写者撞锁（slice-003 改为清 shm/wal 旁路）；`--reindex` 是"保留 cfg 已写行 + 不回滚 cfg"，与用户预期的"回滚到修前"有距离，本片仅命名、闭环留给后续。
+
+3. **套用到本仓（slice-003）：include gap 31 → 0、dead rows 4 → 0、strict-mode exit 75 → 0。** baseline **必须当场重取** —— 这棵 db 的 mtime 在 slice-001/002 中被自动 incremental refresh（`refreshCodegraphAfterSlice`，两个 fail-silent 触发点：`CLI job checkpoint --state done`、`CLI request transition`）改过三次，1213 → 1220 → 1224 行而两轴缺陷**纹丝不动**：增量不删行，也不扩 include。修前 sha256 + 行/死行计数在同一步取，然后修，然后比对。修前 `.codegraph/codegraph.db-shm` 与 `codegraph.db-wal` 旁路清掉（WAL 留在原地会让 byte-exact diff 出假阳性；slice-003 完整记录这套对齐步骤）。**诚实报出**：本次套用是**在已有写过的 cfg 上重写 include + 清死行** —— 任何下游若基于旧 cfg 生成过副产物，需要重新生成；本片未做迁移路径，只点名。
+
+4. **用户报后修。** (a) **7 个 SKILL.md 文件**里 hand-maintained 的 `kind` 词汇漂移出 21-value canonical tuple —— 现在 fixed + guarded（4.0.51 那片把引用完整性守卫的语料扩到 `skills/**`；本片把 `kind` 字段接进守卫），未来漂移一发生即红。(b) **一份文档教了 parser 拒绝的语法** —— 修正，反 vacuity 测试（合法样本通过、拒绝样本仍被拒绝），不让读者照字面抄就静默 0。
+
+5. **缺陷扫荡（12+）：codegraph 错误消息、refresh 可见性、`.bak` 忽略、mode 保留、memory 契约、doctor allow-list（带 AST 守卫）、test-infra 过期、超大文件、exit-code 真相、引用完整性、ENV surface（单源）。** 统一动作：每条都接住一个"读到的是这样，证据说的是那样"对位，修后配注入验证（基线 → 绿；注入 → 红；移除 → 复绿）。**单源原则是这一轮的暗线**：凡有"两个地方算同一个数 / 同一个字符串"的地方，本片都合并到唯一来源（`vitest.workers.ts` 是 maxWorkers 单源；ENV 表面单源；doctor allow-list 单源）。
+
+6. **`vitest.workers.ts`：单源 `maxWorkers`，默认 2（负载形 flake safety），`PEAKS_VITEST_MAX_WORKERS` 覆盖。** 之前的最大值是分散在两套配置里算的（`Math.max(2, …)`），但其中一个入口从来没被走过；负载一上来就在 worker 数不稳定的两条路径之间漂。
+
+**验证**：290/290 unit tests、`tsc` 142、`lint` 6/6、`peaks codegraph status` 在 strict 模式下本仓 `consistent`、`codegraph.db` 行 1224 + 0 dead rows、`config.json` 与 `codegraph.db` 的 sha256 在 repair 前后取两次确认未引入新漂移。
+
+**明确未验证的（不当作已完成）**：`peaks codegraph repair-index` 的回滚契约 —— 现实现是 `--reindex`（不动 cfg 已写行 + 不回滚 cfg），与用户预期的"回滚到修前"有距离，本片仅命名 + 留口，未做；`refreshCodegraphAfterSlice` 仍是 fail-silent —— 本片不修，因为改它需要同时改两处调用点的契约（`job-commands.ts:306` / `request-commands.ts:468`），超出本版范围；slice-001 的 `indexIntegrity === null` 路径现在**不再静默**，但若上游 `codegraph.db` 合法但表完全缺（比 `no such table: files` 更罕见），错误消息的精细度还有一格没补。
+
 ## 4.0.51 — 2026-09-16 (子代理 await 永远报不出结果 + 49 处"声称有测试守护、测试早已删除" + 9 个恒真断言 + 三个不可达导出)
 
 **Highlights**:
