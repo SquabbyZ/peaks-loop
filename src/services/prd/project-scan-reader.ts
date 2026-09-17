@@ -20,7 +20,13 @@ import type {
   ProjectScan,
 } from './project-scan-types.js';
 
-const PROJECT_SCAN_RELATIVE = join('.peaks', 'project-scan', 'project-scan.md');
+/**
+ * `.peaks/project-scan/project-scan.md`, project-relative. Exported so the
+ * gate-evidence derivation (`gate-evidence-derivation.ts`) can declare this
+ * path without spelling the literal a fourth time — it was already inlined in
+ * `project-commands.ts`, `workspace/init-command.ts` and here.
+ */
+export const PROJECT_SCAN_RELATIVE = join('.peaks', 'project-scan', 'project-scan.md');
 const BUSINESS_KNOWLEDGE_RELATIVE = join(
   '.peaks',
   'project-scan',

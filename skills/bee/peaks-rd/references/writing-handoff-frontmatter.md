@@ -42,6 +42,7 @@ schemaVersion: '2.0'
 ---
 ```
 
+> The `gateEvidence` block above is the **feature-shaped** set, shown because it is the largest one. It is not a template to copy by hand: the producer derives the block from the request `type` (see the `gateEvidence` rule below), so a `config` slice's carries two keys and a `docs` / `chore` slice's capsule carries no such block at all.
 ## Field rules
 
 - `requestId` — kebab-case; matches the PRD `requestId`.
@@ -50,7 +51,11 @@ schemaVersion: '2.0'
 - `decisions[]` — every decision an LLM made that an implementer could question. `id` is local; `summary` is one line; `rationale` is ≤ 2 sentences.
 - `risks[]` — same shape; `mitigation` is required. A risk without a mitigation is a red line (gate blocked).
 - `nextActions[]` — verb-first; what peaks-qa should do next, in order.
-- `gateEvidence` — paths to the gate files peaks-qa will validate. Missing keys → Gate C failure.
+- `gateEvidence` — paths to the gate files peaks-qa will validate. **DERIVED, never hand-written**: the producer computes it from the request `type` (`src/services/prd/gate-evidence-derivation.ts`), and Gate C reads the same `rd:qa-handoff` row, so the block and the gate cannot disagree. It declares that row's evidence, plus `projectScan` (Gate A's artifact — declared only where Gate C runs, since a path nothing verifies should not be declared):
+  - `feature` / `refactor` / `bugfix` → **5 keys**: `projectScan`, `prdHandoff`, `codeReview`, `securityReview`, `perfBaseline`
+  - `config` → **2 keys**: `projectScan`, `securityReview`. `CONFIG_TABLE['rd:qa-handoff']` is the security review alone, so a config slice has **no** `prdHandoff`; and its security evidence is the genuinely ridless `rd/security-review.md`, not `audit/security-<rid>.md`.
+  - `docs` / `chore` → **no `gateEvidence` block at all**. Those types have no `rd:qa-handoff` row: there is no evidence to declare and nothing for Gate C to check, so the block is omitted rather than filled with an unverified statement. Such a capsule is byte-identical to a pre-B2 one.
+  **The Gate C failure rule is scoped to the types above** — where that gate runs: a declared path that does not exist fails `peaks request transition --state qa-handoff` (`PREREQUISITES_MISSING`), naming the key. Two shapes are deliberately NOT failures: a capsule for a type with no `rd:qa-handoff` row (the check does not run), and an **empty** declaration (`gateEvidence: {}`) — a weak claim, not a false one, since the type's artifacts remain enforced by the table itself, so an empty map cannot open the gate. When the request type cannot be resolved at all, the block is omitted rather than half-declared.
 - `schemaVersion: '2.0'` — pinned (bumped from `'1.0'` in v2.11.0); bump only when the field set changes.
 
 > **v2.11.0 Group A change:** `schemaVersion` was bumped to `'2.0'`. The consumers listed under §Validation anchor on that value, so a file still carrying `'1.0'` is rejected at read time.

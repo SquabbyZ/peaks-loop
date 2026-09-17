@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { showRequestArtifact, type RequestArtifactRole } from '../artifacts/request-artifact-service.js';
 import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
+import { deriveGateEvidence } from './gate-evidence-derivation.js';
 import { handoffRelativePath, sha256OfBody } from './handoff-service.js';
 import type { HandoffFrontmatter } from './handoff-types.js';
 import { normalizePath } from '../../shared/path-utils.js';
@@ -76,7 +77,18 @@ export async function autoRegenPrdHandoff(opts: {
     goals: [],
     acceptanceCriteria: [],
     preservedBehavior: [],
-    handoffPath: normalizePath(handoffPath.replace(opts.projectRoot, '')).replace(/^\//, '')
+    handoffPath: normalizePath(handoffPath.replace(opts.projectRoot, '')).replace(/^\//, ''),
+    // B2: DERIVED from the request type of the artifact this producer just
+    // read. B1 gave this function an optional caller-supplied map instead;
+    // with a single-source derivation available that option was the wrong
+    // shape — it left the one production caller (`request-commands.ts`) able
+    // to pass nothing, which is exactly the F1 hole. There is no input to
+    // forget now.
+    gateEvidence: deriveGateEvidence({
+      sessionId: opts.sessionId,
+      requestId: opts.requestId,
+      requestType: artifact.requestType
+    })
   };
   const content = `${serializeHandoffFrontmatter(frontmatter)}${body}`;
   mkdirSync(dirname(handoffPath), { recursive: true });

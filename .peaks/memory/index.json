@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T14:25:10.930Z",
+  "updatedAt": "2026-09-17T15:35:39.328Z",
   "hot": {
     "rule": [
       {
@@ -10,6 +10,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-claim-stronger-than-the-code-is-a-defect-even-when-the-content-claim-underneath-it-holds.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
         "updatedAt": "2026-09-16"
+      },
+      {
+        "name": "a-claim-written-in-three-places-and-pinned-by-no-test-will-drift",
+        "kind": "rule",
+        "description": "-type slices were documented — in a source comment, in the schema reference, and in the RD tech-doc — as declaring **...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-claim-written-in-three-places-and-pinned-by-no-test-will-drift.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-b2.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "a-count-of-new-tests-is-meaningless-until-both-sides-of-the-subtraction-cover-the-same-file-set",
@@ -26,6 +34,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-defect-sweep.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "a-feature-can-be-fully-tested-and-still-be-unreachable-from-production",
+        "kind": "rule",
+        "description": "B1 shipped a producer, a type, a serializer, a rewritten reader, and 24 passing cases including a real  round trip.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-feature-can-be-fully-tested-and-still-be-unreachable-from-production.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-b2.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "a-job-tracker-is-a-log-of-checkpoint-calls-not-evidence-about-the-repository",
@@ -114,6 +130,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\delete-the-line-and-see-whether-the-suite-still-passes.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "derive-from-the-source-of-truth-never-re-declare-it-and-do-not-keep-a-field-nobody-reads",
+        "kind": "rule",
+        "description": "Two decisions in one slice, both the same shape.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\derive-from-the-source-of-truth-never-re-declare-it-and-do-not-keep-a-field-nobody-reads.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-b2.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "jsdoc-breaks-on-glob-literals-in-tsc",

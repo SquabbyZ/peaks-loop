@@ -17,6 +17,7 @@
 import { readFile } from 'node:fs/promises';
 import { Command } from 'commander';
 import { initHandoff, readHandoff, showHandoff, verifyHandoff, writeHandoff } from '../../services/prd/handoff-service.js';
+import { deriveGateEvidenceForRequest } from '../../services/prd/gate-evidence-derivation.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -89,6 +90,19 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       const body = await resolveBody(options.body);
       const projectRoot = options.project ?? process.cwd();
       const writtenAt = new Date().toISOString();
+      // B2 / F1 of `rid-b1-qa`: the ONLY production caller of `initHandoff`
+      // used to pass no `gateEvidence`, so no capsule written by this command
+      // ever carried the field. It is derived now — from the request type
+      // recorded on this rid's PRD artifact — and `undefined` (no artifact, or
+      // an unresolvable type) means "write no block", i.e. the pre-B2 bytes.
+      // No flag is added: the user does not hand-author this map, and
+      // `deriveGateEvidenceForRequest` computes it from context the command
+      // already has.
+      const gateEvidence = await deriveGateEvidenceForRequest({
+        projectRoot,
+        sessionId: options.sid,
+        requestId: options.rid,
+      });
       const handoff = initHandoff({
         requestId: options.rid,
         sessionId: options.sid,
@@ -97,6 +111,7 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
         goals: splitCsv(options.goals),
         acceptanceCriteria: splitCsv(options.ac),
         preservedBehavior: splitCsv(options.preserve),
+        ...(gateEvidence === undefined ? {} : { gateEvidence }),
       });
       if (options.apply !== true) {
         printResult(io, ok('prd.handoff.init', {

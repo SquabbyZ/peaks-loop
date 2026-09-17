@@ -31,8 +31,9 @@
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { serializeHandoffFrontmatter } from '../prd/handoff-frontmatter.js';
+import { deriveGateEvidenceForRequest } from '../prd/gate-evidence-derivation.js';
 import { handoffRelativePath, sha256OfBody } from '../prd/handoff-service.js';
-import type { HandoffFrontmatter } from '../prd/handoff-types.js';
+import type { GateEvidence, HandoffFrontmatter } from '../prd/handoff-types.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
@@ -293,7 +294,7 @@ function buildQaRequest(rid: string, sid: string, files: string[]): string {
  * producer/consumer divergence rid `2026-09-14-handoff-writer-gate-divergence`
  * exists to remove, surviving in a function the same slice edited.
  */
-function buildHandoff(rid: string, sid: string, title: string, files: string[], lineCounts: Record<string, string>): { content: string; hash: string } {
+function buildHandoff(rid: string, sid: string, title: string, files: string[], lineCounts: Record<string, string>, gateEvidence: GateEvidence | undefined): { content: string; hash: string } {
   const body = `# PRD Handoff — ${rid}
 
 ${title}. Mechanical verbatim module split; behavior-preserving.
@@ -314,7 +315,13 @@ ${lineCountsMd(lineCounts)}
     goals: [],
     acceptanceCriteria: [],
     preservedBehavior: [],
-    handoffPath: handoffRelativePath(sid, rid)
+    handoffPath: handoffRelativePath(sid, rid),
+    // B2 / F1: the THIRD frontmatter producer. B1 left this one untouched and
+    // QA found it, so a `peaks evidence generate` capsule and a
+    // `peaks prd handoff init` capsule for the same slice disagreed about the
+    // same contract. Passed in rather than derived here so this function stays
+    // synchronous and disk-free; the caller derives.
+    ...(gateEvidence === undefined ? {} : { gateEvidence })
   };
   return { content: `${serializeHandoffFrontmatter(frontmatter)}${body}`, hash: handoffHash };
 }
@@ -369,7 +376,8 @@ export async function generateEvidence(options: EvidenceGenerateOptions): Promis
   }
 
   const qaRequestPath = await resolveQaRequestPath(qaDir, rid);
-  const handoff = buildHandoff(rid, sessionId, title, files, lineCounts);
+  const gateEvidence = await deriveGateEvidenceForRequest({ projectRoot, sessionId, requestId: rid });
+  const handoff = buildHandoff(rid, sessionId, title, files, lineCounts, gateEvidence);
 
   // Four of these twelve paths carry the rid because the `rd:qa-handoff` gate
   // requires `<rid>` in them: every slice in a session shares `rd/` and

@@ -32,7 +32,9 @@ import { parse as parseYaml } from 'yaml';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 import { REQUEST_ID_PATTERN } from '../artifacts/request-artifact-service.js';
 import { serializeHandoffFrontmatter } from './handoff-frontmatter.js';
+import { classifyGateEvidence } from './handoff-gate-evidence.js';
 import type {
+  GateEvidence,
   Handoff,
   HandoffFrontmatter,
   HandoffProbe,
@@ -154,6 +156,26 @@ export function initHandoff(opts: {
   preservedBehavior: readonly string[];
   /** Override path; defaults to `.peaks/_runtime/<sid>/prd/handoff-<rid>.md`. */
   handoffPath?: string;
+  /** Paths to the gate evidence files, keyed by gate. Omitted field and
+   *  empty map are equivalent here: neither renders a `gateEvidence` block,
+   *  so a caller that declares nothing writes bytes identical to a pre-B1
+   *  capsule.
+   *
+   *  THIS IS NOT A SECOND SOURCE (B2). In production the value reaching this
+   *  parameter is always `deriveGateEvidence(...)`
+   *  (`services/prd/gate-evidence-derivation.ts`), which computes it from the
+   *  request type and the gate table. This function stays pure — it does not
+   *  read the type itself — so the map can be constructed without touching
+   *  the disk; that is why the parameter exists rather than an internal call.
+   *
+   *  SHAPE CONTRACT (F2 of `rid-b1-qa`, now enforced in both directions): a
+   *  map this accepts is EXACTLY what `readHandoffGateEvidence` reports as
+   *  `evidence` — `classifyGateEvidence` is the one shape rule behind both,
+   *  and `parseHandoffContent` stores the classified map rather than the raw
+   *  YAML. A declaration both paths REFUSE (`not-map` / `value-not-string`)
+   *  is refused here by a throw and there by a status; neither silently
+   *  produces a map the other cannot. */
+  gateEvidence?: GateEvidence;
 }): Handoff {
   const handoffPath =
     opts.handoffPath ??
@@ -169,6 +191,12 @@ export function initHandoff(opts: {
     acceptanceCriteria: [...opts.acceptanceCriteria],
     preservedBehavior: [...opts.preservedBehavior],
     handoffPath,
+    // Conditionally spread rather than `gateEvidence: undefined`: this
+    // tsconfig sets `exactOptionalPropertyTypes`, and an explicit `undefined`
+    // would also make `serializeHandoffFrontmatter`'s
+    // `frontmatter.gateEvidence` key present-but-undefined for every caller
+    // that declares nothing.
+    ...(opts.gateEvidence === undefined ? {} : { gateEvidence: opts.gateEvidence }),
   };
   return { frontmatter, body: opts.body };
 }
@@ -269,8 +297,21 @@ function parseHandoffContent(content: string): Handoff {
   // frontmatter is returned with the canonical `'2'` rather than the raw scalar
   // — otherwise every downstream `=== '2'` comparison would depend on which
   // producer wrote the file.
+  //
+  // F2: `gateEvidence` is normalized the same way, for the same reason. The
+  // raw YAML value is not returned: the CLASSIFIED map is. Unknown keys are
+  // not part of `GateEvidence`, so storing the raw object made the interface
+  // claim a five-key map while holding a six-key one — and made
+  // `frontmatter.gateEvidence` disagree with what the field's reader reports
+  // for the same bytes. The predicate above has already rejected every shape
+  // that is not `absent` or `ok`, so this spread only ever adds a clean map.
+  const gateEvidenceShape = classifyGateEvidence(parsed.gateEvidence);
   return {
-    frontmatter: { ...parsed, schemaVersion: HANDOFF_SCHEMA_VERSION },
+    frontmatter: {
+      ...parsed,
+      schemaVersion: HANDOFF_SCHEMA_VERSION,
+      ...(gateEvidenceShape.kind === 'ok' ? { gateEvidence: gateEvidenceShape.evidence } : {})
+    },
     body
   };
 }
@@ -335,6 +376,30 @@ function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
     Array.isArray(v.goals) &&
     Array.isArray(v.acceptanceCriteria) &&
     Array.isArray(v.preservedBehavior) &&
-    typeof v.handoffPath === 'string'
+    typeof v.handoffPath === 'string' &&
+    isGateEvidence(v.gateEvidence)
   );
+}
+
+/**
+ * B1: `gateEvidence` is optional, but when present it MUST be a map of
+ * strings — an ARRAY here is the pre-B1 shape its own test file used to
+ * write, and it is a broken declaration, not a claim.
+ *
+ * F2 of `rid-b1-qa` removed this function's own copy of the shape rule. It
+ * used to be a second predicate (same boundary, different downstream result)
+ * that let the same bytes read one way here and another way through
+ * `readHandoffGateEvidence`; both now ask `classifyGateEvidence`. Only
+ * `absent` and `ok` are accepted: a malformed declaration must be refused by
+ * `readHandoff` (which is documented to throw on malformed input) exactly as
+ * the reader refuses it, so the two can never disagree about the same file.
+ *
+ * Unknown keys are still accepted HERE — the map is normalized to the five
+ * known keys by the caller — because refusing them would make a typo render
+ * a whole capsule unreadable, and the reader's `unknownKeys` is the surface
+ * that makes the typo diagnosable instead.
+ */
+function isGateEvidence(value: unknown): boolean {
+  const kind = classifyGateEvidence(value).kind;
+  return kind === 'absent' || kind === 'ok';
 }

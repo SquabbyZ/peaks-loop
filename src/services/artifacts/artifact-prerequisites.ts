@@ -637,6 +637,41 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
       }
     }
   }
+  // GATE C, second half (B2, rid `rid-b2-gate-evidence-wiring`): the capsule's
+  // own `gateEvidence` DECLARATION must be true — every path it names must
+  // exist. The table loop above owns "which artifacts this type must produce";
+  // this owns "the handoff may not claim evidence it does not have". They are
+  // complementary, and neither restates the other's paths: the declaration is
+  // derived from THE SAME table (`gate-evidence-derivation.ts`), so a row
+  // changed above changes the declared path below without a second edit.
+  //
+  // Guarded on `rd:qa-handoff` because that IS Gate C (the doc's gate table is
+  // keyed on it), and placed after the loop so it inherits the same
+  // `missing` / `warnings` / `ok` arithmetic the caller already throws on —
+  // `--allow-incomplete` and the `bypassedPrerequisites` report keep working
+  // with no second bypass path to keep in sync.
+  //
+  // It is skipped for types whose table has no `rd:qa-handoff` row (docs /
+  // chore) — the early return above means those types require no evidence at
+  // all, so there is no evidence contract to check. The `projectScan` they do
+  // carry is Gate A's, and Gate A is the check that owns it.
+  //
+  // The import is dynamic because `gate-evidence-derivation.ts` reaches
+  // `handoff-service.ts`, which imports `REQUEST_ID_PATTERN` from
+  // `request-artifact-service.ts`, which imports this module: a static edge
+  // here would close a runtime import cycle. Same idiom, same reason, as
+  // `request-commands.ts`'s lazy producer imports.
+  if (options.role === 'rd' && options.newState === 'qa-handoff') {
+    const { checkDeclaredGateEvidence } = await import('../prd/gate-evidence-derivation.js');
+    const declaredEvidence = await checkDeclaredGateEvidence({
+      projectRoot: options.projectRoot,
+      sessionId: options.sessionId,
+      requestId: options.requestId
+    });
+    missing.push(...declaredEvidence.missing);
+    warnings.push(...declaredEvidence.warnings);
+  }
+
   const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing, warnings };
   emitPrereqTransitionEvent({
     projectRoot: options.projectRoot,

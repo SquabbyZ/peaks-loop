@@ -36,7 +36,12 @@
  * sha256 would parse as a YAML number and be refused by the shape check.
  */
 
-import type { HandoffFrontmatter } from './handoff-types.js';
+import {
+  GATE_EVIDENCE_KEYS,
+  isGateEvidenceKey,
+  type GateEvidence,
+  type HandoffFrontmatter
+} from './handoff-types.js';
 
 /** Render a string as a YAML double-quoted scalar. JSON string escapes are a
  *  subset of YAML 1.2's double-quoted escapes, so this is valid YAML and
@@ -49,6 +54,65 @@ function yamlScalar(value: string): string {
 function blockSequence(key: string, values: readonly string[]): string[] {
   if (values.length === 0) return [`${key}: []`];
   return [`${key}:`, ...values.map((value) => `  - ${yamlScalar(value)}`)];
+}
+
+/**
+ * Render `gateEvidence` as a YAML map of quoted path scalars, or as NOTHING.
+ *
+ * Two shape decisions, both load-bearing:
+ *
+ *   - **Omitted when absent or empty.** An absent map and an empty map both
+ *     render zero lines, so a handoff that declares no evidence is
+ *     byte-identical to a pre-B1 capsule. `gateEvidence: {}` would add a line
+ *     to every handoff in the repo to say nothing — and the `each key exactly
+ *     once` assertions in `handoff-auto-regen.test.ts` /
+ *     `handoff-writer-gate-convergence.test.ts` pin the emitted key SET.
+ *   - **Canonical key order** (`GATE_EVIDENCE_KEYS`), NOT insertion order of
+ *     the caller's object. The frontmatter is sha256-adjacent and read by
+ *     substring/regex consumers; a caller that built its map `{perfBaseline,
+ *     projectScan}` must not produce different bytes from one that built it
+ *     the other way round.
+ *
+ * Values go through `yamlScalar` because these are PATHS: on Windows they
+ * contain backslashes, which a plain YAML scalar would escape.
+ */
+function gateEvidenceBlock(evidence: GateEvidence | undefined): string[] {
+  if (evidence === undefined) return [];
+  // F3 of `rid-b1-qa`: this function used to iterate only the five known keys,
+  // so anything else was dropped WITHOUT A TRACE — `initHandoff({gateEvidence:
+  // {projectScans: 'typo.md'}})` wrote no block at all and the capsule then
+  // read back as `field-absent`, i.e. as if nothing had ever been declared.
+  // The type system blocks literal typos, but not a value that arrived through
+  // `JSON.parse`, an `as` assertion, or a JS caller — and the derivation added
+  // in B2 is exactly such an adapter. So the check is runtime, and it is HERE
+  // because this serializer is the single funnel every producer passes
+  // through: one check covers all three writers and any future one.
+  const provided = Object.entries(evidence);
+  const unknownKeys = provided
+    .map(([key]) => key)
+    .filter((key) => !isGateEvidenceKey(key))
+    .sort();
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `handoff: unknown gateEvidence key(s) [${unknownKeys.join(', ')}]; expected one of ` +
+        `${GATE_EVIDENCE_KEYS.join(', ')} — refusing to write a declaration that would be ` +
+        'dropped silently'
+    );
+  }
+  const nonStringKeys = provided
+    .filter(([, value]) => typeof value !== 'string')
+    .map(([key]) => key)
+    .sort();
+  if (nonStringKeys.length > 0) {
+    throw new Error(
+      `handoff: gateEvidence value(s) for [${nonStringKeys.join(', ')}] must be strings (evidence paths)`
+    );
+  }
+  const entries = GATE_EVIDENCE_KEYS.flatMap((key) => {
+    const value = evidence[key];
+    return value === undefined ? [] : [`  ${key}: ${yamlScalar(value)}`];
+  });
+  return entries.length === 0 ? [] : ['gateEvidence:', ...entries];
 }
 
 /**
@@ -75,6 +139,12 @@ export function serializeHandoffFrontmatter(
     ...blockSequence('acceptanceCriteria', frontmatter.acceptanceCriteria),
     ...blockSequence('preservedBehavior', frontmatter.preservedBehavior),
     `handoffPath: ${yamlScalar(frontmatter.handoffPath)}`,
+    // LAST, after every anchored field: `schemaVersion` / `sha256` are
+    // matched as `^`-anchored lines by the gate and both audit loaders, so
+    // nothing new may be inserted before them. A nested map also renders
+    // indented lines only, leaving the top-level key set exactly as it was
+    // for every capsule that declares no evidence.
+    ...gateEvidenceBlock(frontmatter.gateEvidence),
     '---',
   ];
   return `${lines.join('\n')}\n`;
