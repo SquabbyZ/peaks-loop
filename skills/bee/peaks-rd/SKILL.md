@@ -65,7 +65,7 @@ Every RD action MUST align with the 4 Karpathy guidelines (full text at `andrej-
 3. **Surgical Changes** — touch only what the user's request requires. Remove imports / variables / functions that *your* changes made unused. Do not refactor adjacent code. Every changed line must trace to the user's request.
 4. **Goal-Driven Execution** — define verifiable success criteria (`peaks request show --role rd` carries ACs from PRD). For multi-step work, state plan + verify checkpoints before acting.
 
-Cross-references: Slice 1 PRD §AC-1. The 4-point assertion guard that PRD named was deleted in `f17aa377`; the block below is held by documentation only. The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+Cross-references: Slice 1 PRD §AC-1. The 4-point assertion guard that PRD named was deleted in `f17aa377`; it is re-pinned by `tests/unit/skills/karpathy-injection.test.ts`, which fails if any of the 4 titles above is dropped. The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 

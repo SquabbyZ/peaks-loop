@@ -2,26 +2,43 @@
 //
 // AC-3 of slice 2026-09-17-4-0-51-cleanup: the G11.5 "visibility contract"
 // (slice 2026-07-28-sub-agent-visibility) commits four machine-readable
-// additions and one prose obligation to the dispatch contract. The prose
-// obligation lives in `skills/peaks-code/SKILL.md` and the canonical
-// contract lives in `skills/peaks-code/references/sub-agent-dispatch.md`.
+// additions and one prose obligation to the dispatch contract.
 //
-// The CHANGELOG's "unfinished" item for G11.5 was that the prior
-// "asserts the G11.5 paragraph is present" test was deleted in 4.0.51's
-// own commit, leaving the prose obligation unpinned. This file is the
-// behavior-framed test that pins it back, plus three invariants the
-// orchestrator relies on:
+// ---------------------------------------------------------------------------
+// 2026-09-18 (slice D2) — this file was HALF-CLOSED and was rewritten.
 //
-//   1. G11.5 heading exists verbatim in sub-agent-dispatch.md
-//   2. The "Orchestrator prose obligation (G11.5)" paragraph appears
-//      in BOTH skills/peaks-code/SKILL.md (the header) AND
-//      skills/peaks-code/references/sub-agent-dispatch.md (the contract)
-//   3. The verbatim one-line `⏳ Spawning detached sub-agent via <vendor>: rid=<rid> (ETA ~60s)`
-//      appears in sub-agent-dispatch.md
+// Defect 1 — one assertion, counted twice. Cases 2 and 3 were the SAME
+//   assertion: the same regex (`/Orchestrator prose obligation \(G11\.5\)/`)
+//   against the same string (`dispatchRef`). The file comment claimed the
+//   paragraph appears "in BOTH skills/peaks-code/SKILL.md (the header) AND
+//   skills/peaks-code/references/sub-agent-dispatch.md (the contract)", so
+//   the two cases LOOKED like the two halves of that claim — but they
+//   collapsed onto one file and the `skillMd` read at the top of the file
+//   was never asserted on. Merged into one case below.
 //
-// Tests are intentionally narrow and parse-markdown; the prose
-// obligation is the load-bearing one — if a future editor changes the
-// emoji, the orchestrator still works but the user-visible UX breaks.
+//   Why the SKILL.md half is NOT asserted here: `skills/peaks-code/SKILL.md`
+//   does not carry the `Orchestrator prose obligation (G11.5)` paragraph. It
+//   carries the DETACHED-dispatch counterpart (`⏳ Spawning detached
+//   sub-agent via <vendor>: rid=<rid> (ETA ~60s)`, line 40). Asserting the
+//   G11.5 paragraph against SKILL.md would go red today, and making it green
+//   would mean ADDING a product obligation to SKILL.md — out of scope for a
+//   pin-repair slice. The dead read is deleted and the claim corrected
+//   instead. Recorded in
+//   `.peaks/_runtime/2026-09-17-session-607ead/rd/tech-doc-rid-d2-false-pins.md`.
+//
+// Defect 2 — the wrong file was pinned. The test this contract names
+//   (`tests/unit/dispatch/sub-agent-visibility-envelope.test.ts`, case
+//   "peaks-rd rd-sub-agent-dispatch.md has a G11.5 heading") parsed
+//   `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md`. AC-3 pinned
+//   only the peaks-code SIBLING of that file, so the rd-side heading stayed
+//   unpinned and `rd-sub-agent-dispatch.md` still read "Regression guard:
+//   none". Case 3 below closes that gap by pinning the rd-side heading and
+//   the rd-side prose form.
+// ---------------------------------------------------------------------------
+//
+// Tests are intentionally narrow and parse-markdown; the prose obligation is
+// the load-bearing one — if a future editor changes the emoji, the
+// orchestrator still works but the user-visible UX breaks.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -31,12 +48,16 @@ import { describe, expect, it } from 'vitest';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Walk up from tests/unit/skills/<file>.ts to repo root, then into
-// skills/peaks-code/{SKILL.md,references/sub-agent-dispatch.md}.
+// Walk up from tests/unit/skills/<file>.ts to repo root, then into the
+// two dispatch-contract files the G11.5 contract lives in: the peaks-code
+// orchestrator contract and the peaks-rd bee's dispatch reference.
 const repoRoot = join(__dirname, '..', '..', '..');
-const skillMd = readFileSync(join(repoRoot, 'skills', 'peaks-code', 'SKILL.md'), 'utf8');
 const dispatchRef = readFileSync(
   join(repoRoot, 'skills', 'peaks-code', 'references', 'sub-agent-dispatch.md'),
+  'utf8'
+);
+const rdDispatchRef = readFileSync(
+  join(repoRoot, 'skills', 'bee', 'peaks-rd', 'references', 'rd-sub-agent-dispatch.md'),
   'utf8'
 );
 
@@ -49,16 +70,21 @@ describe('G11.5 visibility contract — AC-3 title-lock baseline', () => {
     expect(dispatchRef).toMatch(/^## G11\.5 — visibility contract \(slice 2026-07-28-sub-agent-visibility\)$/m);
   });
 
-  it('declares the orchestrator prose obligation in sub-agent-dispatch.md', () => {
-    // Behavior: the orchestrator's required one-line string is present
-    // and anchored to G11.5.
+  it('declares the orchestrator prose obligation in the dispatch contract', () => {
+    // Behavior: the orchestrator's required one-line obligation is
+    // anchored to G11.5 in the canonical dispatch contract file. This is
+    // the whole of that assertion — it was previously written twice, over
+    // the same file, which inflated the case count without adding coverage.
     expect(dispatchRef).toMatch(/Orchestrator prose obligation \(G11\.5\)/);
   });
 
-  it('declares the orchestrator prose obligation in dispatch contract', () => {
-    // Behavior: the orchestrator's required one-line obligation is
-    // anchored to G11.5 in the canonical dispatch contract file.
-    expect(dispatchRef).toMatch(/Orchestrator prose obligation \(G11\.5\)/);
+  it('declares the G11.5 heading + prose form in the RD bee dispatch reference', () => {
+    // Behavior: the peaks-rd sibling carries its own G11.5 heading, and it
+    // is the file the deleted `sub-agent-visibility-envelope.test.ts` case
+    // actually parsed. With only the peaks-code sibling pinned, this file
+    // could drop its heading while every case stayed green.
+    expect(rdDispatchRef).toMatch(/^## G11\.5 visibility contract \(mandatory, slice 2026-07-28-sub-agent-visibility\)$/m);
+    expect(rdDispatchRef).toMatch(/⏳\s*Spawning sub-agent via Task tool:\s*<description>/);
   });
 
   it('pins the verbatim one-line format the orchestrator must emit for detached dispatch', () => {

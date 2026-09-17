@@ -74,12 +74,21 @@
 // fails `PATH_SHAPED` for want of a slash, and the bare readings skip anything
 // inside a span. It is not closed here because closing it is not free: the
 // markdown corpus holds two backticked filenames of this shape
-// (`.peaks/standards/catalog-governance/v2-14-classifications.md`, naming tests
-// that no commit ever added), and a span rule that admitted the shape would
-// report both — and a bare filename has no directory, so no resolution origin
-// exists to clear them with. That is a change to the resolution contract, not a
-// widening of the candidate rule, so the case pinning the gap is disclosed
-// rather than closed.
+// (`.peaks/standards/catalog-governance/v2-14-classifications.md`, naming
+// `pre-rd-scan.test.ts` and `design-draft-confirm.test.ts`), and a span rule
+// that admitted the shape would report both — and a bare filename has no
+// directory, so no resolution origin exists to clear them with. That is a
+// change to the resolution contract, not a widening of the candidate rule, so
+// the case pinning the gap is disclosed rather than closed.
+//
+// Those two are DEAD citations, and the first version of this paragraph said so
+// wrongly: it called them "tests that no commit ever added", which no `git log`
+// supports. `d3a45d45` added both, at
+// `tests/unit/services/audit/enforcers/pre-rd-scan.test.ts` and
+// `tests/unit/services/audit/enforcers/design-draft-confirm.test.ts`, and
+// `f17aa377` ("delete 559 legacy unit tests") took them away. The history is
+// there; what the citation lacks is the resolution origin a bare filename never
+// had.
 //
 // Counted honestly: the SCRIPT corpus holds two more of the same shape
 // (`scripts/sync-version.mjs`, `scripts/peaks-ide-audit-log.mjs`), both naming
@@ -198,6 +207,63 @@ const SESSION_WORKSPACE_DIRS = new Set(['prd', 'rd', 'qa', 'sc', 'txt', 'audit',
 /** A backtick span must look like this to be treated as a path citation. */
 const PATH_SHAPED = /^[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+$/;
 const REPO_ANCHORS = /^(\.peaks|\.claude|\.github|src|tests|docs|scripts|skills|packages|bin|openspec)\//;
+
+/**
+ * `path.md:127` — a citation that names a LINE of the file rather than the file
+ * itself. Scope gap #3, raised by the D1 audit (`rid-d1-station-inventory`) and
+ * measured here rather than taken on report: `PATH_SHAPED`'s character class has
+ * no `:`, so this shape was invisible to every reading the guard makes — and
+ * `skills/peaks-final-review/SKILL.md:233` was citing, in exactly that shape, a
+ * plan `e6e35842` retired. That is the guard's founding defect class (a citation
+ * that outlived its referent) surviving inside the one shape the guard could not
+ * read.
+ *
+ * `:` is NOT added to `PATH_SHAPED`, and the reason is measured, not assumed:
+ * over corpus + `docs/` (183 files, 11 004 backtick spans), **864 spans carry a
+ * `:`** — 613 in the corpus, 251 in `docs/` — and not one of them is a citation.
+ * They are `key: value` records (`schemaVersion: 1`, `proseOnly: 0`), URL
+ * schemes (`https:`, `file:`, `data:`, `javascript:`), Windows paths
+ * (`C:/Users/…`), ports (`:9222`), and `path:symbol` / `path:14-17` references.
+ *
+ * The decisive number is not the size of that set but the SIGN of its output.
+ * Putting `:` in the class does NOT report 864 findings: most such spans never
+ * reach `exists` at all (no anchor, `@`, `<…>`, prose). It reports **11** — 4 in
+ * the markdown corpus, 1 in the script corpus, 6 in `docs/` — and **all 11 name
+ * a file that EXISTS**: `src/shared/path-safety.ts:14-17`,
+ * `scripts/install-skills.mjs:detect1xProjectState`,
+ * `src/services/final-review/final-review-service.ts:23-31`,
+ * `src/services/ide/ide-detector.ts:detectInstalledIde`,
+ * `src/services/skills/hooks-settings-service.ts:82-311`, and one more of that
+ * shape. Measured by APPLYING the mutation, not by reasoning about it. So the
+ * widened rule is not merely noisy — it is **directionally wrong**: it reports
+ * live files as missing, which is the one failure this guard exists to prevent.
+ * Hence the suffix is stripped before the path is JUDGED and the shape rule is
+ * left exactly as it was; what must exist is the file the citation names.
+ *
+ * `:<digits>` and nothing else. Four boundaries are deliberate, and each is
+ * pinned by a case in the behavior block below rather than left to chance:
+ *   - `path.md:notanumber` stays invisible — a `:` followed by anything but
+ *     digits is not a line number, and reading it as one is the door
+ *     `key: value` walks through;
+ *   - a port (`:9222`) strips to the empty string and fails `PATH_SHAPED`,
+ *     which is why `localhost:9222` is prose and not a missing file;
+ *   - a line RANGE (`path.ts:14-17`) stays invisible, because `14-17` is not
+ *     `\d+`. The one instance in the corpus
+ *     (`.peaks/standards/common/coding-style.md:39`) names `src/shared/path-safety.ts`,
+ *     which DOES exist — a live citation behind the same blind spot, so the
+ *     narrower reading costs nothing today. Widening to ranges is not free and
+ *     is not done here.
+ *   - `path:line:col` (`path.md:42:43`) stays invisible too, and unlike the
+ *     three above this one is a genuine RESIDUAL rather than a chosen limit:
+ *     `LINE_SUFFIX` does not cover a column, so stripping `:43` leaves
+ *     `…md:42`, which still carries a `:` and fails `PATH_SHAPED` — the whole
+ *     span goes unread. MEASURED: no citation of this shape exists in the
+ *     corpus today, so nothing is lost by leaving it; it is written down here
+ *     so the gap is DISCLOSED rather than found later. Closing it means
+ *     teaching the rule a second suffix, which is a widening to measure before
+ *     landing, not to assume.
+ */
+const LINE_SUFFIX = /:\d+$/;
 const BACKTICK_SPAN = /`([^`\n]+)`/g;
 
 /**
@@ -551,13 +617,24 @@ export function findDanglingCitations(
        * included where it has them.
        */
       const judge = (span: string, from: number, to: number, namesNoDirectory = false): void => {
-        const candidate = span.trim();
+        const cited = span.trim();
+        // A line-numbered citation (`path.md:127`) claims a file AND a line in
+        // it. The file is the part this tree can answer for, so the suffix is
+        // stripped before the shape test and the existence check alike; for
+        // every other span `replace` is a no-op and nothing below moves (see
+        // `LINE_SUFFIX` for why `:` is not in `PATH_SHAPED` instead).
+        const candidate = cited.replace(LINE_SUFFIX, '');
         if (!isCandidate(candidate, line, from, to, ctx, namesNoDirectory)) return;
         if (exists(candidate, id)) return; // a resolvable citation is never exempted
         if (SESSION_WORKSPACE_DIRS.has(candidate.split('/')[0] ?? '')) return;
         if (reported.has(candidate)) return;
         reported.add(candidate);
-        findings.push(`${id}:${index + 1} cites \`${candidate}\``);
+        // Reported as WRITTEN — save for surrounding whitespace, which the
+        // `trim` above already drops — rather than as stripped: the reader has
+        // to find the exact line of prose, and the file alone would not do
+        // that. Dedup keys on the file, so one dangling file cited twice on a
+        // line — with and without a line number — is still one thing to fix.
+        findings.push(`${id}:${index + 1} cites \`${cited}\``);
       };
 
       /** Every backtick span on the line, as `[from, to)` offsets. */
@@ -786,6 +863,108 @@ describe('Scenario: behavior — the bare scans see citations the backticks hide
   });
 });
 
+describe('Scenario: behavior — a line-numbered citation is judged on its file', () => {
+  const noPathsExist = (): boolean => false;
+
+  it('when a citation names a line of a missing file, should report it', () => {
+    // given: scope gap #3's shape — a citation carrying `:<digits>`, which
+    //        `PATH_SHAPED` cannot match because its class carries no `:`
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/nonexistent.md:42`.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: the FILE is what is judged, and it is reported as it was written
+    expect(findings).toEqual(['FAKE.md:1 cites `docs/nonexistent.md:42`']);
+  });
+
+  it('when the file a line-numbered citation names exists, should report nothing', () => {
+    // given: the clean control — the same shape, resolvable
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/exists.md:42`.' }];
+
+    // when: the checker runs against a tree that holds the file
+    const findings = findDanglingCitations(texts, (rel) => rel === 'docs/exists.md');
+
+    // then: the line number is not part of what must exist
+    expect(findings).toEqual([]);
+  });
+
+  it('when a span carries a colon but no line number, should not report it', () => {
+    // given: THE CONTROL THAT MATTERS — every `:`-bearing shape the corpus
+    //        actually holds (measured: 804 spans over corpus + `docs/`, and
+    //        not one of them a citation). Had the fix been "add `:` to
+    //        `PATH_SHAPED`" rather than "strip a `:<digits>` suffix", each of
+    //        these would be reported as a file this tree owes
+    const texts = [{
+      id: 'FAKE.md',
+      body: [
+        'A record `schemaVersion: 1`, a URL `https://example.com/x.md`,',
+        'a host `localhost:9222`, a bare port `:9222`, and a range `docs/gone.md:14-17`.',
+      ].join('\n'),
+    }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: none is claimed as a citation — prose is not a path
+    expect(findings).toEqual([]);
+  });
+
+  it('when the same missing file is cited without a line number, should still report it', () => {
+    // given: the pre-existing shape, unchanged — the new reading must ADD
+    //        admissions, never move the ones already there
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/nonexistent.md`.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: it is reported exactly as before
+    expect(findings).toEqual(['FAKE.md:1 cites `docs/nonexistent.md`']);
+  });
+
+  it('when the suffix after the colon is not a number, should not report it', () => {
+    // given: the boundary `LINE_SUFFIX` is drawn at, pinned so it cannot move
+    //        unnoticed. `:notanumber` is not a line number, and admitting any
+    //        `:`-suffix would be the door `key: value` walks through
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/nonexistent.md:notanumber`.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: the narrower reading holds — a known, chosen limit
+    expect(findings).toEqual([]);
+  });
+
+  it('when a citation carries a column as well as a line, should not report it', () => {
+    // given: the RESIDUAL this rule does not close — `path:line:col`. Stripping
+    //        `:43` leaves `docs/nonexistent.md:42`, which still carries a `:`
+    //        and so fails `PATH_SHAPED`; the whole span goes unread. Measured:
+    //        no citation of this shape exists in the corpus today, so nothing is
+    //        lost by leaving it — but it is pinned here so it cannot move
+    //        silently. THIS CASE IS FALSIFIABLE: it reports the span (and so
+    //        goes red) the moment `LINE_SUFFIX` grows a column group, e.g.
+    //        `/:\d+(?::\d+)?$/`, which is exactly the widening it guards against
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/nonexistent.md:42:43`.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: a disclosed residual, not a silent one
+    expect(findings).toEqual([]);
+  });
+
+  it('when one line cites a missing file with and without a line number, should report it once', () => {
+    // given: the dedup contract, across the two spellings of one file
+    const texts = [{ id: 'FAKE.md', body: 'See `docs/gone.md:42`; `docs/gone.md` is the plan.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: one dangling file is one thing for the reader to fix
+    expect(findings).toEqual(['FAKE.md:1 cites `docs/gone.md:42`']);
+  });
+});
+
 describe('Scenario: integration — the real corpus resolves on the real tree', () => {
   /** The corpus, read off the working tree, keyed by its repo-relative id. */
   const corpusTexts = (): Array<{ id: string; body: string }> =>
@@ -837,6 +1016,25 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     expect(findings).toEqual([
       'skills/peaks-audit/SKILL.md:1 cites `tests/unit/skills/a-gone-bare.test.ts`',
       'skills/peaks-audit/SKILL.md:1 cites `a-gone-filename.test.ts`',
+    ]);
+  });
+
+  it('when a line-numbered citation of a missing file is spliced into the real corpus, should report it', () => {
+    // given: the real corpus plus scope gap #3's shape — the same injection the
+    //        bare scans get above, for the line-numbered reading, so the corpus
+    //        test's zero is a live zero and not one the rule cannot move
+    const texts = corpusTexts();
+    texts.push({
+      id: 'skills/peaks-final-review/SKILL.md',
+      body: 'The gate was described in `docs/nonexistent.md:42`.',
+    });
+
+    // when: the checker runs over exactly that corpus
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+
+    // then: it is reported, and nothing else is
+    expect(findings).toEqual([
+      'skills/peaks-final-review/SKILL.md:1 cites `docs/nonexistent.md:42`',
     ]);
   });
 

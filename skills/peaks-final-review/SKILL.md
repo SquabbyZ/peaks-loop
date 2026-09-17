@@ -230,6 +230,6 @@ When handing off, emit: rid, `allPass`, `needsAttention[]`, output path, source 
 | `src/services/final-review/final-review-types.ts` | `FinalReviewOutput`, `DimensionEvidence`, verdict/evidence/confidence enums. |
 | `src/services/audit/audit-goal-service.ts:16` | Line of evidence that `LlmRunner` is reusable across audit + final-review (service-level integration). |
 | `tests/unit/final-review/final-review-service.test.ts` | Service-level unit tests (8 cases: evidence inlining, the no-evidence⇒no-`pass` gate, prompt bounds, plus contract guards). |
-| `docs/superpowers/plans/2026-06-25-slice-topology-multipass-phase-4.md:127` | Phase-4 plan prose (Task 14). |
+| *(retired — no file)* | The Phase-4 plan prose (Task 14) this row used to cite was deleted in `e6e35842`; no file on this tree carries it, and nothing pins it since. |
 | `skills/bee/peaks-qa/SKILL.md` | Upstream QA skill — 4-dim review is downstream of all QA gates. |
 | `skills/peaks-audit/SKILL.md` | Sibling skill — produces the `audit-goal` JSON that this skill consumes. |

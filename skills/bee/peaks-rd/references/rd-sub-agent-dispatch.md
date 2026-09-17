@@ -109,7 +109,7 @@ Any RD/QA/SC sub-agent dispatched by `peaks sub-agent dispatch --from-dag` (or b
 
 **Where the orchestrator reads the values from**: `data.orchestratorVisibleHint` (one line, copy verbatim) and `data.artifactsPublicPaths` (the public list of artifact paths the sub-agent will own). The CLI fills these in; the orchestrator just transcribes.
 
-**Regression guard**: none. The unit test that parsed `rd-sub-agent-dispatch.md` and asserted the G11.5 heading is present was deleted in `f17aa377`. The heading is held by convention only — do not delete it.
+**Regression guard**: `tests/unit/skills/g11-5-title-lock.test.ts` — it pins this file's G11.5 heading and the `⏳ Spawning sub-agent via Task tool: <description>` form. The original guard (the unit test that parsed `rd-sub-agent-dispatch.md` and asserted the G11.5 heading is present) was deleted in `f17aa377`; the pin was restored in slice D2 (2026-09-18), which found that the AC-3 title-lock had covered only the peaks-code sibling of this file. Do not delete the heading.
 
 ---
 

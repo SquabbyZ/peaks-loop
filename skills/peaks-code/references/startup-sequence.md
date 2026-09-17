@@ -19,7 +19,7 @@ When a NEW conversation opens on a session whose `lastActivity` is from today AN
 
 ### Peaks-Loop Step N: Periodic checkpoint (auto-fire, no user action)
 
-Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write. See `periodic-checkpoint.md` (no guard fails on a missed cadence — the test that did was deleted in `f17aa377`).
+Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write. See `periodic-checkpoint.md` (the cadence is pinned by `tests/unit/skills/periodic-checkpoint-cadence.test.ts`, which fails if either file's number drifts).
 
 ### Peaks-Loop Step 0.6: Audit + Goal (NEW)
 

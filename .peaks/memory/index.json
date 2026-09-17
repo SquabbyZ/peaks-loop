@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T17:22:03.962Z",
+  "updatedAt": "2026-09-17T18:00:47.370Z",
   "hot": {
     "rule": [
       {
@@ -76,6 +76,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "a-number-reported-from-one-bucket-of-a-two-way-split-looks-exactly-like-a-total",
+        "kind": "rule",
+        "description": "A census split colon-bearing spans into  and everything else, printed , and the write-up carried **804** as the colon...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-number-reported-from-one-bucket-of-a-two-way-split-looks-exactly-like-a-total.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-d-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "a-package-at-a-wrong-absolute-path-silences-its-own-gate",
         "kind": "rule",
         "description": "was permanently green because  was a SQLite WAL db, and opening it read-only still creates  sidecar files.",
@@ -140,6 +148,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "an-independent-cross-check-that-reads-the-same-table-is-a-regrouping-not-a-check",
+        "kind": "rule",
+        "description": "A count was reported as reproducible two ways: 48 rows minus 2, and 33 + 12 + 1 read off two sub-section headings.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-independent-cross-check-that-reads-the-same-table-is-a-regrouping-not-a-check.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-d-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "an-injection-battery-that-swaps-the-call-site-has-never-tested-the-callee",
         "kind": "rule",
         "description": "An independent QA agent found that the RD sub-agent's mutation battery validated **wiring, not parts**: every arm swa...",
@@ -154,6 +170,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\checkpoint-every-20-tool-calls-is-mandatory.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff-4-0-45.md",
         "updatedAt": "2026-09-12"
+      },
+      {
+        "name": "citing-an-existing-rule-is-an-argument-strong-enough-that-nobody-checks-whether-it-applies",
+        "kind": "rule",
+        "description": "A fix was declined by citing a lesson from the repo's own history: \"adding a second edit on top of someone's uncommit...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\citing-an-existing-rule-is-an-argument-strong-enough-that-nobody-checks-whether-it-applies.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-d-group.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "delete-the-line-and-see-whether-the-suite-still-passes",

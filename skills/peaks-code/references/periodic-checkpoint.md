@@ -20,14 +20,16 @@ checkpoint as often as it wants.
 
 > **Slice 2026-06-24-efficiency-4p-bundle / G1 (P0.1) — frequency lock**:
 > The `--reason periodic` row above is hard-locked at **20 tool calls**.
-> The threshold is a textual contract between SKILL.md (line 79) and
-> this reference doc; the LLM runner is expected to fire
-> `peaks session checkpoint --reason periodic` once every 20 tool calls
+> The threshold is a textual contract between `startup-sequence.md` (Step N:
+> Periodic checkpoint) and this reference doc; the LLM runner is expected to
+> fire `peaks session checkpoint --reason periodic` once every 20 tool calls
 > (i.e. on each 20-call mark, not "approximately every 20"). The CLI
 > does **not** expose a `--periodic-every <n>` override flag — the
 > cadence is owned by the skill, not the CLI. Any patch that relaxes
-> this must update both files in lockstep; no guard fails on the drift
-> — the test that pinned the cadence was deleted in `f17aa377`.
+> this must update both files in lockstep —
+> `tests/unit/skills/periodic-checkpoint-cadence.test.ts` fails on the
+> drift (it pins the number in both files, the hard-lock wording, and the
+> CLI's lack of the override).
 
 ## Checkpoint CLI contract
 
