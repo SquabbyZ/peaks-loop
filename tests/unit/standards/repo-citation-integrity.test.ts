@@ -87,6 +87,40 @@
 // guard cannot resolve them. They are four in the repository, two in the
 // markdown corpus; neither pair is fixed here.
 //
+// Those two are DISCLOSED, not evaded, and the difference is the whole point.
+// Each comment says in words that the test it names is gone and that nothing
+// pins the behaviour since: `sync-version.mjs` names the lockstep tests that do
+// cover its two outputs today and then records the unlink as "NOT COVERED";
+// `peaks-ide-audit-log.mjs` heads its contract "NOT PINNED BY ANY TEST" and
+// calls it documented rather than verified. A reader of either file learns the
+// citation is dead, which is the outcome this guard exists to force. So the
+// disposition is 4.0.51's — name it, say nothing pins it — and it was already
+// taken when A3 verified it (rid `rid-a3-citation-fenced`), which is why A3
+// added no rule and edited no script. The basenames stay: each one is how its
+// comment says which test `f17aa377` took, and for `audit-log-helper` that bare
+// name is the only surviving record of the deleted test anywhere in the repo.
+// The same is NOT claimed for `sync-version-invalidation`: this very file
+// spells its full path out in the `commentText` note above and again in the E2
+// fixture below, so that basename is one record among four. And nothing is
+// exempted for either basename — an allowlist entry for "basename-only
+// citations" would be this guard loosened so that it passes, which is precisely
+// what 4.0.51 forbids.
+//
+// FENCES ARE NOT A BLIND SPOT. Measured in A3 (rid `rid-a3-citation-fenced`),
+// not assumed: the scan below is line-based and never asks whether a line sits
+// inside a ``` or ~~~ or indented block, so a fenced citation is read exactly
+// as an unfenced one is. The same six citations came back from inside a
+// ```bash block and from plain prose, and a bare `tests/**/*.test.ts` was
+// reported from inside the fence too — while a bare NON-test path stayed
+// invisible inside it and outside it alike (the backtick, not the fence, is
+// what makes a path visible). Four anchored citations live inside fenced blocks
+// in today's corpus; a shape-only count reaches ten, the other six being the
+// two `OPTIONAL_RUNTIME_PATHS` entries, two spans the `e.g.` cue excludes, and
+// two more the `<…>` fill-in rule excludes (all four of those sit inside a `<…>`
+// as well) — the candidate rule already excludes them. Teaching this scan to
+// skip fences would therefore close no gap and would silently stop checking
+// those four. Do not.
+//
 // Three classes are exempt by construction, not by an allowlist:
 //   - runtime state under `.peaks/` — gitignored session state, plus the cron
 //     and arbitration-cache subtrees the CLI writes (`RUNTIME_STATE_PREFIXES`);
@@ -250,6 +284,22 @@ export function corpusFiles(repoRoot: string): string[] {
  * line. A rule that reads shapes and examples as missing files is how a guard
  * trains its reader to ignore it, so the bare-token rule is drawn at test-file
  * citations — the exact class E2 reported — rather than at paths in general.
+ *
+ * The corpus-wide measurement behind that boundary, taken in A3 (rid
+ * `rid-a3-citation-fenced`) over all 165 corpus files: widening the bare
+ * reading to anchored non-test paths — `src/…`, `docs/…`, `scripts/…` —
+ * reports 22 distinct tokens across 50 occurrences, and not one of them names a
+ * file this tree owes. They are prose literals (`docs/chore`), synthetic stems
+ * `SYNTHETIC_STEMS` already names (`src/x.ts`, `src/foo/bar.ts`), illustration
+ * shapes (`src/mappers/user.mapper.ts` under an `e.g.`), truncated strings from
+ * sample envelopes (`packages/peaks-loop-shared/dist/version.`), and — the two
+ * that matter most — `tests/unit/skills/loop-hygiene-block.test.ts.` (22 of the
+ * 50, one per SKILL.md carrying the loop-hygiene block) and
+ * `src/services/audit/audit-goal-service.js`, which stand one period and one
+ * `.js` spelling away from files the tree HAS. So the widened reading's output
+ * is fifty findings, zero citations, and two false alarms on live files: that is
+ * a guard teaching its reader to ignore it, so the boundary holds where A2 drew
+ * it. A bare non-test path is not a gap to close.
  *
  * The comment corpus reaches this pattern through `commentText`, which
  * backticks each match so the single candidate rule then applies to it. The

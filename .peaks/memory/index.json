@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T12:35:50.655Z",
+  "updatedAt": "2026-09-17T14:25:10.930Z",
   "hot": {
     "rule": [
       {
@@ -57,6 +57,14 @@
         "description": "If a repair operation also restores the pre-repair state, its **net effect on that state is zero while it still repor...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-repair-asked-to-also-roll-back-its-own-write-is-self-cancelling-the-tell-is-that-you-had-to-rewrite-a-passing-test.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a1.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-slice-whose-premise-is-false-should-ship-the-measurement-not-an-implementation",
+        "kind": "rule",
+        "description": "A3 asked for a widening so that fenced code blocks would stop being invisible to the citation guard.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-slice-whose-premise-is-false-should-ship-the-measurement-not-an-implementation.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a3.md",
         "updatedAt": "2026-09-17"
       },
       {
@@ -252,6 +260,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "transpilemodule-silently-ignores-removecomments-at-the-top-level-of-its-options-argument",
+        "kind": "rule",
+        "description": "The  byte-comparison used to prove \"this change is comments-only\" has a trap: when  is passed as a top-level key of '...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\transpilemodule-silently-ignores-removecomments-at-the-top-level-of-its-options-argument.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a3.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "two-functions-answering-what-is-the-current-session-will-drift-and-the-shadowed-one-wins-silently",
         "kind": "rule",
         "description": "read ;  **preferred a per-caller binding** and only fell back to that file.",
@@ -282,6 +298,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\when-a-reviewer-objects-to-a-mechanism-ask-what-else-it-is-holding-up.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything",
+        "kind": "rule",
+        "description": "A2 deliberately declined to widen the citation guard to bare non-test paths, and recorded the cost as \"50 findings, n...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\widening-a-guard-can-add-false-positives-against-live-files-instead-of-finding-anything.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a3.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "workspace-underscore-convention",
