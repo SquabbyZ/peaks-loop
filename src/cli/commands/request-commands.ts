@@ -32,6 +32,7 @@ import { fail, ok } from 'peaks-loop-shared/result';
 
 import { triggerBestPracticeScan } from '../../services/prd/best-practice-auto-trigger.js';
 import {
+  codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
   type CodegraphAutorefreshResult,
 } from '../../services/codegraph/codegraph-autorefresh.js';
@@ -449,6 +450,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // RD → QA slice-complete boundary. Set only for rd:qa-handoff; null
       // otherwise. Best-effort and fail-silent — never blocks the transition.
       let codegraphRefresh: CodegraphAutorefreshResult | null = null;
+      // A2 (2026-09-17): the human-visible half of the refresh outcome. null
+      // when the refresh succeeded or when no codegraph store was in use.
+      let codegraphWarning: string | null = null;
       if (role === 'rd' && newState === 'qa-handoff') {
         try {
           const { maybePreCompactCheckpoint } = await import('../../services/compact/request-transition-hook.js');
@@ -470,6 +474,11 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
           // The refresh is best-effort; never block the transition.
           codegraphRefresh = { refreshed: false, reason: 'unavailable', note: 'auto codegraph refresh failed after transition' };
         }
+        // A2 (2026-09-17): never BLOCKING is kept; never VISIBLE is not. A
+        // non-refresh while a codegraph store is in use becomes a warning
+        // line beside the transition's own notes. See
+        // `codegraphRefreshNotice` for why `no-codegraph-dir` stays silent.
+        codegraphWarning = codegraphRefreshNotice(codegraphRefresh);
       }
       // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
       // Only fires when the handoff is missing; existing handoffs are not overwritten.
@@ -524,15 +533,18 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         ok(
           'request.transition',
           { ...result, preCompactCheckpoint: preCompact?.data ?? null, codegraphRefresh },
-          preCompact !== null
-            ? [
-                `Pre-compact checkpoint written at ratio=${
-                  typeof preCompact.data === 'object' && preCompact.data !== null && 'ratio' in preCompact.data
-                    ? String((preCompact.data as { ratio: number }).ratio)
-                    : 'unknown'
-                } (zone=pre-compact)`
-              ]
-            : []
+          [
+            ...(preCompact !== null
+              ? [
+                  `Pre-compact checkpoint written at ratio=${
+                    typeof preCompact.data === 'object' && preCompact.data !== null && 'ratio' in preCompact.data
+                      ? String((preCompact.data as { ratio: number }).ratio)
+                      : 'unknown'
+                  } (zone=pre-compact)`
+                ]
+              : []),
+            ...(codegraphWarning === null ? [] : [codegraphWarning])
+          ]
         ),
         options.json
       );

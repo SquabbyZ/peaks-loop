@@ -184,6 +184,90 @@ export function corpusFiles(repoRoot: string): string[] {
   return files;
 }
 
+/**
+ * A bare `tests/**\[.test.ts]` path in prose or in a comment — a citation the
+ * backtick rule cannot see.
+ *
+ * MEASURED, not assumed. Over the comment text of every file under `scripts/`,
+ * this pattern names 3 paths and all 3 dangle (`sync-version.mjs:80`,
+ * `clean-dist.mjs:14`, `peaks-ide-audit-log.mjs:10`), each of them a comment
+ * asserting coverage by a test that is gone. Widening the same measurement to
+ * EVERY bare path-shaped token in those comments (29 tokens) reported 5
+ * findings, of which only those 3 are citations: the other two are
+ * `src/index.ts` inside a sentence describing what a *consumed* package's
+ * export map must contain, and `tests/fixtures/…md` inside an example command
+ * line. A rule that reads shapes and examples as missing files is how a guard
+ * trains its reader to ignore it, so the bare-token rule is drawn at test-file
+ * citations — the exact class E2 reported — rather than at paths in general.
+ */
+const BARE_TEST_CITATION = /(?<!`)(tests\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.test\.ts)(?![\w./-])/g;
+
+/**
+ * The comment text of a source file, line for line.
+ *
+ * A code comment cites paths the same way a document does, and it rots the
+ * same way when the cited file is deleted — E2 (rid
+ * 2026-09-17-cli-output-and-stale-refs) is exactly that: `sync-version.mjs`
+ * pointed at tests/unit/scripts/sync-version-invalidation.test.ts, deleted in
+ * `f17aa377`, and the markdown-only corpus could not see it.
+ *
+ * Line count and line ORDER are preserved exactly, so a finding's line number
+ * is the line the reader will open. Only comment content survives:
+ *   - a line whose trimmed form starts `//`, `/*` or `*` is a comment line
+ *     and is passed through whole;
+ *   - otherwise the text from the first `//` is kept as a trailing comment;
+ *   - every other line becomes empty.
+ *
+ * A surviving line then has its bare test-file citations backticked (see
+ * `BARE_TEST_CITATION`), so the one candidate rule the checker already knows
+ * applies to them too. This is why E2's instance is visible here: it was
+ * written without backticks, and a backtick-only reading cannot fail on it.
+ *
+ * Truncation can only REMOVE text, so a span cut in half yields no candidate
+ * rather than a wrong one — a false negative on a template literal, never a
+ * false finding. A `//` inside a string literal (`'https://…'`) is the one
+ * shape this misreads as comment start, and the guard's candidate rule
+ * already excludes it: a URL carries `:` and `@`-prefixed refs are skipped.
+ *
+ * `src/**` is deliberately NOT in this corpus. The class certainly lives
+ * there too, but the blast radius of teaching the guard to read ~1300 source
+ * files is unmeasured, and this repository's rule is to measure a widening
+ * before landing it rather than to turn the suite red on a guess.
+ */
+export function commentText(body: string): string {
+  return body
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      const comment =
+        trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')
+          ? line
+          : (() => {
+              const at = line.indexOf('//');
+              return at === -1 ? '' : line.slice(at);
+            })();
+      BARE_TEST_CITATION.lastIndex = 0;
+      return comment.replace(BARE_TEST_CITATION, '`$1`');
+    })
+    .join('\n');
+}
+
+/** Every `.mjs` / `.ts` file under `scripts/`, repo-relative, sorted. */
+export function scriptFiles(repoRoot: string): string[] {
+  const absDir = join(repoRoot, 'scripts');
+  if (!existsSync(absDir)) return [];
+  const files: string[] = [];
+  const walk = (relDir: string): void => {
+    for (const entry of readdirSync(join(repoRoot, relDir), { withFileTypes: true })) {
+      const rel = `${relDir}/${entry.name}`;
+      if (entry.isDirectory()) walk(rel);
+      else if (entry.name.endsWith('.mjs') || entry.name.endsWith('.ts')) files.push(rel);
+    }
+  };
+  walk('scripts');
+  return files.sort();
+}
+
 /** What the candidate rule needs beyond the span itself. */
 interface CitationContext {
   /** Repo-relative id of the citing document. */
@@ -369,6 +453,122 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
 
     // then: it comes back empty instead of raising
     expect(ids).toEqual([]);
+  });
+});
+
+describe('Scenario: integration — script comments cite only paths that exist', () => {
+  it('when the script corpus is enumerated, should cover every .mjs and .ts under scripts/', () => {
+    // given: the corpus definition
+    // when: it is enumerated
+    const ids = scriptFiles(REPO_ROOT);
+
+    // then: it is non-empty and names the file E2 was reported against — the
+    //       corpus must contain its subject, or it cannot see the defect
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toContain('scripts/sync-version.mjs');
+    expect(ids).toContain('scripts/clean-dist.mjs');
+  });
+
+  it('when the script comments are read, should cite only paths that exist', () => {
+    // given: the comment text of every script, read off the working tree
+    const texts = scriptFiles(REPO_ROOT).map((id) => ({
+      id,
+      body: commentText(readFileSync(join(REPO_ROOT, id), 'utf8')),
+    }));
+
+    // when: every path-shaped backtick citation in a comment is resolved
+    const findings = findDanglingCitations(
+      texts,
+      (rel) => existsSync(join(REPO_ROOT, rel)) || isGitIgnored(rel),
+    );
+
+    // then: nothing dangles
+    expect(findings, `dangling script-comment citations:\n${findings.join('\n')}`).toEqual([]);
+  });
+});
+
+describe('Scenario: behavior — the comment corpus can fail, and cannot read code as prose', () => {
+  it('when a comment cites a deleted test, should report it with the real line number', () => {
+    // given: a script whose comment cites a test that is not on the tree
+    const body = ['#!/usr/bin/env node', 'import { x } from "y";', '// pinned by `tests/unit/scripts/gone.test.ts`', 'x();'].join('\n');
+
+    // when: its comment text is checked
+    const findings = findDanglingCitations(
+      [{ id: 'scripts/fake.mjs', body: commentText(body) }],
+      () => false,
+    );
+
+    // then: the citation is reported at the line the reader will open
+    expect(findings).toEqual(['scripts/fake.mjs:3 cites `tests/unit/scripts/gone.test.ts`']);
+  });
+
+  it('when a comment cites a file that exists, should report nothing', () => {
+    // given: the clean control for the case above
+    const body = ['#!/usr/bin/env node', '// pinned by `tests/unit/standards/repo-citation-integrity.test.ts`'].join('\n');
+
+    // when: its comment text is checked
+    const findings = findDanglingCitations(
+      [{ id: 'scripts/fake.mjs', body: commentText(body) }],
+      (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts',
+    );
+
+    // then: the guard stays green
+    expect(findings).toEqual([]);
+  });
+
+  it('when a path appears in CODE and not in a comment, should not treat it as a citation', () => {
+    // given: a script whose only path-shaped string is a runtime argument —
+    //        the shape the corpus must not read as prose, or every import and
+    //        every fs call would become a citation
+    const body = ['#!/usr/bin/env node', 'const manifest = "release/artifacts/index.json";', 'run("scripts/does-not-exist.mjs");'].join('\n');
+
+    // when: its comment text is checked
+    const findings = findDanglingCitations(
+      [{ id: 'scripts/fake.mjs', body: commentText(body) }],
+      () => false,
+    );
+
+    // then: no citation is claimed — code is not prose
+    expect(findings).toEqual([]);
+  });
+
+  it('when a comment names a deleted test WITHOUT backticks, should still report it', () => {
+    // given: E2's exact shape — a comment asserting coverage, the test path
+    //        written in bare prose, the file gone. A backtick-only reading
+    //        passes over this, which is why the defect survived
+    const body = ['#!/usr/bin/env node', '// This narrow unlink stays because it is unit-tested by', '// tests/unit/scripts/sync-version-invalidation.test.ts and', '// catching the Bug-04 lineage on its own is cheap insurance.'].join('\n');
+
+    // when: its comment text is checked
+    const findings = findDanglingCitations(
+      [{ id: 'scripts/fake.mjs', body: commentText(body) }],
+      () => false,
+    );
+
+    // then: the citation is reported at the line the reader will open — the
+    //       citing line is 3, and the shim line above it is not miscounted
+    expect(findings).toEqual(['scripts/fake.mjs:3 cites `tests/unit/scripts/sync-version-invalidation.test.ts`']);
+  });
+
+  it('when a comment names a bare path that is NOT a test, should not report it', () => {
+    // given: the precision control for the rule above — the two shapes the
+    //        measurement rejected as non-citations (a path describing what a
+    //        CONSUMED package must contain, and a path inside an example
+    //        command line)
+    const body = [
+      '#!/usr/bin/env node',
+      '// For "." the source is src/index.ts.',
+      '//   --variant-from tests/fixtures/replay/2026-06-27-gone-audit-security.md \\',
+    ].join('\n');
+
+    // when: its comment text is checked
+    const findings = findDanglingCitations(
+      [{ id: 'scripts/fake.mjs', body: commentText(body) }],
+      () => false,
+    );
+
+    // then: neither is claimed as a citation — the bare-token rule is drawn
+    //       at test-file citations, so a guard is not taught to cry wolf
+    expect(findings).toEqual([]);
   });
 });
 

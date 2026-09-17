@@ -41,7 +41,7 @@ peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt
 
 `--apply` is REQUIRED (without it the command only previews — no files land).
 
-> **CLI reality check (D-010 sediment, 2026-07-09):** The `<!-- peaks-memory:start -->` block must be followed immediately by a **YAML frontmatter** (`title: ...`, `kind: lesson | decision | convention`) and a `---` separator. Each block must close with `<!-- peaks-memory:end -->`. A bare `peaks-memory:start` without the YAML fields is parsed but produces no `plannedWrites` — the CLI silently returns `extractedCount: 0`.
+> **CLI reality check (D-010 sediment, 2026-07-09; warnings added 2026-09-17):** The `<!-- peaks-memory:start -->` block must be followed immediately by a **YAML frontmatter** (`title: ...`, `kind: lesson | decision | convention`) and a `---` separator. Each block must close with `<!-- peaks-memory:end -->`. A marker whose body lacks those fields produces no `plannedWrites`, so `extractedCount` stays 0 — and the CLI now says why: the rejected block is named, with the failed precondition, in the envelope's `warnings[]`. The same channel catches a marker that is not the exact literal (e.g. a `kind=…` written inside it), which `warnings` reports as "… is not the exact marker …". Read `warnings` before treating `extractedCount: 0` as "there was no block" — but note the warning reports the loss, it does not recover it: fix the marker and re-run.
 
 ### 11d — Gate C (zero-write outcome)
 

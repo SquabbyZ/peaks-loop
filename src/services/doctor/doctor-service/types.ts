@@ -98,6 +98,24 @@ export type CodegraphExcludeIntegrityProbe = {
   readonly violations: readonly { readonly path: string; readonly matchedRule: string }[];
 };
 
+/**
+ * Structural shape of the codegraph index-integrity report the
+ * `capability:codegraph-index-integrity` check gates on. Declared
+ * structurally (rather than imported from the codegraph service) to
+ * keep this type module dependency-free — the default probe returns a
+ * `CodegraphIndexIntegrityReport`, which is assignable here.
+ */
+export type CodegraphIndexIntegrityProbe = {
+  readonly gap: boolean;
+  readonly trackedSourceCount: number;
+  readonly admittedTrackedCount: number;
+  /** Class ① — extractor-supported tracked files `include` does not admit. */
+  readonly includeGap: readonly string[];
+  readonly indexedFileCount: number;
+  /** Class ② — index rows whose path is gone from disk. */
+  readonly deadRows: readonly string[];
+};
+
 export type DistVersionComparison = {
   dist: string | null;
   source: string;
@@ -272,6 +290,14 @@ export type DoctorOptions = {
    * and reported as a non-blocking warning.
    */
   codegraphIntegrityProbe?: () => CodegraphExcludeIntegrityProbe | null;
+  /**
+   * Optional override for the `capability:codegraph-index-integrity`
+   * check. Returns the report, or `null` when codegraph is not
+   * initialized in the inspected root (no index to inspect). When
+   * omitted, the check inspects `process.cwd()`. Throwing is allowed
+   * and reported as a non-blocking warning.
+   */
+  codegraphIndexIntegrityProbe?: () => CodegraphIndexIntegrityProbe | null;
   skillPresenceProbe?: () => DoctorSkillPresence | null;
   skillPresenceFreshnessThresholdMs?: number;
   statusLineInstalledProbe?: () => boolean;

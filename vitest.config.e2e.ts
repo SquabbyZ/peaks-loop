@@ -14,6 +14,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { maxWorkers as workerCount } from './vitest.workers';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
@@ -32,6 +33,9 @@ export default defineConfig({
     alias: [srcAlias, jsToTsAlias],
   },
   test: {
+    // Shared with the other three configs so the value cannot drift; see
+    // `vitest.workers.ts` for the default and the PEAKS_VITEST_MAX_WORKERS override.
+    maxWorkers: workerCount,
     // Two suites that must run OUTSIDE the unit collection glob:
     //   - tests/e2e/**            : real CLI paths, never selected anywhere
     //                               before 2026-09-15 (diagnosis E1)

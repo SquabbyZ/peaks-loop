@@ -7,7 +7,17 @@
  * its Step 5 escape hatch. It is NOT a separate `peaks <cmd>` CLI primitive
  * (dev-preference red line: "Default-no on new CLI commands").
  *
- * Contract (pinned by tests/unit/skills/peaks-ide/audit-log-helper.test.ts):
+ * Contract — NOT PINNED BY ANY TEST (E2, rid
+ * 2026-09-17-cli-output-and-stale-refs). This line used to name a
+ * test under tests/unit/skills/peaks-ide/ as pinning the four
+ * points below; that file (basename, so the citation-integrity
+ * guard does not read it as a live path: `audit-log-helper.test.ts`)
+ * is gone, and no test references this script at all. The four
+ * points below are therefore a DOCUMENTED contract, not a verified
+ * one. The prose that describes them lives in the peaks-ide
+ * skill's references/audit-log-helper.md. Treat them as the
+ * intended behaviour and verify by hand — `--dry-run` is the cheap
+ * probe — until a test exists:
  *
  *   1. Resolves the audit log path to `<projectRoot>/.peaks/audit/peaks-ide-<UTC-date>.log`.
  *   2. With `--dry-run`, prints the would-be line in the JSON envelope and exits

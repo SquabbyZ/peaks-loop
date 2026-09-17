@@ -2,7 +2,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { fail, ok } from 'peaks-loop-shared/result';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { isUnsafePathInput } from '../../shared/path-safety.js';
@@ -24,9 +24,56 @@ import {
 } from '../../services/karpathy-cost/karpathy-cost-check-service.js';
 import { read24hState } from '../../services/24h-mode/store.js';
 import {
+  codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
   type CodegraphAutorefreshResult,
 } from '../../services/codegraph/codegraph-autorefresh.js';
+
+// `printResult`'s third parameter is `asJson: boolean`. Each `job` subcommand
+// registers `--json` (see the `addJsonOption` calls below), so the flag to pass
+// it is `opts.json` — NEVER the whole options object. Commander types an
+// action's `opts` as `any`, so `printResult(io, envelope, opts)` type-checks
+// and is ALWAYS truthy: it forces the envelope branch and makes the
+// `warning: ` / `next: ` human rendering in `cli-helpers.ts` unreachable. That
+// is how the A2 codegraph-refresh warning ended up inside the JSON stdout
+// envelope instead of on stderr as `warning: `. `job progress` always passed
+// `opts.json`; the rest of this file did not, and E1 (2026-09-17) brought them
+// in line. Do not reintroduce the object form.
+function asJson(opts: any): boolean {
+  return opts.json === true;
+}
+
+/**
+ * F1 (rid 2026-09-17-exit-code-truth): report a FAILED envelope **and** make the
+ * process exit non-zero.
+ *
+ * WHY THIS EXISTS. `printResult` (`src/cli/cli-helpers.ts`) renders a failed
+ * envelope — `CODE: message` + `nextActions` on stderr — but it does NOT set
+ * `process.exitCode`. Measured with the real CLI before this fix:
+ * `peaks job block --job-id j1 --slice-id nope --reason why` printed
+ * `SLICE_NOT_FOUND: …` on stderr and exited **0**, so CI and every script
+ * wrapping `peaks job` read the failure as success. Seven of this file's nine
+ * failure-reporting sites had that gap; only `job progress` set the code, and
+ * that was the file's one accidental precedent rather than a rule.
+ *
+ * Every `fail(...)` envelope in this file now goes through here, so "reported a
+ * failure" and "exited non-zero" cannot drift apart again. The helper takes the
+ * Commander `opts` object and calls `asJson(opts)` itself — it must never be
+ * handed a bare `opts.json`-less boolean, and it must never pass `opts` to
+ * `printResult` (see the `asJson` comment above for that bug's history).
+ *
+ * DELIBERATELY NOT APPLIED TO THE ADVISORY PATHS. Three sites in this file
+ * report a non-fatal outcome through an `ok(...)` envelope and MUST keep
+ * exiting 0: the two `emitJobEvent` best-effort catches (`job init`,
+ * `job status`) and the post-slice codegraph refresh in `job checkpoint`, whose
+ * stated design is "a refresh failure must never fail the checkpoint". Those
+ * are annotated in place; `tests/unit/cli/job-exit-code.test.ts` pins both
+ * directions so a future blanket "every warning exits 1" edit turns red.
+ */
+function failResult(io: ProgramIO, result: ResultEnvelope<unknown>, opts: any): void {
+  printResult(io, result, asJson(opts));
+  process.exitCode = 1;
+}
 
 function projectRoot(opts: any): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
@@ -148,7 +195,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // a random UUID would scatter state across dirs and break resume/auto-compact.
       let sessionId: string | null = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
       if (!sessionId) {
-        return printResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-code session via peaks workspace init)', { project }, [
+        return failResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-code session via peaks workspace init)', { project }, [
           'Re-run with --session-id <sid>',
           'Or run `peaks workspace init` to create a session first'
         ]), opts);
@@ -164,7 +211,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         project,
         json: opts.json,
       });
-      if (!parsed.success) return printResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
+      if (!parsed.success) return failResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
       const jobRoot = resolveJobStateRoot(opts);
       const store = new JobStateStore(jobRoot.rootDir);
       const orch = new JobOrchestrator(store);
@@ -180,10 +227,14 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       try {
         emitJobEvent({ kind: 'job-started', jobId: state.jobId, total: state.slices.length, strategy: state.mainLoopStrategy });
       } catch (e) {
-        // best-effort: event emission failures must not abort job init
+        // ADVISORY (F1, 2026-09-17) — deliberately exits 0. Event emission is a
+        // telemetry side effect; a failed emit does not mean `job init` failed
+        // (the state file was already written above). This catch must NOT be
+        // routed through `failResult`. Pinned by the "advisory stays 0" control
+        // in tests/unit/cli/job-exit-code.test.ts.
         void e;
       }
-      printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${jobRoot.rootDir}/${state.jobId}/state.json` }), opts);
+      printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${jobRoot.rootDir}/${state.jobId}/state.json` }), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'init')!);
 
@@ -211,10 +262,12 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       try {
         emitJobEvent({ kind: 'job-progress', jobId: opts.jobId, done: s.done, total: s.total, ...(s.currentSlice ? { currentSlice: s.currentSlice } : {}) });
       } catch (e) {
-        // best-effort: event emission failures must not abort job status
+        // ADVISORY (F1, 2026-09-17) — deliberately exits 0. The status itself
+        // was already read successfully; the emit is telemetry. Same rule as
+        // the `job init` catch above: do NOT route through `failResult`.
         void e;
       }
-      printResult(io, ok('status', s as unknown as Record<string, unknown>), opts);
+      printResult(io, ok('status', s as unknown as Record<string, unknown>), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'status')!);
 
@@ -230,7 +283,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         async (jid) => ({ jobId: jid, cycle: 0 }),
       );
       const r = await rotation.rotateNow(opts.jobId);
-      printResult(io, ok('rotate-now', r as unknown as Record<string, unknown>), opts);
+      printResult(io, ok('rotate-now', r as unknown as Record<string, unknown>), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'rotate-now')!);
 
@@ -246,7 +299,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         async () => ({ batchId: opts.batchId })
       );
       const r = await wrapper.cleanup({ jobId: opts.jobId, batchId: opts.batchId, force: !!opts.force });
-      printResult(io, ok('subagent-cleanup', r), opts);
+      printResult(io, ok('subagent-cleanup', r), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'subagent-cleanup')!);
 
@@ -266,7 +319,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         commitSha: opts.commitSha, reason: opts.reason,
         project: projectRoot(opts), json: opts.json,
       });
-      if (!parsed.success) return printResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
+      if (!parsed.success) return failResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
       const jobRoot = resolveJobStateRoot(opts, opts.jobId);
       const store = new JobStateStore(jobRoot.rootDir);
       // D7: `--slice-id` accepts the canonical `slice-NNN` or the slice's label
@@ -274,7 +327,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // so progress.json is never touched by a checkpoint that matched nothing.
       const slice = resolveSliceId(store, parsed.data.jobId, parsed.data.sliceId);
       if ('message' in slice) {
-        return printResult(io, fail('checkpoint', 'SLICE_NOT_FOUND', slice.message, {
+        return failResult(io, fail('checkpoint', 'SLICE_NOT_FOUND', slice.message, {
           jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, validSliceIds: slice.validSliceIds,
         }, ['Re-run with one of the valid slice ids']), opts);
       }
@@ -284,6 +337,9 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // envelope carries a non-blocking `codegraph` result; null for
       // failed/skipped (no slice-complete boundary).
       let codegraph: CodegraphAutorefreshResult | null = null;
+      // A2 (2026-09-17): the human-visible half of the refresh outcome. null
+      // when the refresh succeeded or when no codegraph store was in use.
+      let codegraphWarning: string | null = null;
       if (parsed.data.state === 'done') {
         await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
         // v3.1.2: after each --state done, mirror slice progress to
@@ -300,19 +356,44 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
           lastCommitSha: parsed.data.commitSha ?? null,
           updatedAt: new Date().toISOString()
         });
-        // Auto codegraph refresh at the slice-complete boundary. Best-effort
-        // and fail-silent: a refresh failure must never fail the checkpoint.
+        // Auto codegraph refresh at the slice-complete boundary. Best-effort:
+        // a refresh failure must never fail the checkpoint.
+        //
+        // A2 (2026-09-17): "must never fail the checkpoint" is not "must
+        // never be seen". A refresh that did not happen while a codegraph
+        // store IS in use is now a warning line (stderr, `warning: ` prefix,
+        // via printResult) naming the reason and the remedy. See
+        // `codegraphRefreshNotice` for why `no-codegraph-dir` stays silent.
+        //
+        // ADVISORY (F1, 2026-09-17) — deliberately exits 0, and the reach of
+        // that word is exactly here. The checkpoint itself SUCCEEDED (the slice
+        // flipped to done and progress.json was mirrored above); the refresh is
+        // a derived index, rebuildable on demand. So the outcome is reported
+        // through `ok(...)` + a `warning:` line, never through `failResult`,
+        // and `process.exitCode` is left alone even when the refresh throws.
+        // Raising it would turn an advisory rebuild into a build breaker for
+        // every CI that runs `peaks job checkpoint`. Pinned by the "advisory
+        // stays 0" control in tests/unit/cli/job-exit-code.test.ts.
         try {
           codegraph = await refreshCodegraphAfterSlice(project);
         } catch (e) {
           codegraph = { refreshed: false, reason: 'unavailable', note: `auto codegraph refresh failed: ${e instanceof Error ? e.message : String(e)}` };
         }
+        codegraphWarning = codegraphRefreshNotice(codegraph);
       } else if (parsed.data.state === 'skipped') {
         await orch.checkpointSkipped({ jobId: parsed.data.jobId, sliceId, reason: parsed.data.reason! });
       } else {
         await orch.checkpointFailed({ jobId: parsed.data.jobId, sliceId, reason: parsed.data.reason! });
       }
-      printResult(io, ok('checkpoint', { sliceId, status: parsed.data.state, codegraph }), opts);
+      printResult(
+        io,
+        ok(
+          'checkpoint',
+          { sliceId, status: parsed.data.state, codegraph },
+          codegraphWarning === null ? [] : [codegraphWarning]
+        ),
+        asJson(opts)
+      );
     });
   addJsonOption(job.commands.find(c => c.name() === 'checkpoint')!);
 
@@ -328,19 +409,19 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         jobId: opts.jobId, sliceId: opts.sliceId, reason: opts.reason,
         project: projectRoot(opts), json: opts.json,
       });
-      if (!parsed.success) return printResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
+      if (!parsed.success) return failResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       // D7 (same silent no-op as checkpoint): resolve label → sliceId, reject a
       // miss before any write.
       const slice = resolveSliceId(store, parsed.data.jobId, parsed.data.sliceId);
       if ('message' in slice) {
-        return printResult(io, fail('block', 'SLICE_NOT_FOUND', slice.message, {
+        return failResult(io, fail('block', 'SLICE_NOT_FOUND', slice.message, {
           jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, validSliceIds: slice.validSliceIds,
         }, ['Re-run with one of the valid slice ids']), opts);
       }
       const orch = new JobOrchestrator(store);
       await orch.blockSlice({ ...parsed.data, sliceId: slice.sliceId });
-      printResult(io, ok('block', { blocked: slice.sliceId, reason: parsed.data.reason }), opts);
+      printResult(io, ok('block', { blocked: slice.sliceId, reason: parsed.data.reason }), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'block')!);
 
@@ -353,7 +434,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const r = orch.continueNow(opts.jobId);
-      printResult(io, ok('continue', r as unknown as Record<string, unknown>), opts);
+      printResult(io, ok('continue', r as unknown as Record<string, unknown>), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'continue')!);
 
@@ -366,7 +447,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
-      printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
+      printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'resume')!);
 
@@ -383,7 +464,22 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .requiredOption('--job-id <jid>')
     .option('--session-id <sid>', SESSION_ID_HELP)
     .option('--project <repo>')
-    .option('--allow-missing', 'return done=0/total=0 envelope instead of failing when progress.json is absent')
+    // H3 (rid 2026-09-17-exit-code-root-cause): this string used to promise
+    // "return done=0/total=0 envelope instead of failing when progress.json is
+    // absent". No code path has ever returned such an envelope — the option was
+    // born in `d9a1a098` with `process.exitCode = 1` on the same branch — so it
+    // described a contract that never existed, and `--allow-missing` appeared to
+    // be broken. It is not: its job is to pick WHICH structured code reports the
+    // absence. The help text was the side that was wrong; it now says what the
+    // flag does. See `rd/requests/013-…-exit-code-root-cause.md` for why the
+    // alternative reading was rejected (the literal promise is also
+    // unimplementable without a new absent-vs-corrupt distinction:
+    // `tryReadJobProgress` returns `null` for a corrupt file too, so "done=0"
+    // there would report unreadable state as empty state).
+    .option(
+      '--allow-missing',
+      'report an absent progress.json as NO_PROGRESS (expected absence) rather than PROGRESS_READ_FAILED (read error); the command still exits non-zero'
+    )
     .action(async (opts) => {
       try {
         const jobRoot = resolveJobStateRoot(opts, opts.jobId);
@@ -393,27 +489,36 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
           ? tryReadJobProgress(project, sessId, opts.jobId)
           : readJobProgress(project, sessId, opts.jobId);
         if (progress === null) {
-          printResult(
+          // F1: this site already set `process.exitCode = 1` by hand; it is
+          // routed through `failResult` so all nine failure sites in this file
+          // share one rule instead of this one being the lone precedent.
+          failResult(
             io,
             fail('progress', 'NO_PROGRESS', `No progress.json for job ${opts.jobId} at .peaks/_runtime/${sessId}/job/${opts.jobId}/progress.json`, { jobId: opts.jobId, sessionId: sessId }, [
               'Run `peaks job checkpoint --state done ...` at least once to seed progress.json.',
-              'Or pass --allow-missing to return a zero-progress envelope.'
+              // H3: the second action used to read "Or pass --allow-missing to
+              // return a zero-progress envelope." That line could only ever be
+              // printed when `--allow-missing` had ALREADY been passed — this
+              // `progress === null` branch is unreachable otherwise, because the
+              // no-flag path throws into the catch below and reports
+              // PROGRESS_READ_FAILED. So the CLI was advising the caller to pass
+              // the flag they had just passed, to obtain an envelope that does
+              // not exist. Replaced with the fact the caller actually needs.
+              '--allow-missing selects this NO_PROGRESS envelope over a PROGRESS_READ_FAILED read error; it does not change the exit code.'
             ]),
-            opts.json
+            opts
           );
-          process.exitCode = 1;
           return;
         }
         printResult(io, ok('progress', progress, [], [
           `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
-        ]), opts.json);
+        ]), asJson(opts));
       } catch (err) {
-        printResult(
+        failResult(
           io,
           fail('progress', 'PROGRESS_READ_FAILED', err instanceof Error ? err.message : String(err), { jobId: opts.jobId }, ['Verify the job id and try again']),
-          opts.json
+          opts
         );
-        process.exitCode = 1;
       }
     });
   addJsonOption(job.commands.find(c => c.name() === 'progress')!);
@@ -427,7 +532,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const store = new JobStateStore(resolveJobStateRoot(opts, opts.jobId).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
-      printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
+      printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'handoff')!);
 
@@ -441,7 +546,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const project = projectRoot(opts);
       const sessionId = opts.sessionId ?? process.env.PEAKS_SESSION_ID ?? getCurrentSessionId(project);
       if (!sessionId) {
-        return printResult(
+        return failResult(
           io,
           fail('karpathy-cost-check', 'NO_ACTIVE_SESSION', 'karpathy-cost-check requires --session-id (or an active peaks-code session)', { project }, [
             'Re-run with --session-id <sid>',
@@ -462,7 +567,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         reviewFilePath: opts.reviewFile,
         is24hModeActive,
       });
-      printResult(io, buildCostCheckEnvelope(out), opts);
+      printResult(io, buildCostCheckEnvelope(out), asJson(opts));
     });
   addJsonOption(job.commands.find(c => c.name() === 'karpathy-cost-check')!);
 

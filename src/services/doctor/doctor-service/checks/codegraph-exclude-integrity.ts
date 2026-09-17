@@ -38,8 +38,22 @@ const CHECK_ID = 'capability:codegraph-exclude-integrity';
 /** How many rules / offending files the message names before eliding. */
 const MAX_NAMED = 5;
 
-function defaultProbe() {
-  const projectRoot = process.cwd();
+/**
+ * 2026-09-17 — `projectRoot` is the doctor's resolved L3 root, NOT
+ * `process.cwd()`. Same defect as the sibling `codegraph-index-integrity`
+ * probe (see its note): with `projectRootResolver` injected, every other
+ * check inspected the caller's root while this one inspected the operator's
+ * checkout, so its verdict depended on which repository you ran the doctor
+ * in. This one is read-only — it reads `.codegraph/config.json` and
+ * `git ls-files`, never the sqlite index — so unlike its sibling it did not
+ * also materialise `-shm`/`-wal` sidecars; the wrong-root defect was the
+ * same either way.
+ */
+function defaultProbe(projectRoot: string) {
+  // An unresolved root is not a project — see the sibling probe's note: a
+  // relative lookup here would resolve against `cwd` and inspect the
+  // operator's checkout.
+  if (projectRoot.length === 0) return null;
 
   // No config → codegraph was never initialized here, so no exclude
   // list is in play and there is nothing to report.
@@ -65,8 +79,8 @@ function renderGapMessage(
   return `codegraph index is incomplete: ${excludedTrackedCount} of ${trackedSourceCount} tracked source files are blocked by ${rulesToRemove.length} exclude rule(s) [${namedRules}${elidedRules}]. Blocked: ${namedFiles}${elidedFiles}. Run \`peaks codegraph repair-exclude --project <root>\` to drop them and rebuild the index.`;
 }
 
-function run({ options }: DoctorContext): readonly DoctorCheck[] {
-  const probe = options.codegraphIntegrityProbe ?? defaultProbe;
+function run({ options, resolvedL3Root }: DoctorContext): readonly DoctorCheck[] {
+  const probe = options.codegraphIntegrityProbe ?? (() => defaultProbe(resolvedL3Root));
 
   let report;
   try {

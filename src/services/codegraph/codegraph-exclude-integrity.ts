@@ -19,8 +19,12 @@ import { join } from 'node:path';
 
 import {
   CODEGRAPH_CONFIG_FILENAME,
-  reconcileCodegraphExcludeFromProject,
-  type CodegraphExcludeViolation
+  resolveSharedConfig,
+  resolveSharedTrackedFiles,
+  reconcileCodegraphExclude,
+  type CodegraphExcludeViolation,
+  type ReadCodegraphExcludeConfig,
+  type ReadTrackedFiles
 } from './codegraph-exclude-reconciler.js';
 import { CODEGRAPH_DIR_NAME } from './codegraph-service.js';
 
@@ -83,9 +87,36 @@ export function isCodegraphExcludeConfigPresent(projectRoot: string): boolean {
  * Throws (never silently degrades) when the project is not a git work
  * tree, when the config is missing, or when it is malformed — callers
  * that must stay alive (doctor, `status`) catch and surface the reason.
+ *
+ * `inputs` is the optional shared-read seam (perf audit F1): a caller
+ * that runs BOTH codegraph axes in one process reads
+ * `readCodegraphProjectInputs(projectRoot)` once and passes it here and
+ * to `inspectCodegraphIndexIntegrity`, so the `git ls-files` spawn, the
+ * config read and the `include` glob compilation happen once instead of
+ * twice. Omitted (the default) the readers run exactly as they always
+ * did, so this is additive for every existing caller.
+ *
+ * Both fields are read-marked (code review R4-1): a caller may hand over a
+ * value that came out of the readers, never one it built itself. An
+ * explicit `[]` used to be accepted and silently meant "nothing is
+ * tracked", turning a real gap into a clean report; it is now a compile
+ * error, and a run-time throw for a caller the type system cannot see.
+ * `undefined` still means "read it yourself" — unchanged.
  */
-export function inspectCodegraphExcludeIntegrity(projectRoot: string): CodegraphExcludeIntegrityReport {
-  const result = reconcileCodegraphExcludeFromProject(projectRoot);
+export function inspectCodegraphExcludeIntegrity(
+  projectRoot: string,
+  inputs: {
+    readonly trackedFiles?: ReadTrackedFiles | undefined;
+    readonly config?: ReadCodegraphExcludeConfig | undefined;
+  } = {}
+): CodegraphExcludeIntegrityReport {
+  const trackedFiles = resolveSharedTrackedFiles(inputs.trackedFiles, projectRoot);
+  const config = resolveSharedConfig(inputs.config, projectRoot);
+  const result = reconcileCodegraphExclude({
+    trackedFiles,
+    include: config.include,
+    exclude: config.exclude
+  });
 
   const blockedCounts = new Map<string, number>();
   for (const violation of result.violations) {

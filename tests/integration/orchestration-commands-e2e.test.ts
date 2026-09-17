@@ -281,11 +281,16 @@ describe('peaks job progress (P2-B.3 orchestration e2e)', () => {
     expect(result.stdout.length).toBeGreaterThan(0);
     const envelope = parseEnvelope(result);
     expect(envelope.command).toBe('progress');
-    // Drift: --allow-missing is documented in --help but does NOT currently
-    // promote the response to ok:true. The CLI returns PROGRESS_READ_FAILED
-    // (or NO_PROGRESS depending on the call path) with structured envelope
-    // data { jobId }. Assert the structured error contract so a future fix
-    // can promote the response.
+    // Resolved by rid 2026-09-17-exit-code-root-cause (H3). The old comment here
+    // said "--allow-missing is documented in --help but does NOT currently
+    // promote the response to ok:true … assert the structured error contract so
+    // a future fix can promote the response." That reading was retired: the flag
+    // never promised an ok:true envelope in any shipped commit, and promoting it
+    // would report a corrupt progress.json as done=0. The option's real job —
+    // selecting the NO_PROGRESS code over PROGRESS_READ_FAILED — is what this
+    // test already asserts, and the --help text now says so. NOTE: this case
+    // does not even pass --allow-missing, so it is the PROGRESS_READ_FAILED
+    // contract, not the flag's.
     expect(envelope.ok).toBe(false);
     expect(['PROGRESS_READ_FAILED', 'NO_PROGRESS']).toContain(envelope.code);
     const data = envelope.data as { jobId?: string };

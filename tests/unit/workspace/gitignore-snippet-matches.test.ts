@@ -81,6 +81,39 @@ describe('the managed gitignore snippet ignores the paths it names', () => {
     const result = git(['check-ignore', '--no-index', '-q', '.peaks/.claude-settings-template.json'], root);
     expect(result.status).toBe(0);
   });
+
+  // A3 of rid `2026-09-17-codegraph-msg-and-refresh`. The exposure is
+  // downstream-only: THIS repo ignores `.codegraph/` wholesale, but a consumer
+  // project does not, and neither upstream's own `.codegraph/.gitignore`
+  // (which names *.db / *.db-wal / *.db-shm, cache/, *.log and .dirty only)
+  // nor the shipped snippet covered the backup. A committed
+  // `.codegraph/config.json.bak` is then replaced under the project by the
+  // next repair — every seam writes it: `peaks codegraph init`,
+  // `repair-exclude`, `repair-index`, the pre-dispatch preflight and the
+  // post-slice auto-refresh.
+  //
+  // Asserted through git, not by reading the pattern list: the previous round
+  // of this file exists because a pattern that LOOKS right can be inert.
+  it('the codegraph rollback copy is ignored — the file every repair seam rewrites', async () => {
+    const { root } = await materializedProject();
+
+    const result = git(['check-ignore', '--no-index', '-v', '.codegraph/config.json.bak'], root);
+
+    expect(result.status, `git check-ignore said nothing about .codegraph/config.json.bak`).toBe(0);
+    expect(result.stdout).toContain('.codegraph/config.json.bak');
+  });
+
+  it('the codegraph config itself stays committable (the backup is the churn, not the policy)', async () => {
+    // The narrow half of the same rule: upstream deliberately keeps
+    // `config.json` out of its own .gitignore — it is a project's
+    // include/exclude policy, and committing it is how a team shares it.
+    // Ignoring it would hide a file people mean to commit.
+    const { root } = await materializedProject();
+
+    const result = git(['check-ignore', '--no-index', '-q', '.codegraph/config.json'], root);
+
+    expect(result.status).toBe(1); // 1 = not ignored
+  });
 });
 
 const LEGACY_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';

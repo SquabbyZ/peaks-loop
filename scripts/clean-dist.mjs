@@ -10,9 +10,21 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // packages/*/dist. Rationale: tsc's incremental-build cache
 // compares files by mtime + size, and a stale dist that
 // survived from a previous build can cause tsc to skip the
-// emission of newly-added src/*.ts (Bug-04 lineage — see
-// tests/unit/scripts/sync-version-invalidation.test.ts for
-// the regression pin on version.ts specifically).
+// emission of newly-added src/*.ts (Bug-04 lineage).
+//
+// E2 (rid 2026-09-17-cli-output-and-stale-refs) — the citation that
+// stood here named a regression pin on version.ts that was deleted
+// in `f17aa377` ("delete 559 legacy unit tests"), and, like the one
+// in `sync-version.mjs`, it was written without backticks so the
+// citation-integrity guard could not see it. Corrected: the pin on
+// the version.ts OUTPUT now lives in the lockstep tests (see
+// `sync-version.mjs` for both names and for what they read).
+//
+// Recorded, not hidden: this wipe itself has no direct pin — no
+// test executes this script, so nothing asserts that a stale
+// packages/*/dist is gone before tsc runs. The `dist-freshness.mjs`
+// module reasons FROM this wipe (it is why a dist mtime can be read
+// as the build time) but does not test it.
 //
 // The wider wipe is safe because:
 //   - watch.mjs only watches src/, schemas/, skills/ — it

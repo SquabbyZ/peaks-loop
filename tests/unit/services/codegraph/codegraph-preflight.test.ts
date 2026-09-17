@@ -239,9 +239,32 @@ describe('Scenario: integration — buildCodegraphPreflightBlock against a real 
 
       // … the offending rule is gone from the config, with a backup …
       const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+        include: string[];
+        exclude: string[];
+      };
       expect(config.exclude).toEqual(['**/node_modules/**']);
       expect(existsSync(`${configPath}.bak`)).toBe(true);
+
+      // … and the INCLUDE axis landed in the SAME write (D1, D-round).
+      //    This seam is the automatic delivery mechanism for the include
+      //    fix in every downstream project that has no index yet, so the
+      //    invariant is pinned here rather than left to be inferred from
+      //    the exclude assertion beside it. The fixture's init template
+      //    names only `**/*.ts`; upstream's own extractor supports five
+      //    more extensions that no template pattern admits, and the seam
+      //    must append exactly those, in that order, without reordering
+      //    or dropping the caller's entry. Reddens if the seam stops
+      //    passing through the shared repair entry point or starts
+      //    short-circuiting when there is no exclude rule to remove.
+      expect(config.include).toEqual([
+        '**/*.ts',
+        '**/*.mjs',
+        '**/*.cjs',
+        '**/*.pyw',
+        '**/*.hxx',
+        '**/*.rake',
+      ]);
 
       // … the marker is stamped …
       expect(existsSync(join(project, '.codegraph', CODEGRAPH_MARKER_NAME))).toBe(true);

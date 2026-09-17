@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-15T14:34:24.528Z",
+  "updatedAt": "2026-09-17T02:31:30.139Z",
   "hot": {
     "rule": [
+      {
+        "name": "a-claim-stronger-than-the-code-is-a-defect-even-when-the-content-claim-underneath-it-holds",
+        "kind": "rule",
+        "description": "\"The inspection path is read-only\" was written, tested, and believed — but opening a WAL SQLite database read-only st...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-claim-stronger-than-the-code-is-a-defect-even-when-the-content-claim-underneath-it-holds.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
+        "updatedAt": "2026-09-16"
+      },
       {
         "name": "a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing",
         "kind": "rule",
@@ -26,6 +34,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-measurement-whose-command-failed-silently-is-not-a-pass.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "a-package-at-a-wrong-absolute-path-silences-its-own-gate",
+        "kind": "rule",
+        "description": "was permanently green because  was a SQLite WAL db, and opening it read-only still creates  sidecar files.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-package-at-a-wrong-absolute-path-silences-its-own-gate.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-3-sidecars.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "a-test-that-cannot-fail-is-worse-than-no-test",
@@ -307,7 +323,7 @@
         "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-16"
       },
       {
         "name": "subagent-tool-matcher-per-ide",
@@ -316,6 +332,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
         "sourceArtifact": null,
         "updatedAt": "2026-09-01"
+      },
+      {
+        "name": "the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s",
+        "kind": "decision",
+        "description": "The user chose option C — advisory-by-default + opt-in strict () — for the new codegraph index integrity gate.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\the-shipped-default-for-fail-closed-strictness-is-the-user-s-call-not-the-implementer-s.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-4-advisory-default.md",
+        "updatedAt": "2026-09-17"
       }
     ],
     "feedback": [
@@ -658,6 +682,14 @@
         "updatedAt": "2026-09-01"
       },
       {
+        "name": "comparing-counts-across-rounds-guarantees-a-false-regression-report",
+        "kind": "convention",
+        "description": "A long job measured its own size repeatedly and kept disagreeing: 14 → 22 → 25 → 27 changed files, RD test counts of ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\comparing-counts-across-rounds-guarantees-a-false-regression-report.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
+        "updatedAt": "2026-09-16"
+      },
+      {
         "name": "detectidefromcontext-iterates-listadapterids",
         "kind": "convention",
         "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
@@ -822,6 +854,22 @@
         "updatedAt": "2026-09-15"
       },
       {
+        "name": "a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one",
+        "kind": "lesson",
+        "description": "failed on every workspace that used caller bindings because  listed only one of the eight runtime dirs the code actua...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-hand-maintained-allow-list-that-points-at-an-old-machine-path-is-a-silent-gate-not-a-working-one.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-2-doctor-truth.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close",
+        "kind": "lesson",
+        "description": "Gate C's evidence paths are rid-scoped (, , …) so two slices cannot occupy one slot.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-multi-slice-job-that-shares-one-rid-reopens-the-evidence-collision-hole-rid-scoping-was-built-to-close.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
+        "updatedAt": "2026-09-16"
+      },
+      {
         "name": "a-slice-whose-core-behaviour-no-artifact-specifies-costs-multiples-of-its-peers",
         "kind": "lesson",
         "description": "S1, S2 and S3 of  each needed **one** repair pass.",
@@ -836,6 +884,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\ac-pass-list-is-not-a-completion-bar.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-09-12"
+      },
+      {
+        "name": "an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself",
+        "kind": "lesson",
+        "description": "has 21 values; the sentence telling LLMs which  values are legal advertised 7 — and the same stale sentence had been ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-llm-facing-contract-copy-must-be-guarded-by-a-test-that-reads-the-file-itself.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
+        "updatedAt": "2026-09-16"
       },
       {
         "name": "auto-compact context probe 根因修复 — 三级链全断 + vendor-neutral + token-based 模型感知校准",
@@ -908,6 +964,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\library-delegation-swaps-failure-modes.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-12-session-e37ef0/txt/handoff.md",
         "updatedAt": "2026-09-12"
+      },
+      {
+        "name": "load-shaped-failures-are-real-maxworkers-2-is-a-deliberate-compromise-and-the-suite-tells-you",
+        "kind": "lesson",
+        "description": "On this box, 290-file unit suite is  at maxWorkers=1 and at maxWorkers=2, but briefly NOT at 2 when 327 leaked  node ...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\load-shaped-failures-are-real-maxworkers-2-is-a-deliberate-compromise-and-the-suite-tells-you.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-1-load-shaped.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "measure-the-alternatives-before-fixing-a-wrong-target-defect",

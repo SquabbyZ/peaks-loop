@@ -102,6 +102,53 @@ export type ExtractedProjectMemory = {
   sourceArtifact: string;
 };
 
+/**
+ * Why a `<!-- peaks-memory:start -->` block that was FOUND was not extracted.
+ *
+ * One value per precondition in `parseBlockResult` (the extract path's block
+ * parser), in evaluation order. Before this existed, every one of these
+ * conditions collapsed into a bare `null` and the caller reported nothing, so
+ * `extractedCount: N` was indistinguishable from "the block was never there".
+ * Naming the cause is the whole point: a memory block that disappears must say
+ * why it disappeared.
+ *
+ * Diagnostics only — this type does not change WHICH blocks are accepted.
+ */
+export type MemoryBlockDropReason =
+  | 'missing-separator'
+  | 'missing-title'
+  | 'missing-kind'
+  | 'unknown-kind'
+  | 'empty-body'
+  /**
+   * NOT a `parseBlockResult` precondition — this one comes from the scanner.
+   * A marker-shaped comment that is not the exact literal the locator searches
+   * for. The block it opens is therefore never found: it is not "rejected",
+   * it is invisible. Reporting it is the whole point, because nothing else in
+   * the pipeline can see it.
+   */
+  | 'unrecognized-marker';
+
+/** A found-but-not-extracted memory block, with the precondition that failed. */
+export type MemoryBlockDrop = {
+  /** Artifact path the block was found in (project-relative when extracted). */
+  sourceArtifact: string;
+  reason: MemoryBlockDropReason;
+  /** Human-readable explanation of the failed precondition. */
+  detail: string;
+};
+
+/**
+ * Result of parsing one memory block, as a discriminated union.
+ *
+ * `parseBlock` is the `null`-on-failure projection of this; both are produced
+ * by the same single implementation so they cannot disagree about which blocks
+ * are accepted.
+ */
+export type MemoryBlockParse =
+  | { ok: true; memory: ExtractedProjectMemory }
+  | { ok: false; reason: MemoryBlockDropReason; detail: string };
+
 export type ProjectMemoryWrite = {
   memory: ExtractedProjectMemory;
   filePath: string;
@@ -115,6 +162,12 @@ export type ProjectMemoryExtractPlan = {
   backupPolicy: 'project-memory-primary-artifact-backup';
   extractedMemories: ExtractedProjectMemory[];
   plannedWrites: ProjectMemoryWrite[];
+  /**
+   * Blocks that were found between the markers but rejected by the parser.
+   * Reported to the user through the CLI envelope's `warnings` channel.
+   * Purely informational — this array does not influence extraction.
+   */
+  droppedBlocks: MemoryBlockDrop[];
 };
 
 export type ProjectMemoryExtractResult = ProjectMemoryExtractPlan & {
@@ -207,6 +260,23 @@ export type ExtractSessionMemoriesOptions = {
   apply?: boolean;
 };
 
+/**
+ * A session artifact that could not be read at all, so its blocks were never
+ * even candidates.
+ *
+ * Distinct from `MemoryBlockDrop`: that one describes a BLOCK that was found and
+ * rejected, and needs the artifact to have been readable in the first place.
+ * Folding a whole-file read failure into it would make `sourceArtifact` mean two
+ * different things, so this rides its own field and is rendered by its own
+ * `describeSessionScanFailures`.
+ */
+export type SessionScanFailure = {
+  /** Project-relative path of the artifact that could not be read. */
+  file: string;
+  /** The underlying error message. Never invented; taken from the throw. */
+  detail: string;
+};
+
 export type ExtractSessionMemoriesResult = {
   apply: boolean;
   projectRoot: string;
@@ -217,6 +287,26 @@ export type ExtractSessionMemoriesResult = {
   extractedCount: number;
   writtenFiles: string[];
   updatedIndex: boolean;
+  /**
+   * Blocks that were FOUND between the markers in this session's artifacts but
+   * rejected by the parser. Same diagnostic contract as
+   * `ProjectMemoryExtractPlan.droppedBlocks` — the sibling `peaks memory
+   * extract` path has carried this since M2, and this one silently dropped
+   * them, so `extractedCount: 1` out of three blocks was indistinguishable
+   * from "there was one block".
+   *
+   * Purely informational: this array does not influence which blocks are
+   * extracted, and it adds no field to the CLI's `data` payload — the reasons
+   * ride the existing envelope `warnings` channel.
+   */
+  droppedBlocks: MemoryBlockDrop[];
+  /**
+   * Session artifacts that could not be read, so their blocks were never
+   * candidates. Previously swallowed by a bare `catch {}`; reported now through
+   * the same CLI `warnings` channel. Diagnostic only — an unreadable artifact
+   * is still not an error, and the scan is otherwise unchanged.
+   */
+  scanFailures: SessionScanFailure[];
 };
 
 export type ProjectMemoryShowResult = {

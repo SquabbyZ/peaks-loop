@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
 import { getSessionId, getSessionDir } from '../session/index.js';
+import { isInsidePath } from '../../shared/path-utils.js';
 
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
 const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
@@ -84,7 +85,20 @@ function assertSupportedSubcommand(subcommand: string): asserts subcommand is Co
   }
 }
 
-function resolveProjectRoot(project: string): string {
+/**
+ * Resolve `--project` to an existing directory, CANONICALIZED through
+ * `realpathSync.native`.
+ *
+ * Exported because the CLI's repair verbs used to hand-roll `resolve()` +
+ * `statSync().isDirectory()` and skip the canonicalization, so the config /
+ * backup paths they reported and wrote were alias-dependent: a symlinked or
+ * short-named project root produced paths naming a different directory from
+ * the one every other codegraph command (all of which spawn through
+ * `createCodegraphInvocation`, i.e. through this function) reports on.
+ * Callers that need the same root upstream will be spawned with must call
+ * this rather than re-implement it.
+ */
+export function resolveProjectRoot(project: string): string {
   const projectRoot = resolve(project);
 
   try {
@@ -299,6 +313,83 @@ export function resolveCodegraphProjectRoot(projectRoot: string): ResolvedCodegr
     cwd: projectRoot,
     codegraphDir: join(projectRoot, CODEGRAPH_DIR_NAME)
   };
+}
+
+/**
+ * Resolve `<projectRoot>/.codegraph/` and REFUSE it when the directory it
+ * actually names is not contained by the canonical project root. Returns the
+ * canonicalized directory on success.
+ *
+ * Slice-002 S12 (security R1). The H1 fix refuses a link planted at the
+ * backup FILE path, but the DIRECTORY that path lives in was never checked:
+ * with `<root>/.codegraph` as a junction (or a symlink) to another directory,
+ * every existing probe passed — `defaultCodegraphInitGuard` probes with
+ * `statSync`, which follows — and `applyCodegraphConfigRepair` rewrote
+ * `<linked>/config.json` and created `<linked>/config.json.bak`. That is a
+ * write outside the project, into a directory chosen by whoever committed
+ * the link, and `.codegraph/` has no gitignore coverage in a consumer
+ * project (the same argument that made H1 reachable). Its bound is real but
+ * not a containment argument: `applyCodegraphConfigRepair` parses and
+ * validates the target as a codegraph config before it writes anything, so
+ * the clean chain is cross-project config tampering rather than an arbitrary
+ * overwrite. Slice-001's audit recorded "all write targets are constants
+ * under `projectRoot`" as CLEAN; this check is what makes that true.
+ *
+ * The predicate is CONTAINMENT, deliberately not link-ness. A link that
+ * resolves to a directory still inside the project root is allowed, because
+ * refusing every link would fail closed on a state a user may legitimately
+ * have (a derived `.codegraph/` kept inside the repo). What is refused is a
+ * `.codegraph` that ESCAPES the root, which no legitimate layout needs.
+ *
+ * Both sides go through the repo's own canonicalization rather than a second
+ * hand-rolled comparison — `resolveProjectRoot`'s `realpathSync.native` (the
+ * M1 fix) and `isInsidePath` from `shared/path-utils.ts`. `realpath` is what
+ * makes a junction resolve at all (verified on Windows: `lstat` reports a
+ * junction as a symlink and `realpathSync.native` returns its target), and
+ * it is the normalization every codegraph invocation already spawns under.
+ *
+ * An ABSENT directory is returned as-is, not refused: nothing exists to
+ * contain yet, and the write this guard precedes cannot create it — a
+ * `<root>/.codegraph/config.json` whose directory does not resolve fails
+ * with ENOENT before anything is written. The read the writer does first
+ * would throw ENOENT anyway.
+ */
+export function assertCodegraphDirContained(projectRoot: string): string {
+  const canonicalRoot = resolveProjectRoot(projectRoot);
+  const codegraphDir = join(canonicalRoot, CODEGRAPH_DIR_NAME);
+
+  if (!existsSync(codegraphDir)) {
+    return codegraphDir;
+  }
+
+  let canonicalDir: string;
+  try {
+    canonicalDir = realpathSync.native(codegraphDir);
+  } catch (error) {
+    // Containment cannot be VERIFIED, so it is not asserted. An opaque
+    // errno here would read as a filesystem glitch rather than the refusal
+    // it is.
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `codegraph directory ${codegraphDir}: refusing to write through it — the directory could not ` +
+        `be canonicalized (${detail}), so containment under the project root cannot be verified.`
+    );
+  }
+
+  // Equality is refused as well as "outside": a `.codegraph` resolving to the
+  // project root itself is technically contained, but it would place
+  // `config.json` and `config.json.bak` AT the root, overwriting two files
+  // that belong to the user.
+  if (canonicalDir === canonicalRoot || !isInsidePath(canonicalDir, canonicalRoot)) {
+    throw new Error(
+      `codegraph directory ${codegraphDir}: refusing to write through it — it resolves to ` +
+        `${canonicalDir}, which is not inside the project root ${canonicalRoot}. A junction or ` +
+        'symbolic link here redirects every codegraph config write outside the project. Remove ' +
+        'the link (or point `peaks` at the project that owns that directory) and re-run.'
+    );
+  }
+
+  return canonicalDir;
 }
 
 export type CodegraphInitGuardResult =

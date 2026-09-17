@@ -46,7 +46,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
           'Exit 0 only if every stage passes or is skipped.'
       )
       .option('--project <path>', 'target project root', '.')
-      .option('--rid <rid>', 'request id; defaults to the active current-change binding')
+      .option('--rid <rid>', 'request id; REQUIRED — there is no binding to fall back to, and slice check fails without it')
       .option('--refresh-fanout', 're-run the 3-way review fan-out (peaks-rd) even if the review files already exist', false)
       .option('--run-tests', 'opt in to the FULL test suite at the boundary (default is the changed-only suite via `vitest run --changed`); use the peaks-test skill to run the full suite standalone', false)
       .option('--skip-tests', 'skip the unit-test stage entirely (e.g. docs-only slices); use the peaks-test skill to run the full suite manually if you want a separate check', false)
@@ -72,7 +72,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
       }
     } catch (error) {
-      printResult(io, fail('slice.check', 'SLICE_CHECK_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path is a peaks repo, --rid is correct, and .peaks/_runtime/current-change is valid']), options.json ?? false);
+      printResult(io, fail('slice.check', 'SLICE_CHECK_FAILED', getErrorMessage(error), { projectRoot: options.project }, [`Verify the project path is a peaks repo and --rid names a slice (letters, digits, dots, underscores or dashes): ${options.rid ?? '(no --rid given)'}`]), options.json ?? false);
       process.exitCode = 1;
     }
   });

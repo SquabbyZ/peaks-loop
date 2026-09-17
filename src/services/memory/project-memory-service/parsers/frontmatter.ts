@@ -23,7 +23,7 @@
 import { basename } from 'node:path';
 
 import { PROJECT_MEMORY_KINDS } from '../types.js';
-import type { ExtractedProjectMemory, ProjectMemoryKind, StoredProjectMemory } from '../types.js';
+import type { ExtractedProjectMemory, MemoryBlockParse, ProjectMemoryKind, StoredProjectMemory } from '../types.js';
 
 /** Accepted-kind set, derived from the canonical `PROJECT_MEMORY_KINDS`
  *  tuple so the parser cannot drift from the union type / tier map. */
@@ -38,10 +38,20 @@ export function slugify(title: string): string {
   return slug.length > 0 ? slug : 'project-memory';
 }
 
-export function parseBlock(block: string, sourceArtifact: string): ExtractedProjectMemory | null {
+/**
+ * Single implementation of the extract-path block parse. Returns a
+ * discriminated result so the caller can say WHY a found block was rejected.
+ *
+ * The precondition order mirrors the original combined `if` exactly
+ * (separator → title → kind present → kind valid → body non-empty), so the
+ * accepted set is bit-for-bit what it always was; only the explanation is new.
+ */
+export function parseBlockResult(block: string, sourceArtifact: string): MemoryBlockParse {
   const normalizedBlock = block.replace(/\r\n/g, '\n');
   const separatorIndex = normalizedBlock.indexOf('\n---\n');
-  if (separatorIndex < 0) return null;
+  if (separatorIndex < 0) {
+    return { ok: false, reason: 'missing-separator', detail: "block header is not followed by a '---' separator line" };
+  }
 
   const header = normalizedBlock.slice(0, separatorIndex).trim();
   const body = normalizedBlock.slice(separatorIndex + '\n---\n'.length).trim();
@@ -58,9 +68,30 @@ export function parseBlock(block: string, sourceArtifact: string): ExtractedProj
 
   const title = fields.get('title')?.trim();
   const kind = fields.get('kind')?.trim() as ProjectMemoryKind | undefined;
-  if (!title || !kind || !VALID_MEMORY_KINDS.has(kind) || body.length === 0) return null;
+  if (!title) {
+    return { ok: false, reason: 'missing-title', detail: "block header has no non-empty 'title:' field" };
+  }
+  if (!kind) {
+    return { ok: false, reason: 'missing-kind', detail: "block header has no non-empty 'kind:' field" };
+  }
+  if (!VALID_MEMORY_KINDS.has(kind)) {
+    return { ok: false, reason: 'unknown-kind', detail: `block declares kind '${kind}', which is not an accepted memory kind` };
+  }
+  if (body.length === 0) {
+    return { ok: false, reason: 'empty-body', detail: 'block body is empty' };
+  }
 
-  return { title, kind, body, sourceArtifact };
+  return { ok: true, memory: { title, kind, body, sourceArtifact } };
+}
+
+/**
+ * `null`-on-failure projection of `parseBlockResult`. Kept because callers
+ * (and the parser's own contract) consume a plain nullable value; both views
+ * come from the one implementation above, so they cannot diverge.
+ */
+export function parseBlock(block: string, sourceArtifact: string): ExtractedProjectMemory | null {
+  const parsed = parseBlockResult(block, sourceArtifact);
+  return parsed.ok ? parsed.memory : null;
 }
 
 export function renderMemoryFile(memory: ExtractedProjectMemory): string {

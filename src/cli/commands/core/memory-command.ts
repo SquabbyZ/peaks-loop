@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
+import { describeMemoryBlockDrops, executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -25,7 +25,11 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
     }
     try {
       const result = executeProjectMemoryExtract({ projectRoot: options.project, artifactPaths: options.artifact, apply: options.apply === true });
-      printResult(io, ok('memory.extract', summarizeProjectMemoryExtractResult(result)), options.json);
+      // A block that was found but not extracted must not vanish silently: the
+      // parser's rejection reasons ride the envelope's existing `warnings`
+      // channel (JSON: `warnings[]`; human: `warning: …` on stderr). `data` is
+      // unchanged — this adds no field to the summary.
+      printResult(io, ok('memory.extract', summarizeProjectMemoryExtractResult(result), describeMemoryBlockDrops(result.droppedBlocks)), options.json);
     } catch (error) {
       printResult(io, fail('memory.extract', 'MEMORY_EXTRACT_FAILED', getErrorMessage(error), {}, ['Check artifact paths and remove secrets before extracting memory']), options.json);
       process.exitCode = 1;

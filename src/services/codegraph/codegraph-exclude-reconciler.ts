@@ -137,6 +137,35 @@ export function matchesCodegraphGlob(filePath: string, pattern: string): boolean
   return compileGlob(pattern).match(normalizePath(filePath));
 }
 
+// A rule list compiled ONCE, ready to be tested against many paths.
+//
+// Why this exists (perf audit S10, measured): `matchesCodegraphGlob`
+// compiles its pattern on EVERY call, so a caller that tests one candidate
+// against M rules pays M `picomatch` parses per candidate — and, where the
+// candidate loop re-tests the whole list (as the include normalizer does),
+// the cost is quadratic in the rule count: 0.25 ms at 32 rules, 234 ms at
+// 32,000. The exclude reconciler has always compiled per rule rather than
+// per (file x rule); this is that same pattern, exposed as a value so a
+// caller holding a rule list can reuse it instead of re-parsing.
+//
+// Semantics are EXACTLY `matchesCodegraphGlob`'s, rule for rule: an
+// unmatchable (empty/whitespace) rule is dropped before compiling and
+// therefore matches nothing, and the path is normalized the same way.
+export type CompiledCodegraphGlobs = {
+  readonly matchesAny: (filePath: string) => boolean;
+};
+
+export function compileCodegraphGlobs(patterns: readonly string[]): CompiledCodegraphGlobs {
+  const rules = compileRules(patterns);
+
+  return {
+    matchesAny: (filePath: string): boolean => {
+      const normalizedPath = normalizePath(filePath);
+      return rules.some((rule) => rule.match(normalizedPath));
+    }
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Pure reconciliation
 // ─────────────────────────────────────────────────────────────────────
@@ -175,6 +204,37 @@ export type CodegraphExcludeReconcileResult = {
   readonly excludedTrackedCount: number;
 };
 
+// The project-relative paths of the tracked files the config's `include`
+// globs admit, normalized. This is the ONE place the "would the index
+// ingest this path" question is answered, so this reconciler and the
+// index-integrity inspector cannot drift apart on glob semantics: the
+// `include`-axis gap is computed as a set difference against exactly the
+// set this function returns.
+//
+// Pure: no fs, no spawn, no clock. Compiling per rule (not per file x
+// rule) keeps it linear in the number of tracked files.
+//
+// Unmatchable `include` entries are dropped before compiling (see
+// `isUnmatchableRule`). An empty `include` entry admits nothing, which is
+// the same verdict as an explicitly empty `include` list.
+export function filterAdmittedTrackedFiles(
+  trackedFiles: readonly string[],
+  include: readonly string[]
+): readonly string[] {
+  const includeRules = compileRules(include);
+  const admitted: string[] = [];
+
+  for (const candidate of trackedFiles) {
+    const normalizedPath = normalizePath(candidate);
+
+    if (includeRules.some((rule) => rule.match(normalizedPath))) {
+      admitted.push(normalizedPath);
+    }
+  }
+
+  return admitted;
+}
+
 // Reconcile the codegraph `exclude` list against the set of git-tracked
 // source files. Pure: no fs, no spawn, no clock.
 //
@@ -188,18 +248,8 @@ export function reconcileCodegraphExclude(
   // `isUnmatchableRule`. An empty `include` entry admits nothing, which
   // is the same verdict as an explicitly empty `include` list, so it
   // needs no special case here.
-  const includeRules = compileRules(input.include);
   const excludeRules = compileRules(input.exclude);
-
-  const trackedSourceFiles: string[] = [];
-
-  for (const candidate of input.trackedFiles) {
-    const normalizedPath = normalizePath(candidate);
-
-    if (includeRules.some((rule) => rule.match(normalizedPath))) {
-      trackedSourceFiles.push(normalizedPath);
-    }
-  }
+  const trackedSourceFiles = filterAdmittedTrackedFiles(input.trackedFiles, input.include);
 
   const violations: CodegraphExcludeViolation[] = [];
   const offendingRules = new Set<string>();
@@ -237,6 +287,79 @@ export type CodegraphExcludeConfig = {
   readonly exclude: readonly string[];
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// Read provenance — why the shared-input seam refuses a fabricated value
+// ─────────────────────────────────────────────────────────────────────
+
+// Code review R4-1. The shared-input seam (perf F1) hands an inspector the
+// ALREADY-READ inputs. Before this block, `trackedFiles?: readonly string[]`
+// could not tell "field omitted" (read it yourself) from "field supplied as
+// `[]`" (silently: nothing is tracked) — and the second one turned a real
+// gap into a CLEAN verdict on BOTH axes:
+//
+//     E(root, { trackedFiles: [] })
+//       exclude axis: gap true -> false, trackedSourceCount 1 -> 0, violations [] -> dropped
+//       index   axis: includeGap ['scripts/tool.mjs'] -> []
+//
+// That is a silent false pass inside the guard built to prevent silent false
+// passes. Emptiness alone cannot be the discriminator — a repository that
+// genuinely tracks nothing has a legitimately EMPTY list, and rejecting that
+// would turn `peaks codegraph status` on such a repo from "clean" into a
+// spurious warning. Provenance can discriminate, so that is what we key on.
+//
+// Every value this module's readers produce is marked, non-enumerably, with
+// this symbol at the ONE place that owns the readers; the seam accepts only
+// marked values. A hand-built `[]` is therefore unreachable at compile time
+// (the brand is a required property) AND loud at run time (a JS caller or a
+// cast trips the assertion instead of silently reporting clean).
+//
+// `Symbol.for` rather than `Symbol()` so the mark survives the same module
+// being loaded twice (dual ESM/CJS evaluation of a linked package).
+const READ_PROVENANCE = Symbol.for('peaks-loop.codegraph.read-provenance');
+
+type ReadProvenance = { readonly [READ_PROVENANCE]: true };
+
+/** A tracked-file list that provably came out of `readTrackedFiles`. */
+export type ReadTrackedFiles = readonly string[] & ReadProvenance;
+
+/** A config that provably came out of `readCodegraphExcludeConfig`. */
+export type ReadCodegraphExcludeConfig = CodegraphExcludeConfig & ReadProvenance;
+
+// `enumerable: false` on purpose: the mark is provenance, not content. A
+// `JSON.stringify`, a spread or a deep-equality assertion over the list must
+// not see it, so branding stays invisible to every existing consumer.
+function markAsRead<T extends object>(value: T): T & ReadProvenance {
+  Object.defineProperty(value, READ_PROVENANCE, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+
+  return value as T & ReadProvenance;
+}
+
+// The run-time half of the brand. Reached only by a caller the type system
+// could not police (JS, a cast, or a future `as` in a hurry), so it must be
+// loud and must say what the silent alternative would have done.
+function assertReadProvenance<T extends object>(
+  value: T,
+  field: string,
+  producer: string
+): T & ReadProvenance {
+  if (!Object.prototype.hasOwnProperty.call(value, READ_PROVENANCE)) {
+    throw new Error(
+      `codegraph shared inputs: "${field}" did not come from ${producer}(), so it is not a ` +
+        'value this module can trust. A hand-built value is indistinguishable from a real read, ' +
+        'and an empty one means "nothing is tracked / nothing is admitted" — which reports a ' +
+        'real gap as CLEAN on both codegraph axes. Pass the result of ' +
+        'readCodegraphProjectInputs(projectRoot) verbatim, or omit the field to read from disk.'
+    );
+  }
+
+  return value as T & ReadProvenance;
+}
+
 // Project-relative paths of every git-tracked file, exactly as
 // `git ls-files` reports them. Why git and not an fs walk: the index
 // must cover what git tracks (see the anti-fake-green contract in
@@ -245,18 +368,23 @@ export type CodegraphExcludeConfig = {
 //
 // Throws when `projectRoot` is not inside a git work tree — callers
 // decide whether that is fatal; this function never swallows it.
-export function readTrackedFiles(projectRoot: string): readonly string[] {
+//
+// Returns a READ-MARKED list: the seam helpers below accept only marked
+// values, so a fabricated `[]` cannot be passed off as this read's result.
+export function readTrackedFiles(projectRoot: string): ReadTrackedFiles {
   const stdout = execFileSync('git', ['-C', projectRoot, 'ls-files'], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true
   });
 
-  return stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => normalizePath(line));
+  return markAsRead(
+    stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => normalizePath(line))
+  );
 }
 
 // Exported for S2's repair writer, which re-validates `exclude` on the
@@ -271,8 +399,8 @@ export function assertStringArray(value: unknown, field: string, configPath: str
 
 // Read `<projectRoot>/.codegraph/config.json` and return just the two
 // glob lists the reconciler needs. Read-only: this module never writes
-// that file.
-export function readCodegraphExcludeConfig(projectRoot: string): CodegraphExcludeConfig {
+// that file. Returns a READ-MARKED config — see `readTrackedFiles`.
+export function readCodegraphExcludeConfig(projectRoot: string): ReadCodegraphExcludeConfig {
   const configPath = join(projectRoot, CODEGRAPH_DIR_NAME, CODEGRAPH_CONFIG_FILENAME);
   const parsed: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
 
@@ -282,10 +410,72 @@ export function readCodegraphExcludeConfig(projectRoot: string): CodegraphExclud
 
   const record = parsed as Record<string, unknown>;
 
-  return {
+  return markAsRead({
     include: assertStringArray(record.include, 'include', configPath),
     exclude: assertStringArray(record.exclude, 'exclude', configPath)
+  });
+}
+
+// The two reads that BOTH codegraph integrity axes need: git's tracked
+// file list and the config's glob lists. Reading them is the expensive
+// part of an inspection (one `git ls-files` spawn plus one config read);
+// the pure reconciliation over them is not.
+//
+// Why this type exists (perf audit F1, measured): `peaks codegraph status`
+// and `peaks doctor` each run two integrity axes in ONE process, and
+// before this seam existed each axis read the same two inputs itself —
+// `GIT_TRACE` showed the `git ls-files` spawn going 1 -> 2 per command,
+// with the second spawn, the second config read and the second run of the
+// identical 32-glob `include` filter accounting for 61 % of the new cost.
+// A caller that has already read them hands them over instead.
+//
+// It is additive and optional everywhere it is consumed: omit it and the
+// reader runs exactly as before.
+//
+// Both fields are READ-MARKED types, not bare arrays: only a value that came
+// out of the readers can be put here (see the provenance block above).
+export type CodegraphProjectInputs = {
+  readonly trackedFiles: ReadTrackedFiles;
+  readonly config: ReadCodegraphExcludeConfig;
+};
+
+// Read both shared inputs exactly once, in the one place that owns the
+// readers. Callers that need both axes (the CLI, and anything added later)
+// should call this and pass the result to each inspector rather than
+// letting each inspector read for itself.
+export function readCodegraphProjectInputs(projectRoot: string): CodegraphProjectInputs {
+  return {
+    trackedFiles: readTrackedFiles(projectRoot),
+    config: readCodegraphExcludeConfig(projectRoot)
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Seam resolution — what each inspector's shared-input seam resolves through
+// ─────────────────────────────────────────────────────────────────────
+
+// OMITTED (or `undefined`) always means "read it yourself": that is the
+// original, seam-free behaviour and it must stay bit-identical. SUPPLIED
+// means "here is a value you already read" — and the only way to prove that
+// is the read mark, which is why an unmarked value is refused rather than
+// used. An empty marked list is perfectly legal (a repo that tracks nothing
+// really does have none); an empty unmarked one is the false clean.
+export function resolveSharedTrackedFiles(
+  supplied: ReadTrackedFiles | undefined,
+  projectRoot: string
+): ReadTrackedFiles {
+  return supplied === undefined
+    ? readTrackedFiles(projectRoot)
+    : assertReadProvenance(supplied, 'trackedFiles', 'readTrackedFiles');
+}
+
+export function resolveSharedConfig(
+  supplied: ReadCodegraphExcludeConfig | undefined,
+  projectRoot: string
+): ReadCodegraphExcludeConfig {
+  return supplied === undefined
+    ? readCodegraphExcludeConfig(projectRoot)
+    : assertReadProvenance(supplied, 'config', 'readCodegraphExcludeConfig');
 }
 
 // Read-only entry point: resolve the project's tracked files + codegraph

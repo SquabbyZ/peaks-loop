@@ -69,7 +69,7 @@ Read persistent project memory via CLI (durable, LLM-authored memories):
 peaks project memories --project <repo> --json
 ```
 
-This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
+This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <project|decision|convention|rule|reference|feedback|module|lesson|bug|investigation|technical-pattern|project-rule|design|handoff|session-handoff|project-todo|publish-closure|project-closure|slice-closure|slice-pilot-findings|sediment>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
 Then display: `Peaks-Loop Skill: peaks-txt | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
@@ -158,7 +158,7 @@ When a skill artifact contains reusable project facts, decisions, rules, constra
 ```markdown
 <!-- peaks-memory:start -->
 title: Short project memory title
-kind: project | decision | convention | rule | reference | module | lesson
+kind: project | decision | convention | rule | reference | feedback | module | lesson | bug | investigation | technical-pattern | project-rule | design | handoff | session-handoff | project-todo | publish-closure | project-closure | slice-closure | slice-pilot-findings | sediment
 ---
 Stable memory body.
 <!-- peaks-memory:end -->
@@ -263,7 +263,7 @@ peaks capabilities --json
 #
 #    <!-- peaks-memory:start -->
 #    title: Short project memory title
-#    kind: project | decision | convention | rule | reference | module | lesson
+#    kind: project | decision | convention | rule | reference | feedback | module | lesson | bug | investigation | technical-pattern | project-rule | design | handoff | session-handoff | project-todo | publish-closure | project-closure | slice-closure | slice-pilot-findings | sediment
 #    ---
 #    Stable memory body. Concrete facts only — no secrets, no transient state.
 #    <!-- peaks-memory:end -->

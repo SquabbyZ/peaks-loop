@@ -76,8 +76,30 @@ for (const ext of ['js', 'd.ts', 'd.ts.map']) {
 // regression-test pin for Bug-04; the load-bearing dist
 // invalidation moved up to `clean-dist.mjs`, which wipes every
 // packages/*/dist wholesale before any subpackage build runs.
-// This narrow unlink stays because it is unit-tested by
-// tests/unit/scripts/sync-version-invalidation.test.ts and
-// catching the Bug-04 lineage on its own is cheap insurance
-// against future pipeline reorderings.
+// This narrow unlink stays because catching the Bug-04 lineage
+// on its own is cheap insurance against future pipeline
+// reorderings.
+//
+// E2 (rid 2026-09-17-cli-output-and-stale-refs) — the sentence
+// that stood here named a unit test as covering this unlink. That
+// test (file name only, deliberately not spelled as a path: it was
+// deleted in `f17aa377`, "delete 559 legacy unit tests", and a
+// path-shaped token would read as a live citation to the guard
+// that now checks these comments) is `sync-version-invalidation.test.ts`
+// — so the coverage this paragraph claimed has not existed since.
+//
+// What DOES cover this script today, verified rather than
+// assumed: the version lockstep tests pin its two outputs to the
+// root package.json#version — `CLI_VERSION` in
+// packages/peaks-loop-shared/src/version.ts, and the
+// `RUNTIME_VERSION` emit added in slice 2026-09-11 plus the built
+// shared dist/version.js. Both read the artifacts, so they catch a
+// silent no-op in either writer. They are indirect pins, and they
+// are the reason a broken emit cannot ship.
+//
+// NOT COVERED, recorded rather than hidden: the unlink itself has
+// no direct pin. No test executes this script, so nothing asserts
+// that a stale packages/peaks-loop-shared/dist/version.js is
+// actually removed. If you need the unlink pinned, that test has
+// to be written — the one named here no longer exists.
 

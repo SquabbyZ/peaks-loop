@@ -231,7 +231,7 @@ See also: references/session-overload-signal-index.md for the 7-signal lookup ta
 | **D-001** | 0.8 | `peaks code detect-job --is-job ...` rejected with `error: unknown option '--is-job'` | Use `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single\|rotating>` | §Step 0.8 first paragraph |
 | **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` (this is the bare `<sid>` anti-pattern) | sid is positional: `peaks session title <sessionId> "<title>" --json` | §Step 2.5a |
 | **D-003** | 0.8 | `JOB_SHAPE_NOT_DECIDED` exception expected but never thrown | Current behavior is `peaks job status` reports `done: 0` passively — treat as recoverable miss, not hard error | §Step 0.8 third paragraph |
-| **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. Bare `peaks-memory:start` is parsed silently but produces no writes | §Step 11c + 11d |
+| **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. A marker without those fields, and a marker that is not the exact literal (e.g. with a `kind=…` written inside it), produce no writes and are both named in the envelope's `warnings[]` — read it before concluding there was no block | §Step 11c + 11d |
 
 > **Sediment lesson (master record):** `.peaks/memory/peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md`
 

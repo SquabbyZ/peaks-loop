@@ -46,7 +46,14 @@ const __autorefresh = vi.hoisted(() => ({
   refreshCodegraphAfterSlice: vi.fn(),
 }));
 
-vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', () => __autorefresh);
+// A2 (2026-09-17): the checkpoint action also imports
+// `codegraphRefreshNotice` from this module, so the mock spreads the REAL
+// module and overrides only the process-spawning boundary — a hand-written
+// replacement module would be missing the export the action calls.
+vi.mock('../../../src/services/codegraph/codegraph-autorefresh.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/services/codegraph/codegraph-autorefresh.js')>()),
+  refreshCodegraphAfterSlice: __autorefresh.refreshCodegraphAfterSlice,
+}));
 
 import { registerJobCommands } from '../../../src/cli/commands/job-commands.js';
 

@@ -27,7 +27,16 @@
 
 import { Command } from 'commander';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -133,13 +142,20 @@ function seedProject(ws: TmpWorkspace, mode: ProjectMode): string {
 function parseJson(captured: CapturedIo): {
   ok: boolean;
   code?: string;
+  command?: string;
+  warnings?: string[];
   data: {
     integrity?: { gap: boolean; rulesToRemove: string[]; excludedTrackedCount: number } | null;
     upstream?: { exitCode: number | null };
     applied?: boolean;
     rulesRemoved?: string[];
+    includePatternsAdded?: string[];
     filesRecovered?: number;
+    includeAdmittedAfter?: number;
+    trackedSourceCount?: number;
     reindexed?: boolean;
+    forcedRebuild?: boolean;
+    configPath?: string;
     backupPath?: string | null;
   };
 } {
@@ -397,5 +413,180 @@ describe('peaks codegraph repair-exclude', () => {
     expect(envelope.data.applied).toBe(true);
     expect(envelope.data.reindexed).toBe(false);
     expect(process.exitCode).toBe(1);
+  });
+});
+
+// ── behavior + integration: `repair-index`, the remedy for exit 75 ────
+
+describe('peaks codegraph repair-index', () => {
+  it('should repair both axes and rebuild FORCED — the dead-row purge path', async () => {
+    const project = seedProject(ws, 'gapped');
+
+    const captured = await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+
+    const envelope = parseJson(captured);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.command).toBe('codegraph.repair-index');
+    expect(envelope.data.applied).toBe(true);
+    // Both axes moved in ONE run: the include patterns upstream's template
+    // omits, and the exclude rule the widened include made harmful.
+    expect(envelope.data.rulesRemoved).toEqual(['**/vendor/**']);
+    expect(envelope.data.includePatternsAdded).toEqual([
+      '**/*.mjs',
+      '**/*.cjs',
+      '**/*.pyw',
+      '**/*.hxx',
+      '**/*.rake'
+    ]);
+    expect(envelope.data.reindexed).toBe(true);
+    expect(envelope.data.forcedRebuild).toBe(true);
+    expect(process.exitCode).toBe(0);
+
+    // The load-bearing half: the FORCE flag reached the upstream process's
+    // argv. `index --force` is upstream's `clear()` + full re-index, and that
+    // `clear()` is the only way rows for files deleted in an earlier commit
+    // are ever dropped — an incremental index only upserts.
+    const indexCalls = __m.executeCodegraphInvocation.mock.calls
+      .map((call) => call[0] as { subcommand: string; args: string[]; force?: boolean })
+      .filter((invocation) => invocation.subcommand === 'index');
+    expect(indexCalls).toHaveLength(1);
+    expect(indexCalls[0]?.args).toContain('--force');
+
+    // …and the repair is real, not just reported: re-reading `status` shows
+    // the exclude gate closed.
+    const after = await runCodegraph(['status', '--project', project, '--peaks-json']);
+    expect(parseJson(after).data.integrity?.gap).toBe(false);
+
+    const config = JSON.parse(readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')) as {
+      include: string[];
+      exclude: string[];
+    };
+    expect(config.include).toContain('**/*.mjs');
+    expect(config.exclude).toEqual(['**/node_modules/**']);
+    expect(existsSync(join(project, '.codegraph', 'config.json.bak'))).toBe(true);
+  });
+
+  it('should write nothing on a second run, and still rebuild — the documented exemption', async () => {
+    const project = seedProject(ws, 'gapped');
+
+    await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+    process.exitCode = 0;
+    __m.executeCodegraphInvocation.mockClear();
+
+    const second = await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+
+    // Nothing left to write: no config rewrite, no new backup.
+    expect(parseJson(second).data.applied).toBe(false);
+    expect(parseJson(second).data.includePatternsAdded).toEqual([]);
+    expect(parseJson(second).data.rulesRemoved).toEqual([]);
+
+    // …but the forced rebuild still runs. Asserted rather than assumed,
+    // because it is a deliberate asymmetry: a clean reconciliation does NOT
+    // prove the index is complete (the coverage verdict is admission-only —
+    // slice-001's known limitation), and it is the only run in which rows for
+    // an earlier-deleted file are dropped. `repair-exclude` (the cheap verb)
+    // is the one that skips the rebuild when there is nothing to write.
+    expect(parseJson(second).data.reindexed).toBe(true);
+    expect(parseJson(second).data.forcedRebuild).toBe(true);
+    expect(__m.executeCodegraphInvocation).toHaveBeenCalledTimes(1);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('on the human path, should name what changed on both axes', async () => {
+    const project = seedProject(ws, 'gapped');
+
+    const captured = await runCodegraph(['repair-index', '--project', project]);
+    const printed = captured.stdout.join('\n');
+
+    expect(printed).toContain('Added 5 include pattern(s)');
+    expect(printed).toContain('removed 1 exclude rule(s)');
+  });
+
+  it('on the human path, should report the real coverage RATIO, not "N of N"', async () => {
+    const project = seedProject(ws, 'gapped');
+    // An UPPERCASE extension: `detectLanguage` lowercases, so `.MJS` IS
+    // extractor-supported, while every `include` pattern in both templates
+    // matches case-SENSITIVELY, so no repair admits it. That is slice-002's
+    // declared limitation 1, and the one shape in which an honest coverage
+    // ratio must report a shortfall.
+    //
+    // The denominator used to be the reconciler's ADMITTED count — the
+    // numerator's own expression — so the clause could only ever print
+    // "N of N"; on this fixture it printed NOTHING (before and after were both
+    // 2), telling the operator the gap was closed when one supported file was
+    // still unadmitted.
+    writeFileSync(join(project, 'src', 'Tool.MJS'), 'export const tool = 1;\n', 'utf8');
+    execFileSync('git', ['-C', project, 'add', '-A'], { stdio: 'ignore', windowsHide: true });
+
+    const captured = await runCodegraph(['repair-index', '--project', project]);
+    const printed = captured.stdout.join('\n');
+
+    // 3 supported tracked files (ok.ts, vendor/lib.ts, Tool.MJS), 2 admitted.
+    expect(printed).toContain('Include now admits 2 of 3 extractor-supported tracked file(s).');
+    expect(printed).not.toContain('of 2 extractor-supported');
+  });
+
+  it('should refuse a LINK planted at the backup path, leaving the victim and the config intact', async () => {
+    const project = seedProject(ws, 'gapped');
+    const configPath = join(project, '.codegraph', 'config.json');
+    const before = readFileSync(configPath, 'utf8');
+    // The exploit the security audit reproduced: a repo commits
+    // `.codegraph/config.json.bak` as a link to an arbitrary file plus a
+    // config that merely OMITS an extension, and a normal repair run writes
+    // the config's bytes through the link. The repair verbs are the seam an
+    // operator (or the LLM, per Human-NL-Choice-Only) is explicitly told to
+    // run, so the refusal has to hold here, not only in the writer.
+    const victimPath = join(project, 'victim.txt');
+    writeFileSync(victimPath, 'ORIGINAL VICTIM\n', 'utf8');
+    linkSync(victimPath, `${configPath}.bak`);
+
+    const captured = await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+    const envelope = parseJson(captured);
+
+    // Fails CLOSED and loudly: no repair claimed, a named reason, exit 1.
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data.applied).toBe(false);
+    expect(envelope.warnings?.join('\n')).toContain('refusing to write through');
+    expect(readFileSync(victimPath, 'utf8')).toBe('ORIGINAL VICTIM\n');
+    expect(readFileSync(configPath, 'utf8')).toBe(before);
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('should write and report under the CANONICAL project root when --project is an alias', async () => {
+    const project = seedProject(ws, 'gapped');
+    // A directory alias for the same tree: a junction where the OS allows one
+    // without elevation (Windows), a plain directory symlink otherwise.
+    const aliasRoot = join(ws.path, '..', `peaks-cg-alias-${process.pid}-${Date.now()}`);
+    try {
+      symlinkSync(project, aliasRoot, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EPERM' || code === 'EACCES' || code === 'UNKNOWN') {
+        return;
+      }
+      throw error;
+    }
+
+    try {
+      // Non-vacuity control: the alias really is a different path string for
+      // the same tree, so the assertion below can fail.
+      expect(realpathSync.native(aliasRoot)).not.toBe(aliasRoot);
+
+      const captured = await runCodegraph(['repair-index', '--project', aliasRoot, '--peaks-json']);
+      const envelope = parseJson(captured);
+
+      // Before the fix this reported (and wrote through) the alias path,
+      // because the repair verb hand-rolled `resolve()` and skipped the
+      // canonicalizer every codegraph invocation goes through.
+      expect(envelope.data.configPath).toBe(
+        join(realpathSync.native(project), '.codegraph', 'config.json'),
+      );
+      expect(envelope.data.backupPath).toBe(
+        join(realpathSync.native(project), '.codegraph', 'config.json.bak'),
+      );
+      expect(existsSync(envelope.data.backupPath ?? '')).toBe(true);
+    } finally {
+      rmSync(aliasRoot, { recursive: true, force: true });
+    }
   });
 });

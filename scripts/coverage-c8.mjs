@@ -119,6 +119,24 @@ const c8Args = [
   '--exclude=src/cli/commands/shadcn-commands.ts',
   '--exclude=src/cli/commands/core-artifact-commands.ts',
   '--exclude=src/cli/commands/codegraph-commands.ts',
+  // rid 2026-09-17-oversize-followup (G2). The entry above was split into
+  // three by the 800-line cap; these two hold code moved VERBATIM out of it,
+  // under the same rule. Unit-measured (this script's own report):
+  //   codegraph-command-runtime.ts  61.53% lines / 44.44% functions
+  //   codegraph-status-command.ts   57.28% lines / 57.14% functions
+  // Neither is near the 100% bar, so listing only the parent would let a
+  // pure extraction silently move code OUT of this gate's scope. The
+  // exclusion follows the code.
+  // NOT checked now: the whole of both modules — the codegraph option shape,
+  // the failure envelope, the hint rewriter, the upstream proxy, and the
+  // `status` command's rendering/exit-code plumbing. Both are still exercised
+  // by tests/unit/cli/codegraph-*.test.ts (21 tests on the status command
+  // alone); they are simply not held to line/function 100%.
+  // The 100% bar itself is currently unreachable for an unrelated reason —
+  // `--src=` below sweeps `dist/**`, whose 74,354 uncovered lines are 48% of
+  // the whole gap. Tracked separately; do NOT read a red run as this edit's.
+  '--exclude=src/cli/commands/codegraph-command-runtime.ts',
+  '--exclude=src/cli/commands/codegraph-status-command.ts',
   '--exclude=src/cli/commands/project-commands.ts',
   '--exclude=src/cli/commands/workflow-commands.ts',
   '--exclude=src/cli/commands/request-commands.ts',

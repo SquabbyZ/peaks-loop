@@ -20,19 +20,19 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
+import { RUNTIME_SYSTEM_SUBDIRS } from '../../../workspace/runtime-layout.js';
 
 import type { DoctorCheck, DoctorCheckPlugin, DoctorContext } from '../types.js';
 
-/**
- * Canonical system subdirs that intentionally live under
- * `.peaks/_runtime/` and must NOT be flagged as orphan sessions.
- *
- * `change/` is the routing target for change-id reviewable
- * artifacts per F3 audit-p1. Adding a new entry here requires
- * also updating `RUNTIME_SYSTEM_SUBDIRS_DOC` in the comments
- * below so the next maintainer knows why each entry is listed.
- */
-const RUNTIME_SYSTEM_SUBDIRS: ReadonlySet<string> = new Set(['change']);
+// The exclude-list moved to `src/services/workspace/runtime-layout.ts`.
+// It is imported above, not re-declared here: the local literal
+// (`new Set(['change'])`) had already drifted — `callers/` is a designed
+// location written by `caller-binding-service.ts` and was never added, so
+// this check reported `4 orphan session(s) …: callers, cli, unknown-sid, x`
+// and `peaks doctor` exited 1 on a clean workspace, permanently.
+// `tests/unit/workspace/runtime-layout-drift-guard.test.ts` now fails when
+// the code writes a `.peaks/_runtime/` child the registry does not know, so
+// the set can no longer drift silently.
 
 function run({ resolvedL3Root, isValidSessionId }: DoctorContext): readonly DoctorCheck[] {
   try {

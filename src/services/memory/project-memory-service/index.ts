@@ -14,6 +14,9 @@
 export type {
   BackupPlanOptions,
   ExtractedProjectMemory,
+  MemoryBlockDrop,
+  MemoryBlockDropReason,
+  MemoryBlockParse,
   MemoryKindTier,
   ExtractPlanOptions,
   ExtractSessionMemoriesOptions,
@@ -46,17 +49,25 @@ export {
 
 // Pure markdown helpers
 export {
+  describeMemoryBlockDrops,
+  describeSessionScanFailures,
   summarizeBackupResult,
   summarizeExtractResult,
   summarizeMemoryBody,
   extractStableProjectMemories,
+  extractStableProjectMemoriesWithDiagnostics,
   END_MARKER,
   START_MARKER
 } from './parsers/markdown-pure.js';
 
+export type { SessionScanFailure } from './types.js';
+
+export type { ExtractedMemoryBlocks } from './parsers/markdown-pure.js';
+
 // Frontmatter parser + renderer
 export {
   parseBlock,
+  parseBlockResult,
   parseMemoryFrontmatter,
   parseStoredMemoryFile,
   renderMemoryFile,

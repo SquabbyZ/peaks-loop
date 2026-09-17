@@ -13,6 +13,7 @@ import { P0_JOURNEY_IDS, type CapabilityBaselineFile, type JourneyId } from '../
 import { GUARD_CONTRACTS, getGuardContract, isJourneyId } from '../../services/capability-guard-runner/registry.js';
 import { exitCodeForGuardSummary, runAllGuards } from '../../services/capability-guard-runner/runner.js';
 import type { GuardContext, GuardContract } from '../../services/capability-guard-runner/types.js';
+import { RUNTIME_SESSIONLESS_SCOPE } from '../../services/workspace/runtime-layout.js';
 
 function fail(io: ProgramIO, code: string, message: string, data: Record<string, unknown> = {}): void {
   io.stdout(JSON.stringify({ ok: false, command: `baseline`, code, message, data, warnings: [], nextActions: [] }));
@@ -169,9 +170,18 @@ export function registerBaselineCommands(program: Command, io: ProgramIO): void 
       // It is handed the frozen rows and the registry, not just the guard
       // summary — a scorer that only sees the guard result is a restatement.
       const { runAudit } = await import('../../services/capability-audit-service/runner.js');
+      // `sessionId` is the on-disk scope for the audit artifacts. This command
+      // has NO session — it is the credential-free scorer that runs inside the
+      // secretless OIDC publish gate — and it used to pass the literal `'cli'`,
+      // so every run wrote `.peaks/_runtime/cli/capability-audit/*.json` into
+      // the operator's real workspace. That directory is indistinguishable from
+      // a session dir whose id failed validation, so `peaks doctor`'s
+      // orphan-session check failed on it permanently (`4 orphan session(s)
+      // …: callers, cli, unknown-sid, x`, exit 1). The reserved
+      // underscore-prefixed scope says "machinery, not a session" in the name.
       const audit = await runAudit({
         projectRoot,
-        sessionId: 'cli',
+        sessionId: RUNTIME_SESSIONLESS_SCOPE,
         journeyId: 'J01',
         scorerMode: opts.scorer,
         baselineRows: r.file.rows,

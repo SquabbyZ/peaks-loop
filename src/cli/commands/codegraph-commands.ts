@@ -1,3 +1,16 @@
+// src/cli/commands/codegraph-commands.ts
+//
+// The codegraph verbs that MUTATE or PROXY: `repair-exclude`, `repair-index`,
+// `init`, `affected`, plus the commander registration for every codegraph
+// subcommand.
+//
+// D1 (rid 2026-09-17-oversize-and-scale, the 800-line file-size cap) moved
+// the shared invocation runtime to `codegraph-command-runtime.ts` and the
+// `status` integrity gate to `codegraph-status-command.ts`, both verbatim.
+// This path keeps its public surface: `registerCodegraphCommands` is defined
+// here and `rewriteBareCodegraphHints` / `attributeUpstreamUpToDateLine` are
+// re-exported below, so every existing importer still resolves.
+
 import { Command, InvalidArgumentError } from 'commander';
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -5,27 +18,28 @@ import {
   createCodegraphInvocation,
   executeCodegraphInvocation,
   defaultCodegraphInitGuard,
+  resolveProjectRoot,
   writeCodegraphMarker,
   writeCodegraphAffectedContext,
-  CodegraphInitConflictError,
-  type CodegraphInvocationOptions
+  CodegraphInitConflictError
 } from '../../services/codegraph/codegraph-service.js';
 import {
-  CODEGRAPH_INTEGRITY_EXIT_CODE,
-  inspectCodegraphExcludeIntegrity,
-  isCodegraphExcludeConfigPresent,
-  renderCodegraphExcludeIntegrityLines,
-  type CodegraphExcludeIntegrityReport
-} from '../../services/codegraph/codegraph-exclude-integrity.js';
-import { repairCodegraphExcludeFromProject } from '../../services/codegraph/codegraph-exclude-repair.js';
+  repairCodegraphExcludeFromProject,
+  type CodegraphExcludeRepairReport
+} from '../../services/codegraph/codegraph-exclude-repair.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import {
+  printCodegraphFailure,
+  runCodegraphCommand,
+  type CommonCodegraphOptions
+} from './codegraph-command-runtime.js';
+import { runCodegraphStatusCommand } from './codegraph-status-command.js';
 
-interface CommonCodegraphOptions {
-  project: string;
-  peaksJson?: boolean;
-}
+// Re-exported so the D1 split is invisible to importers of THIS path.
+export { rewriteBareCodegraphHints } from './codegraph-command-runtime.js';
+export { attributeUpstreamUpToDateLine } from './codegraph-status-command.js';
 
 interface CodegraphIndexOptions extends CommonCodegraphOptions {
   force?: boolean;
@@ -69,292 +83,161 @@ function parsePositiveInteger(value: string): number {
   return parsed;
 }
 
-function printCodegraphFailure(io: ProgramIO, command: string, error: unknown, asJson?: boolean, exitCode = 1): void {
-  printResult(
-    io,
-    fail(command, 'CODEGRAPH_COMMAND_FAILED', redactSensitiveErrorMessage(getErrorMessage(error)), {}, ['Check the codegraph command options and project path before retrying']),
-    asJson
+// " Include now admits 7 of 9 extractor-supported tracked file(s)." — printed
+// only when the ratio reports a SHORTFALL, i.e. when the repair has left
+// files the extractor supports unadmitted. That is the one reading of this
+// sentence an operator can act on.
+//
+// What this used to say, and why it was wrong: the denominator was fed from
+// the reconciler's admitted count — the NUMERATOR's own expression — so the
+// clause could only ever print "N of N", and it was gated on
+// `after > before` with a "(was N)" trailer computed by a second full glob
+// pass. A repo with 10 supported tracked files of which 5 were admitted was
+// told "5 of 5", asserting total coverage that nothing had measured. The
+// denominator is now an independent measurement (see the report field), and
+// the trailer — whose only consumer was this sentence — is gone with the
+// pass that produced it (perf: 11.73 ms of the repair entry's +14.13 ms, on
+// every automatic seam including no-ops).
+//
+// Silence when the ratio is complete is deliberate: "2 of 2" is true but
+// says nothing, and the patterns that changed are already named by the
+// caller's own sentence.
+function admittingClause(report: CodegraphExcludeRepairReport): string {
+  if (report.trackedSourceCount === 0 || report.includeAdmittedAfter >= report.trackedSourceCount) {
+    return '';
+  }
+
+  return ` Include now admits ${report.includeAdmittedAfter} of ${report.trackedSourceCount} extractor-supported tracked file(s).`;
+}
+
+// The two explicit repair modes. They differ in exactly one thing — whether
+// the follow-up index is incremental or a FORCED full rebuild — and that one
+// thing is a contract difference, not a flag difference:
+//
+//   - `repair-exclude` is the documented remedy for exit 74 (an `exclude`
+//     rule blocking tracked source files). It keeps the cost profile it
+//     shipped with: an ordinary `codegraph index`.
+//   - `repair-index` is the remedy for exit 75 (the index does not cover the
+//     repository). Dropping rows for files deleted in an earlier commit is
+//     only possible with `index --force`, so that is what it runs — the
+//     expensive half is the reason it is a separate verb rather than a flag
+//     on the cheap one.
+//
+// Both run the SAME two-axis repair (normalize `include`, then reconcile
+// `exclude` against the widened list), because repairing `exclude` without
+// normalizing `include` first reports success over a config it has just made
+// worse — see `codegraph-exclude-repair.ts`.
+type CodegraphRepairMode = 'exclude' | 'index';
+
+interface CodegraphRepairModeSpec {
+  readonly commandId: string;
+  readonly reindex: boolean | 'force';
+  readonly noopNote: string;
+}
+
+const REPAIR_MODES: Record<CodegraphRepairMode, CodegraphRepairModeSpec> = {
+  exclude: {
+    commandId: 'codegraph.repair-exclude',
+    reindex: true,
+    noopNote: 'Nothing to repair in the codegraph config; nothing was written.'
+  },
+  index: {
+    commandId: 'codegraph.repair-index',
+    // 'force' is upstream's `clear()` + full re-index — the only documented
+    // way to drop rows for files deleted in an earlier commit.
+    reindex: 'force',
+    noopNote:
+      'The codegraph config already admits every supported tracked file and blocks none; the index was still rebuilt from scratch.'
+  }
+};
+
+// One sentence, the same shape in both modes, because both modes run the
+// same two-axis repair — only the rebuild differs.
+//
+// A1 (`2026-09-17-codegraph-msg-and-refresh`): EACH COUNT NAMES ITS OWN AXIS.
+// The previous wording ended one sentence about both axes with a single
+// "recovering N tracked source file(s)", fed by `filesRecovered` — the
+// EXCLUDE axis' counter. On this repo it printed "Added 5 include pattern(s)
+// and removed 0 exclude rule(s), recovering 0 tracked source file(s)." while
+// those 5 patterns had just admitted 31 tracked source files (30 `.mjs` + 1
+// `.cjs`): a true statement about the axis that did not move, read as a
+// verdict on the one that did. The `admittingClause` could not correct it
+// either — it is silent when the coverage ratio is complete, which is
+// exactly the state a fresh include repair produces.
+//
+// So: the include clause carries the include axis' own file delta and the
+// exclude clause carries the exclude axis' own count, and a reader cannot
+// attribute either number to the other clause. No combined total is printed,
+// because there is no honest single number here — the two axes recover
+// disjoint sets (one widens admission, the other unblocks admitted files)
+// and only the first of them is cheap enough to measure on every repair.
+function appliedRepairNote(report: CodegraphExcludeRepairReport): string {
+  return (
+    `Added ${report.includePatternsAdded.length} include pattern(s), newly admitting ${report.includeFilesRecovered} tracked source file(s), and removed ${report.rulesRemoved.length} exclude rule(s), recovering ${report.filesRecovered} tracked source file(s) that a rule had been hiding.` +
+    admittingClause(report) +
+    ` Config backed up to ${report.backupPath ?? ''}.`
   );
-  process.exitCode = exitCode;
 }
 
 /**
- * Rewrites bare upstream `codegraph <subcommand>` hints to the peaks-loop
- * equivalent (`peaks codegraph <subcommand>`). The upstream binary is a
- * nested transitive dependency and is NOT on PATH, so an LLM that follows
- * a bare hint like `Run "codegraph init" to initialize` would hit
- * "command not found". Already-prefixed `peaks codegraph ...` hints and
- * other `codegraph` references (e.g. `@colbymchenry/codegraph`) are left
- * untouched.
- */
-export function rewriteBareCodegraphHints(text: string): string {
-  return text.replace(
-    /(?<![\w-])(?<!peaks\s)codegraph(?=\s+(?:status|init|index|query|files|context|affected)\b)/g,
-    'peaks codegraph'
-  );
-}
-
-const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
-
-/**
- * Upstream `status` answers a different question than peaks-loop's
- * integrity gate: upstream says "the on-disk graph matches the last scan"
- * (true), peaks says "that graph covers the repository" (false when rules
- * exclude tracked files). Both verdicts are correct, but an unqualified
- * `[OK] Index is up to date` printed above our `[FAIL] ...` reads as
- * "nothing to see here" — and the OK is the line the eye lands on first.
- * The exit code and the JSON envelope are already right; only this line
- * lies by juxtaposition.
- *
- * So: keep upstream's wording — the line stays recognizable, and the
- * Files/Nodes counts around it are untouched — but drop the bare OK
- * marker and name the only question it answers. Clean runs never reach
- * this, so their output stays byte-identical.
- *
- * The match is anchored to THAT line. An earlier version keyed on
- * `includes('up to date')`, which is content-blind: upstream prints other
- * `[OK] ... are up to date` lines (a language-server or watcher line is the
- * observed one), and each of those was rewritten into a claim about the
- * INDEX — a misattribution introduced by a change whose entire purpose was
- * to stop misleading output. Anything that is not the index line is passed
- * through byte-for-byte, tail note and all.
- */
-const INDEX_UP_TO_DATE_RE = /^\[OK\]\s+Index is up to date\b/i;
-
-export function attributeUpstreamUpToDateLine(stdout: string): string {
-  return stdout
-    .split('\n')
-    .map((line) => {
-      const visible = line.replace(ANSI_SGR_PATTERN, '').trim();
-      if (!INDEX_UP_TO_DATE_RE.test(visible)) {
-        return line;
-      }
-
-      // Only the OK marker is downgraded and the attribution appended: the
-      // rest of the line — including whatever upstream wrote after it — is
-      // preserved, so nothing upstream actually said is replaced.
-      const withoutOk = visible.replace(/^\[OK\]\s*/, '');
-      return `[i] ${withoutOk} (upstream: matches the last scan only; repository coverage is answered below)`;
-    })
-    .join('\n');
-}
-
-async function runCodegraphCommand(
-  io: ProgramIO,
-  command: string,
-  options: CodegraphInvocationOptions,
-  asJson?: boolean,
-  attributeStdout?: (text: string) => string
-): Promise<void> {
-  try {
-    const invocation = createCodegraphInvocation(options);
-    const result = await executeCodegraphInvocation(invocation);
-
-    if (result.exitCode !== null && result.exitCode !== 0 && asJson === true) {
-      printCodegraphFailure(io, command, new Error(result.stderr || result.stdout || `codegraph exited with code ${result.exitCode}`), true, result.exitCode);
-      return;
-    }
-
-    const didFail = result.exitCode !== null && result.exitCode !== 0;
-    const rewritten = rewriteBareCodegraphHints(result.stdout);
-    const stdout = attributeStdout === undefined ? rewritten : attributeStdout(rewritten);
-    const stderr = rewriteBareCodegraphHints(result.stderr);
-
-    if (stdout.length > 0) {
-      io.stdout((didFail ? redactSensitiveErrorMessage(stdout) : stdout).trimEnd());
-    }
-
-    if (stderr.length > 0) {
-      io.stderr((didFail ? redactSensitiveErrorMessage(stderr) : stderr).trimEnd());
-    }
-
-    if (didFail) {
-      process.exitCode = result.exitCode;
-    }
-  } catch (error) {
-    printCodegraphFailure(io, command, error, asJson);
-  }
-}
-
-/**
- * `--peaks-json` machine report for `status`. Carries the upstream
- * result AND the peaks-loop integrity verdict as one JSON document so a
- * CI job can gate on `data.integrity.gap` / `data.integrity.rulesToRemove`
- * without scraping human text.
- */
-async function runCodegraphStatusJson(
-  io: ProgramIO,
-  options: CommonCodegraphOptions,
-  integrity: CodegraphExcludeIntegrityReport | null,
-  integrityWarning: string | null
-): Promise<void> {
-  let result;
-  try {
-    result = await executeCodegraphInvocation(
-      createCodegraphInvocation({ subcommand: 'status', project: options.project })
-    );
-  } catch (error) {
-    printCodegraphFailure(io, 'codegraph.status', error, true);
-    return;
-  }
-
-  const upstream = {
-    exitCode: result.exitCode,
-    stdout: rewriteBareCodegraphHints(result.stdout).trimEnd(),
-    stderr: redactSensitiveErrorMessage(rewriteBareCodegraphHints(result.stderr)).trimEnd()
-  };
-  const upstreamFailed = result.exitCode !== null && result.exitCode !== 0;
-
-  if (integrity?.gap === true) {
-    printResult(
-      io,
-      fail(
-        'codegraph.status',
-        'CODEGRAPH_INDEX_INCOMPLETE',
-        `codegraph index is incomplete: ${integrity.excludedTrackedCount} of ${integrity.trackedSourceCount} tracked source files are excluded by ${integrity.rulesToRemove.length} rule(s).`,
-        { upstream, integrity, integrityWarning },
-        ['Run `peaks codegraph repair-exclude --project <root>` to drop the offending rules and rebuild the index.']
-      ),
-      true
-    );
-  } else if (upstreamFailed) {
-    printResult(
-      io,
-      fail(
-        'codegraph.status',
-        'CODEGRAPH_COMMAND_FAILED',
-        redactSensitiveErrorMessage(upstream.stderr || upstream.stdout || `codegraph exited with code ${String(result.exitCode)}`),
-        { upstream, integrity, integrityWarning },
-        ['Check the codegraph project path before retrying']
-      ),
-      true
-    );
-  } else {
-    printResult(io, ok('codegraph.status', { upstream, integrity, integrityWarning }), true);
-  }
-
-  if (upstreamFailed) {
-    process.exitCode = result.exitCode ?? 1;
-  }
-}
-
-/**
- * `peaks codegraph status` with an integrity gate.
- *
- * The upstream status is still proxied verbatim (that is what the
- * command has always done), but a clean upstream "index is up to date"
- * is no longer sufficient: when git-tracked source files are being
- * excluded by the config, the command says so, names the rules and
- * files, and exits non-zero.
- *
- * Read-only by construction — it imports the integrity inspector, never
- * the repair writer. Fixing the config is `peaks codegraph init`
- * (fresh) or `peaks codegraph repair-exclude` (explicit).
- */
-async function runCodegraphStatusCommand(
-  io: ProgramIO,
-  options: CommonCodegraphOptions,
-  asJson?: boolean
-): Promise<void> {
-  let integrity: CodegraphExcludeIntegrityReport | null = null;
-  let integrityWarning: string | null = null;
-  const projectRoot = resolve(options.project);
-  try {
-    // Never initialized here → no exclude list is in play, so there is
-    // nothing to report. Staying silent keeps `status` honest and
-    // unchanged for projects that do not use codegraph at all.
-    integrity = isCodegraphExcludeConfigPresent(projectRoot)
-      ? inspectCodegraphExcludeIntegrity(projectRoot)
-      : null;
-  } catch (error) {
-    // Not a git work tree, no config yet, malformed config — the
-    // upstream status is still worth printing, so degrade to a warning
-    // instead of failing the whole command.
-    integrityWarning = getErrorMessage(error);
-  }
-
-  if (asJson === true) {
-    await runCodegraphStatusJson(io, options, integrity, integrityWarning);
-  } else {
-    // Only when the gate found a gap: upstream's `[OK] Index is up to
-    // date` answers "consistent with the last scan", and printing it
-    // unqualified right above our `[FAIL]` tells the reader two opposite
-    // things at once. Clean runs get no transform and stay byte-identical.
-    await runCodegraphCommand(
-      io,
-      'codegraph.status',
-      { subcommand: 'status', project: options.project },
-      false,
-      integrity?.gap === true ? attributeUpstreamUpToDateLine : undefined
-    );
-    if (integrityWarning !== null) {
-      io.stdout(`[WARN] codegraph exclude integrity not evaluated: ${integrityWarning}`);
-    } else if (integrity !== null) {
-      for (const line of renderCodegraphExcludeIntegrityLines(integrity)) {
-        io.stdout(line);
-      }
-    }
-  }
-
-  if (integrity?.gap === true) {
-    process.exitCode = CODEGRAPH_INTEGRITY_EXIT_CODE;
-  }
-}
-
-/**
- * Explicit repair path: reconcile → drop offending rules → back up the
- * config → rebuild the index. Mirrors the automatic step `init` runs
+ * Explicit repair path: reconcile both config axes → back up the config →
+ * rewrite it → rebuild the index. Mirrors the automatic step `init` runs
  * after a fresh upstream init, for workspaces that were already
  * initialized before the integrity gate existed.
  */
-async function runCodegraphRepairExcludeCommand(
+async function runCodegraphRepairCommand(
   io: ProgramIO,
   options: CommonCodegraphOptions,
-  asJson?: boolean
+  asJson: boolean | undefined,
+  mode: CodegraphRepairMode
 ): Promise<void> {
+  const spec = REPAIR_MODES[mode];
   let projectRoot: string;
   try {
-    const candidate = resolve(options.project);
-    if (!statSync(candidate).isDirectory()) {
-      throw new Error('Project path must exist and be a directory');
-    }
-    projectRoot = candidate;
+    // `resolveProjectRoot`, not a hand-rolled `resolve` + `statSync`: it is
+    // the canonicalizer every codegraph invocation already goes through
+    // (`createCodegraphInvocation`), so the config path this verb reports
+    // and writes names the SAME directory the spawn and the other verbs use
+    // even when `--project` is a symlink, a short name or a differently
+    // cased alias. The error path is unchanged.
+    projectRoot = resolveProjectRoot(options.project);
   } catch (error) {
-    printCodegraphFailure(io, 'codegraph.repair-exclude', error, asJson);
+    printCodegraphFailure(io, spec.commandId, error, asJson);
     return;
   }
 
-  const report = await repairCodegraphExcludeFromProject(projectRoot);
+  const report = await repairCodegraphExcludeFromProject(projectRoot, undefined, {
+    reindex: spec.reindex
+  });
 
   // Where the notes go matters: `printResult` renders every `warnings`
   // entry to stderr with a `warning: ` prefix, so a confirmation parked
   // in the third slot reads as a problem — and a real warning parked
   // there double-prefixes. Confirmations go to `nextActions`; only a
   // genuine `report.warning` reaches `warnings`, verbatim.
-  const confirmations: string[] = [];
-  if (report.applied) {
-    confirmations.push(
-      `Removed ${report.rulesRemoved.length} exclude rule(s), recovering ${report.filesRecovered} tracked source file(s). Config backed up to ${report.backupPath}.`
-    );
-  } else {
-    confirmations.push('No tracked source file is excluded by the codegraph config; nothing to repair.');
-  }
-  if (report.applied) {
+  const confirmations: string[] = [
+    report.applied ? appliedRepairNote(report) : spec.noopNote
+  ];
+  if (report.applied || mode === 'index') {
     confirmations.push('Re-run `peaks codegraph status --project <root>` to confirm the gap is closed.');
   }
 
   printResult(
     io,
     ok(
-      'codegraph.repair-exclude',
+      spec.commandId,
       {
         applied: report.applied,
         rulesRemoved: report.rulesRemoved,
+        includePatternsAdded: report.includePatternsAdded,
         filesRecovered: report.filesRecovered,
+        includeFilesRecovered: report.includeFilesRecovered,
+        includeAdmittedAfter: report.includeAdmittedAfter,
         trackedSourceCount: report.trackedSourceCount,
         configPath: report.configPath,
         backupPath: report.backupPath,
         reindexed: report.reindexed,
+        forcedRebuild: report.forcedRebuild,
         warning: report.warning
       },
       report.warning === null ? [] : [report.warning],
@@ -479,18 +362,20 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOp
       // intentionally swallowed — surface as warning below
     }
 
-    // Upstream `init` writes its 99-rule default `exclude` template,
-    // some of which collide with real source directories in this
-    // project. Left alone, a fresh clone / new machine gets an index
-    // that silently omits tracked source files while `status` says it
-    // is up to date. Reconcile now, drop the offending rules, and
-    // rebuild the index — a fresh init is the one moment this is both
-    // safe (nothing has been indexed yet) and necessary (`.codegraph/`
-    // is gitignored, so every clone starts from the default template).
+    // Upstream `init` writes BOTH default templates: a 99-rule `exclude`
+    // list (some rules collide with real source directories in this
+    // project) and a 32-entry `include` list (which omits five extensions
+    // upstream's own extractor supports). Left alone, a fresh clone / new
+    // machine gets an index that silently omits tracked source files while
+    // `status` says it is up to date. Reconcile now, append the missing
+    // include patterns, drop the offending rules, and rebuild the index — a
+    // fresh init is the one moment this is both safe (nothing has been
+    // indexed yet) and necessary (`.codegraph/` is gitignored, so every
+    // clone starts from the default templates).
     //
     // Never throws: a failure here is reported as a warning, not a
     // failed init (the init itself already succeeded).
-    const excludeRepair = await repairCodegraphExcludeFromProject(projectRoot);
+    const configRepair = await repairCodegraphExcludeFromProject(projectRoot);
 
     // These are confirmations, not warnings: `printResult` renders every
     // `warnings` entry to stderr behind a `warning: ` prefix, so a fully
@@ -499,11 +384,23 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOp
     const initNotes: string[] = [
       `Stamped peaks-loop marker at ${guardOutcome.codegraphDir}/.peaks-loop-marker`
     ];
-    if (excludeRepair.applied) {
-      initNotes.push(
-        `Removed ${excludeRepair.rulesRemoved.length} exclude rule(s) that blocked tracked source files, recovering ${excludeRepair.filesRecovered} file(s); config backed up to ${excludeRepair.backupPath}.`
-      );
-      if (excludeRepair.reindexed) {
+    if (configRepair.applied) {
+      if (configRepair.includePatternsAdded.length > 0) {
+        // A1 (2026-09-17): the include axis names its OWN file delta here too.
+        // Naming the patterns alone left the same gap the repair note had —
+        // a reader learned which extensions were appended but not how many
+        // tracked files that admitted, and this note is the ONLY place a
+        // fresh `init` reports the include repair.
+        initNotes.push(
+          `Added ${configRepair.includePatternsAdded.length} include pattern(s) upstream's extractor supports but its default template omits, newly admitting ${configRepair.includeFilesRecovered} tracked source file(s) (${configRepair.includePatternsAdded.join(', ')}).${admittingClause(configRepair)}`
+        );
+      }
+      if (configRepair.rulesRemoved.length > 0) {
+        initNotes.push(
+          `Removed ${configRepair.rulesRemoved.length} exclude rule(s) that blocked tracked source files, recovering ${configRepair.filesRecovered} file(s); config backed up to ${configRepair.backupPath ?? ''}.`
+        );
+      }
+      if (configRepair.reindexed) {
         initNotes.push('Rebuilt the codegraph index over the recovered files.');
       }
     }
@@ -517,17 +414,21 @@ async function runCodegraphInitCommand(io: ProgramIO, options: CommonCodegraphOp
           codegraphDir: guardOutcome.codegraphDir,
           markerWritten: true,
           excludeRepair: {
-            applied: excludeRepair.applied,
-            rulesRemoved: excludeRepair.rulesRemoved,
-            filesRecovered: excludeRepair.filesRecovered,
-            reindexed: excludeRepair.reindexed,
-            backupPath: excludeRepair.backupPath,
-            warning: excludeRepair.warning
+            applied: configRepair.applied,
+            rulesRemoved: configRepair.rulesRemoved,
+            includePatternsAdded: configRepair.includePatternsAdded,
+            filesRecovered: configRepair.filesRecovered,
+            includeFilesRecovered: configRepair.includeFilesRecovered,
+            includeAdmittedAfter: configRepair.includeAdmittedAfter,
+            trackedSourceCount: configRepair.trackedSourceCount,
+            reindexed: configRepair.reindexed,
+            backupPath: configRepair.backupPath,
+            warning: configRepair.warning
           }
         },
         // Verbatim: `printResult` supplies the `warning: ` prefix, so a
         // prefix added here would render as `warning: warning: ...`.
-        excludeRepair.warning === null ? [] : [excludeRepair.warning],
+        configRepair.warning === null ? [] : [configRepair.warning],
         initNotes
       ),
       asJson
@@ -629,9 +530,21 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
   addProjectOption(
     codegraph
       .command('repair-exclude')
-      .description('Drop codegraph exclude rules that block tracked source files, then rebuild the index')
+      .description(
+        'Normalize the codegraph include list, drop exclude rules that block tracked source files, then rebuild the index'
+      )
   ).action((options: CommonCodegraphOptions) =>
-    runCodegraphRepairExcludeCommand(io, options, options.peaksJson)
+    runCodegraphRepairCommand(io, options, options.peaksJson, 'exclude')
+  );
+
+  addProjectOption(
+    codegraph
+      .command('repair-index')
+      .description(
+        'Repair both codegraph config axes, then rebuild the index from scratch (drops rows for deleted files)'
+      )
+  ).action((options: CommonCodegraphOptions) =>
+    runCodegraphRepairCommand(io, options, options.peaksJson, 'index')
   );
 
   addProjectOption(codegraph.command('init').description('Initialize codegraph for a project')).action(
@@ -644,8 +557,11 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
       .description('Index a project with codegraph')
       .option('--force', 'force reindexing')
       .option('--quiet', 'reduce upstream output')
-  ).action((options: CodegraphIndexOptions) =>
-    runCodegraphCommand(
+  ).action(async (options: CodegraphIndexOptions) => {
+    // `runCodegraphCommand` returns "upstream failed" for the one caller
+    // that ranks exit-code precedence (`status`); every other command just
+    // awaits it, so it is discarded here rather than leaked to commander.
+    await runCodegraphCommand(
       io,
       'codegraph.index',
       {
@@ -655,8 +571,8 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
         ...(options.quiet === true ? { quiet: true } : {})
       },
       options.peaksJson
-    )
-  );
+    );
+  });
 
   addProjectOption(
     codegraph
@@ -665,8 +581,8 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
       .argument('<search>', 'search text')
       .option('--json', 'forward JSON output flag to upstream codegraph')
       .option('--limit <n>', 'maximum result count', parsePositiveInteger)
-  ).action((search: string, options: CodegraphQueryOptions) =>
-    runCodegraphCommand(
+  ).action(async (search: string, options: CodegraphQueryOptions) => {
+    await runCodegraphCommand(
       io,
       'codegraph.query',
       {
@@ -677,8 +593,8 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
         ...(options.limit !== undefined ? { limit: options.limit } : {})
       },
       options.peaksJson
-    )
-  );
+    );
+  });
 
   addProjectOption(
     codegraph
@@ -686,8 +602,8 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
       .description('List codegraph files')
       .option('--json', 'forward JSON output flag to upstream codegraph')
       .option('--max-depth <n>', 'maximum traversal depth', parsePositiveInteger)
-  ).action((options: CodegraphFilesOptions) =>
-    runCodegraphCommand(
+  ).action(async (options: CodegraphFilesOptions) => {
+    await runCodegraphCommand(
       io,
       'codegraph.files',
       {
@@ -697,12 +613,13 @@ export function registerCodegraphCommands(program: Command, io: ProgramIO): void
         ...(options.maxDepth !== undefined ? { maxDepth: options.maxDepth } : {})
       },
       options.peaksJson
-    )
-  );
+    );
+  });
 
   addProjectOption(codegraph.command('context').description('Build task context with codegraph').argument('<task>', 'task text')).action(
-    (task: string, options: CommonCodegraphOptions) =>
-      runCodegraphCommand(io, 'codegraph.context', { subcommand: 'context', project: options.project, task }, options.peaksJson)
+    async (task: string, options: CommonCodegraphOptions) => {
+      await runCodegraphCommand(io, 'codegraph.context', { subcommand: 'context', project: options.project, task }, options.peaksJson);
+    }
   );
 
   addProjectOption(

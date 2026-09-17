@@ -15,6 +15,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { maxWorkers as workerCount } from './vitest.workers';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
@@ -54,8 +55,20 @@ export default defineConfig({
     alias: [srcAlias, jsToTsAlias],
   },
   test: {
+    // Shared with the other three configs so the value cannot drift; see
+    // `vitest.workers.ts` for the default and the PEAKS_VITEST_MAX_WORKERS override.
+    maxWorkers: workerCount,
     include: ['tests/integration/**/*.e2e.test.ts', 'tests/integration/**/*.test.ts'],
     exclude: ['node_modules/**', 'tests/unit/**', 'tests/e2e/**'],
+    // Slice 2026-09-17 — the suite spawns the BUILT CLI (see the
+    // PEAKS_BUILD_AVAILABLE note above), so a stale `dist/` makes it pass
+    // against code that no longer exists (measured: 18 src files newer than
+    // every dist artifact, suite green). This preflight throws before any test
+    // file loads when `dist/` does not match `src/`, and passes silently when
+    // there is no build to check. See `scripts/dist-freshness.mjs` for the
+    // comparison and `tests/integration/_dist-freshness-global-setup.ts` for
+    // the policy.
+    globalSetup: ['./tests/integration/_dist-freshness-global-setup.ts'],
     setupFiles: ['./tests/unit/_setup/index.ts'],
     testTimeout: 60_000,
     hookTimeout: 60_000,

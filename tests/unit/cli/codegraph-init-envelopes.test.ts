@@ -151,8 +151,26 @@ describe('peaks codegraph init — success notes are not warnings', () => {
     // then: everything positive lands in nextActions …
     const envelope = parseJson(captured);
     expect(envelope.ok).toBe(true);
+    // Slice-002 widened this repair to the include axis, so a fresh init now
+    // also reports the include patterns it appended. The fixture tracks only
+    // `.ts` files and its `include` is `['**/*.ts']`, so the five appended
+    // patterns admit no tracked file YET — which is why the note carries no
+    // "Include now admits …" clause (that clause is asserted separately, on
+    // a fixture that does track a `.mjs`). The pattern list is still exact:
+    // all five come from upstream's own tables, not from a list in the code.
+    //
+    // A1 (2026-09-17): the note now also carries the include axis' own FILE
+    // delta, printed unconditionally like the exclude side's. "0" here is the
+    // honest measurement for THIS fixture (no `.mjs`/`.cjs` file is tracked,
+    // so the appended patterns admit none of them) and not a placeholder —
+    // the case where the axis does admit files is pinned by
+    // tests/unit/cli/codegraph-repair-note.test.ts and by the
+    // include-adapter cases below.
     expect(envelope.nextActions).toEqual([
       `Stamped peaks-loop marker at ${join(project, '.codegraph')}/.peaks-loop-marker`,
+      "Added 5 include pattern(s) upstream's extractor supports but its default template omits, " +
+        'newly admitting 0 tracked source file(s) ' +
+        '(**/*.mjs, **/*.cjs, **/*.pyw, **/*.hxx, **/*.rake).',
       'Removed 1 exclude rule(s) that blocked tracked source files, recovering 1 file(s); config backed up to ' +
         `${join(project, '.codegraph', 'config.json')}.bak.`,
       'Rebuilt the codegraph index over the recovered files.',
@@ -194,7 +212,12 @@ describe('peaks codegraph init — a real warning is reported once, verbatim', (
     // then: exactly one warning, carrying the reason and nothing else …
     const envelope = parseJson(captured);
     expect(envelope.warnings).toHaveLength(1);
-    expect(envelope.warnings[0]).toMatch(/^codegraph exclude repaired \(1 rule\(s\) removed\)/);
+    // The warning names BOTH axes and the counts that actually moved, so it
+    // cannot understate a repair that widened `include` (slice-002) — and
+    // the two counts are asserted exactly, not loosely matched.
+    expect(envelope.warnings[0]).toMatch(
+      /^codegraph config repaired \(1 exclude rule\(s\) removed, 5 include pattern\(s\) added\) but the follow-up index failed \(exit 3\)/
+    );
     expect(envelope.warnings[0]).not.toMatch(/^warning:/);
 
     // … the init itself still succeeded (a repair failure never fails init)

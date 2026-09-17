@@ -1,13 +1,16 @@
 import { Command } from 'commander';
 import { loadProjectDashboard } from '../../services/dashboard/project-dashboard-service.js';
 import { generateProjectContext, readProjectContext } from '../../services/memory/project-context-service.js';
-import { extractSessionMemories, readMemoryIndex, readProjectMemories, readProjectMemoryBody } from '../../services/memory/project-memory-service.js';
+import { describeMemoryBlockDrops, describeSessionScanFailures, extractSessionMemories, readMemoryIndex, readProjectMemories, readProjectMemoryBody, VALID_PROJECT_MEMORY_KINDS } from '../../services/memory/project-memory-service.js';
 import { readBusinessKnowledge } from '../../services/prd/project-scan-reader.js';
 import { applyStalePolicy, DEFAULT_STALE_DAYS } from '../../shared/stale-policy.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+
+/** Derived from the canonical kind vocabulary — never hand-maintain a list here. */
+const KIND_HELP = VALID_PROJECT_MEMORY_KINDS.join(', ');
 
 type ProjectDashboardOptions = {
   project: string;
@@ -161,7 +164,15 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
         writtenFiles: result.writtenFiles,
         memoryDir: result.primaryMemoryDir,
         indexUpdated: result.updatedIndex
-      }), options.json);
+      }, [
+        // Two drop axes, one channel. `droppedBlocks` = a block was found and
+        // rejected (or a marker-shaped comment was not findable at all);
+        // `scanFailures` = the whole artifact could not be read, so its blocks
+        // were never candidates. `data` is unchanged by either — same contract
+        // as `memory.extract`.
+        ...describeMemoryBlockDrops(result.droppedBlocks),
+        ...describeSessionScanFailures(result.scanFailures)
+      ]), options.json);
     } catch (error) {
       printResult(io, fail('project.memories:extract', 'MEMORY_EXTRACT_FAILED', getErrorMessage(error), { sessionId: options.sessionId, projectRoot: options.project }, ['Check the session-id and project path']), options.json);
       process.exitCode = 1;
@@ -194,7 +205,7 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       .command('memories')
       .description('Read durable project memories (decisions, conventions, modules, rules) from .peaks/memory for LLM consumption')
       .requiredOption('--project <path>', 'target project root')
-      .option('--kind <kind>', 'filter by kind: project, rule, decision, reference, feedback, convention, module, lesson')
+      .option('--kind <kind>', `filter by memory kind (one of: ${KIND_HELP})`)
   ).action((options: { project: string; kind?: string; json?: boolean }) => {
     try {
       const result = readProjectMemories(options.project);

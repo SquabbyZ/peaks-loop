@@ -14,8 +14,8 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cpus } from 'node:os';
 import { defineConfig } from 'vitest/config';
+import { maxWorkers as workerCount } from './vitest.workers';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 
@@ -35,14 +35,14 @@ const jsToTsAlias = {
 // pushing runnable processes past core count. `testTimeout` measures wall clock,
 // so descheduled tests burn their 30 s budget while doing zero work. Measured
 // oversubscription was 8.8× (aggregate test time 3359 s vs wall 383 s on 16 cores).
-// Schedule `maxWorkers = floor(cpus/2)` so workers never exceed core count, with
-// PEAKS_VITEST_MAX_WORKERS override for CI tuning. Floor of 2 keeps 2-core boxes
-// from collapsing to 1 worker. Validation: 17 timeouts → 0, 705 → 722 pass,
-// wall 383.67 s → 362.21 s on the 16-core measurement box.
-const defaultMaxWorkers = Math.max(2, Math.floor(cpus().length / 2));
-const maxWorkers = process.env.PEAKS_VITEST_MAX_WORKERS
-  ? Number(process.env.PEAKS_VITEST_MAX_WORKERS)
-  : defaultMaxWorkers;
+// The fix at the time was `maxWorkers = floor(cpus/2)`, which took 17 timeouts
+// → 0 and 705 → 722 pass (wall 383.67 s → 362.21 s on the 16-core box).
+//
+// The live policy is now a FIXED 2, defined once in `vitest.workers.ts` and
+// imported as `workerCount` by all four vitest configs. See that file for why
+// the number changed (load-shaped flakes at higher concurrency look exactly
+// like real failures) and for the `PEAKS_VITEST_MAX_WORKERS` escape hatch.
+const maxWorkers = workerCount;
 
 export default defineConfig({
   root: projectRoot,

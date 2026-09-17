@@ -30,9 +30,12 @@ import { dirname, join, relative } from 'node:path';
 import { isInsidePath, resolveInputPath, stablePath, stableRealPath } from '../../../../shared/path-utils.js';
 import type {
   BackupPlanOptions,
+  ExtractedProjectMemory,
   ExtractPlanOptions,
   ExtractSessionMemoriesOptions,
   ExtractSessionMemoriesResult,
+  MemoryBlockDrop,
+  SessionScanFailure,
   ProjectMemoryBackupPlan,
   ProjectMemoryBackupResult,
   ProjectMemoryBackupSummary,
@@ -41,7 +44,7 @@ import type {
   ProjectMemoryExtractSummary
 } from '../types.js';
 import { renderMemoryFile, slugify } from '../parsers/frontmatter.js';
-import { extractStableProjectMemories, summarizeBackupResult, summarizeExtractResult } from '../parsers/markdown-pure.js';
+import { extractStableProjectMemoriesWithDiagnostics, summarizeBackupResult, summarizeExtractResult } from '../parsers/markdown-pure.js';
 import {
   assertInsideProject,
   assertSafeProjectMemoryDir,
@@ -56,11 +59,18 @@ import { listMarkdownFiles } from './search.js';
 export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): ProjectMemoryExtractPlan {
   const projectRoot = normalizeRoot(options.projectRoot);
   const primaryMemoryDir = assertSafeProjectMemoryDir(projectRoot);
-  const extractedMemories = options.artifactPaths.flatMap((artifactPath) => {
+  const extractedMemories: ExtractedProjectMemory[] = [];
+  const droppedBlocks: MemoryBlockDrop[] = [];
+  for (const artifactPath of options.artifactPaths) {
     const safeArtifactPath = assertInsideProject(artifactPath, projectRoot);
     const relativeArtifactPath = relative(projectRoot, safeArtifactPath).replaceAll('\\', '/');
-    return extractStableProjectMemories(readFileSync(safeArtifactPath, 'utf8'), relativeArtifactPath);
-  }).sort((left, right) => slugify(left.title).localeCompare(slugify(right.title)));
+    const extracted = extractStableProjectMemoriesWithDiagnostics(readFileSync(safeArtifactPath, 'utf8'), relativeArtifactPath);
+    // Push order + the sort below are the pre-existing ordering contract:
+    // artifacts in argument order, memories sorted by slug.
+    extractedMemories.push(...extracted.memories);
+    droppedBlocks.push(...extracted.dropped);
+  }
+  extractedMemories.sort((left, right) => slugify(left.title).localeCompare(slugify(right.title)));
 
   const slugCounts = new Map<string, number>();
   for (const memory of extractedMemories) {
@@ -84,7 +94,8 @@ export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): Pro
     primaryMemoryDir,
     backupPolicy: 'project-memory-primary-artifact-backup',
     extractedMemories,
-    plannedWrites
+    plannedWrites,
+    droppedBlocks
   };
 }
 
@@ -218,7 +229,9 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
         scannedFiles: 0,
         extractedCount: 0,
         writtenFiles: [],
-        updatedIndex: false
+        updatedIndex: false,
+        droppedBlocks: [],
+        scanFailures: []
       };
     }
     throw error;
@@ -226,14 +239,35 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
   const scannedFiles = listMarkdownFiles(sessionDir, { maxDepth: 6, skipDotfiles: true });
 
   const allExtracted: import('../types.js').ExtractedProjectMemory[] = [];
+  // Symmetric with `createProjectMemoryExtractPlan`, which has reported the
+  // rejected blocks since M2. This path used to call the diagnostic-free
+  // projection, so a session handoff whose blocks were all malformed returned
+  // `extractedCount: 0` with nothing anywhere saying a block had been found.
+  const droppedBlocks: MemoryBlockDrop[] = [];
+  const scanFailures: SessionScanFailure[] = [];
   for (const filePath of scannedFiles) {
+    const relativePath = relative(projectRoot, filePath).replaceAll('\\', '/');
     try {
       const content = readFileSync(filePath, 'utf8');
-      const relativePath = relative(projectRoot, filePath).replaceAll('\\', '/');
-      const extracted = extractStableProjectMemories(content, relativePath);
-      allExtracted.push(...extracted);
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-      // skip unreadable files
+      const extracted = extractStableProjectMemoriesWithDiagnostics(content, relativePath);
+      allExtracted.push(...extracted.memories);
+      droppedBlocks.push(...extracted.dropped);
+    } catch (error) {
+      // G2 resolution for this site: this was a bare `catch {}` carrying the
+      // repo-wide G2 grace marker that `scripts/lint/silent-warning-detector.mjs`
+      // reads (anti-pattern #1, `empty-catch`). The throw is no longer
+      // swallowed — the file is named in the same `warnings` channel as the
+      // block drops, which is what the grace period was deferring, so the
+      // marker is gone from this line. Still non-fatal: one unreadable artifact
+      // must not abort the scan of the rest, so the catch keeps its control
+      // flow and only gains a channel.
+      //
+      // `relativePath` is computed above the `try` so the catch can name the
+      // file. That is safe rather than convenient: `path.relative` is pure
+      // string arithmetic on two already-validated absolute path strings and
+      // does not throw for them, so hoisting it cannot turn a path-join problem
+      // into a fatal error that the old swallow would have absorbed.
+      scanFailures.push({ file: relativePath, detail: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -247,7 +281,9 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
       scannedFiles: scannedFiles.length,
       extractedCount: 0,
       writtenFiles: [],
-      updatedIndex: false
+      updatedIndex: false,
+      droppedBlocks,
+      scanFailures
     };
   }
 
@@ -295,6 +331,8 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
     scannedFiles: scannedFiles.length,
     extractedCount: allExtracted.length,
     writtenFiles,
-    updatedIndex: apply && writtenFiles.length > 0
+    updatedIndex: apply && writtenFiles.length > 0,
+    droppedBlocks,
+    scanFailures
   };
 }

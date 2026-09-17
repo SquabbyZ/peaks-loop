@@ -30,6 +30,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  codegraphRefreshNotice,
   refreshCodegraphAfterSlice,
   isCodegraphPresent,
 } from '../../../../src/services/codegraph/codegraph-autorefresh.js';
@@ -254,9 +255,32 @@ describe('Scenario: integration — dangling marker self-heal and foreign skip',
 
       // … the offending rule is gone, with a rollback copy …
       const configPath = join(project, '.codegraph', 'config.json');
-      const config = JSON.parse(readFileSync(configPath, 'utf8')) as { exclude: string[] };
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+        include: string[];
+        exclude: string[];
+      };
       expect(config.exclude).toEqual(['**/node_modules/**']);
       expect(existsSync(`${configPath}.bak`)).toBe(true);
+
+      // … and the INCLUDE axis landed in the SAME write (D1, D-round).
+      //    The slice-complete auto-refresh is the second automatic seam,
+      //    and the only one a downstream project reaches without any
+      //    operator action — so the include invariant is pinned here, not
+      //    left implicit in the exclude assertion beside it. The fixture's
+      //    self-heal init template names only `**/*.ts`; the seam must
+      //    append exactly the five extensions upstream's extractor
+      //    supports and its own template omits, in that order, keeping the
+      //    caller's entry first. Reddens if the seam stops passing through
+      //    the shared repair entry point or starts short-circuiting when
+      //    there is no exclude rule to remove.
+      expect(config.include).toEqual([
+        '**/*.ts',
+        '**/*.mjs',
+        '**/*.cjs',
+        '**/*.pyw',
+        '**/*.hxx',
+        '**/*.rake',
+      ]);
 
       // … and exactly one index ran (the repair does not add a second
       //    rebuild when the caller indexes right after).
@@ -342,5 +366,65 @@ describe('Scenario: a11y — refresh notes are human/LLM actionable', () => {
     } finally {
       rmSync(project, { recursive: true, force: true });
     }
+  });
+
+  // A2 (`2026-09-17-codegraph-msg-and-refresh`). The note was computed and
+  // then thrown away by both call sites, so the failure existed only in a
+  // field nothing printed. These cases pin the two halves of the fix: the
+  // note names a REMEDY, and `codegraphRefreshNotice` decides — in ONE place
+  // shared by both boundaries — which outcomes an operator must be told about.
+  it('when the index fails, should name the remedy as well as the reason', async () => {
+    // given: a store in use whose index exits non-zero
+    const project = freshProject('peaks-cg-auto-a3-');
+    initializedCodegraph(project);
+    try {
+      // when: refreshCodegraphAfterSlice is invoked
+      const result = await refreshCodegraphAfterSlice(project, failingRunner(2, 'schema lock conflict'));
+      // then: the note carries both — the reason, and what to do about it
+      expect(result.refreshed).toBe(false);
+      if (result.refreshed) throw new Error('unreachable');
+      expect(result.note).toContain('exit 2');
+      expect(result.note).toContain('peaks codegraph index');
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('codegraphRefreshNotice: a store in use that did not refresh is reportable', async () => {
+    // given: a real failure against a real store
+    const project = freshProject('peaks-cg-auto-a4-');
+    initializedCodegraph(project);
+    try {
+      const result = await refreshCodegraphAfterSlice(project, failingRunner(2, 'schema lock conflict'));
+      // when: the shared notice rule is asked what to report
+      const notice = codegraphRefreshNotice(result);
+      // then: the note itself, verbatim — a second wording here would be a
+      //       second truth about the same failure
+      expect(result.refreshed).toBe(false);
+      if (result.refreshed) throw new Error('unreachable');
+      expect(notice).toBe(result.note);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('codegraphRefreshNotice: a project that never set codegraph up is not reportable', async () => {
+    // given: no store at all — nothing was ever expected to happen here
+    const project = freshProject('peaks-cg-auto-a5-');
+    try {
+      const result = await refreshCodegraphAfterSlice(project, okRunner());
+      // when/then: silent. Warning at every slice boundary of every project
+      //            that never opted in would train the reader to skip the
+      //            line that matters.
+      expect(codegraphRefreshNotice(result)).toBeNull();
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('codegraphRefreshNotice: a successful refresh is not reportable', () => {
+    // given: the green result shape
+    // when/then: nothing to say
+    expect(codegraphRefreshNotice({ refreshed: true })).toBeNull();
   });
 });

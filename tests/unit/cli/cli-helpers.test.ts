@@ -382,3 +382,111 @@ describe("Scenario: a11y — error envelope hygiene", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// PIN — the central exit-code root cause, under review.
+//
+// THIS TEST DOCUMENTS A KNOWN ROOT CAUSE. IT IS NOT AN ENDORSEMENT OF THE
+// BEHAVIOUR IT ASSERTS. It exists so that the day someone makes `printResult`
+// assign `process.exitCode`, the suite says so in one place, on purpose,
+// instead of that change arriving as an unexplained diff — or, worse, as the
+// silent disappearance of this investigation's evidence.
+//
+// The property, stated plainly: `printResult` renders a failed envelope to
+// stderr and returns WITHOUT touching `process.exitCode`. Every caller that
+// prints a `fail(...)` envelope and does not separately assign the code
+// therefore exits 0 while reporting a failure. Measured on the real CLI
+// (`node --import tsx src/cli/index.ts …`, temp project, 2026-09-17):
+//
+//   peaks complexity-estimate --files " " --project <tmp> --json
+//     -> stdout `"ok": false, "code": "INVALID_INPUT"`, EXIT=0
+//   peaks fork sync --sync-id no-such-id --project <tmp> --json
+//     -> stdout `"ok": false, "code": "NOT_FOUND"`, EXIT=0
+//   peaks session primer --project "" --json      [a GUARDED site, control]
+//     -> stdout `"ok": false, "code": "PRIMER_EMPTY_PROJECT"`, EXIT=1
+//
+// The asymmetry above is why this is pinned at the PRINTER and not per caller:
+// the guarded control and the unguarded defects are the same envelope shape,
+// the same printer, and differ only in whether the enclosing function happened
+// to assign the code by hand.
+//
+// WHY THIS TEST ASSERTS TWICE, ON PURPOSE. Asserting only `exitCode === 0`
+// would also pass if `printResult` were replaced by a no-op — a green that
+// says nothing. So the same test also asserts the failure IS reported. The two
+// assertions together pin "reported, not exited", which is the whole finding.
+//
+// WHY THE CENTRAL FIX IS STILL NOT OBVIOUS. A blanket
+// `if (!result.ok) process.exitCode = 1` would change all 1032 `printResult(`
+// call sites in 116 files — and this repo deliberately keeps at least two
+// documented exceptions that such a change would break:
+//   - `peaks compact settle` (`src/cli/commands/compact-command.ts`): a
+//     hook-facing command whose comment reads "the hook path returns before any
+//     `process.exitCode` assignment below, so the harness never sees a non-zero
+//     exit from this command."
+//   - `peaks code-gate --dry-run` (`src/cli/commands/code-gate-command.ts`):
+//     the flag is documented as "emit JSON verdict to stdout instead of exit
+//     code; useful for tests".
+// That is why the shipped remedy so far is per-site (`failResult` in
+// `src/cli/commands/job-commands.ts`) rather than central.
+//
+// rid: 2026-09-17-exit-code-root-cause
+// evidence: .peaks/_runtime/2026-09-16-session-5bcf09/rd/requests/013-2026-09-17-exit-code-root-cause.md
+// ---------------------------------------------------------------------------
+describe("Scenario: behavior — PINNED root cause: printResult does not exit (rid 2026-09-17-exit-code-root-cause)", () => {
+  it("when invoked, should record a failed envelope on stderr and LEAVE process.exitCode at 0 — pinned, not endorsed", () => {
+    // given: a clean exit-code slate and a failing envelope
+    const exitBefore = process.exitCode;
+    process.exitCode = 0;
+    try {
+      const { io, captured } = makeCapturedIo();
+
+      // when:  the printer renders a FAILED envelope for a human
+      printResult(io, fail('demo', 'DEMO_ROOT_CAUSE', 'boom', {}), false);
+
+      // then:  the failure is REPORTED — without this a no-op printResult would
+      //        satisfy the exit-code assertion below and the pin would be green
+      //        for the wrong reason
+      expect(captured.stderrText()).toMatch(/^DEMO_ROOT_CAUSE: boom/);
+      expect(captured.text()).toBe('');
+
+      // then:  and the exit code is NOT touched. THIS is the pinned root cause.
+      expect(
+        process.exitCode,
+        'PINNED ROOT CAUSE CHANGED (rid 2026-09-17-exit-code-root-cause). ' +
+          'printResult() now assigns process.exitCode. That is a CLI-wide exit-code ' +
+          'contract change across 1032 call sites in 116 files, not a local fix. ' +
+          'Before accepting it: `peaks compact settle` and `peaks code-gate --dry-run` ' +
+          'are documented to exit 0 by design, and there are at least 4 more confirmed ' +
+          'unguarded sites (complexity-estimate, smoke define, fork sync, impact scan, ' +
+          'lint check, ide model, release plan, code-review run-ocr-18) whose fix would ' +
+          'be reverted by a central assignment. If the change is deliberate, update this ' +
+          'pin and read 013-2026-09-17-exit-code-root-cause.md for the blast-radius count.',
+      ).toBe(0);
+    } finally {
+      process.exitCode = exitBefore;
+    }
+  });
+
+  it("when invoked, should leave process.exitCode at 0 on the --json path too — the flag picks the channel, not the status", () => {
+    // given: the same failed envelope, read by a machine
+    const exitBefore = process.exitCode;
+    process.exitCode = 0;
+    try {
+      const { io, captured } = makeCapturedIo();
+
+      // when:  asJson=true routes the envelope to stdout
+      printResult(io, fail('demo', 'DEMO_ROOT_CAUSE', 'boom', {}), true);
+
+      // then:  the envelope is on stdout and the code is still untouched
+      expect(captured.stderrText()).toBe('');
+      expect((JSON.parse(captured.text()) as { ok: boolean; code: string }).ok).toBe(false);
+      expect((JSON.parse(captured.text()) as { ok: boolean; code: string }).code).toBe('DEMO_ROOT_CAUSE');
+      expect(
+        process.exitCode,
+        'PINNED ROOT CAUSE CHANGED (rid 2026-09-17-exit-code-root-cause) on the --json path.',
+      ).toBe(0);
+    } finally {
+      process.exitCode = exitBefore;
+    }
+  });
+});

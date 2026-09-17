@@ -34,14 +34,14 @@
 
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   CODEGRAPH_CONFIG_BACKUP_SUFFIX,
-  applyCodegraphExcludeRepair,
+  applyCodegraphConfigRepair,
   repairCodegraphExclude,
   repairCodegraphExcludeFromProject,
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
@@ -199,7 +199,7 @@ describe('repairCodegraphExclude (pure plan)', () => {
 
 // ── render + a11y: the writer ────────────────────────────────────────
 
-describe('applyCodegraphExcludeRepair (config writer)', () => {
+describe('applyCodegraphConfigRepair (config writer)', () => {
   it('when rulesToRemove is empty, should not touch the file at all (bytes and mtime identical)', () => {
     const projectRoot = makeProjectRoot('peaks-cg-s2-noop-');
     mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
@@ -207,7 +207,7 @@ describe('applyCodegraphExcludeRepair (config writer)', () => {
     const before = readFileSync(configPathOf(projectRoot), 'utf8');
     const mtimeBefore = statSync(configPathOf(projectRoot)).mtimeMs;
 
-    const outcome = applyCodegraphExcludeRepair(projectRoot, []);
+    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: [], includePatternsToAdd: [] });
 
     expect(outcome.applied).toBe(false);
     expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(before);
@@ -235,7 +235,7 @@ describe('applyCodegraphExcludeRepair (config writer)', () => {
     )}\n`;
     writeFileSync(configPathOf(projectRoot), original, 'utf8');
 
-    const outcome = applyCodegraphExcludeRepair(projectRoot, ['**/vendor/**', '**/artifacts/**']);
+    const outcome = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**', '**/artifacts/**'], includePatternsToAdd: [] });
 
     expect(outcome.applied).toBe(true);
 
@@ -278,11 +278,11 @@ describe('applyCodegraphExcludeRepair (config writer)', () => {
     mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
     writeFileSync(configPathOf(projectRoot), '{"exclude":["**/vendor/**","**/dist/**"]}\n', 'utf8');
 
-    expect(applyCodegraphExcludeRepair(projectRoot, ['**/vendor/**']).applied).toBe(true);
+    expect(applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] }).applied).toBe(true);
     const afterFirst = readFileSync(configPathOf(projectRoot), 'utf8');
     const backupAfterFirst = readFileSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8');
 
-    const second = applyCodegraphExcludeRepair(projectRoot, ['**/vendor/**']);
+    const second = applyCodegraphConfigRepair(projectRoot, { rulesToRemove: ['**/vendor/**'], includePatternsToAdd: [] });
 
     expect(second.applied).toBe(false);
     expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(afterFirst);
@@ -405,5 +405,137 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
     expect(report.warning).toBeNull();
     // The config repair itself still landed.
     expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
+  });
+});
+
+// ── A1 + A4 (`2026-09-17-codegraph-msg-and-refresh`) ──────────────────
+
+/**
+ * The fixture behind A1: the two axes are SEPARATED so each report field can
+ * be read on its own.
+ *
+ *   - include axis has work — the on-disk `include` list admits TypeScript
+ *     files only, so upstream's five extractor-supported extensions its own
+ *     template omits (`.mjs`, `.cjs`, `.pyw`, `.hxx`, `.rake`) get appended,
+ *     and two TRACKED files (one `.mjs`, one `.cjs`) are newly admitted.
+ *   - exclude axis is clean — the one rule it carries (a node_modules glob,
+ *     spelled out in the fixture body below) blocks no tracked file, so zero
+ *     rules are removed.
+ *
+ * That is the exact shape of the measured run behind the defect: 5 include
+ * patterns added, 0 exclude rules removed, and a message that reported
+ * "recovering 0 tracked source file(s)" while the include axis moved files.
+ *
+ * NOTE: glob literals would close this comment — the same hazard the file
+ * header names — so the fixture body holds them and this comment does not.
+ */
+function makeIncludeAxisFixture(): string {
+  const projectRoot = makeProjectRoot('peaks-cg-a1-');
+  git(projectRoot, ['init', '-q']);
+  git(projectRoot, ['config', 'user.email', 'peaks-test@example.com']);
+  git(projectRoot, ['config', 'user.name', 'peaks test']);
+
+  mkdirSync(join(projectRoot, 'src'), { recursive: true });
+  writeFileSync(join(projectRoot, 'src', 'ok.ts'), 'export const ok = 1;\n', 'utf8');
+  writeFileSync(join(projectRoot, 'app.mjs'), 'export const a = 1;\n', 'utf8');
+  writeFileSync(join(projectRoot, 'tool.cjs'), 'module.exports = 1;\n', 'utf8');
+  git(projectRoot, ['add', '-A']);
+  git(projectRoot, ['commit', '-qm', 'fixture']);
+
+  mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
+  writeFileSync(
+    join(projectRoot, '.codegraph', 'config.json'),
+    `${JSON.stringify({ version: 1, include: ['**/*.ts'], exclude: ['**/node_modules/**'] }, null, 2)}\n`,
+    'utf8'
+  );
+
+  return projectRoot;
+}
+
+describe('A1 — the report counts each axis on its own', () => {
+  it('when only the include axis moved, should report the include delta and NOT the exclude counter', async () => {
+    // given: a project where 5 include patterns admit 2 tracked files and no
+    //        exclude rule blocks anything
+    const projectRoot = makeIncludeAxisFixture();
+
+    // when: the shared two-axis repair runs
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+
+    // then: the exclude axis' counter is honestly zero …
+    expect(report.applied).toBe(true);
+    expect(report.filesRecovered).toBe(0);
+    // … the include axis' own delta is the number the reader needs …
+    expect(report.includePatternsAdded).toHaveLength(5);
+    expect(report.includeFilesRecovered).toBe(2);
+    // … and it is a DELTA, not the absolute admission count re-reported. If
+    //     the two were equal this assertion would pass on a tautology, so the
+    //     values are pinned apart on purpose (3 admitted, 2 of them new).
+    expect(report.includeAdmittedAfter).toBe(3);
+    expect(report.includeFilesRecovered).not.toBe(report.includeAdmittedAfter);
+  });
+
+  it('when the include axis is already complete, should report zero rather than re-count admitted files', async () => {
+    // given: a project the repair has already widened once
+    const projectRoot = makeIncludeAxisFixture();
+    await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+
+    // when: the repair runs a second time
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+
+    // then: nothing moved, and the tracked `.mjs`/`.cjs` files it already
+    //       admitted are NOT reported as recovered a second time
+    expect(report.applied).toBe(false);
+    expect(report.includePatternsAdded).toHaveLength(0);
+    expect(report.includeFilesRecovered).toBe(0);
+    // The gate on the extra admission pass is provably equivalent, not an
+    // approximation: with nothing appended the normalized list IS the on-disk
+    // list, so the ungated delta is zero too. No test can tell them apart —
+    // which is the point of choosing that gate.
+  });
+});
+
+describe('A4 — the rollback copy carries the original config mode', () => {
+  it('should publish the backup at the config mode instead of the process umask', async () => {
+    // given: a config with a mode the process umask would not produce
+    const projectRoot = makeIncludeAxisFixture();
+    const configPath = configPathOf(projectRoot);
+    chmodSync(configPath, 0o640);
+    const modeBefore = statSync(configPath).mode & 0o777;
+
+    // when: the config is repaired
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+
+    // then: the rollback copy restores the permission the project granted,
+    //       not the one this process happens to run under
+    expect(report.applied).toBe(true);
+    const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
+    expect(statSync(backupPath).mode & 0o777).toBe(modeBefore);
+  });
+
+  it('should replace a read-only previous backup rather than failing on it', async () => {
+    // Regression on the mechanism the case above relies on: with the mode
+    // preserved, a read-only config makes the backup read-only too — and
+    // Windows cannot REPLACE a read-only destination (`renameSync` throws
+    // EPERM, measured), so the SECOND repair would fail on its own artifact.
+    // given: a read-only `.bak` left by an earlier repair
+    const projectRoot = makeIncludeAxisFixture();
+    const configPath = configPathOf(projectRoot);
+    const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
+    writeFileSync(backupPath, '{"stale":true}\n', 'utf8');
+    chmodSync(backupPath, 0o444);
+    const modeBefore = statSync(configPath).mode & 0o777;
+
+    // when: the repair runs over it
+    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner, { reindex: false });
+
+    // then: it replaced the previous backup in one go, with no warning …
+    expect(report.applied).toBe(true);
+    expect(report.warning).toBeNull();
+    expect(readFileSync(backupPath, 'utf8')).not.toContain('stale');
+    // … and the replacement carries the config's mode, not the 0o444 it had
+    expect(statSync(backupPath).mode & 0o777).toBe(modeBefore);
+
+    // cleanup: leave the fixture removable on Windows
+    chmodSync(backupPath, 0o666);
   });
 });

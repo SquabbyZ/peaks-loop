@@ -155,7 +155,12 @@ function seedCompleteSlice(projectRoot: string, rid: string): void {
   writeArtifact(projectRoot, `audit/perf-${rid}.md`, perfBody(rid));
   writeArtifact(projectRoot, `rd/code-review-${rid}.md`, codeReviewBody(rid));
   writeArtifact(projectRoot, `rd/karpathy-review-${rid}.md`, karpathyBody(rid));
-  // UNIT_TESTS pins the literal `## Test cases` (h2) plus the substring `test(`.
+  // UNIT_TESTS pins the literal `## Test cases` (h2) plus ONE of the two test
+  // idioms — `test(` OR `it(` (`mustContainAny`, see R10 of rid
+  // `2026-09-16-codegraph-index-integrity`). This fixture deliberately keeps
+  // the LESS common idiom (`test(`: 372 vs `it(`: 3015 across `tests/`) so the
+  // full rd:qa-handoff gate still exercises the legacy-idiom path; the `it(`
+  // path is pinned in `unit-tests-marker-idiom.test.ts`.
   writeArtifact(projectRoot, `qa/test-cases/${rid}.md`, `## Test cases\n\ntest('x', () => {});\n`);
   writeArtifact(projectRoot, 'qa/.initiated', '');
 }

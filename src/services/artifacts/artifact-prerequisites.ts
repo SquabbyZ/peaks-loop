@@ -329,10 +329,32 @@ const PRD_CONTENT: ArtifactPrerequisite = {
   mustContain: ['## Goals', '## Acceptance']
 };
 
+// R10 (2026-09-16): the second marker used to be the bare `test(` inside
+// `mustContain` — i.e. ALL markers required. That made the gate satisfiable
+// only by MENTIONING the literal string in prose, never by honest test code,
+// because this repo's own BDD Test Style Contract
+// (`skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md:170`) names BOTH
+// idioms — "The first string-literal argument of `it()` / `test()` MUST
+// describe business behavior" — and `it(` is the dominant one by ~8x.
+// Measured 2026-09-16 (`grep -rho '\bit(' tests | wc -l`, same for `test(`):
+// `it(` 3015 vs `test(` 372 across `tests/`; the three test files slice
+// 2026-09-16-codegraph-index-integrity added contain `it(` 58 / `test(` 0.
+// The gate was in fact passing on artifacts whose ONLY `test(` was prose —
+// including this repo's own generated template `buildTestCases`
+// (`src/services/evidence/evidence-generator.ts`), which literally reads
+// "no new tests; behavior preserved" and satisfied the marker anyway.
+// Both idioms are therefore accepted via `mustContainAny` — an existing
+// field on this type, already used by PERF_BASELINE / AUDIT_SECURITY /
+// MUT_REPORT — while `## Test cases` stays a hard `mustContain`.
+// Do NOT "tighten" this back to a single idiom in `mustContain`: that
+// restores exactly the pass-by-mentioning hole `headingMustContain` was
+// introduced to close (see the field doc comment above), and no honest test
+// file in this repo could then satisfy the gate.
 const UNIT_TESTS: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
   description: 'Unit test files for the implemented changes (enforces peaks-rd Gate B2)',
-  mustContain: ['## Test cases', 'test(']
+  mustContain: ['## Test cases'],
+  mustContainAny: ['test(', 'it(']
 };
 
 const QA_INITIATED: ArtifactPrerequisite = {
