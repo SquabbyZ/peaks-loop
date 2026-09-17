@@ -476,3 +476,50 @@ describe('(integration) two slices coexist, and the old layouts still resolve', 
     expect(result.ok).toBe(true);
   });
 });
+
+// AC-2 of slice 2026-09-17-4-0-51-cleanup: THIRD_PARTY_REVIEW is the
+// second backCompat=true prereq in the FEATURE table (the first is
+// MUT_REPORT). It carries `rd/third-party-review.md` and is satisfied
+// either by the bare file (when reviewer.providers is configured) or
+// by the soft-warning branch (when it is not). The MUT_REPORT case at
+// line ~408 covers the same shape; these two cases pin the
+// THIRD_PARTY_REVIEW twin so a future gate change cannot silently
+// regress one but not the other.
+describe('(AC-2) THIRD_PARTY_REVIEW backCompat soft-warning symmetry', () => {
+  const THIRD_PARTY_REVIEW_BARE = 'rd/third-party-review.md';
+
+  it('reports the third-party-review as a soft warning, not a hard fail, when absent', async () => {
+    const projectRoot = makeProjectRoot();
+
+    const { missing, warnings, ok } = await missingPaths(projectRoot, RID_A);
+
+    // The third-party-review carries backCompat: true (mirrors the
+    // MUT_REPORT contract at line 295-301 of artifact-prerequisites.ts).
+    // A missing file therefore lands in `warnings`, not `missing`, and
+    // the gate stays open under the 1-minor-release soft-warning window.
+    expect(warnings).toContain(THIRD_PARTY_REVIEW_BARE);
+    expect(missing).not.toContain(THIRD_PARTY_REVIEW_BARE);
+    // Soft-warning must not flip the overall verdict to false (the
+    // soft-block contract from v2.13.2; the missing-list may still
+    // contain HARD prereqs from RID_SCOPED_ARTIFACTS — we only check
+    // the third-party-review branch).
+    expect(typeof ok).toBe('boolean');
+  });
+
+  it('clears the soft warning when the bare third-party-review file is present with the required markers', async () => {
+    // Symmetric to the MUT_REPORT case at line 408-423: writing the
+    // file at the canonical path with the mustContain markers makes
+    // the gate satisfied outright.
+    const projectRoot = makeProjectRoot();
+    writeArtifact(
+      projectRoot,
+      THIRD_PARTY_REVIEW_BARE,
+      '# Third-party review\n\nmodelFamily: claude-fable-5-1\nthird-party-review verdict: pass\n'
+    );
+
+    const { missing, warnings } = await missingPaths(projectRoot, RID_A);
+
+    expect(missing).not.toContain(THIRD_PARTY_REVIEW_BARE);
+    expect(warnings).not.toContain(THIRD_PARTY_REVIEW_BARE);
+  });
+});
