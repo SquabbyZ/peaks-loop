@@ -122,5 +122,5 @@ means the user override always wins over the (missing) env var.
 
 ## Related
 
-- [peaks-loop-mac-auto-compact-no-env-injection](../.peaks/memory/2026-07-31-mac-auto-compact-no-env-injection.md)
-- [peaks-loop-mac-auto-compact-esm-fake-green-and-fix](../.peaks/memory/2026-07-31-mac-auto-compact-esm-fake-green-and-fix.md)
+- [peaks-loop-mac-auto-compact-no-env-injection](../memory/2026-07-31-mac-auto-compact-no-env-injection.md)
+- [peaks-loop-mac-auto-compact-esm-fake-green-and-fix](../memory/2026-07-31-mac-auto-compact-esm-fake-green-and-fix.md)

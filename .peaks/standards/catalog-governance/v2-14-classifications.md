@@ -19,7 +19,7 @@
 > 指标变难看是因为它**开始度量真正该度量的东西**。目标（≤ 5%）未达成，且短期内不会达成 ——
 > 这不是回归，是把此前被隐藏的 98 行暴露出来。
 >
-> 完整诊断见 `docs/diagnosis-2026-09-15-peaks-loop-state.md`（A8 / A9）。
+> 完整诊断见 `.peaks/docs/diagnosis-2026-09-15-peaks-loop-state.md`（A8 / A9）。
 
 > Slice C / Group G3: prose-only ratio ≤ 5% red line.
 > Generated 2026-06-28 against `peaks audit static --json` output (148 total red lines).

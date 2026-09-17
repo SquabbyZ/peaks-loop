@@ -187,8 +187,58 @@ declareDimensions(
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
-/** The normative documents that cite repo paths. */
-const CORPUS_ENTRIES = ['CLAUDE.md', '.peaks/PROJECT.md', 'README.md'] as const;
+/**
+ * The normative documents that cite repo paths.
+ *
+ * `docs/` IS NOT ONE OF THEM, AND THE OMISSION IS DELIBERATE — but it is only
+ * HALF the story, and the other half is what the next reader trips on, so both
+ * are stated here rather than left to be rediscovered.
+ *
+ *   - NOT A CORPUS ORIGIN. `docs/superpowers/{plans,specs}/**` is planning and
+ *     design prose — a different genre from the documents below. It records
+ *     what someone INTENDED, not what this repository REQUIRES, so scanning it
+ *     would report intent as obligation. `docs/` is absent from `CORPUS_DIRS`
+ *     on purpose, not by oversight.
+ *   - BUT STILL AN ANCHOR. `docs` IS a member of `REPO_ANCHORS`, so a citation
+ *     written BY a corpus file that points AT `docs/…` is resolved and checked
+ *     exactly like any other anchored citation. The two constants answer two
+ *     different questions — "which files get scanned" (corpus) versus "which
+ *     first segments make a citation repo-anchored" (anchors) — and `docs/`
+ *     answers YES to the second while answering NO to the first. That
+ *     asymmetry is the part to hold on to; it is not a contradiction, and it
+ *     is not a gap either, because an anchor that resolves nothing is still
+ *     resolved and still reported.
+ *
+ * `.peaks/docs/` — the former top-level `docs/` documents, moved there so the
+ * superpowers prose keeps `docs/` to itself — is judged one file at a time, by
+ * the same genre test:
+ *   - `.peaks/docs/test-style-contract.md` IS in the corpus. It is a LIVE
+ *     contract: shipped in `package.json#files`, read opt-in by downstream
+ *     projects. A citation in it that outlived its referent is precisely the
+ *     defect this guard exists to catch. It joins `CORPUS_ENTRIES` as a single
+ *     FILE rather than a `CORPUS_DIRS` directory on purpose — a directory would
+ *     silently opt in whatever is moved into it next, which is the failure mode
+ *     being avoided, not a convenience being skipped.
+ *   - The other three stay OUT, for the reason the memory files and
+ *     `CHANGELOG.md` stay out: they describe historical state. This is not
+ *     hypothetical. `diagnosis-2026-09-15-peaks-loop-state.md` carries a
+ *     section (§3.10) whose entire content is three citations recorded as NOT
+ *     resolving — `docs/superpowers/specs/2026-07-07-…`,
+ *     `docs/superpowers/plans/2026-07-07-loop-engineering/index.md`,
+ *     `docs/adr/0007-peaks-workflow-primitive.md` — the audit's evidence that
+ *     the design documents the red-line files claim to inherit from do not
+ *     exist. Those are citations of ABSENCE, and they are correct. A guard that
+ *     read them as dangling references would report three findings against the
+ *     one document that was right about them, which is exactly how a guard
+ *     trains its reader to ignore it. The corpus is a whitelist of genre, not
+ *     of convenience.
+ */
+const CORPUS_ENTRIES = [
+  'CLAUDE.md',
+  '.peaks/PROJECT.md',
+  'README.md',
+  '.peaks/docs/test-style-contract.md',
+] as const;
 const CORPUS_DIRS = ['.peaks/standards', 'skills'] as const;
 
 /**
@@ -1038,6 +1088,33 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     ]);
   });
 
+  it('when the live contract document is scanned, should report a citation in it that cannot resolve', () => {
+    // given: the real corpus with the LIVE CONTRACT's body replaced by one
+    //        citation that cannot resolve. Replaced rather than appended so the
+    //        expected line number stays line 1 and this case cannot pass by
+    //        accident of formatting; what it proves is that the id below is
+    //        really carried by `CORPUS_ENTRIES`, which is the only reason the
+    //        map finds anything to rewrite
+    const texts = corpusTexts().map((t) =>
+      t.id === '.peaks/docs/test-style-contract.md'
+        ? { ...t, body: 'The retired guide was `.peaks/docs/gone-contract.md`.' }
+        : t,
+    );
+
+    // when: the checker runs over exactly that corpus
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+
+    // then: it is reported. Drop `.peaks/docs/test-style-contract.md` from
+    //       `CORPUS_ENTRIES` and this goes RED — no id matches, nothing is
+    //       rewritten, and the finding never appears. The contract document is
+    //       the one file moved out of `docs/` that this guard takes: it is live
+    //       and published, while its three neighbours are archive, and this
+    //       case is the line between them made executable
+    expect(findings).toEqual([
+      '.peaks/docs/test-style-contract.md:1 cites `.peaks/docs/gone-contract.md`',
+    ]);
+  });
+
   it('when the corpus is enumerated, should include the normative documents', () => {
     // given: the corpus definition
     // when: it is enumerated
@@ -1047,6 +1124,9 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     expect(ids).toContain('CLAUDE.md');
     expect(ids).toContain('.peaks/PROJECT.md');
     expect(ids).toContain('README.md');
+    // the live contract, taken from `.peaks/docs/` one file at a time — see the
+    // genre test on `CORPUS_ENTRIES`
+    expect(ids).toContain('.peaks/docs/test-style-contract.md');
     expect(ids.filter((id) => id.startsWith('.peaks/standards/')).length).toBeGreaterThan(0);
     expect(ids.filter((id) => id.startsWith('skills/')).length).toBeGreaterThan(0);
   });

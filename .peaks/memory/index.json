@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T18:00:47.370Z",
+  "updatedAt": "2026-09-17T23:03:57.444Z",
   "hot": {
     "rule": [
       {
@@ -57,6 +57,14 @@
         "description": "A script correcting a markdown table against  matched row ids as  and table rows as , so every **single-digit** row f...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-fix-script-that-matches-on-an-id-format-it-half-knows-will-skip-rows-without-saying-so.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-guard-that-reddens-for-a-defensible-reason-gets-trained-away",
+        "kind": "rule",
+        "description": "The same guard deliberately does **not** assert  has a match.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-guard-that-reddens-for-a-defensible-reason-gets-trained-away.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-e-group.md",
         "updatedAt": "2026-09-17"
       },
       {
@@ -148,6 +156,14 @@
         "updatedAt": "2026-09-10"
       },
       {
+        "name": "an-exemption-keyed-on-a-name-is-a-hole-one-keyed-on-a-rule-is-a-boundary",
+        "kind": "rule",
+        "description": "A new guard asserts that every  entry resolves.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-exemption-keyed-on-a-name-is-a-hole-one-keyed-on-a-rule-is-a-boundary.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-e-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "an-independent-cross-check-that-reads-the-same-table-is-a-regrouping-not-a-check",
         "kind": "rule",
         "description": "A count was reported as reproducible two ways: 48 rows minus 2, and 33 + 12 + 1 read off two sub-section headings.",
@@ -201,6 +217,14 @@
         "description": "One CHANGELOG sentence — \"13 guard points, 10 with no measured control group\" — produced **four different answers** d...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\i-audited-n-carries-no-information-until-the-criterion-that-found-n-is-stated.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "it-reddens-and-it-misses-nothing-are-two-different-claims-and-only-the-first-gets-tested",
+        "kind": "rule",
+        "description": "A new guard was accepted on the strength of two mutations that both reddened it.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\it-reddens-and-it-misses-nothing-are-two-different-claims-and-only-the-first-gets-tested.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-e-group.md",
         "updatedAt": "2026-09-17"
       },
       {

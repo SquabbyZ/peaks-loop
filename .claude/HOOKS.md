@@ -188,7 +188,7 @@ Rules that keep them from fighting:
    `peaks workspace init` does not refresh `.claude/settings.json`.** Only
    `peaks workspace init` converges a stale local file; nothing converges a
    stale installed template copy except `peaks upgrade --apply-init` (see
-   `docs/mac-auto-compact.md` and the generated-artifact stamp).
+   `.peaks/docs/mac-auto-compact.md` and the generated-artifact stamp).
 
 ### Companion hooks (out of scope per NG5)
 

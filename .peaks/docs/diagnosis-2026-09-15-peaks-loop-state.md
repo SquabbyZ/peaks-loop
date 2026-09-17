@@ -15,7 +15,7 @@
 - 我本人亲手复核了本报告所有**一级发现**（下文标 `[实测]`）
 
 **边界（必须说明）**
-- 真机抽点**只在 Windows 上**完成。CI 矩阵是 `ubuntu-latest + windows-latest`，**macOS 完全不在其中**，所以 Mac 路径本报告无法覆盖 —— 而 `docs/mac-auto-compact.md` 整份文档说明 Mac 有独立缺陷。**Mac 是本次审计的盲区，不是"已覆盖且无问题"。**
+- 真机抽点**只在 Windows 上**完成。CI 矩阵是 `ubuntu-latest + windows-latest`，**macOS 完全不在其中**，所以 Mac 路径本报告无法覆盖 —— 而 `.peaks/docs/mac-auto-compact.md` 整份文档说明 Mac 有独立缺陷。**Mac 是本次审计的盲区，不是"已覆盖且无问题"。**
 - 未做全量测试套件运行。诊断的是"闸门验证什么"，不是"测试过不过"。
 - 下文标 `[转述]` 的条目来自 sub-agent 报告，我未逐条亲手复现；标 `[实测]` 的条目我亲自跑过命令。
 
@@ -208,7 +208,7 @@ CLAUDE.md / SKILL.md 反复强调的"≥0.85 强制压缩"，**真实触发点�
 
 CI 矩阵 `os: [ubuntu-latest, windows-latest]`，`.github/` 下无任何 `macos`。集成套件为显式决策的 ubuntu-only。
 
-已知 Mac 缺陷（`docs/mac-auto-compact.md`）由**三个叠加原因**构成，且含一条 vitest 看不见的假绿：`findTranscriptJsonl` 在 `"type":"module"` 下用体内 `require('node:fs')` → `ReferenceError` 被外层 `catch { return null }` 吞掉，而 **esbuild 注入 CommonJS shim 使 6/6 单测在完全破损的生产路径上全绿**。
+已知 Mac 缺陷（`.peaks/docs/mac-auto-compact.md`）由**三个叠加原因**构成，且含一条 vitest 看不见的假绿：`findTranscriptJsonl` 在 `"type":"module"` 下用体内 `require('node:fs')` → `ReferenceError` 被外层 `catch { return null }` 吞掉，而 **esbuild 注入 CommonJS shim 使 6/6 单测在完全破损的生产路径上全绿**。
 
 残留风险明确未关闭：记忆记录 **73 个 `TODO(g2)` 遗留静默 catch**。
 

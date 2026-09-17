@@ -1,5 +1,5 @@
 /**
- * Enforcer liveness — A9 of `docs/diagnosis-2026-09-15-peaks-loop-state.md`.
+ * Enforcer liveness — A9 of `.peaks/docs/diagnosis-2026-09-15-peaks-loop-state.md`.
  *
  * `cli-backed` used to mean "the `enforcerRef` path exists on disk"
  * (`backing-detector.ts`). It did not mean "the enforcer runs". Ten catalog

@@ -16,7 +16,7 @@ PEAKS-CLI 成效说明（参赛稿）
 >
 > 因此"可复核"这一断言**在写作时并不成立**，现在更不成立。本文档保留为历史记录，**请勿作为现状引用**。
 >
-> 完整诊断见 `docs/diagnosis-2026-09-15-peaks-loop-state.md`。
+> 完整诊断见 `.peaks/docs/diagnosis-2026-09-15-peaks-loop-state.md`。
 
 
 1. 提质增效
