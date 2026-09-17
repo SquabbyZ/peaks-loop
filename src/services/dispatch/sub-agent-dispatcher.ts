@@ -224,7 +224,6 @@ export const traeSubAgentDispatcher: SubAgentDispatcher = {
  // gone — Trae now joins like claude-code.
  awaitBatch: async (input) =>
  pollDispatchRecords(input, {
- ide: 'trae',
  defaultTimeoutMs: 30_000,
  notePrefix: 'trae 1.3 real awaitBatch'
  })
@@ -254,7 +253,6 @@ export const codexSubAgentDispatcher: SubAgentDispatcher = {
  }),
  awaitBatch: async (input) =>
  pollDispatchRecords(input, {
- ide: 'codex',
  defaultTimeoutMs: 45_000,
  notePrefix: 'codex 1.3 real awaitBatch'
  })
@@ -282,7 +280,6 @@ export const cursorSubAgentDispatcher: SubAgentDispatcher = {
  }),
  awaitBatch: async (input) =>
  pollDispatchRecords(input, {
- ide: 'cursor',
  defaultTimeoutMs: 30_000,
  notePrefix: 'cursor 1.3 real awaitBatch'
  })
@@ -408,7 +405,6 @@ function readDispatchOutcome(recordPath: string): { status: SubAgentBatchResult[
  * `awaitBatch` is a real implementation.
  */
 export interface PollDispatchRecordsOptions {
- readonly ide: 'trae' | 'codex' | 'cursor';
  readonly defaultTimeoutMs: number;
  readonly notePrefix: string;
 }
