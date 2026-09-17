@@ -36,6 +36,57 @@
 // is what separates a path citation from `TODO/FIXME/XXX` (a category label) and
 // `pnpm/action-setup@v4` (a GitHub Action ref, excluded by the `@`).
 //
+// BARE CITATIONS. A backtick is a deliberate act: it is how a document says
+// "this is a path". The three citations this guard was built for were all
+// backticked, and so the backtick-only reading saw them. The citation that rots
+// silently is the one written WITHOUT backticks, because nothing in the text
+// marks it as a path at all — which is exactly the shape disclosed as scope gap
+// #1 in 4.0.51. Two bare shapes are read, and no others:
+//   - `tests/**/*.test.ts` anywhere in prose (`BARE_TEST_CITATION`), the same
+//     pattern the comment corpus already used, now applied to the main path;
+//   - a bare `*.test.ts` FILENAME that reads as a citation — it must carry a
+//     `-`, sit on whitespace or a line boundary at both ends, and name no
+//     directory (`BARE_TEST_FILENAME`). The `-` requirement is what keeps the
+//     everyday bare filename (`README.md`, `CHANGELOG.md`, `SKILL.md`) out, and
+//     it is deliberately the narrowest reading that covers the shape the gap
+//     named: `zig.test.ts` without a dash is NOT read (see the case that pins
+//     that boundary). This is the B1 shape, not "bare filenames in general".
+// Both scans run through the same exclusions, the same resolution and the same
+// dedup as every other citation. One thing does differ, and it is forced rather
+// than chosen: `isCandidate` opens with `PATH_SHAPED`, which requires a slash,
+// and a filename has no `parent` segment for the document-relative walk either.
+// So the filename shape is checked against `BARE_FILENAME_SHAPED` and admitted
+// directly — the one place where a second shape test exists, and the honest
+// reason it had to.
+//
+// A bare match is skipped when it falls INSIDE a backtick span, which is the
+// existing `(?<!`)` lookbehind generalized from "immediately after a backtick"
+// to "anywhere within one". That is not a carve-out: the span was already read
+// by the backtick scan, and a path that is a fragment of a larger inline-code
+// span (`summary: "… covered by config-service.api.test.ts …"`) is part of a
+// quoted sample, not a claim about this tree. Measured, this is what the whole
+// of the widening costs: over the real corpus the two bare rules match three
+// tokens and all three are inside such a span — i.e. the corpus is unchanged,
+// and the finding the guards below were told to expect stays at zero.
+//
+// RESIDUAL GAP, measured while landing this. A BACKTICKED bare filename (e.g.
+// `` `skills-skill-md-naming.test.ts` ``) is still invisible: the span reading
+// fails `PATH_SHAPED` for want of a slash, and the bare readings skip anything
+// inside a span. It is not closed here because closing it is not free: the
+// markdown corpus holds two backticked filenames of this shape
+// (`.peaks/standards/catalog-governance/v2-14-classifications.md`, naming tests
+// that no commit ever added), and a span rule that admitted the shape would
+// report both — and a bare filename has no directory, so no resolution origin
+// exists to clear them with. That is a change to the resolution contract, not a
+// widening of the candidate rule, so the case pinning the gap is disclosed
+// rather than closed.
+//
+// Counted honestly: the SCRIPT corpus holds two more of the same shape
+// (`scripts/sync-version.mjs`, `scripts/peaks-ide-audit-log.mjs`), both naming
+// tests `f17aa377` deleted and both written as basenames precisely so this
+// guard cannot resolve them. They are four in the repository, two in the
+// markdown corpus; neither pair is fixed here.
+//
 // Three classes are exempt by construction, not by an allowlist:
 //   - runtime state under `.peaks/` — gitignored session state, plus the cron
 //     and arbitration-cache subtrees the CLI writes (`RUNTIME_STATE_PREFIXES`);
@@ -199,8 +250,66 @@ export function corpusFiles(repoRoot: string): string[] {
  * line. A rule that reads shapes and examples as missing files is how a guard
  * trains its reader to ignore it, so the bare-token rule is drawn at test-file
  * citations — the exact class E2 reported — rather than at paths in general.
+ *
+ * The comment corpus reaches this pattern through `commentText`, which
+ * backticks each match so the single candidate rule then applies to it. The
+ * markdown corpus has no such shim, so `findDanglingCitations` runs this
+ * pattern directly as well — the same regex at a second call site, not a second
+ * regex.
  */
 const BARE_TEST_CITATION = /(?<!`)(tests\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.test\.ts)(?![\w./-])/g;
+
+/**
+ * A bare `*.test.ts` FILENAME carrying no directory — the second bare shape,
+ * and the one AC-8 named (`skills-skill-md-naming.test.ts`, cited by
+ * `skills/bee/peaks-qa/SKILL.md` until 4.0.51 rewrote it, the test having been
+ * deleted in `457b9a87`).
+ *
+ * `BARE_TEST_CITATION` cannot reach this shape: its pattern begins `tests\/`, so
+ * a filename with no prefix never matches it. That is the whole reason this
+ * rule exists.
+ *
+ * DELIBERATELY NARROWER than the rule above, and narrower than "bare filenames"
+ * — three conditions, each excluding a measured non-citation:
+ *   - `.test.ts` — a bare `README.md` / `CHANGELOG.md` / `SKILL.md` is a name,
+ *     not a citation, and these documents are full of them;
+ *   - a `-` in the name — the shape the gap named, and it keeps
+ *     `config.ts`-style prose out of the way;
+ *   - whitespace or a line boundary at BOTH ends — an unquoted filename
+ *     adjacent to punctuation (`v1-fallback.test.ts"`, `x.test.ts;`) is
+ *     sample-record content, which is where the corpus's bare filenames live.
+ * The `/`-free character class is what guarantees this rule and the one above
+ * never overlap: this one cannot match inside a path.
+ *
+ * OVER THE REAL CORPUS this pattern matches exactly one token
+ * (`4-dimensions.md:45`), and it is inside a backtick span, so it is skipped.
+ * That is the measured basis for the corpus staying green — not a hope.
+ *
+ * A bare filename has no directory, so it names no origin a path could be
+ * resolved from: like every other candidate it is handed to the caller's
+ * `exists`, which resolves it at the repository root or beside the citing
+ * document, and nowhere else.
+ */
+/**
+ * The filename shape itself, written once. The scan below anchors it with the
+ * boundaries that turn a filename into a citation; `isCandidate` re-checks the
+ * name alone, because `PATH_SHAPED` — which every other candidate must satisfy
+ * — requires a slash and a filename has none. Two hand-written copies of these
+ * character classes would be two rules free to drift apart.
+ */
+const BARE_FILENAME_NAME = String.raw`[A-Za-z0-9_][A-Za-z0-9_.-]*-[A-Za-z0-9_.-]*\.test\.ts`;
+const BARE_TEST_FILENAME = new RegExp(String.raw`(?:^|(?<=\s))(${BARE_FILENAME_NAME})(?=\s|$)`, 'g');
+const BARE_FILENAME_SHAPED = new RegExp(`^${BARE_FILENAME_NAME}$`);
+
+/**
+ * The bare shapes, in the order they are read over a line, each paired with
+ * whether it names a directory. The flag is per-shape because it is the shape
+ * that decides which test in `isCandidate` applies — never the caller's mood.
+ */
+const BARE_SCANS: ReadonlyArray<readonly [RegExp, boolean]> = [
+  [BARE_TEST_CITATION, false],
+  [BARE_TEST_FILENAME, true],
+];
 
 /**
  * The comment text of a source file, line for line.
@@ -303,8 +412,39 @@ function isDocumentRelative(span: string, ctx: CitationContext): boolean {
   }
 }
 
-function isCandidate(span: string, line: string, backtickAt: number, spanLength: number, ctx: CitationContext): boolean {
-  if (!PATH_SHAPED.test(span)) return false; // excludes `<sid>` placeholders and globs
+/**
+ * `from` and `to` bound the citation in `line`, INCLUSIVE of its backticks where
+ * it has them — the span's opening backtick to just past its closing one. A bare
+ * match has no backticks, so its own bounds are passed instead. Two rules below
+ * read the text outside that range, which is why the bounds are offsets rather
+ * than a length: the caller must not have to know that a span carries two extra
+ * characters.
+ */
+function isCandidate(
+  span: string,
+  line: string,
+  from: number,
+  to: number,
+  ctx: CitationContext,
+  /**
+   * Set only by the bare-filename rule, whose own pattern has already
+   * established the filename shape. A filename names no directory, so it
+   * cannot satisfy `PATH_SHAPED`, which requires a slash. Every other rule here
+   * applies to it unchanged, so this second shape opens no door the first one
+   * did not.
+   *
+   * The document-relative walk is skipped for it too, and that skip is
+   * DEFENSIVE rather than load-bearing: at the one call site that exists, the
+   * shape test above already rejects any span carrying a slash, so the walk is
+   * unreachable for a `namesNoDirectory` span today. What it guards against is
+   * a future call site reaching the walk with a slashless span, where
+   * `slice(0, lastIndexOf('/'))` finds no slash (`-1`) and silently drops the
+   * span's last character. A hardening, not a repair — nothing is broken now.
+   */
+  namesNoDirectory = false,
+): boolean {
+  // excludes `<sid>` placeholders, globs and bare non-paths
+  if (!(namesNoDirectory ? BARE_FILENAME_SHAPED.test(span) : PATH_SHAPED.test(span))) return false;
   if (span.includes('@')) return false; // npm / GitHub-Action refs
   if (RUNTIME_STATE_PREFIXES.some((prefix) => span.startsWith(prefix))) return false;
   if (OPTIONAL_RUNTIME_PATHS.has(span)) return false;
@@ -315,14 +455,20 @@ function isCandidate(span: string, line: string, backtickAt: number, spanLength:
   if (span.startsWith('./')) return false;
   // Inside a `<…>` fill-in the span is template text: the scan checklists ask
   // the reader to *replace* it, so it is not a claim about this tree.
-  const before = line.slice(0, backtickAt);
-  const after = line.slice(backtickAt + spanLength + 2); // +2 for the backticks
+  const before = line.slice(0, from);
+  const after = line.slice(to);
   if (before.lastIndexOf('<') > before.lastIndexOf('>') && after.includes('>')) return false;
   if (ILLUSTRATION_CUE.test(before)) return false;
   const basename = span.slice(span.lastIndexOf('/') + 1);
   const dot = basename.indexOf('.');
   if (SYNTHETIC_STEMS.has(dot === -1 ? basename : basename.slice(0, dot))) return false;
   if (REPO_ANCHORS.test(span)) return true; // an anchored citation claims this repo
+  // A filename has no `parent` to walk with, and its shape is the whole claim:
+  // whether the tree holds it is the caller's `exists` to answer. This also
+  // keeps the walk above off a slashless span, where it would cut the last
+  // character — unreachable while the shape test above rejects a slash, but the
+  // guard should not depend on that test staying where it is.
+  if (namesNoDirectory) return true;
   return isDocumentRelative(span, ctx);
 }
 
@@ -346,14 +492,48 @@ export function findDanglingCitations(
   for (const { id, body } of texts) {
     const ctx: CitationContext = { id, dirExists };
     body.split(/\r?\n/).forEach((line, index) => {
+      /** Paths already reported on this line, so a second reading cannot repeat one. */
+      const reported = new Set<string>();
+
+      /**
+       * The one disposition every reading shares: the candidate rule, then
+       * resolution. `from`/`to` are the citation's bounds in `line`, backticks
+       * included where it has them.
+       */
+      const judge = (span: string, from: number, to: number, namesNoDirectory = false): void => {
+        const candidate = span.trim();
+        if (!isCandidate(candidate, line, from, to, ctx, namesNoDirectory)) return;
+        if (exists(candidate, id)) return; // a resolvable citation is never exempted
+        if (SESSION_WORKSPACE_DIRS.has(candidate.split('/')[0] ?? '')) return;
+        if (reported.has(candidate)) return;
+        reported.add(candidate);
+        findings.push(`${id}:${index + 1} cites \`${candidate}\``);
+      };
+
+      /** Every backtick span on the line, as `[from, to)` offsets. */
+      const spans: Array<readonly [number, number]> = [];
       BACKTICK_SPAN.lastIndex = 0;
       let match: RegExpExecArray | null;
       while ((match = BACKTICK_SPAN.exec(line)) !== null) {
-        const candidate = (match[1] ?? '').trim();
-        if (!isCandidate(candidate, line, match.index, match[0].length, ctx)) continue;
-        if (exists(candidate, id)) continue; // a resolvable citation is never exempted
-        if (SESSION_WORKSPACE_DIRS.has(candidate.split('/')[0] ?? '')) continue;
-        findings.push(`${id}:${index + 1} cites \`${candidate}\``);
+        const to = match.index + match[0].length;
+        spans.push([match.index, to]);
+        judge(match[1] ?? '', match.index, to);
+      }
+
+      // The bare shapes, which the scan above cannot see. A match inside a span
+      // is skipped: the span was just judged, and a path that is a fragment of a
+      // longer inline-code literal is part of that literal, not a citation of
+      // its own. Outside the spans, a bare citation is judged exactly as a
+      // backticked one is — same candidate rule, same resolution, same dedup.
+      for (const [scan, namesNoDirectory] of BARE_SCANS) {
+        scan.lastIndex = 0;
+        let bare: RegExpExecArray | null;
+        while ((bare = scan.exec(line)) !== null) {
+          const hit = bare; // a const, so the closure below keeps the narrowing
+          const to = hit.index + hit[0].length;
+          if (spans.some(([from, spanTo]) => hit.index >= from && to <= spanTo)) continue;
+          judge(hit[1] ?? '', hit.index, to, namesNoDirectory);
+        }
       }
     });
   }
@@ -406,29 +586,208 @@ describe('Scenario: behavior — the checker can fail, and can clear', () => {
   });
 });
 
+describe('Scenario: behavior — the bare scans see citations the backticks hide', () => {
+  const noPathsExist = (): boolean => false;
+
+  it('when prose names a bare tests/ path that is gone, should report it', () => {
+    // given: gap #1's first shape — the path written without backticks, which a
+    //        backtick-only reading cannot fail on
+    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by tests/some-thing.test.ts today.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: it is reported like any other dangling citation
+    expect(findings).toEqual(['FAKE.md:1 cites `tests/some-thing.test.ts`']);
+  });
+
+  it('when prose names a bare tests/ path that exists, should report nothing', () => {
+    // given: the clean control for the case above — same shape, resolvable
+    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by tests/unit/standards/repo-citation-integrity.test.ts today.' }];
+
+    // when: the checker runs against a tree that holds it
+    const findings = findDanglingCitations(texts, (rel) => rel === 'tests/unit/standards/repo-citation-integrity.test.ts');
+
+    // then: the guard stays green
+    expect(findings).toEqual([]);
+  });
+
+  it('when the same dangling path is backticked, should still report it', () => {
+    // given: the pre-existing shape, unchanged — the widening must not have
+    //        moved the backtick path's behavior
+    const texts = [{ id: 'FAKE.md', body: 'Coverage is asserted by `tests/nonexistent.test.ts` today.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: it is reported once
+    expect(findings).toEqual(['FAKE.md:1 cites `tests/nonexistent.test.ts`']);
+  });
+
+  it('when prose names a bare path that is not a test, should not report it', () => {
+    // given: the precision control — the bare rule is drawn at `.test.ts`, not
+    //        at paths in general
+    const texts = [{ id: 'FAKE.md', body: 'The entry point is src/some-file.ts and the config is config/settings.json.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: neither is claimed as a citation
+    expect(findings).toEqual([]);
+  });
+
+  it('when a dangling path is both backticked and bare on one line, should report it once', () => {
+    // given: one line reading the same missing path twice — once marked as a
+    //        path, once in plain prose
+    const texts = [{ id: 'FAKE.md', body: 'See `tests/gone.test.ts`; tests/gone.test.ts is the guard.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: the second reading does not repeat a finding the first already made
+    //       — one dangling path is one thing for the reader to fix
+    expect(findings).toEqual(['FAKE.md:1 cites `tests/gone.test.ts`']);
+  });
+
+  it('when prose names a bare test FILENAME with no directory, should report it', () => {
+    // given: AC-8's exact shape — the citation 4.0.51 found in
+    //        `skills/bee/peaks-qa/SKILL.md`, whose test was deleted in
+    //        `457b9a87`. `BARE_TEST_CITATION` opens with `tests\/` and cannot
+    //        match it; without this rule the shape stays invisible
+    const texts = [{ id: 'FAKE.md', body: 'The guard is pinned by skills-skill-md-naming.test.ts in this suite.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: it is reported like any other dangling citation
+    expect(findings).toEqual(['FAKE.md:1 cites `skills-skill-md-naming.test.ts`']);
+  });
+
+  it('when prose names a bare filename that is not a test, should not report it', () => {
+    // given: the precision control for the rule above — a bare filename is a
+    //        name, not a citation, and these documents are full of them
+    const texts = [{ id: 'FAKE.md', body: 'Read README.md and CHANGELOG.md, then see .peaks/PROJECT.md.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: none is claimed as a citation
+    expect(findings).toEqual([]);
+  });
+
+  it('when a bare test filename carries no dash, should not report it', () => {
+    // given: the boundary this rule is drawn at, and it is deliberate: the
+    //        filename shape is read only when it carries a `-`. A wider reading
+    //        would take in the sample-record filenames that this corpus writes
+    //        on purpose (`config-service.modules.test.ts` inside a quoted
+    //        `summary:` value), which are illustrations, not citations.
+    //
+    //        THE PROBE MUST BE A STEM NO OTHER RULE EXCLUDES, or this case pins
+    //        nothing. The first draft used `foo.test.ts` and was worthless:
+    //        `foo` is in `SYNTHETIC_STEMS`, so deleting the `-` condition
+    //        outright left this case green (mutation m8, measured — see the QA
+    //        section of the tech doc). `zig` appears in no exclusion list, so
+    //        the same mutation now reports this probe and turns this case red,
+    //        which is what makes it a boundary rather than a coincidence
+    const texts = [{ id: 'FAKE.md', body: 'Coverage moved to zig.test.ts last week.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: the narrow reading holds — this is a known, chosen limit
+    expect(findings).toEqual([]);
+  });
+
+  it('when a bare filename is backticked, should stay unreported — a residual gap, pinned', () => {
+    // given: the same filename, marked as a path. MEASURED, and not what the
+    //        brief for this slice assumed: the span reading does NOT cover it
+    //        either. `BACKTICK_SPAN` scans spans, but `isCandidate` opens with
+    //        `PATH_SHAPED`, which requires a slash — so a backticked filename
+    //        fails the shape test exactly as a bare one does, and this slice's
+    //        widening (which reads only OUTSIDE spans) does not reach it
+    const texts = [{ id: 'FAKE.md', body: 'The guard is pinned by `skills-skill-md-naming.test.ts` in this suite.' }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: nothing is reported. This case is a scope disclosure, not a
+    //       satisfied goal: a backticked filename is still invisible, and it is
+    //       pinned here so the gap cannot close or widen unnoticed. Closing it
+    //       means teaching the SPAN rule the filename shape, which would change
+    //       what the pre-existing backtick path admits for every document.
+    expect(findings).toEqual([]);
+  });
+
+  it('when a bare citation sits inside a longer inline-code span, should not report it', () => {
+    // given: the shape the real corpus actually contains — a path that is a
+    //        fragment of a quoted sample record wrapped in backticks. Nothing
+    //        here claims this tree holds the file
+    const texts = [{
+      id: 'FAKE.md',
+      body: '> `summary: "AC-1 covered by config-service.api.test.ts (public API unchanged)"`',
+    }];
+
+    // when: the checker runs with nothing on disk
+    const findings = findDanglingCitations(texts, noPathsExist);
+
+    // then: the span was judged as a whole and found to be prose, so its
+    //       fragments are not re-litigated as citations
+    expect(findings).toEqual([]);
+  });
+});
+
 describe('Scenario: integration — the real corpus resolves on the real tree', () => {
-  it('when the normative documents are read, should cite only paths that exist', () => {
-    // given: the real corpus, read off the working tree
-    const texts = corpusFiles(REPO_ROOT).map((abs) => ({
+  /** The corpus, read off the working tree, keyed by its repo-relative id. */
+  const corpusTexts = (): Array<{ id: string; body: string }> =>
+    corpusFiles(REPO_ROOT).map((abs) => ({
       id: abs.slice(REPO_ROOT.length + 1).split('\\').join('/'),
       body: readFileSync(abs, 'utf8'),
     }));
 
-    // when: every path-shaped backtick citation is resolved against the tree,
-    //       first from the repo root and then from the citing document's own
-    //       directory (how a document inside `skills/` cites its siblings)
-    const findings = findDanglingCitations(
-      texts,
-      (rel, fromId) => {
-        if (existsSync(join(REPO_ROOT, rel))) return true;
-        if (existsSync(join(REPO_ROOT, fromId, '..', rel))) return true;
-        return isGitIgnored(rel);
-      },
-      (rel) => isDirectory(join(REPO_ROOT, rel)),
-    );
+  /**
+   * How a citation resolves here: from the repo root, then from the citing
+   * document's own directory (how a document inside `skills/` cites its
+   * siblings), then anything the root `.gitignore` tells git never to track.
+   */
+  const resolveOnTree = (rel: string, fromId: string): boolean => {
+    if (existsSync(join(REPO_ROOT, rel))) return true;
+    if (existsSync(join(REPO_ROOT, fromId, '..', rel))) return true;
+    return isGitIgnored(rel);
+  };
 
-    // then: nothing dangles
+  it('when the normative documents are read, should cite only paths that exist', () => {
+    // given: the real corpus, read off the working tree
+    const texts = corpusTexts();
+
+    // when: every path-shaped citation is resolved against the tree, first from
+    //       the repo root and then from the citing document's own directory
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+
+    // then: nothing dangles — and this is the case that would fail if the bare
+    //       scans below reported a sample-record filename as a missing file
     expect(findings, `dangling citations:\n${findings.join('\n')}`).toEqual([]);
+  });
+
+  it('when a bare citation is spliced into the real corpus, should report it', () => {
+    // given: the real corpus, plus the two shapes the bare scans exist for —
+    //        one written with a directory, one as a bare filename
+    const texts = corpusTexts();
+    texts.push({
+      id: 'skills/peaks-audit/SKILL.md',
+      body: 'The behaviour is pinned by tests/unit/skills/a-gone-bare.test.ts and by a-gone-filename.test.ts today.',
+    });
+
+    // when: the widened checker runs over exactly that corpus
+    const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
+
+    // then: both are reported, and nothing else is. The corpus above is the
+    //       baseline; this is the injection that proves the scan reading it is
+    //       live — a rule that could not return a finding would pass the case
+    //       above while guarding nothing
+    expect(findings).toEqual([
+      'skills/peaks-audit/SKILL.md:1 cites `tests/unit/skills/a-gone-bare.test.ts`',
+      'skills/peaks-audit/SKILL.md:1 cites `a-gone-filename.test.ts`',
+    ]);
   });
 
   it('when the corpus is enumerated, should include the normative documents', () => {

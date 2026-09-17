@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T02:31:30.139Z",
+  "updatedAt": "2026-09-17T12:35:50.655Z",
   "hot": {
     "rule": [
       {
@@ -10,6 +10,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-claim-stronger-than-the-code-is-a-defect-even-when-the-content-claim-underneath-it-holds.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/txt/handoff.md",
         "updatedAt": "2026-09-16"
+      },
+      {
+        "name": "a-count-of-new-tests-is-meaningless-until-both-sides-of-the-subtraction-cover-the-same-file-set",
+        "kind": "rule",
+        "description": "A completion report claimed \"17 files, 240 passed (baseline 231, **+9 new cases**)\".",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-count-of-new-tests-is-meaningless-until-both-sides-of-the-subtraction-cover-the-same-file-set.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a1.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing",
@@ -44,6 +52,14 @@
         "updatedAt": "2026-09-17"
       },
       {
+        "name": "a-repair-asked-to-also-roll-back-its-own-write-is-self-cancelling-the-tell-is-that-you-had-to-rewrite-a-passing-test",
+        "kind": "rule",
+        "description": "If a repair operation also restores the pre-repair state, its **net effect on that state is zero while it still repor...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-repair-asked-to-also-roll-back-its-own-write-is-self-cancelling-the-tell-is-that-you-had-to-rewrite-a-passing-test.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a1.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "a-test-that-cannot-fail-is-worse-than-no-test",
         "kind": "rule",
         "description": "Slice S4 of  needed five review rounds, and the **first three each found a defect behind a green suite — in every cas...",
@@ -66,6 +82,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-absolute-rule-collides-with-implementation-reality-enumerate-the-carve-outs.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff-s4.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "an-injection-battery-that-swaps-the-call-site-has-never-tested-the-callee",
+        "kind": "rule",
+        "description": "An independent QA agent found that the RD sub-agent's mutation battery validated **wiring, not parts**: every arm swa...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\an-injection-battery-that-swaps-the-call-site-has-never-tested-the-callee.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-a1.md",
+        "updatedAt": "2026-09-17"
       },
       {
         "name": "checkpoint-every-20-tool-calls-is-mandatory",
