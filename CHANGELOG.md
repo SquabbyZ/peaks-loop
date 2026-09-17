@@ -18,7 +18,11 @@
 
 **验证**：290/290 unit tests、`tsc` 142、`lint` 6/6、`peaks codegraph status` 在 strict 模式下本仓 `consistent`、`codegraph.db` 行 1224 + 0 dead rows、`config.json` 与 `codegraph.db` 的 sha256 在 repair 前后取两次确认未引入新漂移。
 
-**明确未验证的（不当作已完成）**：`peaks codegraph repair-index` 的回滚契约 —— 现实现是 `--reindex`（不动 cfg 已写行 + 不回滚 cfg），与用户预期的"回滚到修前"有距离，本片仅命名 + 留口，未做；`refreshCodegraphAfterSlice` 仍是 fail-silent —— 本片不修，因为改它需要同时改两处调用点的契约（`job-commands.ts:306` / `request-commands.ts:468`），超出本版范围；slice-001 的 `indexIntegrity === null` 路径现在**不再静默**，但若上游 `codegraph.db` 合法但表完全缺（比 `no such table: files` 更罕见），错误消息的精细度还有一格没补。
+**对账（2026-09-17 修订）**：本段原始措辞与同 commit `55032546` 实际落地的代码不一致，**三处披露里有两处已被本片一并修复却仍被列为未修**，这是 CHANGELOG/代码的 prose drift，不是 source 缺陷。
+
+- ✅ **A1 `refreshCodegraphAfterSlice` fail-silent** —— 已在 `55032546` 关闭（defect-sweep "refresh visibility" 项）。`codegraph-autorefresh.ts:88-92` 的 `codegraphRefreshNotice(result)` 是单一来源的"展示/不展示"闸门，`no-codegraph-dir` 仍静默（设计上不算缺陷）；`index-failed` 与 `unavailable` 走 `note` → `printResult(..., [codegraphWarning])` 输出到 stderr 的 `warning:` 行。`job-commands.ts:377-382` + `request-commands.ts:471-481` 两处 caller 已接；故意不抬 `process.exitCode`（"advisory stays 0"，被 `tests/unit/cli/job-exit-code.test.ts` 钉住）。
+- ✅ **A3 `codegraph.db` 合法但表完全缺** —— 已在 `55032546` 关闭（defect-sweep "codegraph messages" 项）。`codegraph-index-integrity.ts:382-420` 的 `readIndexedFilePaths` 包住 `new Database(...)` 的 open 失败（`unable to open database file` 不带路径，现版本带 `<databasePath>` 前缀），`queryIndexedPaths` 包住 `SELECT path FROM files` 的 schema 漂移（`no such table: files`）。`codegraph-status-command.ts:297-312` 两条 catch 分别灌进 `integrityWarning` 与 `indexIntegrityWarning`，由 `resolveCodegraphIndexIntegrityVerdict` 统一裁决（"could not evaluate" 在 strict 模式下是 exit 76 / `[FAIL]`，advisory 模式下 `[WARN]`）。
+- ⚠️ **A2 `peaks codegraph repair-index` 的回滚契约** —— **唯一仍然真正未做的**。现 `--reindex` 不动 cfg 已写行 + 不回滚 cfg，与用户预期的"回滚到修前"有距离，本片仅命名 + 留口。**未来扩展点**：`codegraph-commands.ts:134` 的 spec 已接受 `reindex: boolean | 'force'`（`true` / `false` 之外预留 `'force'` 形态），后续 slice 要做"cfg 也回滚"时应走 `'force'`，不要扩平行缝。
 
 ## 4.0.51 — 2026-09-16 (子代理 await 永远报不出结果 + 49 处"声称有测试守护、测试早已删除" + 9 个恒真断言 + 三个不可达导出)
 
