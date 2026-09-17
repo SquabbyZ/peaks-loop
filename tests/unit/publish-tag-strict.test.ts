@@ -55,4 +55,26 @@ describe('publish.yml strict vX.Y.Z tag gate (slice 2026-08-05-publish-tag-stric
   it('uses git describe --tags --exact-match HEAD to fetch the tag', () => {
     expect(yaml).toContain('git describe --tags --exact-match HEAD');
   });
+
+  it('applies the strict vX.Y.Z regex as the bash test OPERAND, not merely somewhere in the file', () => {
+    // The negative arm for the "weakened, not deleted" shape.
+    //
+    // `expect(yaml).toContain('^v[0-9]+\\.[0-9]+\\.[0-9]+$')` (above) passes as
+    // long as the literal survives ANYWHERE in the file — including the
+    // `::error::Rejected tag: … Allowed pattern: …` prose four lines below the
+    // test. Measured 2026-09-18 (slice rid-c2-mutation-control-audit): changing
+    // the `[[ =~ ]]` operand to `^v.+$` while leaving that prose alone kept ALL
+    // FOUR assertions green, and the gate would then accept `v4.0.11-rc1` /
+    // `v4.0.11+sha` / 4-segment tags — the exact tags this gate was added to
+    // reject. A substring is not a rule.
+    //
+    // This asserts the OPERAND, so WIDENING it goes red. Deleting the step also
+    // goes red (the capture is `undefined`) — that is the arm the assertions
+    // above already had, kept intact rather than replaced.
+    const operand = /\[\[\s*"\$\{exact_tag\}"\s*=~\s*(\S+)\s*\]\]/.exec(yaml)?.[1];
+
+    expect(operand, 'the strict-tag gate must test the tag with a bash regex').toBe(
+      '^v[0-9]+\\.[0-9]+\\.[0-9]+$',
+    );
+  });
 });

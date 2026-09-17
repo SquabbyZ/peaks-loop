@@ -64,4 +64,30 @@ describe('vitest config — worker concurrency cap (4.0.17 starvation fix)', () 
     expect(configText).toMatch(/pool:\s*['"]forks['"]/);
     expect(configText).toMatch(/fileParallelism:\s*true/);
   });
+
+  it('when the wiring is COMMENTED OUT (not deleted), the cap must not clear', () => {
+    // The negative arm for the shape the six assertions above cannot see.
+    //
+    // `/maxWorkers,?\s*$/m` (line 42) matches `    // maxWorkers,` exactly as
+    // readily as `    maxWorkers,` — the `//` prefix is not excluded. Measured
+    // 2026-09-18 (slice rid-c2-mutation-control-audit): changing vitest.config.ts
+    // line 70 from `maxWorkers,` to `// maxWorkers,` left ALL SIX assertions
+    // green. The same file flags the identical defect class over
+    // `.gitignore` — `top-level-change-id-guard.test.ts` ships an explicit
+    // anti-control for a commented-out rule, because "a substring is not a
+    // rule". This is that anti-control for this file.
+    //
+    // The rule is `maxWorkers` declared on an ACTIVE line. The two mutations
+    // are the two ways a human disables it, and both must go red:
+    //   - commented out  (`// maxWorkers,`)  -> not an active line  -> RED
+    //   - deleted whole  (line removed)      -> not an active line  -> RED
+    // The contrast that makes it a control rather than a second copy of the
+    // substring check: asserting the ACTIVE lines, not the file text.
+    const activeWiring = configText
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*\/\//.test(line))
+      .some((line) => /maxWorkers,?\s*$/.test(line));
+
+    expect(activeWiring, 'the worker cap must be wired on a line the config actually reads').toBe(true);
+  });
 });

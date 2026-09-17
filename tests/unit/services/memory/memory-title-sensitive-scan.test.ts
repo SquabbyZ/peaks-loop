@@ -94,7 +94,21 @@ const FALSE_REFUSALS: ReadonlyArray<string> = [
   'secretary of state',
   'credentialed staff rotation',
   'auth flow for the IDE adapter',
-  'AUTHORITY'
+  'AUTHORITY',
+  // C4 — the negative half of the `authkey` pair: the `authkey`-specific twin
+  // of `tokenizer behavior` / `secretary of state` above.
+  //
+  // The row must be a word that CONTAINS the term. C3 shipped
+  // `authorization header handling` here with a comment claiming it would
+  // redden "if the new entries were ever widened to bare `auth`". QA measured
+  // that false — that row stays green under that mutation (the `auth flow` row
+  // is what catches it), so its comment claimed more than the row could
+  // prove. It is replaced by one that can actually redden: under the pre-C0
+  // substring shape a run need only CONTAIN a term, and `authkeyboard`
+  // contains `authkey`. Measured (C4): with the matcher mutated to substring
+  // semantics this row goes red, and the two analogue rows above go red with
+  // it.
+  'authkeyboard layout'
 ];
 
 /**
@@ -115,7 +129,17 @@ const TRUE_POSITIVES: ReadonlyArray<readonly [title: string, term: string]> = [
   ['passwords', 'passwords'],
   ['credentials', 'credentials'],
   ['bearer', 'bearer'],
-  ['access token', 'accesstoken']
+  ['access token', 'accesstoken'],
+  // C3: the two entries `authkey`/`authkeys` added to SENSITIVE_PROSE_TERMS
+  // after C2 measured that `authkey` and `auth-key` were ACCEPTED while C0's
+  // tech doc §4 claimed they were listed. Without these rows the entries have
+  // zero coverage — `grep tests/ authkey` returned nothing, so deleting them
+  // again would have gone unnoticed, which is the exact shape this slice
+  // exists to fix. `auth-key` / `authKeys` are the separator and camelCase
+  // spellings, both of which must resolve to the same run.
+  ['authkey', 'authkey'],
+  ['auth-key', 'authkey'],
+  ['authKeys', 'authkeys']
 ];
 
 describe('Scenario: behavior — the title scan reads terms, not substrings', () => {

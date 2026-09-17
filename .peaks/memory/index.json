@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T16:14:50.135Z",
+  "updatedAt": "2026-09-17T17:22:03.962Z",
   "hot": {
     "rule": [
       {
@@ -28,6 +28,14 @@
         "updatedAt": "2026-09-17"
       },
       {
+        "name": "a-criterion-applied-at-the-wrong-granularity-drops-entries-silently",
+        "kind": "rule",
+        "description": "The guard enumeration filtered on \"does this file read a committed artifact?\" — a **file**-level question — while the...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-criterion-applied-at-the-wrong-granularity-drops-entries-silently.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
         "name": "a-diff-scoped-gate-reporting-zero-violations-may-have-checked-nothing",
         "kind": "rule",
         "description": "reports  alongside , and it is **diff-scoped** (, default ).",
@@ -41,6 +49,14 @@
         "description": "B1 shipped a producer, a type, a serializer, a rewritten reader, and 24 passing cases including a real  round trip.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-feature-can-be-fully-tested-and-still-be-unreachable-from-production.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-b2.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-fix-script-that-matches-on-an-id-format-it-half-knows-will-skip-rows-without-saying-so",
+        "kind": "rule",
+        "description": "A script correcting a markdown table against  matched row ids as  and table rows as , so every **single-digit** row f...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-fix-script-that-matches-on-an-id-format-it-half-knows-will-skip-rows-without-saying-so.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
         "updatedAt": "2026-09-17"
       },
       {
@@ -153,6 +169,14 @@
         "description": "Two decisions in one slice, both the same shape.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\derive-from-the-source-of-truth-never-re-declare-it-and-do-not-keep-a-field-nobody-reads.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-b2.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "i-audited-n-carries-no-information-until-the-criterion-that-found-n-is-stated",
+        "kind": "rule",
+        "description": "One CHANGELOG sentence — \"13 guard points, 10 with no measured control group\" — produced **four different answers** d...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\i-audited-n-carries-no-information-until-the-criterion-that-found-n-is-stated.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c-group.md",
         "updatedAt": "2026-09-17"
       },
       {

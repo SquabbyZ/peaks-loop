@@ -89,6 +89,7 @@ const SENSITIVE_PROSE_TERMS: ReadonlySet<string> = new Set([
   'secretkey', 'secretkeys',
   'accesstoken', 'accesstokens',
   'authtoken', 'authtokens',
+  'authkey', 'authkeys',
   'refreshtoken', 'refreshtokens',
   'token', 'tokens',
   'secret', 'secrets',

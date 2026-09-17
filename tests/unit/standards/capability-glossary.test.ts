@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const FORBIDDEN_PATTERN =
@@ -65,5 +68,51 @@ describe("Scenario: capability-glossary", () => {
     throw new Error(
       `git grep exited with unexpected status ${result.status} (signal=${result.signal ?? 'none'}): ${stderr}`,
     );
+  });
+
+  it('when a forbidden alias IS in the input, the same invocation reports it (the self-check)', () => {
+    // The negative arm for the "weakened, not deleted" shape.
+    //
+    // The assertion above can only ever say "no matches found" — which is
+    // exactly what a pattern that matches nothing also says. Measured
+    // 2026-09-18 (slice rid-c2-mutation-control-audit): replacing
+    // FORBIDDEN_PATTERN with a never-matching literal kept this file's sole
+    // `it` green. A check that cannot notice its own pattern going dead is the
+    // same defect as the commented-out `.gitignore` rule that
+    // `top-level-change-id-guard.test.ts` ships an anti-control for.
+    //
+    // The control drives `FORBIDDEN_PATTERN` through `git grep` — the same
+    // pattern and the same tool as the live check, so it covers the pattern
+    // AND the invocation. It does not restate the live check: that one reads
+    // the repository, this one reads a fixture whose verdict is known.
+    const dir = mkdtempSync(join(tmpdir(), 'peaks-glossary-control-'));
+    try {
+      writeFileSync(join(dir, 'offending.ts'), 'const x = 1; // drift-system\n', 'utf8');
+      writeFileSync(join(dir, 'clean.ts'), 'const x = 1; // an ordinary comment\n', 'utf8');
+
+      // `cwd` is the fixture dir and the paths are relative to it: `git grep`
+      // refuses a path outside the repository even with `--no-index`
+      // (measured: exit 128, "is outside repository at 'D:/peaks-loop'").
+      // Running from the fixture dir means there is no repository to be
+      // outside of.
+      const run = (paths: readonly string[]): { status: number | null; stdout: string } => {
+        const result = spawnSync(
+          'git',
+          ['grep', '--no-index', '-nI', '-E', FORBIDDEN_PATTERN, '--', ...paths],
+          { cwd: dir, encoding: 'utf8', windowsHide: true },
+        );
+        return { status: result.status, stdout: result.stdout ?? '' };
+      };
+
+      const caught = run(['offending.ts']);
+      expect(caught.status, 'a forbidden alias in the input must be FOUND (exit 0)').toBe(0);
+      expect(caught.stdout).toContain('drift-system');
+
+      const spared = run(['clean.ts']);
+      expect(spared.status, 'a clean input must be SPARED (exit 1)').toBe(1);
+      expect(spared.stdout).toBe('');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
