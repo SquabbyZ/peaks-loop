@@ -64,6 +64,12 @@
 //     consumer project (`config.json.bak` matches neither the peaks-loop
 //     snippet nor upstream's own `.codegraph/.gitignore`), so both files
 //     are committable.
+//   - `rollbackCodegraphConfig` is that copy's READER, and it is reached by the
+//     EXPLICIT `peaks codegraph config-restore` verb — never from here. A
+//     repair must not undo itself: this seam's job is to close the gap, so a
+//     run that restored its own write would leave the config exactly as it
+//     found it and `peaks codegraph status` still reporting the gap (exit 75
+//     never clearing). Rolling back is an operator decision, not a step.
 //   - The DIRECTORY both paths live in is contained: `assertCodegraphDirContained`
 //     refuses when `<projectRoot>/.codegraph` resolves (junction or symlink)
 //     outside the canonical project root, so neither the read nor either
@@ -191,7 +197,15 @@ export type CodegraphExcludeRepairReport = {
    * AND the reads failed (there is no config to name).
    */
   readonly configPath: string;
-  /** Byte-exact rollback copy (null when nothing was written). */
+  /**
+   * Byte-exact rollback copy (null when nothing was written).
+   *
+   * It is a rollback POINT, not a rollback: nothing in this seam reads it back.
+   * Putting the config back is the separate, explicit
+   * `peaks codegraph config-restore` verb, so this field is what that verb
+   * would read — and its presence is the one guarantee that a restore is
+   * possible at all.
+   */
   readonly backupPath: string | null;
   /** True when the post-repair `codegraph index` finished successfully. */
   readonly reindexed: boolean;
@@ -280,6 +294,20 @@ export type CodegraphExcludeRepairOptions = {
    * C) exists so that upgrading peaks-loop cannot change a downstream
    * project's cost profile, and purging dead rows is the caller's explicit
    * request instead.
+   *
+   * `'force'` changes ONLY the rebuild, never the config: it is the same
+   * two-axis repair as `'exclude'`, followed by `cg.clear()` + `indexAll()`
+   * instead of an incremental index. The config repair STAYS — that is what
+   * makes the force mode worth its cost, because `include` has to be widened
+   * before a rebuild can admit the files the config was dropping.
+   *
+   * Not a self-cancelling run, and that is a design decision rather than a
+   * detail: a mode that wrote the repair and then restored the pre-repair bytes
+   * would leave the config exactly as it found it, `peaks codegraph status`
+   * would still report the gap, and exit 75 would never clear. Putting the
+   * config BACK is the explicit `peaks codegraph config-restore` verb, which
+   * reads the `.bak` this run leaves — an operator decision, not a side effect
+   * of asking for a rebuild.
    */
   readonly reindex?: boolean | 'force';
 };

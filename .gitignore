@@ -68,4 +68,18 @@ best-practice/
 # Both patterns below are PROJECT-ROOT-relative, so this snippet must land
 # in the root .gitignore — see `upsertPeaksGitignoreSnippet`.
 .peaks/.claude-settings-template.json
+# Codegraph rollback copy (A3, 2026-09-17). Every `peaks codegraph init` /
+# `repair-exclude` / `repair-index` / pre-dispatch preflight / post-slice
+# auto-refresh copies `.codegraph/config.json` here before rewriting it, so
+# this file is LOCAL CHURN: a committed one is silently replaced by the next
+# repair. Upstream's own `.codegraph/.gitignore` does not cover it (it names
+# *.db / *.db-wal / *.db-shm, cache/, *.log and .dirty only) and `.codegraph/`
+# is NOT ignored wholesale downstream, so without this line a consumer project
+# commits a file peaks-loop rewrites under it.
+#
+# ONLY the backup, never `config.json` itself: upstream deliberately keeps
+# that config committable (it is a project's include/exclude policy, and
+# committing it is how a team shares it), so ignoring it would hide a file
+# people mean to commit. A rollback copy is the opposite kind of file.
+.codegraph/config.json.bak
 # <<< peaks-loop managed snippet

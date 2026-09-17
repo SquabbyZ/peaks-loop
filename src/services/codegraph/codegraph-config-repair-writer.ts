@@ -3,7 +3,10 @@
 // The pure repair plans (`repairCodegraphExclude` for the exclude axis,
 // `repairCodegraphInclude` for the include axis) and the writer that applies
 // them to `<projectRoot>/.codegraph/config.json` in ONE atomic rewrite, plus
-// the byte-exact `config.json.bak` copy it keeps for rollback.
+// the byte-exact `config.json.bak` copy it keeps for rollback and
+// `rollbackCodegraphConfig`, that copy's reader (slice A1 of
+// `2026-09-17-session-607ead`: the reverse write, so the rollback the `.bak`
+// has always promised is reachable).
 //
 // Extracted verbatim from `codegraph-exclude-repair.ts` (rid
 // 2026-09-17-oversize-followup, G1 — the 800-line file-size cap). Every moved
@@ -208,6 +211,47 @@ function writeConfigAtomic(filePath: string, content: string, mode?: number): vo
 }
 
 /**
+ * The shared shape of the two refusals this module makes at the FIXED,
+ * therefore guessable, `config.json.bak` path: a symbolic link (bytes land in
+ * whatever it points at), a directory (there is nowhere for them to land), or
+ * a hard link (`nlink > 1` — another name shares this inode). Returns `null`
+ * when the path is absent or is a plain regular file, the only two states both
+ * ends of the rollback contract may act on.
+ *
+ * ONE predicate, two callers, and that is the point: `writeConfigBackup`
+ * WRITES this copy and `rollbackCodegraphConfig` READS it back. A guard that
+ * drifted between the two would leave the rollback trusting a path the writer
+ * would have refused, so the refusal is the same at both ends because the
+ * trust premise is the same at both ends.
+ *
+ * `lstat`, never `stat`: `stat` follows a link and reports the victim's
+ * regular-file type, which is exactly the case both callers must refuse.
+ */
+function linkOrDirectoryAt(
+  path: string
+): { readonly preposition: 'at' | 'through'; readonly kind: string } | null {
+  const existing = lstatSync(path, { throwIfNoEntry: false });
+
+  if (
+    existing === undefined ||
+    (!existing.isSymbolicLink() && !existing.isDirectory() && existing.nlink <= 1)
+  ) {
+    return null;
+  }
+
+  return {
+    // "through" for a link (the bytes land in whatever it points at), "at" for
+    // a directory (there is nowhere for them to land).
+    preposition: existing.isDirectory() ? 'at' : 'through',
+    kind: existing.isSymbolicLink()
+      ? 'a symbolic link'
+      : existing.isDirectory()
+        ? 'a directory'
+        : `a hard link (link count ${String(existing.nlink)})`
+  };
+}
+
+/**
  * Copy the config's ORIGINAL bytes to `config.json.bak`, refusing to write
  * through a link that already occupies that path.
  *
@@ -272,23 +316,11 @@ function writeConfigAtomic(filePath: string, content: string, mode?: number): vo
  */
 function writeConfigBackup(configPath: string, originalText: string): string {
   const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
-  const existing = lstatSync(backupPath, { throwIfNoEntry: false });
+  const occupied = linkOrDirectoryAt(backupPath);
 
-  if (
-    existing !== undefined &&
-    (existing.isSymbolicLink() || existing.isDirectory() || existing.nlink > 1)
-  ) {
-    const kind = existing.isSymbolicLink()
-      ? 'a symbolic link'
-      : existing.isDirectory()
-        ? 'a directory'
-        : `a hard link (link count ${String(existing.nlink)})`;
-    // "through" for a link (the bytes land in whatever it points at), "at" for
-    // a directory (there is nowhere for them to land).
-    const preposition = existing.isDirectory() ? 'at' : 'through';
-
+  if (occupied !== null) {
     throw new Error(
-      `codegraph config backup ${backupPath}: refusing to write ${preposition} ${kind} occupying ` +
+      `codegraph config backup ${backupPath}: refusing to write ${occupied.preposition} ${occupied.kind} occupying ` +
         'this path. Another file or directory shares it, so a backup written here would overwrite ' +
         'that. Remove it (or point `peaks` at a project root whose `.codegraph/` it owns) and re-run.'
     );
@@ -405,4 +437,98 @@ export function applyCodegraphConfigRepair(
     includeCountBefore: include.length,
     includeCountAfter: includePlan.include.length
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Rollback — the read side of the `.bak`
+// ─────────────────────────────────────────────────────────────────────
+
+/** Local, because this module must not import `codegraph-exclude-repair.ts`. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export type CodegraphConfigRollbackResult =
+  | {
+      readonly rolledBack: true;
+      readonly configPath: string;
+      readonly backupPath: string;
+    }
+  | {
+      readonly rolledBack: false;
+      readonly configPath: string;
+      readonly backupPath: string;
+      /** Why the rollback did not happen. Never `null` on this arm. */
+      readonly error: string;
+    };
+
+/**
+ * Put `configPath` back to the bytes `writeConfigBackup` saved beside it, and
+ * back to the mode those bytes were saved with.
+ *
+ * This is the reverse of `applyCodegraphConfigRepair`'s write half and the only
+ * reason the `.bak` exists: until this function, the backup had no reader
+ * anywhere in the repository, so "byte-exact rollback" described a file nobody
+ * ever restored.
+ *
+ * The guard is `linkOrDirectoryAt` — the SAME predicate that refuses to WRITE
+ * through a link at the backup path refuses to READ through one here. The
+ * attack it closes is the mirror image of the writer's: `config.json.bak` is
+ * fixed and committable, so a repository that ships it as a link would
+ * otherwise have the link's target's bytes published into `.codegraph/config.json`
+ * as if they were the pre-repair config — attacker-chosen content, written
+ * under the operator's own config path, from a file the operator never
+ * reviewed. A refusal is a refusal and not a repair, at both ends.
+ *
+ * The restore runs through `writeConfigAtomic` (same-directory CSPRNG temp +
+ * `renameSync`) for the same reason the backup write does: a crash mid-write
+ * must leave the repaired config intact rather than a prefix of the restored
+ * one, and the mode is applied to the TEMP before the rename so the published
+ * file never exists at the process umask. The mode comes from `statSync` of the
+ * backup, symmetrical with the write end: the copy carries the original
+ * config's mode, so handing that mode back to the config restores what the
+ * project had granted rather than this process's umask.
+ *
+ * A refusal, or a backup that cannot be read, is RETURNED rather than thrown:
+ * the caller reports it as a field and must keep going — the forced rebuild it
+ * was asked for still has to run. `writeConfigAtomic`'s own fs throw is left to
+ * propagate, and the caller catches that too.
+ */
+export async function rollbackCodegraphConfig(
+  configPath: string
+): Promise<CodegraphConfigRollbackResult> {
+  const backupPath = `${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`;
+
+  const occupied = linkOrDirectoryAt(backupPath);
+  if (occupied !== null) {
+    return {
+      rolledBack: false,
+      configPath,
+      backupPath,
+      error:
+        `codegraph config rollback ${backupPath}: refusing to restore ${occupied.preposition} ${occupied.kind} occupying ` +
+        'this path. A backup this writer did not create is not a rollback point, and restoring through it ' +
+        'would publish bytes nobody reviewed. Restore it by hand and re-run.'
+    };
+  }
+
+  let originalText: string;
+  let originalMode: number;
+  try {
+    originalText = readFileSync(backupPath, 'utf8');
+    // `& 0o777` drops the file-type bits `statSync` packs above the permission
+    // bits — `chmod` takes permission bits only.
+    originalMode = statSync(backupPath).mode & 0o777;
+  } catch (error) {
+    return {
+      rolledBack: false,
+      configPath,
+      backupPath,
+      error: `codegraph config rollback: cannot read ${backupPath}: ${errorMessage(error)}`
+    };
+  }
+
+  writeConfigAtomic(configPath, originalText, originalMode);
+
+  return { rolledBack: true, configPath, backupPath };
 }

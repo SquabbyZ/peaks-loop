@@ -44,6 +44,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
 import { cleanupTmpWorkspace, useTmpWorkspace, type TmpWorkspace } from '../_setup/tmp-workspace.js';
 import { CODEGRAPH_INTEGRITY_EXIT_CODE } from '../../../src/services/codegraph/codegraph-exclude-integrity.js';
+import { repairCodegraphExcludeFromProject } from '../../../src/services/codegraph/codegraph-exclude-repair.js';
 
 declareDimensions('tests/unit/cli/codegraph-status-integrity.test.ts', [
   'render',
@@ -414,6 +415,29 @@ describe('peaks codegraph repair-exclude', () => {
     expect(envelope.data.reindexed).toBe(false);
     expect(process.exitCode).toBe(1);
   });
+
+  it('should expose exactly the report type — the envelope and the fields cannot drift', async () => {
+    const project = seedProject(ws, 'gapped');
+    // The report's own key set, from a real run of the step the CLI wraps. The
+    // runner is injected so this needs no upstream process, and the config it
+    // repairs is the one the CLI run below then finds already clean — the KEY
+    // SET is what is under test, and it does not depend on the values.
+    const report = await repairCodegraphExcludeFromProject(
+      project,
+      async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+      { reindex: false }
+    );
+    process.exitCode = 0;
+
+    const captured = await runCodegraph(['repair-exclude', '--project', project, '--peaks-json']);
+
+    // `repair-exclude` and `repair-index` share ONE envelope builder, so this
+    // covers both. Equality rather than a subset, in both directions: a key the
+    // envelope carries that the report no longer has is a residual field name
+    // (a removed feature's ghost, still in every consumer's JSON), and a report
+    // field the envelope omits is a fact the JSON consumer cannot see at all.
+    expect(Object.keys(parseJson(captured).data).sort()).toEqual(Object.keys(report).sort());
+  });
 });
 
 // ── behavior + integration: `repair-index`, the remedy for exit 75 ────
@@ -490,6 +514,38 @@ describe('peaks codegraph repair-index', () => {
     expect(parseJson(second).data.forcedRebuild).toBe(true);
     expect(__m.executeCodegraphInvocation).toHaveBeenCalledTimes(1);
     expect(process.exitCode).toBe(0);
+  });
+
+  it('should leave the gap CLOSED after repair-index — the invariant this verb exists for', async () => {
+    const project = seedProject(ws, 'gapped');
+
+    // Before: the config blocks a tracked source file, and the gate says so —
+    // the non-vacuity control, because a gate that reported `false` for
+    // everything would satisfy the assertion below without measuring anything.
+    const before = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    expect(before.data.integrity?.gap).toBe(true);
+
+    await runCodegraph(['repair-index', '--project', project, '--peaks-json']);
+    process.exitCode = 0;
+
+    // After: the gap is CLOSED, which is the whole point of the verb (exit 75's
+    // cause is gone). It is asserted by RE-READING `status` rather than by
+    // trusting the repair's own envelope, and it is the assertion a
+    // self-cancelling `'force'` — one that restored the pre-repair config —
+    // would fail: the config would be gapped again and this would report true.
+    const after = parseJson(await runCodegraph(['status', '--project', project, '--peaks-json']));
+    expect(after.data.integrity?.gap).toBe(false);
+    // The gate RAN and returned a real verdict, rather than being absent
+    // (`null`) in a way that `?.gap` would have turned into `undefined`.
+    expect(typeof after.data.integrity?.gap).toBe('boolean');
+
+    // …and the bytes it is judged on are the ones the run wrote.
+    const config = JSON.parse(readFileSync(join(project, '.codegraph', 'config.json'), 'utf8')) as {
+      include: string[];
+      exclude: string[];
+    };
+    expect(config.include).toContain('**/*.mjs');
+    expect(config.exclude).not.toContain('**/vendor/**');
   });
 
   it('on the human path, should name what changed on both axes', async () => {

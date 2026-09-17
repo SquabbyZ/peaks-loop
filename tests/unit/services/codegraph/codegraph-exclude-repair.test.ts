@@ -34,7 +34,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -45,6 +45,8 @@ import {
   repairCodegraphExclude,
   repairCodegraphExcludeFromProject,
 } from '../../../../src/services/codegraph/codegraph-exclude-repair.js';
+import { rollbackCodegraphConfig } from '../../../../src/services/codegraph/codegraph-config-repair-writer.js';
+import type { CodegraphConfigRollbackResult } from '../../../../src/services/codegraph/codegraph-config-repair-writer.js';
 import { inspectCodegraphExcludeIntegrity } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -537,5 +539,186 @@ describe('A4 — the rollback copy carries the original config mode', () => {
 
     // cleanup: leave the fixture removable on Windows
     chmodSync(backupPath, 0o666);
+  });
+});
+
+// ── the read side of the `.bak` (slice A1) ───────────────────────────
+
+/**
+ * `applyCodegraphConfigRepair` has always promised a byte-exact
+ * `config.json.bak`, but until `rollbackCodegraphConfig` nothing in the
+ * repository ever READ that copy back — "rollback" named a file nobody
+ * restored. These cases pin the read side: byte-exact, mode-restoring, and
+ * making the SAME refusal at the backup path that the write side makes.
+ *
+ * The refusal is the case that matters. `config.json.bak` is a FIXED, guessable
+ * and committable path, so a repository can ship it as a link; a rollback that
+ * read through that link would publish a file the operator never reviewed into
+ * `.codegraph/config.json`. The predicate has one branch per link shape, so
+ * each shape gets its own case — and the hard-link and directory branches are
+ * the ones this platform can always build (a real file symlink needs Windows
+ * Developer Mode; the junction fallback below reports `isSymbolicLink()`).
+ */
+describe('rollbackCodegraphConfig — the read side of the backup', () => {
+  /**
+   * The refusal arm's reason, with the refusal itself as the assertion: this
+   * THROWS when the rollback went ahead, so a case written for a refusal cannot
+   * pass by reading an `error` that isn't there. It also narrows the result
+   * union, which is why the read is not a bare `result.error`.
+   */
+  function refusalReason(result: CodegraphConfigRollbackResult): string {
+    if (result.rolledBack) {
+      throw new Error('expected the rollback to be REFUSED, but it restored the config');
+    }
+    return result.error;
+  }
+
+  function makeRepairedFixture(): {
+    projectRoot: string;
+    configPath: string;
+    backupPath: string;
+    original: string;
+    repaired: string;
+  } {
+    const projectRoot = makeProjectRoot('peaks-cg-rollback-');
+    mkdirSync(join(projectRoot, '.codegraph'), { recursive: true });
+    const original = `${JSON.stringify(
+      { version: 1, include: ['**/*.ts'], exclude: ['**/vendor/**', '**/dist/**'] },
+      null,
+      2,
+    )}\n`;
+    writeFileSync(configPathOf(projectRoot), original, 'utf8');
+
+    // The real writer, so the `.bak` under test is the one production makes.
+    const outcome = applyCodegraphConfigRepair(projectRoot, {
+      rulesToRemove: ['**/vendor/**'],
+      includePatternsToAdd: [],
+    });
+    expect(outcome.applied).toBe(true);
+
+    return {
+      projectRoot,
+      configPath: configPathOf(projectRoot),
+      backupPath: `${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`,
+      original,
+      repaired: readFileSync(configPathOf(projectRoot), 'utf8'),
+    };
+  }
+
+  it('should restore the config byte-for-byte, and the mode it was saved with', async () => {
+    const { configPath, backupPath, original, repaired } = makeRepairedFixture();
+    // READ-ONLY is the mode this case uses, and it is chosen rather than
+    // arbitrary: `chmod` on Windows only toggles the read-only bit (measured:
+    // 0o640 and 0o600 both read back as 0o666, 0o444 reads back as 0o444), so
+    // a 0o640 assertion would pass on this platform whatever the rollback did.
+    // 0o444 is discriminating on both platforms, and it is the mode whose loss
+    // a rollback would be least likely to notice.
+    chmodSync(backupPath, 0o444);
+    const restoredMode = statSync(backupPath).mode & 0o777;
+    // Non-vacuity control: the mode the `.bak` carries really is NOT the mode a
+    // freshly written file gets from this process's umask, which is what a
+    // rollback that dropped the mode argument would publish instead.
+    const probePath = join(configPath, '..', 'probe.json');
+    writeFileSync(probePath, '{}\n', 'utf8');
+    const umaskMode = statSync(probePath).mode & 0o777;
+    rmSync(probePath, { force: true });
+    expect(restoredMode).not.toBe(umaskMode);
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(true);
+    expect(readFileSync(configPath, 'utf8')).toBe(original);
+    expect(statSync(configPath).mode & 0o777).toBe(restoredMode);
+    // The point of the case: the bytes are the ORIGINAL ones, not the repaired
+    // ones the writer had just published.
+    expect(readFileSync(configPath, 'utf8')).not.toBe(repaired);
+
+    // cleanup: leave the fixture removable on Windows
+    chmodSync(configPath, 0o666);
+  });
+
+  it('should round-trip the writer exactly — write, then roll back, and be back where it started', async () => {
+    const { configPath, original } = makeRepairedFixture();
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(true);
+    // `original` is the literal text the fixture wrote, so this is the
+    // round-trip claim and not a re-serialization: any re-formatting, any
+    // re-ordering of keys, any lost trailing newline fails here.
+    expect(readFileSync(configPath, 'utf8')).toBe(original);
+  });
+
+  it('should refuse a hard link at the backup path, leaving both files alone', async () => {
+    const { configPath, backupPath } = makeRepairedFixture();
+    // The attack, in the shape this platform always allows: `.bak` is a second
+    // name for a file the operator never reviewed. Reading through it would
+    // publish that file's bytes into the config.
+    rmSync(backupPath, { force: true });
+    const victimPath = join(configPath, '..', 'victim.json');
+    writeFileSync(victimPath, '{"INJECTED":true}\n', 'utf8');
+    linkSync(victimPath, backupPath);
+    const configBefore = readFileSync(configPath, 'utf8');
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(false);
+    expect(refusalReason(result)).toContain('refusing to restore through a hard link');
+    // Nothing was read through the link and nothing was written: the config
+    // still holds the repaired bytes, and the victim is untouched.
+    expect(readFileSync(configPath, 'utf8')).toBe(configBefore);
+    expect(readFileSync(victimPath, 'utf8')).toBe('{"INJECTED":true}\n');
+  });
+
+  it('should refuse a symbolic link at the backup path', async () => {
+    const { configPath, backupPath } = makeRepairedFixture();
+    rmSync(backupPath, { force: true });
+    const victimPath = join(configPath, '..', 'victim.json');
+    writeFileSync(victimPath, '{"INJECTED":true}\n', 'utf8');
+
+    try {
+      // The real shape on POSIX and on Windows with Developer Mode.
+      symlinkSync(victimPath, backupPath, 'file');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EPERM' && code !== 'EACCES' && code !== 'UNKNOWN') {
+        throw error;
+      }
+      // Windows without the privilege: a junction is the symlink this platform
+      // can always build, and Node reports `isSymbolicLink()` for it — the same
+      // predicate branch, so the case still exercises the branch it names.
+      symlinkSync(join(configPath, '..'), backupPath, 'junction');
+    }
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(false);
+    expect(refusalReason(result)).toContain('refusing to restore through a symbolic link');
+    expect(readFileSync(configPath, 'utf8')).not.toContain('INJECTED');
+  });
+
+  it('should refuse a directory at the backup path', async () => {
+    const { configPath, backupPath } = makeRepairedFixture();
+    rmSync(backupPath, { force: true });
+    mkdirSync(backupPath);
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(false);
+    // "at", not "through": there is nowhere for the bytes to land.
+    expect(refusalReason(result)).toContain('refusing to restore at a directory');
+  });
+
+  it('should report a missing backup instead of inventing a rollback point', async () => {
+    const { configPath, backupPath, repaired } = makeRepairedFixture();
+    rmSync(backupPath, { force: true });
+
+    const result = await rollbackCodegraphConfig(configPath);
+
+    expect(result.rolledBack).toBe(false);
+    expect(refusalReason(result)).toContain(`cannot read ${backupPath}`);
+    // Fails closed: with nothing to restore, the config keeps the bytes the
+    // repair published rather than being truncated or left half-written.
+    expect(readFileSync(configPath, 'utf8')).toBe(repaired);
   });
 });

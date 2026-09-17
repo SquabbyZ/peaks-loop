@@ -356,6 +356,8 @@ describe('reindex option — the dead-row purge path', () => {
 
   it('reindex:false should spawn nothing at all (the preflight / autorefresh mode)', async () => {
     const projectRoot = makeOrderingFixture();
+    const configPath = configPathOf(projectRoot);
+    const before = readFileSync(configPath, 'utf8');
     const { runs, runner } = makeRecordingRunner();
 
     const report = await repairCodegraphExcludeFromProject(projectRoot, runner, {
@@ -368,6 +370,13 @@ describe('reindex option — the dead-row purge path', () => {
     expect(runs).toHaveLength(0);
     // Not a degradation: nothing went wrong, so there is nothing to warn about.
     expect(report.warning).toBeNull();
+
+    // Invariant: the two callers that pass `reindex: false` (the pre-dispatch
+    // preflight and the post-slice autorefresh) get the config repair and
+    // nothing else. Asserted on the config bytes rather than on a flag alone,
+    // because "the repair is durable" is a statement about the file: the bytes
+    // on disk are NOT the ones this run started with.
+    expect(readFileSync(configPath, 'utf8')).not.toBe(before);
   });
 
   it('should report the TRUE forced state when a forced rebuild FAILS — upstream may have cleared already', async () => {
@@ -406,6 +415,11 @@ describe('reindex option — the dead-row purge path', () => {
     expect(report.applied).toBe(false);
     expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(bytesAfterRepair);
     expect(statSync(configPathOf(projectRoot)).mtimeMs).toBe(mtimeAfterRepair);
+    // The `.bak` a FORCED run leaves behind is a rollback POINT, not a rollback:
+    // nothing on this path consumes it. `peaks codegraph config-restore` does,
+    // and only when an operator asks for it — which is what keeps a forced run
+    // from reverting the very repair it just made.
+    expect(existsSync(`${configPathOf(projectRoot)}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`)).toBe(true);
 
     // …but the rebuild still ran, forced. This is a DELIBERATE asymmetry: a
     // clean reconciliation does not prove the index is complete (the gate's
@@ -417,6 +431,100 @@ describe('reindex option — the dead-row purge path', () => {
     expect(report.forcedRebuild).toBe(true);
     expect(runs).toHaveLength(1);
     expect(runs[0]?.args).toContain('--force');
+  });
+
+  // ── `'force'` is index-only: the config repair STAYS ───────────────
+
+  it('reindex:"force" should KEEP the repaired config while rebuilding forced', async () => {
+    const projectRoot = makeOrderingFixture();
+    const configPath = configPathOf(projectRoot);
+    const before = readFileSync(configPath, 'utf8');
+    const { runs, runner } = makeRecordingRunner();
+
+    const report = await repairCodegraphExcludeFromProject(projectRoot, runner, {
+      reindex: 'force'
+    });
+
+    // The repair really happened — both axes moved in this one run…
+    expect(report.applied).toBe(true);
+    expect(report.rulesRemoved).toEqual(['**/tool.mjs']);
+    expect(report.includePatternsAdded).toEqual(EXPECTED_INCLUDE_ADDITIONS);
+
+    // …and it STAYS. This is the load-bearing half of the mode's contract: a
+    // `'force'` that restored its own write would leave the config exactly as
+    // it found it, so `peaks codegraph status` would still report the gap and
+    // exit 75 would never clear — the verb would cancel itself out. Putting a
+    // config BACK is the explicit `peaks codegraph config-restore` verb, which
+    // reads the `.bak` this run leaves and never runs on its own.
+    expect(readFileSync(configPath, 'utf8')).not.toBe(before);
+    const repaired = JSON.parse(readFileSync(configPath, 'utf8')) as {
+      include: string[];
+      exclude: string[];
+    };
+    expect(repaired.include).toEqual(['**/*.ts', ...EXPECTED_INCLUDE_ADDITIONS]);
+    expect(repaired.exclude).toEqual(['**/node_modules/**']);
+    expect(readFileSync(`${configPath}${CODEGRAPH_CONFIG_BACKUP_SUFFIX}`, 'utf8')).toBe(before);
+
+    // The forced rebuild ran — `--force` in the ARGV is upstream's `cg.clear()`
+    // + `indexAll()`, the only path that drops rows for files deleted in an
+    // earlier commit.
+    expect(report.warning).toBeNull();
+    expect(report.reindexed).toBe(true);
+    expect(report.forcedRebuild).toBe(true);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.args).toContain('index');
+    expect(runs[0]?.args).toContain('--force');
+  });
+
+  it('both repair modes should keep the repair — `force` differs only in the rebuild', async () => {
+    const plainRoot = makeOrderingFixture();
+    const forcedRoot = makeOrderingFixture();
+
+    const plain = await repairCodegraphExcludeFromProject(plainRoot, makeRecordingRunner().runner);
+    const forced = await repairCodegraphExcludeFromProject(forcedRoot, makeRecordingRunner().runner, {
+      reindex: 'force'
+    });
+
+    // The two modes produce the SAME config, byte for byte: `'force'` is not a
+    // different repair, it is the same repair followed by a different rebuild.
+    // Without this control the case above could be satisfied by a `'force'`
+    // special case that happens to write something else.
+    expect(readFileSync(configPathOf(forcedRoot), 'utf8')).toBe(
+      readFileSync(configPathOf(plainRoot), 'utf8')
+    );
+    expect(forced.rulesRemoved).toEqual(plain.rulesRemoved);
+    expect(forced.includePatternsAdded).toEqual(plain.includePatternsAdded);
+    expect(readFileSync(configPathOf(plainRoot), 'utf8')).not.toContain('"**/tool.mjs"');
+
+    // …and the ONLY difference is the flag that reaches upstream.
+    expect(plain.forcedRebuild).toBe(false);
+    expect(forced.forcedRebuild).toBe(true);
+  });
+
+  it('should write the repair to disk BEFORE the follow-up index is spawned', async () => {
+    const projectRoot = makeOrderingFixture();
+    const configPath = configPathOf(projectRoot);
+    const before = readFileSync(configPath, 'utf8');
+
+    // The oracle is what the CONFIG holds at the moment upstream is spawned,
+    // not what the report claims afterwards. It is load-bearing: the widened
+    // `include` is exactly what the rebuild exists to admit, so a spawn that
+    // ran first — or a config written only after it — would rebuild against the
+    // gapped config and recover nothing.
+    const configAtSpawn: string[] = [];
+    const runner = async (): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
+      configAtSpawn.push(readFileSync(configPath, 'utf8'));
+      return { exitCode: 0, stdout: '', stderr: '' };
+    };
+
+    await repairCodegraphExcludeFromProject(projectRoot, runner, { reindex: 'force' });
+
+    expect(configAtSpawn).toHaveLength(1);
+    expect(configAtSpawn[0]).not.toBe(before);
+    expect((JSON.parse(configAtSpawn[0] ?? '{}') as { include: string[] }).include).toEqual([
+      '**/*.ts',
+      ...EXPECTED_INCLUDE_ADDITIONS
+    ]);
   });
 });
 
