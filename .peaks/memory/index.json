@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T15:35:39.328Z",
+  "updatedAt": "2026-09-17T16:14:50.135Z",
   "hot": {
     "rule": [
       {
@@ -65,6 +65,22 @@
         "description": "was permanently green because  was a SQLite WAL db, and opening it read-only still creates  sidecar files.",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-package-at-a-wrong-absolute-path-silences-its-own-gate.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-16-session-5bcf09/sc/release-3-sidecars.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-predicate-written-for-one-domain-will-lie-in-another-and-the-lie-will-look-like-a-security-block",
+        "kind": "rule",
+        "description": "matches substrings against a lowercased, punctuation-stripped string.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-predicate-written-for-one-domain-will-lie-in-another-and-the-lie-will-look-like-a-security-block.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c0.md",
+        "updatedAt": "2026-09-17"
+      },
+      {
+        "name": "a-redactor-that-rewrites-the-diagnostic-is-a-redactor-that-deleted-the-diagnosis",
+        "kind": "rule",
+        "description": "The fix for a false sensitive-content refusal produced failure messages naming the check and the matched term — and t...",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\a-redactor-that-rewrites-the-diagnostic-is-a-redactor-that-deleted-the-diagnosis.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-c0.md",
         "updatedAt": "2026-09-17"
       },
       {

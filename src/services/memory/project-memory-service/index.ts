@@ -99,7 +99,10 @@ export {
 export {
   assertSafeMemory,
   assertSafeMemoryFileContent,
+  findSensitiveMemoryTitleTerm,
   hasSensitiveMemoryContent,
+  SENSITIVE_MEMORY_CHECKS,
+  UnsafeMemoryError,
   writeNewFile
 } from './store/atomic-write.js';
 

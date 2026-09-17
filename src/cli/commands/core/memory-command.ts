@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { describeMemoryBlockDrops, executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
+import { describeMemoryBlockDrops, executeProjectMemoryBackup, executeProjectMemoryExtract, SENSITIVE_MEMORY_CHECKS, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult, UnsafeMemoryError, VALID_PROJECT_MEMORY_KINDS } from '../../../services/memory/project-memory-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
@@ -31,7 +31,22 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       // unchanged — this adds no field to the summary.
       printResult(io, ok('memory.extract', summarizeProjectMemoryExtractResult(result), describeMemoryBlockDrops(result.droppedBlocks)), options.json);
     } catch (error) {
-      printResult(io, fail('memory.extract', 'MEMORY_EXTRACT_FAILED', getErrorMessage(error), {}, ['Check artifact paths and remove secrets before extracting memory']), options.json);
+      const refusal = error instanceof UnsafeMemoryError ? error : null;
+      printResult(
+        io,
+        fail(
+          'memory.extract',
+          'MEMORY_EXTRACT_FAILED',
+          getErrorMessage(error),
+          // The check and the term are facts about the failure, so they ride
+          // the envelope's data — not just its prose. `fail()` redacts
+          // `message` (see `UnsafeMemoryError`), so the term would otherwise
+          // reach the reader as `[redacted]`; `data` is passed through.
+          refusal === null ? {} : { check: refusal.check, matchedTerm: refusal.matchedTerm },
+          memoryExtractNextActions(refusal)
+        ),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
@@ -178,4 +193,32 @@ export function registerMemoryCommand(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
     });
   });
+}
+
+/**
+ * The remedy for a failed `memory extract`, chosen by the check that refused
+ * the write — the same `SENSITIVE_MEMORY_CHECKS` values the refusal message
+ * and envelope data are built from, so the message, the data and the advice
+ * cannot drift apart.
+ *
+ * WHY IT IS NOT ONE STATIC STRING. Every failure used to get "Check artifact
+ * paths and remove secrets before extracting memory" — including a refusal
+ * raised only because a memory TITLE contained a word like `authority`
+ * (slice C0). There was no secret anywhere in that memory, so the one thing
+ * the hint told the user to do was the one thing that could not help: it sent
+ * them looking for a credential that did not exist. A remedy has to answer the
+ * check that actually failed.
+ *
+ * `null` (a failure that is not a safety refusal — a path escape, a missing
+ * artifact) keeps the pre-C0 hint, which is about paths and secrets rather
+ * than about a check.
+ */
+function memoryExtractNextActions(refusal: UnsafeMemoryError | null): string[] {
+  if (refusal === null) {
+    return ['Check artifact paths and remove secrets before extracting memory'];
+  }
+  if (refusal.check === SENSITIVE_MEMORY_CHECKS.title) {
+    return ['Retitle the memory so it is not named after a credential term, then re-run memory extract'];
+  }
+  return ['Remove the credential value from the memory content, then re-run memory extract'];
 }
