@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-mut",
-  "version": "0.1.49",
+  "version": "0.1.50",
   "description": "Mutation testing + assertion scanning + ECC cache for peaks-loop (workspace-internal)",
   "keywords": [
     "peaks-loop",
