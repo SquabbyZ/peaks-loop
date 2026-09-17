@@ -1,5 +1,35 @@
 # Changelog
 
+## 4.0.53 — 2026-09-17 (三版本残留未验证清单的 source-of-truth 对账: 4.0.50/4.0.51/4.0.52 九条声明里 7 条 code 已实装, 1 条真 source dead surface 删除, 1 条仍真未做留口)
+
+**Highlights**:
+
+1. **真实工程: 1 项真 source 改动 + 1 项新 reader + 6 项新测试文件 + CHANGELOG 对账 3 段。** 4.0.50/4.0.51/4.0.52 三个版本的 CHANGELOG "明确未验证的" 清单共 9 条声明; 按 peaks-loop 4.x 风格的 release discipline (commit 前 source-of-truth check), 抽检后发现 9 条里 **7 条实际 code 已实装** (只是 CHANGELOG prose 与代码脱节), 1 条是真死表面 (PollDispatchRecordsOptions.ide), 1 条仍是真未做 (A2 `repair-index` `--reindex` 不回滚 cfg) 留口给后续 slice。
+
+2. **4.0.52 残留对账 (commit `93b488ee`)** — 4.0.52 CHANGELOG line 21 段原始措辞与 `55032546` 实际落地的代码不一致。**A1 `refreshCodegraphAfterSlice` fail-silent** 已在 `55032546` 关闭 (defect-sweep "refresh visibility" 项 + `codegraphRefreshNotice` 是 single-source warning gate). **A3 `codegraph.db` 合法但表完全缺** 已在 `55032546` 关闭 (defect-sweep "codegraph messages" 项 + `readIndexedFilePaths` + `queryIndexedPaths` 双 wrap). **A2 `repair-index` 回滚契约** 仍是唯一真未做的, `codegraph-commands.ts:134` 的 spec 已接受 `reindex: boolean | 'force'` 作为未来扩展点。
+
+3. **4.0.51 49 处点名 9 项 closure (commit `7191140f`, 7 文件 +643)** — 7 项覆盖缺口里 6 项实装:
+   - **AC-1**: `tests/unit/rd/reviewer-dispatch-policy.test.ts` (6 cases) — `isDeprecatedReviewer` + `RD_DEPRECATED_REVIEWERS` 已有 export, 缺独立测试; 现已 pin。
+   - **AC-2**: 2 cases 加到 `audit-artifact-rid-scoping.test.ts` — THIRD_PARTY_REVIEW backCompat 对称 MUT_REPORT 已存在的 case。
+   - **AC-3**: `tests/unit/skills/g11-5-title-lock.test.ts` (5 cases) — G11.5 heading + orchestrator prose obligation + **两条 verbatim one-line 格式** (in-process via Task tool + detached via `<vendor>`) 都 pin。
+   - **AC-4**: `tests/unit/slice/llm-arbitrator.test.ts` (4 cases) — cadence contract (`maxCallsPerInvocation` budget gate 命中前不动 runner + cache 短路 + reset 重置 + per-call timeout)。
+   - **AC-5**: **真 source 改动** — `src/services/prd/handoff-gate-evidence.ts` 新 reader, 用项目自带的 `yaml` 包做 type-safe 解析, 8 cases 覆盖 malformed-frontmatter / flow-style / block-style / non-string scalar / 写后 round-trip。frontmatter `gateEvidence` 字段从 prose 升级为可读 data。
+   - **AC-6**: `tests/unit/skills/karpathy-injection.test.ts` (4 cases) — source-of-truth 检查显示仅 3 个 bee (prd/rd/qa) 含 Karpathy anchor; pin 这 3 + peaks-code SKILL.md canonical id 引用。
+   - **AC-7/AC-8/AC-9** deferred 到后续 slice (per user direction): `peaks-ide audit-log` assistant + `citation-integrity` 守卫扩正则 (裸文件名 + 围栏代码块)。
+
+4. **4.0.50 反漂移闸门 closure (commit `0cfd41b5`, 2 文件 +5/-5)** — 3 项里 1 项真 source dead surface 删除 + 2 项 CHANGELOG 修订:
+   - **C1 J10 `HOOK_PERMISSION_DENIED`**: `src/services/capability-guard-runner/contracts/J10.ts:34` 真跑 (registry.ts:48 注册 + 集成测试 + runner.test.ts:77 列入), HOOK_PERMISSION_DENIED 是 4.0.8 baseline 里的 case name, **不是 "从未实现"**。唯一真未修: 4.0.8 baseline 仍 frozen, publish gate 报 consistent 但指向 frozen 行。
+   - **C2 J08 invariant 措辞**: source 跑 **7 个独立 probe** (schemaAcceptsReady / schemaRejectsGatesFalse / schemaRejectsNotCompleted / schemaRejectsNoEvidence / serviceAcceptsReady / refused.length === 3 / missing.length === 0), **不是 CHANGELOG 写的"塌缩成一个布尔"**。
+   - **C4 `PollDispatchRecordsOptions.ide` 真死参**: 删 interface 字段 + 3 caller 的 `ide:` 赋值。`pollDispatchRecords` body (line 416+) 不读 `opts.ide`, 死表面消除, -4 行。
+
+**对账纪律 (本次 release 唯一的元发现)**: 三版本 CHANGELOG "未验证清单" 普遍存在 prose/code drift — CHANGELOG 把已实装的项目列为未做. 这是 release-discipline 缺陷不是 source 缺陷; 修复 = 改 CHANGELOG 而非伪装修复. 按 peaks-loop 4.x 风格, 任何 prose 修订必须 (1) 引用 source 行号让 prose 可验证, (2) 真未做的项目如实留口不伪装. 本片 9 项里 **8 项落实** (7 prose + 1 真 source), **1 项 (A2) 留口** 给后续 slice.
+
+**验证**: 295/295 test files, 3192 tests pass + 3 skipped; tsc 142 errors (pre-existing baseline; 无新增); 三个 commit (93b488ee / 7191140f / 0cfd41b5) 全部 SquabbyZ sole-author, 无 AI trailer; CHANGELOG 修订带 source line references.
+
+**明确未验证的 (不当作已完成)**:
+- A2 (`peaks codegraph repair-index --reindex` 不回滚 cfg) — 真未做, 未来扩展点 `codegraph-commands.ts:134` 的 `reindex: 'force'` 已留口
+- 4.0.51 7 项里的 AC-7 (peaks-ide audit-log) / AC-8 (守卫裸文件名) / AC-9 (守卫围栏) — 三项 deferred 到后续 slice
+
 ## 4.0.52 — 2026-09-17 (codegraph 索引完整性检测闸门 + repair-index 强制重建 + 套用到本仓：include gap 31→0、dead rows 4→0、strict-mode exit 75→0)
 
 **Highlights**:
