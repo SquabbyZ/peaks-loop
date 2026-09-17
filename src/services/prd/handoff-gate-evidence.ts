@@ -40,7 +40,9 @@ function parseGateEvidenceFrontmatter(raw: string): FrontmatterParseResult {
   let parsed: unknown;
   try {
     parsed = parseYaml(yamlBody);
-  } catch {
+  } catch (_error) {
+    // reader is permissive by design: malformed YAML → no claim (not throw)
+    void _error;
     return { gateEvidence: null };
   }
   if (parsed === null || typeof parsed !== 'object') return { gateEvidence: null };
@@ -56,7 +58,9 @@ export async function readHandoffGateEvidence(
   let raw: string;
   try {
     raw = await readFile(filePath, 'utf8');
-  } catch {
+  } catch (_error) {
+    // reader is permissive by design: missing file → no claim (not throw)
+    void _error;
     return null;
   }
   try {
@@ -68,7 +72,9 @@ export async function readHandoffGateEvidence(
       (item): item is string => typeof item === 'string'
     );
     return strings.length > 0 ? strings : null;
-  } catch {
+  } catch (_error) {
+    // reader is permissive by design: unexpected parse failure → no claim
+    void _error;
     return null;
   }
 }
