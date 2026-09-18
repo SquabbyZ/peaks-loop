@@ -128,7 +128,27 @@
     "mut:run": "peaks mut run --project . --out mut-report.json",
     "mut:scan": "peaks mut asserts --in mut-report.json",
     "audit:prose-ratio": "peaks audit prose-ratio --project .",
-    "dogfood:sediment": "bash scripts/dogfood-sediment-cycle.sh"
+    "dogfood:sediment": "bash scripts/dogfood-sediment-cycle.sh",
+    "prepare": "husky",
+    "lint": "eslint --config config/eslint/.peaks-rules.cjs --ext .ts src tests packages",
+    "format:check": "prettier --check \"src/**/*.{ts,mts,mjs,js}\" \"tests/**/*.{ts,mts,mjs,js}\" \"packages/**/*.{ts,mts,mjs,js}\" \"scripts/**/*.{ts,mts,mjs,js}\"",
+    "format": "prettier --write \"src/**/*.{ts,mts,mjs,js}\" \"tests/**/*.{ts,mts,mjs,js}\" \"packages/**/*.{ts,mts,mjs,js}\" \"scripts/**/*.{ts,mts,mjs,js}\"",
+    "gate:staged": "node .husky/peaks-gate.mjs staged",
+    "gate:repo": "node .husky/peaks-gate.mjs repo"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": true,
+    "printWidth": 100,
+    "trailingComma": "none",
+    "endOfLine": "lf",
+    "arrowParens": "always",
+    "quoteProps": "as-needed"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mts,cts,mjs,cjs,js}": [
+      "node .husky/peaks-gate.mjs staged"
+    ]
   },
   "engines": {
     "node": ">=20.0.0"
@@ -163,6 +183,9 @@
     "@vitest/coverage-v8": "^4.1.10",
     "c8": "^10.1.3",
     "eslint": "8.57.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.9.8",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",

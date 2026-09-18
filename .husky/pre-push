@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# peaks-loop push gate. Design: .husky/peaks-gate.mjs
+#
+# Two legs, and they are different KINDS of gate on purpose:
+#
+#   1. `repo` mode — a RATCHET. Whole-repo eslint / prettier / tsc totals may
+#      not grow. It is a ratchet only because those three are not yet clean
+#      repo-wide (6668 findings / 1178 files / 142 errors, measured
+#      2026-09-19). The ceilings in .peaks/lint/gate-baseline.json come down
+#      slice by slice; at zero, this same script is a plain strict check.
+#
+#   2. the unit suite — a HARD gate, not a ratchet. It is green today
+#      (305 files, 3405 tests, ~6m53s measured 2026-09-19), so there is no
+#      debt to tolerate here and any red is a real regression.
+#
+# The ratchet runs first so a regression fails in ~90s instead of after ~7min.
+set -e
+node .husky/peaks-gate.mjs repo
+pnpm test:unit

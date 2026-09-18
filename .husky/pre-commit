@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# peaks-loop commit gate. Design + why-it-is-a-ratchet: .husky/peaks-gate.mjs
+#
+# Staged files only: a file you touch may not get worse, and a file that did
+# not exist before must be clean outright. Files you did not touch are exempt,
+# because 1178 of 1266 are currently unformatted and blocking on those would
+# block every commit from the first one.
+#
+# Deliberately NOT here:
+#   - tsc        whole-program; it cannot be scoped to a file list, so a
+#                single-file commit would pay for the entire repo anyway. It
+#                runs in the push gate.
+#   - unit tests ~7 min; they run in the push gate.
+set -e
+pnpm exec lint-staged
