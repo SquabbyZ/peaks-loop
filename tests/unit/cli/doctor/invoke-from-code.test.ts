@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../../../packages/peaks-loop-internal-runtime/src/index', () => ({
-  defaultRegistry: () => ({ list: () => [] }),
+  defaultRegistry: () => ({ list: () => [] })
 }));
 
 import { doctorInvokeFromCode } from '../../../../src/cli/commands/doctor/invoke-from-code.js';
@@ -21,7 +21,10 @@ describe('peaks doctor invoke --from-code', () => {
       expect(out.ok).toBe(true);
       expect(out.data.proposalPath).toContain('/doctor/proposal.md');
       expect(existsSync(join(tmp, '.peaks', '_runtime', sid, 'doctor', 'proposal.md'))).toBe(true);
-      const body = readFileSync(join(tmp, '.peaks', '_runtime', sid, 'doctor', 'proposal.md'), 'utf8');
+      const body = readFileSync(
+        join(tmp, '.peaks', '_runtime', sid, 'doctor', 'proposal.md'),
+        'utf8'
+      );
       expect(body).toContain('doctor proposal');
     } finally {
       process.chdir(orig);

@@ -301,7 +301,13 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
   }
 }
 
-export const check: DoctorCheckPlugin = {
+// Slice S3b (rid-s3b-doctor-check-typing): `satisfies` instead of a
+// `: DoctorCheckPlugin` annotation — see the identical note in
+// `codegraph-capability.ts`. The annotation widened this object literal
+// to `readonly DoctorCheck[] | Promise<readonly DoctorCheck[]>`, which
+// leaked into importers as 4 TS7053 + 4 TS2339 errors even though this
+// module's `run` is synchronous and measurably returns an array.
+export const check = {
   name: 'multi-binary-drift',
   run
-};
+} satisfies DoctorCheckPlugin;

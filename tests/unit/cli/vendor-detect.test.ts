@@ -11,9 +11,9 @@ vi.mock('peaks-loop-internal-runtime', () => ({
     list: () => [
       { id: 'claude', detectInstalled: vi.fn(async () => true) },
       { id: 'codex', detectInstalled: vi.fn(async () => false) },
-      { id: 'copilot', detectInstalled: vi.fn(async () => false) },
-    ],
-  }),
+      { id: 'copilot', detectInstalled: vi.fn(async () => false) }
+    ]
+  })
 }));
 
 import { vendorDetect } from '../../../src/cli/commands/vendor-detect.js';

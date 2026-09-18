@@ -184,7 +184,17 @@ function defaultCodegraphManagedPathProbe(): CodegraphManagedPathInfo | null {
   return detectManagedCodegraphPath(process.cwd());
 }
 
-export const check: DoctorCheckPlugin = {
+// Slice S3b (rid-s3b-doctor-check-typing): `satisfies` instead of a
+// `: DoctorCheckPlugin` annotation. The annotation widened this object
+// literal to the interface's `run` return type
+// (`readonly DoctorCheck[] | Promise<readonly DoctorCheck[]>`) — an
+// honest union, because three plugins in this directory really are
+// `async`. The widening leaked into every importer and produced 40
+// TS7053 errors at test call sites, where the runtime value is
+// measurably a plain array (this module's `run` is synchronous).
+// `satisfies` keeps the interface check AND the concrete narrow type,
+// so the compile error re-fires if `run` ever becomes async.
+export const check = {
   name: 'codegraph-capability',
   run
-};
+} satisfies DoctorCheckPlugin;

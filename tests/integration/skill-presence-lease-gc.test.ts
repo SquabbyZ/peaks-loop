@@ -7,13 +7,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-type AnyRecord = Record<string, unknown>;
+// Slice S3b (rid-s3b-doctor-check-typing): `as unknown as AnyRecord` erased the
+// imported module's type, so `setPresenceLease` / `gcStalePresenceLeases` were
+// `unknown` and calling them was a TS18046. The module's own type is the source
+// of truth, and it is obtained by inference from the import itself — nothing is
+// re-declared and no cast is needed. The name loop is unchanged except for the
+// `as const`, which keeps the two names literal so they can index the namespace.
 const projects: string[] = [];
 afterEach(async () => { for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true }); });
 
-async function loadGc(): Promise<AnyRecord> {
-  const module = await import('../../src/services/skills/presence-lease-service.js') as unknown as AnyRecord;
-  for (const name of ['setPresenceLease', 'gcStalePresenceLeases']) expect(typeof module[name]).toBe('function');
+async function loadGc() {
+  const module = await import('../../src/services/skills/presence-lease-service.js');
+  for (const name of ['setPresenceLease', 'gcStalePresenceLeases'] as const) expect(typeof module[name]).toBe('function');
   return module;
 }
 

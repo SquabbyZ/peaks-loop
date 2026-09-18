@@ -25,8 +25,8 @@ describe('LifecycleOwner closure', () => {
 
     await lo.markExit(rid, 0);
 
-    const residual = readdirSync(detDir).filter(f =>
-      ['pid', 'log.txt', 'status.json', 'owner-session'].includes(f),
+    const residual = readdirSync(detDir).filter((f) =>
+      ['pid', 'log.txt', 'status.json', 'owner-session'].includes(f)
     );
     expect(residual).toEqual([]);
   });

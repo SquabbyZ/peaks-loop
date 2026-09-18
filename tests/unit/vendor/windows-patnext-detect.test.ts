@@ -26,12 +26,13 @@ describe('Windows vendor detection through PATHEXT', () => {
   it('detects claude, codex, and copilot with where.exe without a shell', async () => {
     const adapters = [new ClaudeAdapter(), new CodexAdapter(), new CopilotAdapter()];
 
-    await expect(Promise.all(adapters.map((adapter) => adapter.detectInstalled())))
-      .resolves.toEqual([true, true, true]);
+    await expect(
+      Promise.all(adapters.map((adapter) => adapter.detectInstalled()))
+    ).resolves.toEqual([true, true, true]);
     expect(execFileMock.mock.calls).toEqual([
       ['where.exe', ['claude'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
       ['where.exe', ['codex'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
-      ['where.exe', ['copilot'], { timeout: 3000, windowsHide: true }, expect.any(Function)],
+      ['where.exe', ['copilot'], { timeout: 3000, windowsHide: true }, expect.any(Function)]
     ]);
     expect(execFileMock.mock.calls.every((call) => call[2].shell === undefined)).toBe(true);
   });

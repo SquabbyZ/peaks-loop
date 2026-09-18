@@ -9,11 +9,15 @@ describe('CopilotAdapter', () => {
     expect(args[args.indexOf('--output-format') + 1]).toBe('json');
   });
   it('parses JSON status', () => {
-    const out = a.parseStatusLine(JSON.stringify({ progress: 50, state: 'running', note: 'n', ts: 1 }));
+    const out = a.parseStatusLine(
+      JSON.stringify({ progress: 50, state: 'running', note: 'n', ts: 1 })
+    );
     expect(out).toMatchObject({ progress: 50, state: 'running', vendor: 'copilot' });
   });
-  it('returns null on garbage', () => { expect(a.parseStatusLine('xx')).toBeNull(); });
+  it('returns null on garbage', () => {
+    expect(a.parseStatusLine('xx')).toBeNull();
+  });
   it('detectInstalled returns boolean', async () => {
-    expect(typeof await a.detectInstalled()).toBe('boolean');
+    expect(typeof (await a.detectInstalled())).toBe('boolean');
   });
 });

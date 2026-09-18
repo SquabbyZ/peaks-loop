@@ -7,21 +7,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
+// Slice S3b (rid-s3b-doctor-check-typing): `as unknown as AnyRecord` erased the
+// imported module's type, so `initWorkflow` / `terminalizeWorkflow` were
+// `unknown` and calling them was a TS18046. The module's own type is the source
+// of truth, obtained by inference from the import — nothing is re-declared, no
+// cast is used, and `input()` is checked against the real parameter type by
+// contextual typing (so no import is added).
 type AnyRecord = Record<string, unknown>;
+
 const projects: string[] = [];
 
 afterEach(async () => {
   for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true });
 });
 
-async function loadLifecycle(): Promise<AnyRecord> {
-  const module = await import('../../src/services/workflow/workflow-presence-lifecycle.js') as unknown as AnyRecord;
+async function loadLifecycle() {
+  const module = await import('../../src/services/workflow/workflow-presence-lifecycle.js');
   expect(typeof module.initWorkflow).toBe('function');
   expect(typeof module.terminalizeWorkflow).toBe('function');
   return module;
 }
 
-function input(projectRoot: string): AnyRecord {
+function input(projectRoot: string) {
   return {
     projectRoot,
     sessionId: 'integration-session-success',
@@ -38,8 +45,8 @@ describe('workflow presence lease lifecycle', () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-presence-lifecycle-integration-'));
     projects.push(root);
     const lifecycle = await loadLifecycle();
-    const started = await (lifecycle.initWorkflow as (input: AnyRecord) => Promise<AnyRecord>)(input(root));
-    const result = await (lifecycle.terminalizeWorkflow as (input: AnyRecord) => Promise<AnyRecord>)({
+    const started = await lifecycle.initWorkflow(input(root));
+    const result = await lifecycle.terminalizeWorkflow({
       ...input(root),
       workflowId: started.workflowId,
       graphRef: started.graphRef,

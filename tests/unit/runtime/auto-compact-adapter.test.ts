@@ -14,8 +14,11 @@ describe('AutoCompactAdapter (G8)', () => {
   it('parses scratch file payload', () => {
     const a = new AutoCompactAdapter();
     const ev = a.parseScratchFile({
-      seq: 1, at: 100, summary: 'done X',
-      decisionsKept: ['UUID v7'], discardedOptions: ['JWT'],
+      seq: 1,
+      at: 100,
+      summary: 'done X',
+      decisionsKept: ['UUID v7'],
+      discardedOptions: ['JWT']
     });
     expect(ev).toMatchObject({ at: 100, tokensBefore: 0 });
   });
@@ -83,7 +86,9 @@ describe('AutoCompactAdapter — E5: the marker promises only what is reachable'
     const noWindow = a.marker({ rid: 'r1', sid: 's1' });
     expect(noWindow).not.toContain('vendor-window=');
     // and: when the caller DOES know the window, it is still carried
-    expect(a.marker({ rid: 'r1', sid: 's1', vendorWindow: 200000 })).toContain('vendor-window="200000"');
+    expect(a.marker({ rid: 'r1', sid: 's1', vendorWindow: 200000 })).toContain(
+      'vendor-window="200000"'
+    );
   });
 
   it('says the cost claim as what it is — an absence of throttling, not a grant', () => {

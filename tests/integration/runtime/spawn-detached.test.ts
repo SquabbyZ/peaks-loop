@@ -14,10 +14,15 @@ describe('spawn detached mock vendor', () => {
     mkdirSync(subAgentsDir, { recursive: true });
 
     const r = await dispatchDetached({
-      sid: 's1', rid: 'r-det-1', role: 'rd',
-      vendor: 'claude', userTask: 'echo hi',
-      files: [], refs: [],
-      runtimeDir, subAgentsDir,
+      sid: 's1',
+      rid: 'r-det-1',
+      role: 'rd',
+      vendor: 'claude',
+      userTask: 'echo hi',
+      files: [],
+      refs: [],
+      runtimeDir,
+      subAgentsDir
     });
     // `owner-session` and the dispatch record are written unconditionally: they
     // record which session owns this rid directory, and what the launch outcome

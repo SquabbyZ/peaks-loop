@@ -7,8 +7,10 @@ describe('AutoCompact flow (G8)', () => {
     let rec: any = { mode: 'detached', vendor: 'claude', autoCompactEvents: [] };
     for (let i = 0; i < 5; i++) {
       rec = sp.appendCompactEvent(rec, {
-        at: 1000 + i, threshold: i === 4 ? '0.95' : '0.85',
-        tokensBefore: 100, tokensAfter: 30,
+        at: 1000 + i,
+        threshold: i === 4 ? '0.95' : '0.85',
+        tokensBefore: 100,
+        tokensAfter: 30
       });
     }
     expect(rec.autoCompactEvents).toHaveLength(5);

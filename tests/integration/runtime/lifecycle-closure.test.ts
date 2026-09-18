@@ -16,8 +16,9 @@ describe('Lifecycle closure invariant', () => {
     writeFileSync(join(dir, rid, 'owner-session'), 's');
     lo.register(1, rid, 's');
     await lo.markExit(rid, 0);
-    const active = ['pid', 'log.txt', 'status.json', 'owner-session']
-      .filter(f => existsSync(join(dir, rid, f)));
+    const active = ['pid', 'log.txt', 'status.json', 'owner-session'].filter((f) =>
+      existsSync(join(dir, rid, f))
+    );
     expect(active).toEqual([]);
     rmSync(dir, { recursive: true, force: true });
   });

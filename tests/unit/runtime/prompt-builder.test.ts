@@ -12,7 +12,7 @@ describe('PromptBuilder', () => {
       vendor: 'claude',
       files: ['src/auth/x.ts'],
       refs: ['.peaks/_runtime/.../prd/requests/r1.md'],
-      userTask: 'do X',
+      userTask: 'do X'
     });
     expect(out).not.toContain(FORBIDDEN);
   });
@@ -20,8 +20,12 @@ describe('PromptBuilder', () => {
   it('contains rid / role / vendor / user task', () => {
     const pb = new PromptBuilder();
     const out = pb.assemble({
-      rid: 'r1', role: 'rd', vendor: 'claude',
-      files: [], refs: [], userTask: 'do X',
+      rid: 'r1',
+      role: 'rd',
+      vendor: 'claude',
+      files: [],
+      refs: [],
+      userTask: 'do X'
     });
     expect(out).toMatch(/rid:\s*r1/);
     expect(out).toMatch(/role:\s*rd/);
@@ -31,9 +35,15 @@ describe('PromptBuilder', () => {
 
   it('rejects input that already contains forbidden marker', () => {
     const pb = new PromptBuilder();
-    expect(() => pb.assemble({
-      rid: 'r1', role: 'rd', vendor: 'claude',
-      files: [], refs: [], userTask: FORBIDDEN,
-    })).toThrow(/forbidden/);
+    expect(() =>
+      pb.assemble({
+        rid: 'r1',
+        role: 'rd',
+        vendor: 'claude',
+        files: [],
+        refs: [],
+        userTask: FORBIDDEN
+      })
+    ).toThrow(/forbidden/);
   });
 });

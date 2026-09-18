@@ -6,7 +6,10 @@
 // upgrades legacy v3.2 records to the v4.1.0 schema with safe defaults.
 
 import { describe, it, expect } from 'vitest';
-import { writeInitialDispatchRecord, readRecord } from '../../../../src/services/dispatch/dispatch-record-writer.js';
+import {
+  writeInitialDispatchRecord,
+  readRecord
+} from '../../../../src/services/dispatch/dispatch-record-writer.js';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,7 +18,7 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
   const stubToolCall = {
     name: 'Task',
     args: { subagent_type: 'general-purpose', description: 'test', prompt: 'x' },
-    toolCallVersion: '2.0.0' as const,
+    toolCallVersion: '2.0.0' as const
   };
 
   it('persists detached mode + claude vendor on new record', () => {
@@ -30,7 +33,7 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         toolCall: stubToolCall,
         batchId: 'b1',
         mode: 'detached',
-        vendor: 'claude',
+        vendor: 'claude'
       });
       const rec = JSON.parse(readFileSync(out.path, 'utf8'));
       expect(rec.mode).toBe('detached');
@@ -50,7 +53,7 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         role: 'rd',
         prompt: 'do X',
         toolCall: stubToolCall,
-        batchId: 'b1',
+        batchId: 'b1'
       });
       const rec = JSON.parse(readFileSync(out.path, 'utf8'));
       expect(rec.mode).toBe('in-process');
@@ -74,9 +77,9 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
         mode: 'detached',
         vendor: 'claude',
         autoCompactEvents: [
-          { at: 1, threshold: '0.85' as const, tokensBefore: 100, tokensAfter: 30 },
+          { at: 1, threshold: '0.85' as const, tokensBefore: 100, tokensAfter: 30 }
         ],
-        tokenUsage: { promptTokens: 50, completionTokens: 20 },
+        tokenUsage: { promptTokens: 50, completionTokens: 20 }
       });
       const rec = JSON.parse(readFileSync(out.path, 'utf8'));
       expect(rec.autoCompactEvents).toHaveLength(1);
@@ -120,8 +123,8 @@ describe('DispatchRecord mode/vendor/autoCompact fields', () => {
           mergeBackAttempts: 0,
           workflowId: null,
           graphNodeId: null,
-          graphRef: null,
-        }),
+          graphRef: null
+        })
       );
       const rec = readRecord(file);
       expect(rec.mode).toBe('in-process');

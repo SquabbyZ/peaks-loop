@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn()
 }));
 
 import { spawn } from 'node:child_process';
@@ -28,7 +28,7 @@ import { ProcessSupervisor } from '../../../packages/peaks-loop-internal-runtime
 
 const SUPERVISOR_PATH = resolve(
   __dirname,
-  '../../../packages/peaks-loop-internal-runtime/src/process-supervisor.ts',
+  '../../../packages/peaks-loop-internal-runtime/src/process-supervisor.ts'
 );
 
 describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
@@ -105,7 +105,7 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
       on: vi.fn(),
       kill: vi.fn(),
       stdout: stdoutLike,
-      stderr: stderrLike,
+      stderr: stderrLike
     };
     (spawn as any).mockReturnValue(fakeChild);
     const sup = new ProcessSupervisor({ runtimeDir: '/tmp/x' });

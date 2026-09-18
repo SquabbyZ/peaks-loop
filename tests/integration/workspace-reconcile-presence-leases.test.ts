@@ -7,12 +7,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-type AnyRecord = Record<string, unknown>;
+// Slice S3b (rid-s3b-doctor-check-typing): `as unknown as AnyRecord` erased
+// the imported module's type, so `reconcilePresenceLeases` was `unknown` and
+// calling it was a TS18046. The module's own type is the source of truth, and
+// it is obtained by inference from the import itself — nothing is re-declared
+// and no cast is needed.
 const projects: string[] = [];
 afterEach(async () => { for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true }); });
 
-async function reconcileApi(): Promise<AnyRecord> {
-  const module = await import('../../src/services/workspace/reconcile-service.js') as unknown as AnyRecord;
+async function reconcileApi() {
+  const module = await import('../../src/services/workspace/reconcile-service.js');
   expect(typeof module.reconcilePresenceLeases).toBe('function');
   return module;
 }
@@ -39,5 +43,3 @@ describe('workspace reconcile presence leases', () => {
     expect(second.createdCount).toBe(0);
   });
 });
-
-void (null as unknown as AnyRecord | null);

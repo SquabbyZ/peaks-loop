@@ -10,11 +10,15 @@ describe('CodexAdapter', () => {
     expect(args).toContain('do X');
   });
   it('parses JSON status', () => {
-    const out = a.parseStatusLine(JSON.stringify({ progress: 10, state: 'running', note: 'n', ts: 1 }));
+    const out = a.parseStatusLine(
+      JSON.stringify({ progress: 10, state: 'running', note: 'n', ts: 1 })
+    );
     expect(out).toMatchObject({ progress: 10, state: 'running', vendor: 'codex' });
   });
-  it('returns null on garbage', () => { expect(a.parseStatusLine('xx')).toBeNull(); });
+  it('returns null on garbage', () => {
+    expect(a.parseStatusLine('xx')).toBeNull();
+  });
   it('detectInstalled returns boolean', async () => {
-    expect(typeof await a.detectInstalled()).toBe('boolean');
+    expect(typeof (await a.detectInstalled())).toBe('boolean');
   });
 });

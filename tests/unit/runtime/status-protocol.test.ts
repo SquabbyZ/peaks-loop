@@ -5,7 +5,14 @@ describe('StatusProtocol', () => {
   it('merges heartbeat into record and updates status', () => {
     const sp = new StatusProtocol();
     const rec: any = { mode: 'detached', vendor: 'claude', heartbeats: [], status: 'running' };
-    const merged = sp.merge(rec, { rid: 'r1', vendor: 'claude', progress: 50, state: 'running', note: 'a', ts: 1 });
+    const merged = sp.merge(rec, {
+      rid: 'r1',
+      vendor: 'claude',
+      progress: 50,
+      state: 'running',
+      note: 'a',
+      ts: 1
+    });
     expect(merged.heartbeats).toHaveLength(1);
     expect(merged.heartbeats[0]).toMatchObject({ progress: 50, note: 'a' });
   });
@@ -20,7 +27,12 @@ describe('StatusProtocol', () => {
   it('appends autoCompactEvents to record (G8)', () => {
     const sp = new StatusProtocol();
     const rec: any = { autoCompactEvents: [] };
-    const merged = sp.appendCompactEvent(rec, { at: 1, threshold: '0.85', tokensBefore: 100, tokensAfter: 30 });
+    const merged = sp.appendCompactEvent(rec, {
+      at: 1,
+      threshold: '0.85',
+      tokensBefore: 100,
+      tokensAfter: 30
+    });
     expect(merged.autoCompactEvents).toHaveLength(1);
     expect(merged.autoCompactEvents[0]).toMatchObject({ threshold: '0.85' });
   });
