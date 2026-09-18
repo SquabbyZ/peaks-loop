@@ -26,6 +26,7 @@ import { join } from 'node:path';
 
 import { check } from '~/src/services/doctor/doctor-service/checks/codegraph-capability';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { firstOf } from '../_setup/first-of.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 import { resolveCodegraphProjectRoot } from '~/src/services/codegraph/codegraph-service';
 import type {
@@ -86,10 +87,10 @@ describe('capability:codegraph managed-path surfacing (root-only)', () => {
         ...makeContext(),
         options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
       });
-      expect(result[0].ok).toBe(true);
-      expect(result[0].message).toContain(`managed path: ${location.codegraphDir}`);
-      expect(result[0].message).toContain(location.codegraphDir);
-      expect(result[0].message).not.toContain('.peaks');
+      expect(firstOf(result).ok).toBe(true);
+      expect(firstOf(result).message).toContain(`managed path: ${location.codegraphDir}`);
+      expect(firstOf(result).message).toContain(location.codegraphDir);
+      expect(firstOf(result).message).not.toContain('.peaks');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -115,10 +116,10 @@ describe('capability:codegraph managed-path surfacing (root-only)', () => {
         ...makeContext(),
         options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
       });
-      expect(result[0].ok).toBe(true);
-      expect(result[0].message).toContain(`managed path: ${location.codegraphDir}`);
-      expect(result[0].message).not.toContain('.peaks');
-      expect(result[0].message).not.toContain('consider moving');
+      expect(firstOf(result).ok).toBe(true);
+      expect(firstOf(result).message).toContain(`managed path: ${location.codegraphDir}`);
+      expect(firstOf(result).message).not.toContain('.peaks');
+      expect(firstOf(result).message).not.toContain('consider moving');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
@@ -135,8 +136,8 @@ describe('capability:codegraph managed-path surfacing (root-only)', () => {
       ...makeContext(),
       options: { codegraphProbe: throwingProbe }
     });
-    expect(result[0].ok).toBe(false);
-    expect(result[0].severity).toBeUndefined();
-    expect(result[0].message).toContain('@colbymchenry/codegraph not resolvable');
+    expect(firstOf(result).ok).toBe(false);
+    expect(firstOf(result).severity).toBeUndefined();
+    expect(firstOf(result).message).toContain('@colbymchenry/codegraph not resolvable');
   });
 });

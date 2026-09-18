@@ -38,6 +38,7 @@ import { join } from 'node:path';
 
 import { check } from '~/src/services/doctor/doctor-service/checks/codegraph-capability';
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { firstOf } from '../_setup/first-of.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
 import type { CodegraphCapabilityProbe, DoctorContext } from '~/src/services/doctor/doctor-service/types';
 
@@ -123,11 +124,11 @@ describe('codegraph-capability check (rid-CG-007)', () => {
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: fallbackProbe } });
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('capability:codegraph');
-      expect(result[0].ok).toBe(true);
-      expect(result[0].message).toContain('@colbymchenry/codegraph@0.7.10');
-      expect(result[0].message).toContain(binaryPath);
-      expect(result[0].severity).toBeUndefined();
+      expect(firstOf(result).id).toBe('capability:codegraph');
+      expect(firstOf(result).ok).toBe(true);
+      expect(firstOf(result).message).toContain('@colbymchenry/codegraph@0.7.10');
+      expect(firstOf(result).message).toContain(binaryPath);
+      expect(firstOf(result).severity).toBeUndefined();
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
@@ -151,13 +152,13 @@ describe('codegraph-capability check (rid-CG-007)', () => {
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: driftProbe } });
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('capability:codegraph');
-      expect(result[0].ok).toBe(false);
-      expect(result[0].severity).toBe('warning');
+      expect(firstOf(result).id).toBe('capability:codegraph');
+      expect(firstOf(result).ok).toBe(false);
+      expect(firstOf(result).severity).toBe('warning');
       // a11y: message names expected + actual version + recovery command.
-      expect(result[0].message).toContain('expected 0.7.10');
-      expect(result[0].message).toContain('resolved 0.7.11');
-      expect(result[0].message).toContain('pnpm install @colbymchenry/codegraph@0.7.10');
+      expect(firstOf(result).message).toContain('expected 0.7.10');
+      expect(firstOf(result).message).toContain('resolved 0.7.11');
+      expect(firstOf(result).message).toContain('pnpm install @colbymchenry/codegraph@0.7.10');
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
@@ -181,10 +182,10 @@ describe('codegraph-capability check (rid-CG-007)', () => {
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: noBinaryProbe } });
       expect(result).toHaveLength(1);
-      expect(result[0].ok).toBe(false);
+      expect(firstOf(result).ok).toBe(false);
       // No severity tag → counts as 'error' in the dispatcher.
-      expect(result[0].severity).toBeUndefined();
-      expect(result[0].message).toContain('binary is missing');
+      expect(firstOf(result).severity).toBeUndefined();
+      expect(firstOf(result).message).toContain('binary is missing');
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
@@ -199,9 +200,9 @@ describe('codegraph-capability check (rid-CG-007)', () => {
 
     const result = check.run({ ...makeContext(), options: { codegraphProbe: throwingProbe } });
     expect(result).toHaveLength(1);
-    expect(result[0].ok).toBe(false);
-    expect(result[0].severity).toBeUndefined();
-    expect(result[0].message).toContain('@colbymchenry/codegraph not resolvable');
-    expect(result[0].message).toContain("Cannot find module '@colbymchenry/codegraph/package.json'");
+    expect(firstOf(result).ok).toBe(false);
+    expect(firstOf(result).severity).toBeUndefined();
+    expect(firstOf(result).message).toContain('@colbymchenry/codegraph not resolvable');
+    expect(firstOf(result).message).toContain("Cannot find module '@colbymchenry/codegraph/package.json'");
   });
 });

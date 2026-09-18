@@ -36,7 +36,7 @@ function input(projectRoot: string) {
     skill: 'peaks-code',
     workflowId: 'workflow-success',
     graphRef: 'graphs/workflow-success.json',
-    now: '2026-08-03T10:00:00.000Z',
+    now: '2026-08-03T10:00:00.000Z'
   };
 }
 
@@ -51,11 +51,13 @@ describe('workflow presence lease lifecycle', () => {
       workflowId: started.workflowId,
       graphRef: started.graphRef,
       reason: 'success',
-      requireConsumed: true,
+      requireConsumed: true
     });
     expect(result.lease.status).toBe('terminalized');
     expect(result.lease.terminalReason).toBe('success');
-    expect((result.events as AnyRecord[]).filter((event) => event.kind === 'workflow-terminalized')).toHaveLength(1);
+    expect(
+      (result.events as AnyRecord[]).filter((event) => event.kind === 'workflow-terminalized')
+    ).toHaveLength(1);
     expect(result.indexCleared).toBe(true);
   });
 });

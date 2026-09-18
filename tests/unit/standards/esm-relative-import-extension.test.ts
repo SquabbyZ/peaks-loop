@@ -258,7 +258,10 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // A probe that samples nothing reports green for the whole space. These two
     // pins are asserted separately so a reader can tell WHICH one moved: this one
     // moves only when a `.ts` file is added to or removed from `src/` or `tests/`.
-    expect(scan.files.length).toBe(1192);
+    //
+    // 1192 -> 1193 (slice S3c): +1 is `tests/unit/_setup/first-of.ts`, the shared
+    // `firstOf` helper that replaces 29 unchecked `result[0]` reads.
+    expect(scan.files.length).toBe(1193);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -271,7 +274,12 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // export is added to or removed from `src/` or `tests/`. A change that leaves
     // the tree alone but moves this number means the WALK changed — read the
     // `collectRelativeSpecifiers` recursion before touching the constant.
-    expect(scan.specifiers.length).toBe(2715);
+    //
+    // 2715 -> 2717 (slice S3c): +2 is the `'../_setup/first-of.js'` import added
+    // to `codegraph-capability-fallback.test.ts` and
+    // `codegraph-resolved-path-capability.test.ts`. Both carry the `.js` extension
+    // the rule requires, which is why the violation assertion below is unaffected.
+    expect(scan.specifiers.length).toBe(2717);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

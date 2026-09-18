@@ -28,16 +28,8 @@
  * must not throw across the doctor boundary).
  */
 
-import {
-  existsSync,
-  readFileSync,
-  realpathSync,
-  statSync
-} from 'node:fs';
-import {
-  delimiter as pathDelimiter,
-  join
-} from 'node:path';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { delimiter as pathDelimiter, join } from 'node:path';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
@@ -80,27 +72,33 @@ export function inspectMultiBinaryDrift(opts?: {
   packageJsonReader?: (path: string) => Buffer | string | null;
 }): MultiBinaryDriftInspection {
   const envReader = opts?.envReader ?? ((k) => process.env[k]);
-  const exists = opts?.binaryExists ?? ((p) => {
-    try {
-      return existsSync(p);
-    } catch {
-      return false;
-    }
-  });
-  const realpath = opts?.binaryRealpath ?? ((p) => {
-    try {
-      return realpathSync(p);
-    } catch {
-      return p;
-    }
-  });
-  const reader = opts?.packageJsonReader ?? ((p) => {
-    try {
-      return readFileSync(p);
-    } catch {
-      return null;
-    }
-  });
+  const exists =
+    opts?.binaryExists ??
+    ((p) => {
+      try {
+        return existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+  const realpath =
+    opts?.binaryRealpath ??
+    ((p) => {
+      try {
+        return realpathSync(p);
+      } catch {
+        return p;
+      }
+    });
+  const reader =
+    opts?.packageJsonReader ??
+    ((p) => {
+      try {
+        return readFileSync(p);
+      } catch {
+        return null;
+      }
+    });
 
   const pathEnv = opts?.pathEnv ?? envReader('PATH') ?? '';
   if (pathEnv.length === 0) {
@@ -197,7 +195,7 @@ function readBinaryRecord(
   candidate: string,
   realpathPath: string,
   pkgPath: string | null,
-  reader: (p: string) => Buffer | string | null,
+  reader: (p: string) => Buffer | string | null
 ): PeaksBinaryRecord {
   if (pkgPath === null) {
     return {
@@ -259,20 +257,25 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
   try {
     const result = probe();
     if (result.binaries.length === 0) {
-      return [{
-        id: 'build:multi-binary-drift',
-        ok: true,
-        message: 'no peaks-loop binary on PATH (statusLine may be unavailable)'
-      }];
+      return [
+        {
+          id: 'build:multi-binary-drift',
+          ok: true,
+          message: 'no peaks-loop binary on PATH (statusLine may be unavailable)'
+        }
+      ];
     }
     if (!result.driftDetected) {
-      return [{
-        id: 'build:multi-binary-drift',
-        ok: true,
-        message: result.binaries.length === 1
-          ? `single peaks-loop binary on PATH at ${result.binaries[0]!.path} (version ${result.uniqueVersions[0] ?? 'unknown'})`
-          : `${result.binaries.length} peaks-loop binaries on PATH all at version ${result.uniqueVersions[0] ?? 'unknown'}`
-      }];
+      return [
+        {
+          id: 'build:multi-binary-drift',
+          ok: true,
+          message:
+            result.binaries.length === 1
+              ? `single peaks-loop binary on PATH at ${result.binaries[0]!.path} (version ${result.uniqueVersions[0] ?? 'unknown'})`
+              : `${result.binaries.length} peaks-loop binaries on PATH all at version ${result.uniqueVersions[0] ?? 'unknown'}`
+        }
+      ];
     }
     // Drift detected — WARN-ONLY. AC7: doctor still exit 0 unless
     // another check escalates to error. `ok: false` so the operator
@@ -284,20 +287,26 @@ function run({ options }: DoctorContext): readonly DoctorCheck[] {
     // previously-handwaved "future severity-aware summary can
     // downgrade the doctor exit code" actually fires.
     const binaryTable = result.binaries
-      .map((b) => `  ${b.path} version=${b.version ?? 'unknown'} date=${b.installDate ?? 'unknown'}`)
+      .map(
+        (b) => `  ${b.path} version=${b.version ?? 'unknown'} date=${b.installDate ?? 'unknown'}`
+      )
       .join('\n');
-    return [{
-      id: 'build:multi-binary-drift',
-      ok: false,
-      severity: 'warning',
-      message: `PEAKS_MULTI_BINARY_DRIFT: ${result.uniqueVersions.length} distinct peaks-loop versions on PATH (${result.uniqueVersions.join(', ')}). Run \`npm uninstall -g peaks-loop\` on the stale entries, or reorder PATH so the desired binary resolves first. Binaries:\n${binaryTable}`
-    }];
+    return [
+      {
+        id: 'build:multi-binary-drift',
+        ok: false,
+        severity: 'warning',
+        message: `PEAKS_MULTI_BINARY_DRIFT: ${result.uniqueVersions.length} distinct peaks-loop versions on PATH (${result.uniqueVersions.join(', ')}). Run \`npm uninstall -g peaks-loop\` on the stale entries, or reorder PATH so the desired binary resolves first. Binaries:\n${binaryTable}`
+      }
+    ];
   } catch (error) {
-    return [{
-      id: 'build:multi-binary-drift',
-      ok: false,
-      message: `multi-binary drift check failed: ${getErrorMessage(error)}`
-    }];
+    return [
+      {
+        id: 'build:multi-binary-drift',
+        ok: false,
+        message: `multi-binary drift check failed: ${getErrorMessage(error)}`
+      }
+    ];
   }
 }
 

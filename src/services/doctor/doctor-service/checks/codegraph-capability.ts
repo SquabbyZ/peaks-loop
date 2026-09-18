@@ -24,7 +24,13 @@ import { createRequire } from 'node:module';
 import { getErrorMessage } from 'peaks-loop-shared/result';
 import { resolveCodegraphProjectRoot } from '../../../codegraph/codegraph-service.js';
 
-import type { CodegraphCapabilityProbe, CodegraphManagedPathInfo, DoctorCheck, DoctorCheckPlugin, DoctorContext } from '../types.js';
+import type {
+  CodegraphCapabilityProbe,
+  CodegraphManagedPathInfo,
+  DoctorCheck,
+  DoctorCheckPlugin,
+  DoctorContext
+} from '../types.js';
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
@@ -146,31 +152,39 @@ function runCheck(
       // the doctor exit code. Upstream 0.7.x binaries are wire-
       // compatible with 0.7.10 for the subset peaks-loop exercises
       // (status / init / index / query / files / context / affected).
-      return [{
-        id: 'capability:codegraph',
-        ok: false,
-        severity: 'warning',
-        message: `@colbymchenry/codegraph version drift: expected ${CODEGRAPH_EXPECTED_VERSION}, resolved ${result.version} at ${result.packagePath} — peaks-loop uses an allow-list of subcommands and tolerates 0.7.x wire-compat. Run \`pnpm install @colbymchenry/codegraph@${CODEGRAPH_EXPECTED_VERSION}\` to pin.${managedPathSuffix}`
-      }];
+      return [
+        {
+          id: 'capability:codegraph',
+          ok: false,
+          severity: 'warning',
+          message: `@colbymchenry/codegraph version drift: expected ${CODEGRAPH_EXPECTED_VERSION}, resolved ${result.version} at ${result.packagePath} — peaks-loop uses an allow-list of subcommands and tolerates 0.7.x wire-compat. Run \`pnpm install @colbymchenry/codegraph@${CODEGRAPH_EXPECTED_VERSION}\` to pin.${managedPathSuffix}`
+        }
+      ];
     }
     if (!result.binaryExists) {
-      return [{
+      return [
+        {
+          id: 'capability:codegraph',
+          ok: false,
+          message: `@colbymchenry/codegraph@${result.version} resolved at ${result.packagePath} but binary is missing at ${result.binaryPath}${managedPathSuffix}`
+        }
+      ];
+    }
+    return [
+      {
+        id: 'capability:codegraph',
+        ok: true,
+        message: `@colbymchenry/codegraph@${result.version} resolves with binary at ${result.binaryPath}${managedPathSuffix}`
+      }
+    ];
+  } catch (error) {
+    return [
+      {
         id: 'capability:codegraph',
         ok: false,
-        message: `@colbymchenry/codegraph@${result.version} resolved at ${result.packagePath} but binary is missing at ${result.binaryPath}${managedPathSuffix}`
-      }];
-    }
-    return [{
-      id: 'capability:codegraph',
-      ok: true,
-      message: `@colbymchenry/codegraph@${result.version} resolves with binary at ${result.binaryPath}${managedPathSuffix}`
-    }];
-  } catch (error) {
-    return [{
-      id: 'capability:codegraph',
-      ok: false,
-      message: `@colbymchenry/codegraph not resolvable: ${getErrorMessage(error)}`
-    }];
+        message: `@colbymchenry/codegraph not resolvable: ${getErrorMessage(error)}`
+      }
+    ];
   }
 }
 
