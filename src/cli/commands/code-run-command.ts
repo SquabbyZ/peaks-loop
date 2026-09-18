@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { read24hState, write24hState, type State } from '../../services/24h-mode/index.js';
-import { applyAutoEngagePresenceMode } from '../../services/24h-mode/auto-engage.js';
+import { applyAutoEngagePresenceMode, presenceModeAdvisory } from '../../services/24h-mode/auto-engage.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 export type CodeRun24hOptions = {
@@ -73,9 +73,15 @@ export function registerCodeRunCommand(code: Command, io: ProgramIO): void {
         // lease so the mode gate / statusline / `peaks code mode status`
         // see the same autonomy level the 24h state machine is running.
         const presenceMode = applyAutoEngagePresenceMode({ projectRoot, sessionId: sid });
+        // Slice H3 (rid=h3-24h-threshold-not-wired): surface a failed
+        // stamp at the envelope level instead of leaving it unread in
+        // `data.presenceMode`.
+        const advisory = presenceModeAdvisory(presenceMode);
         emit(io, {
           ok: true,
           data: { changeId: changeId ?? null, mode: '24H_ACTIVE', state: nextState, autoEngaged: true, trigger: options.trigger ?? options.tier, sessionId: sid, path: next.path, presenceMode },
+          warnings: [...advisory.warnings],
+          nextActions: [...advisory.nextActions],
           next: 'Continue the existing 24H_ACTIVE flow; no brainstorming gate is required for T3/T4.'
         }, options.json);
       } catch (error) {

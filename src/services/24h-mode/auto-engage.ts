@@ -55,3 +55,41 @@ export function applyAutoEngagePresenceMode(input: {
   }
   return { applied: true, mode: AUTO_ENGAGE_PRESENCE_MODE, updated };
 }
+
+/**
+ * Turn a presence-mode stamp result into envelope-level `warnings` /
+ * `nextActions`, so a `{ applied: false }` is SEEN rather than merely
+ * present in `data`.
+ *
+ * Slice H3 (rid=h3-24h-threshold-not-wired): `no-in-flight-lease` is
+ * the common case in practice — entering `24H_ACTIVE` before any skill
+ * workflow has a lease — and it used to be reported only inside
+ * `data.presenceMode`, where nothing read it. The user then believed
+ * the 24h thresholds were in force while the profile still resolved to
+ * `standard`.
+ *
+ * `nextActions` address the LLM driver (it runs the CLI on the user's
+ * behalf); they never ask the user to type a verb.
+ */
+export function presenceModeAdvisory(result: AutoEngagePresenceResult): {
+  readonly warnings: readonly string[];
+  readonly nextActions: readonly string[];
+} {
+  if (result.applied) return { warnings: [], nextActions: [] };
+  if (result.reason === 'no-in-flight-lease') {
+    return {
+      warnings: [
+        'The `24h` presence mode was NOT recorded: no in-flight presence lease to stamp (`no-in-flight-lease`). Auto-compact thresholds are still derived from the 24h state machine, so the 24h (partial) lines apply; the mode gate and statusline will NOT see `24h`.'
+      ],
+      nextActions: [
+        'Do NOT report that the 24h thresholds are inactive — they are active via the 24h state machine. If the mode gate / statusline also need to see `24h`, start the skill workflow first and then re-run `peaks session 24h-mode transition --state 24H_ACTIVE` yourself. Do not ask the user to run it.'
+      ]
+    };
+  }
+  return {
+    warnings: [
+      `The \`24h\` presence mode was NOT recorded (\`${result.reason}\`). Auto-compact thresholds are still derived from the 24h state machine, so the 24h (partial) lines apply; the mode gate and statusline will NOT see \`24h\`.`
+    ],
+    nextActions: []
+  };
+}

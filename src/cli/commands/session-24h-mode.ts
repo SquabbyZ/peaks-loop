@@ -31,7 +31,7 @@ import {
   write24hState,
   type State
 } from '../../services/24h-mode/index.js';
-import { applyAutoEngagePresenceMode } from '../../services/24h-mode/auto-engage.js';
+import { applyAutoEngagePresenceMode, presenceModeAdvisory } from '../../services/24h-mode/auto-engage.js';
 
 type ParentOptions = {
   json?: boolean;
@@ -175,7 +175,20 @@ export function registerSession24hModeCommand(session: Command, io: ProgramIO): 
         const presenceMode = target === '24H_ACTIVE'
           ? applyAutoEngagePresenceMode({ projectRoot, sessionId: sid })
           : null;
-        printJson(io, { ok: true, data: { ...next, path: result.path, presenceMode } }, merged);
+        // Slice H3 (rid=h3-24h-threshold-not-wired): a failed stamp used
+        // to live only in `data.presenceMode`, where nothing read it.
+        // Surface it at the envelope level so the caller cannot report a
+        // 24h threshold shift that the mode layer never recorded.
+        const advisory = presenceMode === null
+          ? { warnings: [], nextActions: [] }
+          : presenceModeAdvisory(presenceMode);
+        printJson(io, {
+          ok: true,
+          command: 'session.24h-mode.transition',
+          data: { ...next, path: result.path, presenceMode },
+          warnings: [...advisory.warnings],
+          nextActions: [...advisory.nextActions]
+        }, merged);
       } catch (error) {
         printError(io, '24H_STATE_WRITE_FAILED', getErrorMessage(error), merged);
         process.exitCode = 1;

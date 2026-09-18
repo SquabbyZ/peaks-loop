@@ -26,7 +26,7 @@ import { getCurrentSessionId, type SkillPresenceMode } from '../skills/skill-pre
 // the barrel re-exports `decider.ts`, which imports this module, and
 // that would form an import cycle.
 import { read24hState } from '../24h-mode/store.js';
-import type { State24hSnapshot } from '../24h-mode/state.js';
+import type { State, State24hSnapshot } from '../24h-mode/state.js';
 import { readJobShapeDecision } from '../code/job-shape-decision.js';
 import {
   AUTO_COMPACT_THRESHOLDS,
@@ -85,19 +85,64 @@ export function resolvePresenceMode(projectRoot: string): ResolvedPresenceMode {
 }
 
 /**
- * Resolve the auto-compact profile from the MODE, not from the 24h
- * state machine. `24h` mode → `partial` (earlier thresholds for
- * long-run sessions); every other mode → `standard`.
+ * The 24h state-machine states in which the long run is ENGAGED.
  *
- * Slice 2026-09-09-mode-consolidation: this replaced the previous
- * `24h-state.state === '24H_ACTIVE'` mapping. The state machine is the
- * long-run *phase*; the mode is the autonomy level the user (or the
- * T3/T4 auto-engage) selected. Keying off the mode means a `24h`
- * session keeps the partial profile even while it is in
- * `WAITING_USER`, which is the correct long-run behaviour.
+ * `24H_ACTIVE` is the run itself; `WAITING_USER` is a pause *inside*
+ * it (the run is still on — the user just has to answer). `BRAINSTORM`
+ * / `USER_CONFIRM` precede the run, `HANDOFF` ends it, `IDLE` means it
+ * never started.
+ */
+const ENGAGED_24H_STATES: ReadonlySet<State> = new Set<State>(['24H_ACTIVE', 'WAITING_USER']);
+
+/**
+ * Fail-soft read of the bound session's 24h state machine: `true` when
+ * the long run is engaged. Every degradation (no session, missing or
+ * malformed snapshot) reads as `false` so a non-24h project is
+ * untouched by this signal.
+ */
+function is24hRunEngaged(projectRoot: string): boolean {
+  try {
+    const sessionId = getCurrentSessionId(projectRoot);
+    if (sessionId === null) return false;
+    return ENGAGED_24H_STATES.has(read24hState(projectRoot, sessionId).state);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the auto-compact profile: `partial` (earlier thresholds for
+ * long-run sessions) or `standard`.
+ *
+ * Two sources answer "is this a 24h long run?", and EITHER is enough:
+ *
+ *   1. the PRESENCE MODE is `24h` — the autonomy level the user (or
+ *      the T3/T4 auto-engage) selected; or
+ *   2. the 24h STATE MACHINE is engaged (`24H_ACTIVE` /
+ *      `WAITING_USER`) — the durable, session-scoped record.
+ *
+ * Why both (slice H3, rid=h3-24h-threshold-not-wired): source 1 alone
+ * is not reliable. The mode lives on a per-caller, per-workflow
+ * presence lease, and `applyAutoEngagePresenceMode` can only stamp
+ * leases that are already in flight — entering `24H_ACTIVE` with no
+ * in-flight lease fails closed as `{ applied: false, reason:
+ * 'no-in-flight-lease' }`. A fresh lease is also written without a
+ * mode (`workflow-presence-lifecycle.initWorkflow`), so a successful
+ * stamp does not survive the next skill workflow either. The observed
+ * consequence was a `24H_ACTIVE` session resolving to `standard` and
+ * auto-compacting LATER than a plain session, the opposite of the
+ * documented contract.
+ *
+ * The union is a superset of both the pre-2026-09-09 mapping (state
+ * machine) and the 2026-09-09-mode-consolidation mapping (presence
+ * mode): keep partial while the mode says `24h` even in
+ * `WAITING_USER`, and keep it when only the state machine knows.
+ * Nothing that resolved to `partial` before resolves to `standard`
+ * now; a project with no 24h run is byte-identical to before.
  */
 export function resolveAutoCompactProfile(projectRoot: string): AutoCompactMode {
-  return resolvePresenceMode(projectRoot).mode === '24h' ? 'partial' : 'standard';
+  if (resolvePresenceMode(projectRoot).mode === '24h') return 'partial';
+  return is24hRunEngaged(projectRoot) ? 'partial' : 'standard';
 }
 
 /**
@@ -139,6 +184,13 @@ export function resolveModeStatus(input: {
     }
   }
 
+  // Delegate rather than re-derive `is24h ? 'partial' : 'standard'`: the
+  // profile has a second source (the 24h state machine), and a local
+  // copy of the old one-source rule would make `peaks code mode status`
+  // advertise a different profile than the one `peaks code
+  // auto-compact` actually applies.
+  const autoCompactProfile = resolveAutoCompactProfile(projectRoot);
+
   return {
     mode: presence.mode,
     skill: presence.skill,
@@ -146,7 +198,7 @@ export function resolveModeStatus(input: {
     is24h,
     h24State,
     jobMode,
-    autoCompactProfile: is24h ? 'partial' : 'standard',
-    autoCompactThresholds: AUTO_COMPACT_THRESHOLDS[is24h ? 'partial' : 'standard']
+    autoCompactProfile,
+    autoCompactThresholds: AUTO_COMPACT_THRESHOLDS[autoCompactProfile]
   };
 }
