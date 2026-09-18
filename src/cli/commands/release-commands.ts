@@ -12,7 +12,9 @@
  *                                                  stage)
  *
  * State machine: planned → canary-10 → canary-50 → promoted → watching → done
- * Side branches: → rolled-back (from any pre-done stage), → hotfixed (from watching).
+ * Side branches: → rolled-back (from any pre-done stage). A hotfix is an ENTRY
+ * POINT into that pipeline, not a stage: `hotfix <version>` rolls the active
+ * release back and starts the hotfix version at canary-10 (see `hotfixRelease`).
  *
  * Real deployment (k8s rollout, LB config, monitoring integration) is
  * OUT OF SCOPE for this slice.

@@ -12,9 +12,21 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-export type ReleaseStage = 'planned' | 'canary-10' | 'canary-50' | 'promoted' | 'watching' | 'done' | 'rolled-back' | 'hotfixed';
+export type ReleaseStage = 'planned' | 'canary-10' | 'canary-50' | 'promoted' | 'watching' | 'done' | 'rolled-back';
 
-/** Valid stage transitions. */
+/**
+ * Valid stage transitions.
+ *
+ * There is deliberately no `'hotfixed'` stage. A hotfix is a *launch mode* of
+ * the normal pipeline, not a place a release sits: `hotfixRelease` rolls the
+ * old release back into history and starts the hotfix version at `canary-10`,
+ * which then walks canary-10 → canary-50 → promoted → done like any other
+ * release. The old `'hotfixed'` stage was declared here but no command ever
+ * entered it, and it could not have worked: its only out-edges were
+ * `watching`/`rolled-back`, so a release parked there could never reach
+ * `canary-50` or `promoted` — hence never `promotedAt`, never a completed
+ * watch window, never `done`.
+ */
 const VALID_TRANSITIONS: Readonly<Record<ReleaseStage, readonly ReleaseStage[]>> = {
   'planned': ['canary-10', 'rolled-back'],
   'canary-10': ['canary-50', 'rolled-back'],
@@ -22,14 +34,18 @@ const VALID_TRANSITIONS: Readonly<Record<ReleaseStage, readonly ReleaseStage[]>>
   // 'watching' is the declared intermediate but is unreachable in practice
   // (no command transitions into it), so 'done' is reachable from 'promoted'.
   'promoted': ['watching', 'done', 'rolled-back'],
-  'watching': ['done', 'rolled-back', 'hotfixed'],
+  'watching': ['done', 'rolled-back'],
   'done': [],
-  'rolled-back': ['hotfixed', 'planned'],
-  'hotfixed': ['watching', 'rolled-back']
+  'rolled-back': ['planned']
 };
 
 export function isValidStageTransition(from: ReleaseStage, to: ReleaseStage): boolean {
-  return VALID_TRANSITIONS[from].includes(to);
+  // `from` is typed, but it is read out of `.peaks/release-state.json`, which
+  // nothing validates (`readReleaseState` casts the parsed JSON). A state file
+  // written by an older peaks-loop may name a stage this table no longer has
+  // (e.g. the dropped 'hotfixed'), so an unknown source must read as "no such
+  // transition" rather than crash the CLI out of the lookup.
+  return (VALID_TRANSITIONS[from] ?? []).includes(to);
 }
 
 export function isReleaseStage(value: string): value is ReleaseStage {
@@ -49,7 +65,7 @@ export interface ReleaseState {
   readonly version: 1;
   /** Active release (the one being canary'd / watched). */
   readonly active: ReleaseRecord | null;
-  /** History of completed / rolled-back / hotfixed releases. */
+  /** History of completed / rolled-back releases. */
   readonly history: readonly ReleaseRecord[];
 }
 
