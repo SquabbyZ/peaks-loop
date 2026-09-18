@@ -51,7 +51,7 @@ true` fallback — preserves all pre-rid behavior.
 | `src/services/code/auto-compact-orchestrator.ts` | 21 | 1 | 1-line gate + comment, no helper extracted |
 | `tests/unit/code/auto-compact-orchestrator.test.ts` | 177 | 0 | NEW, 5 cases (1 new + 4 regression) |
 | `CHANGELOG.md` | 6 | 0 | 1 bullet under `Unreleased — 4.0.4.x` |
-| `docs/mac-auto-compact.md` | 41 | 6 | auto-fire line + 256KB ≈ 100% caveat |
+| `.peaks/docs/mac-auto-compact.md` | 41 | 6 | auto-fire line + 256KB ≈ 100% caveat |
 
 Total: +240/-12. Production diff: 22 LOC (under 50 cap).
 
@@ -81,7 +81,7 @@ The 256KB threshold is a byte-count proxy for "100% of context" — Claude Code
 on Opus 4.1 is actually 200K tokens (~800KB jsonl, not 256KB). The 256KB
 threshold triggers auto-compact earlier than the "real" 100% mark. This is
 **acceptable** for the auto-compact use case (better to compact early than to
-hit the red-line), and is documented in `docs/mac-auto-compact.md` as a known
+hit the red-line), and is documented in `.peaks/docs/mac-auto-compact.md` as a known
 approximation. A token-accurate Mac signal (e.g. from a statusline-state.json
 or from `claude --status --json` if/when that verb lands) would be a future
 improvement; for now, the byte-based estimate is a strict improvement over

@@ -28,7 +28,7 @@ $ node bin/peaks.js baseline run-guard --json  # 帮助文本称"默认全部 15
 
 **RL-10 自己的文本把"An LLM audit is allowed to self-pass without independent context"列为它要防的失效模式 —— 那正是它现在的行为。**
 
-同批实测的相邻发现（完整清单见 `docs/diagnosis-2026-09-15-peaks-loop-state.md`）：
+同批实测的相邻发现（完整清单见 `.peaks/docs/diagnosis-2026-09-15-peaks-loop-state.md`）：
 - `baseline freeze-update` / `rollback` / `reset` 三个动词**没有可达的成功路径**（无条件 `fail(HUMAN_NL_DECISION_REQUIRED)`，且未注册 `--confirm`），RL-10 承诺的棘轮因此**动不了**
 - `runAllGuards`（`capability-guard-runner/runner.ts:15`）**从未被任何非测试文件导入**，生产没有 all-15 通路
 - 15 个 guard contract 中 13 个是 `existsSync` + 常见词 substring（J10 断言 `hooks-commands.ts` 含有词 `hook`）

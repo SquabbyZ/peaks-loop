@@ -68,12 +68,12 @@
  * reader of the frontmatter (peaks-qa's own checklist among them) would need
  * the same type-conditioned filter to avoid mis-reading them.
  *
- * NO DERIVATION → NO DECLARATION. When the request type cannot be resolved
- * (no request artifact yet, or an id the artifact service refuses), this
- * returns `undefined` and the producers write no `gateEvidence` block at
- * all. Never a partial map: a half-derived declaration is a false statement
- * about the missing half's keys, and the pre-B2 bytes are the honest
- * fallback.
+ * NO DERIVATION → NO DECLARATION. When there is no request artifact to read
+ * the type off, this returns `undefined` and the producers write no
+ * `gateEvidence` block at all. Never a partial map: a half-derived declaration
+ * is a false statement about the missing half's keys, and the pre-B2 bytes are
+ * the honest fallback. An id the artifact service REFUSES is not this case and
+ * is not reported as `undefined` — see `deriveGateEvidenceForRequest`.
  */
 
 import { join } from 'node:path';
@@ -148,31 +148,50 @@ export function deriveGateEvidence(opts: {
  * request TYPE is recorded (`- type: <t>`, written by `peaks request init`
  * and read back by `request-artifact-service.extractMetadata`).
  *
- * Returns `undefined` when the type cannot be resolved, which the producers
- * turn into "write no block" (see the header). The `try` is deliberate and is
- * NOT a swallowed error: `showRequestArtifact` throws for an id that fails
- * `REQUEST_ID_PATTERN`, and the caller of this helper is about to have that
- * same id validated by `initHandoff`/`writeHandoff` — the guard that owns it.
- * A second loud failure here would only pre-empt the message the user should
- * see, so an unresolvable type degrades to the pre-B2 bytes.
+ * Returns `undefined` when there is NO artifact to read — the one case the
+ * producers turn into "write no block" (see the header). That is now the ONLY
+ * `undefined`: a `showRequestArtifact` that THROWS is deliberately not caught,
+ * so a caller can tell "this slice has nothing to declare" apart from "the
+ * artifact could not be read".
+ *
+ * F4 (`rid-f4-ceiling-breach`). This used to be `catch { return undefined }`,
+ * which folded those two into one value — and the repository's own ratchet
+ * caught it (`capability-guard-runner/contracts/J03.ts`, rule
+ * `catch-return-null`; the ceiling was written for exactly this shape). Nothing
+ * is lost by letting the throw through. The refusals `showRequestArtifact` can
+ * raise are the rid/sid ones, and BOTH callers reach a byte-identical message
+ * on the next statement anyway — `assertSafeHandoffIds` (`handoff-service.ts`)
+ * for `prd handoff init`, `generateEvidence`'s own guard for the evidence
+ * generator — so the user-visible failure is unchanged; only its origin moves
+ * two lines earlier. What the catch DID cover in practice was an I/O failure
+ * while reading the artifact file, and swallowing that writes a capsule with no
+ * declaration at all, which Gate C reads as "nothing declared, nothing to
+ * check" (`field-absent` is not this check's business, below). A silent hole is
+ * worse than a loud, already-duplicated one.
  */
 export async function deriveGateEvidenceForRequest(opts: {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly requestId: string;
 }): Promise<GateEvidence | undefined> {
-  let requestType: RequestType | null = null;
-  try {
-    const artifact = await showRequestArtifact({
-      projectRoot: opts.projectRoot,
-      role: 'prd',
-      requestId: opts.requestId,
-      sessionId: opts.sessionId
-    });
-    requestType = artifact?.requestType ?? null;
-  } catch {
-    return undefined;
-  }
+  // F4 (`rid-f4-ceiling-breach`). The throw from `showRequestArtifact` is
+  // propagated, so a caller can tell "this slice has nothing to declare"
+  // (artifact missing → `artifact === null` → `requestType === null` →
+  // `undefined`) apart from "the artifact could not be read" (an id the
+  // service refuses → rejected with `Invalid request id: ...`). The old
+  // `catch { return undefined }` collapsed both into the same value, and the
+  // `catch-return-null` ratchet caught it. The refusals `showRequestArtifact`
+  // raises are the rid / sid ones, and both callers reach a byte-identical
+  // guard a few lines up — `assertSafeHandoffIds` for `prd handoff init`,
+  // `generateEvidence`'s own guard for the evidence generator — so the
+  // user-visible failure is unchanged; only its origin moves earlier.
+  const artifact = await showRequestArtifact({
+    projectRoot: opts.projectRoot,
+    role: 'prd',
+    requestId: opts.requestId,
+    sessionId: opts.sessionId
+  });
+  const requestType: RequestType | null = artifact?.requestType ?? null;
   if (requestType === null) return undefined;
   return deriveGateEvidence({
     sessionId: opts.sessionId,

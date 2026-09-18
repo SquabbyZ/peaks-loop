@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-18T00:12:13.881Z",
+  "updatedAt": "2026-09-18T06:32:51.185Z",
   "hot": {
     "rule": [
       {
@@ -2391,7 +2391,7 @@
         "description": "**RL-10 亲自指定的能力漂移检测机制，在 2026-09-15 的坐标上是自证的。** 全部经我本人手跑复核： 机制在源码里： 是 ； 把  硬编码为 ； 的 LLM 打桩返回常量 。 **RL-10 自己的文本把\"An LLM...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\baseline-guard-audit-fabricates-fifteen-passes.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-15"
+        "updatedAt": "2026-09-18"
       },
       {
         "name": "capability-baseline-4-0-8-freeze",
@@ -2623,7 +2623,7 @@
         "description": "rid-2026-08-05-bdd-test-style sediment Why peaks-loop 当前 ~49 个 unit test 文件(不是 ~250,我估算错误),AAA 风格纯结构不表达业务。本 rid 把所有现有...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-05-bdd-test-style-rid-sediment.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-18"
       },
       {
         "name": "peaks-loop-2026-08-05-peaks-loop-4-0-11-publish-closure-sediment",
@@ -2727,7 +2727,7 @@
         "description": "Mac auto-compact trigger closure (commit 43561ffe — 2026-08-01) Symptom On Mac Claude Code, even after peaks-loop 4.0...",
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\2026-08-01-mac-auto-compact-transcript-estimate-trigger.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-09-01"
+        "updatedAt": "2026-09-18"
       },
       {
         "name": "peaks-loop-mac-esm-defense-audit",

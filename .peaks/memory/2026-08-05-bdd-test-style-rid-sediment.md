@@ -19,7 +19,7 @@ peaks-loop 当前 ~49 个 unit test 文件(不是 ~250,我估算错误),AAA 风�
 
 peaks-qa 在 verification 阶段跑 `bdd-test-style-verifier` 验证 git diff 中新加/修改的 test 文件。**只有 LLM 跑的 peaks-qa 流程触发了该验证** — human 不通过 peaks-qa,自动不受约束。
 
-下游项目 opt-in 接入:读 `docs/test-style-contract.md`(peaks-loop npm 包 `files` 数组已含此 doc)。
+下游项目 opt-in 接入:读 `contracts/test-style-contract.md`(peaks-loop npm 包 `files` 数组已含此 doc)。
 
 ## 5 slice 落地
 
@@ -36,7 +36,7 @@ peaks-qa 在 verification 阶段跑 `bdd-test-style-verifier` 验证 git diff �
 ## 关键决策点
 1. **试点优先**(Slice A 8 文件验证 migrator 可靠,再推 Slice D 全量)
 2. **Slice B 改设计**:原 PostToolUse hook 不可行(callerId 来自 `process.env.CLAUDE_CODE_SESSION_ID`,LLM/human 无法区分),改为 peaks-qa 验证阶段跑 verifier
-3. **package.json#exports 不加**:避免破坏现有 npm contract(peaks-loop 没 `exports` 字段,加任何 exports 让所有现有 subpath invisible — breaking change)。改用 `files` 数组加 `docs/test-style-contract.md`
+3. **package.json#exports 不加**:避免破坏现有 npm contract(peaks-loop 没 `exports` 字段,加任何 exports 让所有现有 subpath invisible — breaking change)。改用 `files` 数组加 `contracts/test-style-contract.md`
 4. **Reporter flag 启用**:用户选 flag(默认 reporter 不变)
 5. **Hook 误报 block 拒绝**(用户选)
 

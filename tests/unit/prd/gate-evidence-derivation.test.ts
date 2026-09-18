@@ -229,6 +229,40 @@ describe('(behavior) an unresolvable type declares nothing at all', () => {
     ).toBeUndefined();
   });
 
+  it('throws for an id the service refuses, so "unreadable" is not "nothing to declare"', async () => {
+    // F4 (`rid-f4-ceiling-breach`) — the other half of the case above, and the
+    // distinction the old `catch { return undefined }` erased: an artifact the
+    // service REFUSES to look up and an artifact that is simply not there both
+    // arrived as `undefined`. `showRequestArtifact` fails `REQUEST_ID_PATTERN`
+    // on a traversal-shaped rid before it touches the disk, so this is a real
+    // throw from the real service — no stub, and no new seam to inject one
+    // through (Karpathy #2).
+    //
+    // INJECTION (measured red): put `catch { return undefined }` back around
+    // the `showRequestArtifact` call and this case fails on `rejects` — the
+    // call resolves to `undefined`, the very value the no-artifact case above
+    // asserts. That is the defect, stated as a test.
+    const root = makeTempRoot();
+    await expect(
+      deriveGateEvidenceForRequest({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        requestId: '../no-traversal',
+      }),
+    ).rejects.toThrow(/Invalid request id/);
+
+    // Both branches in one case, because the property being pinned is the
+    // DISTINCTION: the same function, on the same root, still resolves
+    // `undefined` when there is genuinely no artifact.
+    expect(
+      await deriveGateEvidenceForRequest({
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        requestId: REQUEST_ID,
+      }),
+    ).toBeUndefined();
+  });
+
   it('returns the type-specific map once the artifact exists', async () => {
     // `feature` here — a type WITH a gate row — so the map is non-empty and the
     // difference from the `undefined` case above is visible.
