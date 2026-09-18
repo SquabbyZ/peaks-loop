@@ -51,7 +51,9 @@ import prettier from 'prettier';
 
 // Slash-normalised once, at the definition — `resolve()` returns backslashes on
 // Windows and a `${ROOT}/` built from that can never match a normalised path.
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..').split('\\').join('/');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  .split('\\')
+  .join('/');
 const OUT_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
 const ESLINT_CONFIG = 'config/eslint/.peaks-rules.cjs';
 const CODE_EXT = /\.(ts|tsx|mts|cts|mjs|cjs|js)$/;
@@ -61,6 +63,38 @@ const PHANTOM_DEF = /Definition for rule '(.+)' was not found/;
 const BATCH = 150; // argv stays well under the Windows command-line limit
 
 const rel = (p) => p.split('\\').join('/').replace(`${ROOT}/`, '');
+
+// ---------------------------------------------------------------------------
+// The config guard — why this generator may now REFUSE to write
+// ---------------------------------------------------------------------------
+// `prettier.resolveConfig()` returns NULL and does not throw when no config is
+// found. Spreading that null yields prettier's DEFAULTS (printWidth 80, double
+// quotes, trailing commas), under which a file correctly formatted for THIS repo
+// reads as dirty. Measured 2026-09-19: of the 88 files the baseline calls
+// prettier-clean, 6 of 6 sampled return true with the repo config and false with
+// the spread null.
+//
+// Left unguarded, this generator would not merely print a wrong number — it
+// would WRITE it. `prettierUnformatted` would jump 1178 -> ~1266 and become the
+// ceiling, and every one of those files would be marked `prettierClean: false`,
+// so the ratchet could never be satisfied for them again. A transient race in
+// `scripts/bump-version.mjs` (truncate-then-write of the root package.json, not
+// atomic) would become permanent damage to the baseline.
+//
+// So the config is compared against the repo's own declaration before anything
+// is written, and a mismatch aborts the run with the ceilings untouched.
+const DECLARED_PRETTIER = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')).prettier;
+
+function prettierConfigProblem(resolved) {
+  if (DECLARED_PRETTIER === undefined) return 'package.json has no "prettier" key to check against';
+  if (resolved === null) return 'prettier found NO config (resolveConfig returned null)';
+  for (const [key, want] of Object.entries(DECLARED_PRETTIER)) {
+    if (resolved[key] !== want) {
+      return `resolved ${key}=${JSON.stringify(resolved[key])} but package.json declares ${JSON.stringify(want)}`;
+    }
+  }
+  return null;
+}
 
 // ---- scope -----------------------------------------------------------------
 const scope = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
@@ -154,6 +188,7 @@ console.error('checking prettier...');
 const prettierCleanByFile = {};
 const unparsable = [];
 let prettierDirty = 0;
+let configFailure = null;
 for (const file of scope) {
   const abs = resolve(ROOT, file);
   let src;
@@ -163,6 +198,11 @@ for (const file of scope) {
     continue;
   }
   const opts = await prettier.resolveConfig(abs, { editorconfig: false });
+  const problem = prettierConfigProblem(opts);
+  if (problem !== null) {
+    configFailure = `${file}: ${problem}`;
+    break;
+  }
   try {
     const clean = await prettier.check(src, { ...opts, filepath: abs });
     prettierCleanByFile[file] = clean;
@@ -172,7 +212,21 @@ for (const file of scope) {
     prettierCleanByFile[file] = false;
   }
 }
-console.error(`prettier: ${prettierDirty} of ${scope.length} unformatted; ${unparsable.length} unparsable`);
+
+// Refuse BEFORE writing. Writing here would poison the ceiling with ~1266
+// false "unformatted" entries and the ratchet could never recover from it.
+if (configFailure !== null) {
+  console.error(
+    `\nREFUSING to write ${rel(OUT_PATH)}: prettier's config did not resolve.\n  ${configFailure}\n\n` +
+      'The root package.json is the config host. If it is being rewritten right now\n' +
+      '(scripts/bump-version.mjs truncates then writes it, not atomically), re-run in\n' +
+      'a moment. Nothing has been written; the existing ceilings are untouched.\n'
+  );
+  process.exit(1);
+}
+console.error(
+  `prettier: ${prettierDirty} of ${scope.length} unformatted; ${unparsable.length} unparsable`
+);
 for (const u of unparsable) console.error(`  ! ${u.file}: ${u.reason}`);
 
 // ---- tsc -------------------------------------------------------------------

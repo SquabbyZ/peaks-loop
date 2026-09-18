@@ -145,6 +145,35 @@ which is the point: the tests were green the whole time.
    had occurred. The fix also added a fail-closed rule: eslint not reporting on
    a file we handed it is an error, never a zero.
 
+6. **A config that does not resolve looks exactly like an unformatted file, and
+   the advice the gate gave was destructive.** `prettier.resolveConfig()` returns
+   `null` and does not throw when no config is found; `{ ...null }` is `{}`, i.e.
+   prettier's DEFAULTS (printWidth 80, double quotes). Measured on the 88 files
+   the baseline calls prettier-clean: **6 of 6 sampled return `true` with the repo
+   config and `false` with the spread null.** So one unresolvable config makes the
+   gate declare every clean file dirty — and `prettier --write`, which the gate
+   was telling people to run, would then rewrite the file with the *wrong* style
+   (measured 8380 → 8505 bytes on `scripts/dist-freshness.mjs`, single quotes
+   flipped to double).
+
+   Worse for the generator: it spreads the same null, so one run inside the
+   window would have written `prettierClean: false` for **all 1267 files** and
+   made that the ceiling — permanent damage to the ratchet, from a transient race.
+   The race is real: `scripts/bump-version.mjs:259` rewrites the root
+   `package.json` with `writeFileSync(JSON.stringify(...))` — truncate-then-write,
+   not atomic.
+
+   Fixed by making an unresolved (or merely *wrong*) config its own failure class:
+   no `--write` advice, and the resolved config compared against the repo's own
+   declaration. The generator refuses to write rather than poisoning the ceiling.
+
+   **And the first fix of it was itself broken.** `prettierCheck` omitted the
+   `configProblem` key on success, so `result.configProblem` read as `undefined`,
+   and `undefined !== null` is true — every file took the CONFIG UNRESOLVED branch
+   and **nothing could commit at all**. Caught by running the gate against a
+   healthy tree, not only against the failure case. A sentinel must be one value,
+   not "null or absent".
+
 ## 7. Verifying the gate itself
 
 The gate is a guard, so it gets the treatment this repo gives guards: try to

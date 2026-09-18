@@ -50,7 +50,9 @@ import prettier from 'prettier';
 // "improved N -> 0 findings". Six of seven injection arms passed anyway. Hence
 // also the fail-closed check in stagedMode(): eslint not reporting on a file we
 // asked about is an error, never a zero.
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..').split('\\').join('/');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  .split('\\')
+  .join('/');
 const BASELINE_PATH = resolve(ROOT, '.peaks/lint/gate-baseline.json');
 const ESLINT_CONFIG = 'config/eslint/.peaks-rules.cjs';
 const CODE_EXT = /\.(ts|tsx|mts|cts|mjs|cjs|js)$/;
@@ -127,11 +129,66 @@ function runEslint(files) {
   return out;
 }
 
-/** true = already formatted, false = would be rewritten, throws = unparsable. */
-async function prettierClean(file) {
+// ---------------------------------------------------------------------------
+// Config resolution — the failure mode this gate got wrong
+// ---------------------------------------------------------------------------
+// `prettier.resolveConfig()` returns NULL and does not throw when no config can
+// be found. Spreading that null — `{ ...opts }` — yields `{ filepath }`, i.e.
+// prettier's DEFAULTS (printWidth 80, double quotes). A file correctly formatted
+// under this repo's config then fails the check. Measured 2026-09-19 on the 88
+// files the baseline calls prettier-clean: 6 of 6 sampled return `true` with the
+// repo config and `false` with `{ ...null }`.
+//
+// What can make it unresolvable: `scripts/bump-version.mjs` rewrites the root
+// `package.json` with `writeFileSync(JSON.stringify(...))` — truncate-then-write,
+// not atomic — so a gate run inside that window finds no config anywhere up the
+// tree. That is a long-lived, low-probability race, which is exactly the kind of
+// failure that shows up once, cannot be reproduced, and destroys trust in the
+// gate. It happened once already: this gate reported a clean file as
+// "not prettier-formatted" and the cause was not recoverable from the output.
+//
+// Two consequences, both worse than a false red:
+//   1. The advice was destructive. Under defaults `prettier --write` rewrites
+//      the file with double quotes — measured 8380 -> 8505 bytes on
+//      scripts/dist-freshness.mjs. A dev obeying the gate mangles the file.
+//   2. `.husky/peaks-gate-baseline.mjs` spreads the same null, so a run inside
+//      the window would record `prettierClean: false` for ALL 1266 files and
+//      write that as the ceiling. The ratchet would be poisoned permanently.
+//
+// So a config that did not resolve is now its own failure class: no `--write`
+// advice, and the resolved config is compared against the repo's own declaration
+// in package.json — which catches a WRONG config too, not only a missing one.
+const DECLARED_PRETTIER = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')).prettier;
+
+/** Returns a human-readable problem, or null when the config is the declared one. */
+function prettierConfigProblem(resolved) {
+  if (DECLARED_PRETTIER === undefined) return 'package.json has no "prettier" key to check against';
+  if (resolved === null) return 'prettier found NO config (resolveConfig returned null)';
+  for (const [key, want] of Object.entries(DECLARED_PRETTIER)) {
+    if (resolved[key] !== want) {
+      return `resolved ${key}=${JSON.stringify(resolved[key])} but package.json declares ${JSON.stringify(want)}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * true = already formatted, false = would be rewritten, throws = unparsable.
+ * A config that did not resolve is reported as `{ configProblem }` — NEVER as
+ * "false", because under defaults `false` is what a perfect file looks like.
+ */
+async function prettierCheck(file) {
   const abs = resolve(ROOT, file);
-  const opts = await prettier.resolveConfig(abs, { editorconfig: false });
-  return prettier.check(readFileSync(abs, 'utf8'), { ...opts, filepath: abs });
+  const resolved = await prettier.resolveConfig(abs, { editorconfig: false });
+  const configProblem = prettierConfigProblem(resolved);
+  // `configProblem` is ALWAYS present on the returned object, null included.
+  // Omitting the key on success made `result.configProblem` read as `undefined`,
+  // and `undefined !== null` is TRUE — so every file took the CONFIG UNRESOLVED
+  // branch and nothing could ever commit. The sentinel has to be one value, not
+  // "null or absent". Caught by running the gate against a healthy tree.
+  if (configProblem !== null) return { configProblem, configFailed: true };
+  const clean = await prettier.check(readFileSync(abs, 'utf8'), { ...resolved, filepath: abs });
+  return { configProblem: null, configFailed: false, clean, resolved };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,12 +240,14 @@ async function stagedMode(argv) {
       );
     } else if (actual.findings < allowed.eslint) {
       improved++;
-      console.log(`peaks-gate: ${file} improved ${allowed.eslint} -> ${actual.findings} finding(s).`);
+      console.log(
+        `peaks-gate: ${file} improved ${allowed.eslint} -> ${actual.findings} finding(s).`
+      );
     }
 
-    let clean;
+    let result;
     try {
-      clean = await prettierClean(file);
+      result = await prettierCheck(file);
     } catch (err) {
       failures.push(
         `${file} cannot be parsed by prettier: ` +
@@ -196,9 +255,26 @@ async function stagedMode(argv) {
       );
       continue;
     }
+
+    // A config that did not resolve is NOT "unformatted". Under defaults a
+    // perfectly formatted file reads as dirty, and the `--write` advice would
+    // rewrite it with double quotes. Fail, say why, and give no advice.
+    if (result.configFailed) {
+      failures.push(
+        `CONFIG UNRESOLVED for ${file}: ${result.configProblem}\n` +
+          '      NOT a formatting problem — do not run prettier --write. Under prettier default\n' +
+          '      options it would rewrite the file with the wrong style.'
+      );
+      continue;
+    }
+
+    const clean = result.clean;
     const wasClean = allowed?.prettierClean ?? true; // a NEW file is expected to be clean
     if (!clean && wasClean) {
-      failures.push(`${file} is not prettier-formatted. Run: pnpm exec prettier --write "${file}"`);
+      failures.push(
+        `${file} is not prettier-formatted. Run: pnpm exec prettier --write "${file}"\n` +
+          `      resolved config: ${JSON.stringify(result.resolved)}`
+      );
     }
   }
 
@@ -255,16 +331,33 @@ async function repoMode() {
   }
 
   let unformatted = 0;
+  let configProblem = null;
   const unparsable = [];
   for (const file of files) {
-    let clean;
+    let result;
     try {
-      clean = await prettierClean(file);
+      result = await prettierCheck(file);
     } catch (err) {
       unparsable.push(`${file}: ${String(err.cause?.message ?? err.message).split('\n')[0]}`);
       continue;
     }
-    if (!clean) unformatted++;
+    if (result.configFailed) {
+      configProblem = `${file}: ${result.configProblem}`;
+      break;
+    }
+    if (!result.clean) unformatted++;
+  }
+
+  // Abort rather than report a number. Under an unresolved config every clean
+  // file reads as dirty, so the totals below would be ~1266 and would look like
+  // a regression the pusher must fix. A wrong measurement is worse than none.
+  if (configProblem !== null) {
+    console.error(
+      `peaks-gate: REFUSING to measure — prettier's config did not resolve.\n  ${configProblem}\n` +
+        'The root package.json is the config host; if it is being rewritten right now\n' +
+        '(scripts/bump-version.mjs truncates then writes it), re-run in a moment.\n'
+    );
+    return 1;
   }
 
   let tscErrors = 0;
