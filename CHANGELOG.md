@@ -1,5 +1,43 @@
 # Changelog
 
+## 4.0.54 — 2026-09-18 (Phase A 缺陷闭合十片: 9 片真改 + 3 次修复推翻自己 + 4.0.53 宣称闭合的 AC 里 2 个被证伪 — AC-6 是假 pin、AC-1 是空 pin)
+
+**Highlights**:
+
+1. **4.0.53 宣称闭合的 AC 里有 2 个是假的 (D 组, 本会话最重要的发现).** 不是"改错了"也不是"没做完", 是**测试通过但断言的不是它说自己断言的东西**:
+   - **AC-6 是假 pin**: `karpathy-injection.test.ts` 之所以绿, 是因为 `karpathy-reviewer` 这个**角色名里含有**它要找的 anchor 字符串 —— 断言的是文件名, 不是被注入的规则块。实测: 从块里删掉一个 canonical anchor, 旧测试仍 4 passed / exit 0, 改写后的测试 exit 1。现在 pin 的是四层注入 + 一个六-bee 作用域锁, 规则正文一字未动。
+   - **AC-1 是空 pin**: 它 pin 的模块 13/13 导出在 `src/`、`packages/`、`scripts/` (865 个文件) 里**零引用**, 唯一消费者是它自己的测试。pin 住一个没有调用者的死表面, 和没 pin 没有区别。
+   - 同组顺带纠正: AC-3 合并了两个完全相同的 case 并删掉一处**从未被断言**的 `skillMd` 读取 (它本想支撑的那条声明不存在, `grep -c` = 0; 留着等于为迁就一个坏测试而发明一条产品义务); AC-4 一直在 pin LLM-arbitrator 的预算, 而披露文字说的是周期性 checkpoint cadence —— cadence 现在有自己的测试, 并修好 D1 漏掉的一处过期指针。
+
+2. **4.0.51 那句「49」句内自相矛盾.** `1 + 20 + 2` 之和是 23, 而同一句话写的是 21; 六个 dangling cross-ref 其实是 12 处指向 8 个目标。所以 49 是**混合单位的和**。「两个从未存在过」的标签被对调 (一个确实存在过 `3c82c797`、于 `f17aa377` 删除, 另一个真的从未存在), 同一处错误第三次出现在守卫自己的 header 里, 现已改名为 `d3a45d45`。声明改写为「在所有存活对象里都不存在」—— `backup-main-pre-rewrite` tag 表明历史被重写过, 无条件断言「从未存在」在本仓不可证。
+
+3. **第三个 reach gap: 带行号的引用此前不可见.** `PATH_SHAPED` 的字符类排除了 `:`, 所以写成 `path.md:127` 的引用完全看不见。`git log -G` 显示**没有任何 commit 把 `:` 放进过那个字符类** —— 它随 `276161d5` 整体到达, 是一次事实上的排除、不是一个写下的决定。`LINE_SUFFIX` 现在先剥掉尾部 `:digits` 再做形状判定与 `exists` 检查, 实测 804 处含冒号的 span 里 0 条是真引用。把字符类直接放宽会报 11 条, 且 11/11 都指向**真实存在**的文件 —— 所以修复是方向性的, 不是数量问题。它暴露出的唯一一条悬空引用在 `skills/peaks-final-review/SKILL.md:233`, 按 4.0.51 的方式处置 (披露而非删除), 因为不存在活的后继文件。
+
+4. **三个守卫看不见自己在被削弱 (C1–C4).** 三者都不是「没在检查」, 而是**活着的检查, 但观察不到自己的削弱** —— 它们抓得住「删除」抓不住「削弱」:
+   - `vitest-concurrency-guard` 对整文件匹配 `/maxWorkers,?\s*$/m`, 于是 `// maxWorkers,` 也满足: 把配置行注释掉, 六条断言全绿。现在断言作用在**生效行**上 (注释行先被过滤)。
+   - `publish-tag-strict` 断言某字面量在 workflow 里出现过, 于是把 `[[ =~ ]]` 操作数放宽成 `^v.+$` 后四条仍全绿。现在直接断言操作数本身。`capability-glossary` 补上同样的第二条臂。
+   - 删掉这些断言会是净损失 —— 上一轮的「删守卫」臂仍然会红 (2 / 4 failed), 现在两种形态都覆盖。只有 rotation 守卫的第 4 个分支**真的不可判定**, 三种方式确认 (结构上: 它的条件蕴含它所守卫分支的否定)。
+   - `authkey` / `authkeys` 加入敏感标题词表。此前一次同类新增**零覆盖** (`grep tests/` 什么都找不到, 删掉它不会弄红任何测试) —— 正是本组存在的理由。现有 3 个正控 + 1 个负控 (`authkeyboard layout`), 把匹配器放宽成子串语义时会红 (实测放宽后 6 条变红)。
+
+5. **记忆标题的假拒绝 (C0).** `peaks memory extract` 拒绝标题「Derive from the auth-ority, never re-declare it」, 报 `Refusing to store sensitive memory content`, 补救文案写「remove secrets」。没有 secret。根因: `assertSafeMemory` 的第三项检查 `isSensitiveConfigPath(memory.title)` 是给配置**键**写的谓词, 做子串匹配 —— `authority` 命中 `auth`、`tokenizer` 命中 `token`、`secretary` 命中 `secret`。用在散文上就拒绝散文, 并把读者引去寻找一个不存在的东西。新增为散文而建的 `findSensitiveMemoryTitleTerm` (词-run 匹配、camelCase 感知、返回命中词)。标题检查**保留而非删除**: `hasSensitiveMemoryContent` 锚在 `:` / `=` 上, 裸 `apiKey` 标题没有别的检查能抓到 (实测确认)。`UnsafeMemoryError { check, matchedTerm }` 让每项检查报出自己是谁, 补救文案按 `error.check` 路由而不是按消息文本; `hasSensitiveMemoryContent` 逐字节未变 (671 B, 两侧同 sha)。附带修掉的第二个缺陷: `fail()` 会把每条失败消息过一遍 `redactSensitiveErrorMessage`, 其兜底正则把消息**存在意义**要报告的词改写掉, 产出 `an [redacted] / [redacted] / [redacted] assignment` —— 现在命中词走结构化 `data.matchedTerm` 字段, 散文避开目标词, 脱敏器本身未动。
+
+6. **`gateEvidence` 从死表面变成端到端可达 (B).** 它此前被四种互不兼容的方式描述: reader 解析 `string[]`; 它自己的 header 注释把字符串称作「gate names」并声称 `initHandoff` 会写它; 测试用路径数组并承认 `initHandoff` 不接受这个字段; schema 参考规定的是五键到路径的 map 并说「缺键 → Gate C failure」; 而 Gate C 从不读它 —— `grep -rn gateEvidence src/` 只命中一个文件。现在它是**派生而非传入**的五键 map, 每个生产者都写、Gate C 校验: 新增 `deriveGateEvidence` 读 `getPrerequisitesFor('rd', 'qa-handoff', type)` (与闸门**同一张表**, 所以无法漂移); 三个生产者都派生并写入; **没有 CLI flag** —— 让用户传入等于要求他手写 JSON, 本项目禁止; Gate C 校验声明的路径存在, 并在 `PREREQUISITES_MISSING` 里点名出错的键。reader 变成 7 态判别联合 (旧的把「什么都没声明」和「声明了但损坏」塌缩成同一个 `null`)。**第一轮交付时测试全绿却完全不可达** —— 三个写入方什么都没传, 该字段只有测试能碰到; QA 跑真 CLI 读文件才发现。上面那条验收, 就是把那次失败变成一条检查。
+
+7. **文档迁移与 manifest 守卫 (E1–E2).** `docs/` 里混着两类东西: superpowers 计划/规格散文 (属于那里) 和四份 peaks-loop 自有文档 (不属于)。四份用 `git mv` 迁到新的 `.peaks/docs/`, 全部记录为 100% rename 所以历史保留; 七个活引用同步更新。`CHANGELOG.md` 与 `.peaks/memory/` 有意不动 —— 那是「某事发生过」的记录, 不是指向它的指针。随后补上**刚被这次迁移证明的缺口**: 没有任何东西读 `package.json#files`, 一个 typo 能让 63 个测试保持绿色而包发出去时少了这个文件 (E1 就是证明 —— 它移动了一个已发布的契约, 而包还带着它, 唯一原因是那一行 `files` 被手工改了)。新守卫 `tests/unit/publish/files-entries-resolve.test.ts` **先对 24 个条目分类再写谓词**: 13 个具体文件必须存在; 9 个 glob 只按字面前缀目录判定、**从不**按文件存在性或匹配数 (`skills/**` 永远有匹配而 `schemas/*.json` 可能合法为空, 没有东西能区分它们); 2 个否定不判定; gitignored 生成物按**规则**豁免而非按名字。
+
+8. **死模块获得首个调用者, 已发布契约换址 (F1–F3), 以及一次差点自相抵消的修复 (A1).** `reviewer-dispatch-policy.ts` 13/13 导出在 865 个文件里零外部引用; 读它时翻出三处文档/代码不一致, 其中一处正是它死掉的原因 —— 它的 header 自称「consumed by the LLM-side runner」, 而 LLM 读不了 TypeScript 导出。接线接受 legacy reviewer 并**改道 + 警告**而不是拒绝, 这是证据允许的唯一选项: 前置侧已通过 `legacyRelativePaths` 接受那些槽位, 模块正文三次写「instead of failing the gate」, 而 `f17aa377` 删掉的 12-case 测试 (从 `f17aa377^` 取回原文) 逐字写着「reroute ... rather than fail」。**行为变更如实陈述**: 只有 `security-reviewer` 与 `perf-baseline-reviewer` 会被改道; `ok`、record 与 toolCall 不变, 新增一条 `warnings[]` 改道通知; 其余角色逐字节相同 (QA 建立了 repeat-run 噪声基线 —— 每角色 4 个易变叶子 —— 并证明 10 角色全集里唯一的非噪声差异就是那两条 `warnings/0`)。本仓没有任何地方派发这两个角色, 所以已记录流程不受影响; 仓外与历史调用方此前一直在**静默地**跑一个不存在的 reviewer。契约 `test-style-contract.md` 从 `.peaks/docs/` 移到 `contracts/` —— 它要发布, 地址是 `node_modules/peaks-loop/...`, 不该待在语义为「本工具内部工作区」的点目录里。A1 关闭 4.0.52 留下的 `repair-index` 回滚缺口, 但**不是**用第一版的做法: 第一版让 `'force'` 先写修复再回滚自己 —— 配置原样还回去, `peaks codegraph status` 仍报缺口, exit 75 永不清除, 而 4.0.52 正是靠这条路径把 include gap 从 31 做到 0 的。已回退: 回滚现在是显式的操作员动作 `peaks codegraph config-restore` (exit 1 = 前置, 没有任何东西检查过回滚点; 77 = 回滚点检查了但 restore 没发生), 不再是修复内部的一步。
+
+9. **两个 A 组条目值得单独记一笔, 因为它们的结论都是「不做」.** A2 让引用守卫看见裸 `tests/...test.ts` (此前守卫只读反引号 span), 并给裸文件名一条**故意更窄**的规则 (`*.test.ts`、名字含短横、空白边界 —— 短横要求正是把 `README.md` / `CHANGELOG.md` 挡在外面的那道条件)。A3 则**证伪了它自己要做的事**: 请求要求让围栏代码块不再对守卫不可见, 实测表明围栏**本来就是透明的** (守卫按行切分、扫反引号 span, 从不读 fence), 而加上 fence-awareness 反而会**弄瞎**四条当前被正确判定的真实引用。照原样实现会发出一个「修好了一个从不存在的盲区」的 commit —— 与本仓反复出现的「守卫宣称自己有它没有的覆盖」互为镜像, 两者都是**对从未测量过的行为下断言**。A3 因此不改逻辑, 只记录测量。F4 修掉本会话自己引入的 J03 上限突破: 一个 `catch { return undefined }` 把仓库自己的 `catch-return-null` 棘轮从 41 推到 42 并弄红 `J03-problem-resolution-flow.test.ts`; 棘轮存在的理由正是这个形状 ——「catch 返回 null/undefined, 调用方分不清失败与成功」—— 而这次突破把「artifact 不可读」藏进了「没有证据要声明」。
+
+**验证**: `pnpm build` 干净, `build-integrity: OK`; 单元套件 **301 files / 3371 passed / 3 skipped / 0 failed** (与 bump 前基线逐数字相同); `tsc` 保持 **142** 基线 (无新增); `peaks release precheck` 四层全 `ok` —— `rootVsShared` (root 4.0.54 == shared dist CLI_VERSION 4.0.54)、`tagCollision` (v4.0.54 不存在)、`changesetStaged` (无 staged *.md)、`workspaceLockstep` (shared 0.0.88 是干净 semver); 版本 bump 与 4.0.53 那次 (`098a3778`) 逐字同模式: root + `CLI_VERSION` + `RUNTIME_VERSION` + 4 个 workspace 包各自 patch +1。
+
+**明确未验证的 (不当作已完成)**:
+- F1 记录了**三项后续, 未做**: `--from-dag` 在 `validateRole` 之前就 return, 只检查 `role.length > 0`; 13 个导出里仍有 11 个零引用; 模块的 decision-table 那一半仍无任何 pin。
+- A3 把 `docs/**` 的测量留给了后续 slice: 11 个文件 165 处 findings, 71 个被引路径里 62 个从未存在, 而 9 个确实存在且被删除的与 D1 认定的 9 条诊断发现一一对应。与 4.0.51 的 178/64 同量级; 先决定「计划文档是否属于这个守卫的文体」再动它。
+- A1 的 `config-restore` 用了与 codegraph 家族其余动词**不同**的 `code` 取值, 是刻意的偏离, 代码内有论证并有 FOLLOW-UP 待收敛 —— 尚未收敛。
+- C0 只从**这一个调用点**移除了 `isSensitiveConfigPath`; 它自己领域内共有的一处误报 (`context.windowTokens`) 被**记录而非修复**, 留在原处。
+- `git tag v4.0.54` 不存在且 precheck 通过, 但本片**没有**打 tag、**没有** commit —— 发布路径 (commit → 推送 → CI → tag → canary → promote) 由编排方接管。
+
 ## 4.0.53 — 2026-09-17 (三版本残留未验证清单的 source-of-truth 对账: 4.0.50/4.0.51/4.0.52 九条声明里 7 条 code 已实装, 1 条真 source dead surface 删除, 1 条仍真未做留口)
 
 **Highlights**:
