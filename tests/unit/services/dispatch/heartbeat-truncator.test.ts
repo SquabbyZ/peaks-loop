@@ -34,10 +34,19 @@ import {
   truncateHeartbeats,
 } from '~/src/services/dispatch/heartbeat-truncator';
 
+/**
+ * Build a contract-valid {@link Heartbeat}. `seq` is only a fixture-local
+ * ordinal used to give each entry a distinct identity; it is NOT a field on
+ * `Heartbeat` (the interface is `{ at, status, progress, note }`). Each
+ * entry's `at` encodes the ordinal in its seconds component, so `at` is the
+ * identity the assertions below compare — it is the contract field the
+ * truncator's "most recent window" semantics actually order on.
+ */
 function hb(seq: number): Heartbeat {
   return {
     at: new Date(2026, 6, 30, 0, 0, seq).toISOString(),
-    seq,
+    status: 'running',
+    progress: 0,
     note: `heartbeat #${seq}`,
   };
 }
@@ -52,8 +61,8 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.truncated).toBe(false);
     expect(out.dropped).toBe(0);
     expect(out.heartbeats).toHaveLength(50);
-    expect(out.heartbeats[0]?.seq).toBe(0);
-    expect(out.heartbeats[49]?.seq).toBe(49);
+    expect(out.heartbeats[0]?.at).toBe(hb(0).at);
+    expect(out.heartbeats[49]?.at).toBe(hb(49).at);
   });
 
   it("when invoked, should returns the input unchanged when length equals LIMIT exactly", () => {
@@ -78,9 +87,9 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.dropped).toBe(5);
     expect(out.heartbeats).toHaveLength(HEARTBEAT_TRUNCATE_LIMIT);
     // First kept entry must be the oldest one still inside the window.
-    expect(out.heartbeats[0]?.seq).toBe(5);
+    expect(out.heartbeats[0]?.at).toBe(hb(5).at);
     // Last kept entry must be the very last input entry.
-    expect(out.heartbeats[HEARTBEAT_TRUNCATE_LIMIT - 1]?.seq).toBe(total - 1);
+    expect(out.heartbeats[HEARTBEAT_TRUNCATE_LIMIT - 1]?.at).toBe(hb(total - 1).at);
   });
 
   it("when invoked, should drops the oldest half when input is 2x the limit", () => {
@@ -92,7 +101,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     const out = truncateHeartbeats(input);
     expect(out.truncated).toBe(true);
     expect(out.dropped).toBe(HEARTBEAT_TRUNCATE_LIMIT);
-    expect(out.heartbeats[0]?.seq).toBe(HEARTBEAT_TRUNCATE_LIMIT);
+    expect(out.heartbeats[0]?.at).toBe(hb(HEARTBEAT_TRUNCATE_LIMIT).at);
   });
 
   it("when invoked, should handles a single-entry array (no-op)", () => {
@@ -133,7 +142,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     // then:  the result matches the expectation
     const input: Heartbeat[] = [hb(1), hb(2), hb(3)];
     const out = truncateHeartbeats(input);
-    expect(out.heartbeats.map((h) => h.seq)).toEqual([1, 2, 3]);
+    expect(out.heartbeats.map((h) => h.at)).toEqual([hb(1).at, hb(2).at, hb(3).at]);
   });
 });
 

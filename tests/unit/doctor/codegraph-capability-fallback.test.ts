@@ -40,7 +40,10 @@ import { check } from '~/src/services/doctor/doctor-service/checks/codegraph-cap
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { firstOf } from '../_setup/first-of.js';
 import { withTmpWorkspacePerTest } from '../_setup/tmp-workspace.js';
-import type { CodegraphCapabilityProbe, DoctorContext } from '~/src/services/doctor/doctor-service/types';
+import type {
+  CodegraphCapabilityProbe,
+  DoctorContext
+} from '~/src/services/doctor/doctor-service/types';
 
 declareDimensions(
   'tests/unit/doctor/codegraph-capability-fallback.test.ts',
@@ -65,7 +68,11 @@ function makeContext(): DoctorContext {
   };
 }
 
-function layOutFakeCodegraphPackage(opts: { rootDir: string; version: string; withBinary: boolean }): {
+function layOutFakeCodegraphPackage(opts: {
+  rootDir: string;
+  version: string;
+  withBinary: boolean;
+}): {
   packagePath: string;
   binaryPath: string;
 } {
@@ -176,7 +183,15 @@ describe('codegraph-capability check (rid-CG-007)', () => {
       const noBinaryProbe = constantProbe({
         packagePath,
         version: '0.7.10',
-        binaryPath: join(tmpRoot, 'node_modules', '@colbymchenry', 'codegraph', 'dist', 'bin', 'codegraph.js'),
+        binaryPath: join(
+          tmpRoot,
+          'node_modules',
+          '@colbymchenry',
+          'codegraph',
+          'dist',
+          'bin',
+          'codegraph.js'
+        ),
         binaryExists: false
       });
 
@@ -203,6 +218,8 @@ describe('codegraph-capability check (rid-CG-007)', () => {
     expect(firstOf(result).ok).toBe(false);
     expect(firstOf(result).severity).toBeUndefined();
     expect(firstOf(result).message).toContain('@colbymchenry/codegraph not resolvable');
-    expect(firstOf(result).message).toContain("Cannot find module '@colbymchenry/codegraph/package.json'");
+    expect(firstOf(result).message).toContain(
+      "Cannot find module '@colbymchenry/codegraph/package.json'"
+    );
   });
 });

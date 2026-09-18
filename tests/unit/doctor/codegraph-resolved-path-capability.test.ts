@@ -85,7 +85,10 @@ describe('capability:codegraph managed-path surfacing (root-only)', () => {
       });
       const result = check.run({
         ...makeContext(),
-        options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
+        options: {
+          codegraphProbe: healthyPackageProbe,
+          codegraphManagedPathProbe: managedPathProbe
+        }
       });
       expect(firstOf(result).ok).toBe(true);
       expect(firstOf(result).message).toContain(`managed path: ${location.codegraphDir}`);
@@ -114,7 +117,10 @@ describe('capability:codegraph managed-path surfacing (root-only)', () => {
       });
       const result = check.run({
         ...makeContext(),
-        options: { codegraphProbe: healthyPackageProbe, codegraphManagedPathProbe: managedPathProbe }
+        options: {
+          codegraphProbe: healthyPackageProbe,
+          codegraphManagedPathProbe: managedPathProbe
+        }
       });
       expect(firstOf(result).ok).toBe(true);
       expect(firstOf(result).message).toContain(`managed path: ${location.codegraphDir}`);
