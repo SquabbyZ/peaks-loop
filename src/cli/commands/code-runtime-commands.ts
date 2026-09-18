@@ -18,7 +18,10 @@ import {
   detectPostCompactResume,
   formatPostCompactResumeLogLine
 } from '../../services/code/post-compact-detector.js';
-import { runAutoCompact, type AutoCompactResult } from '../../services/code/auto-compact-orchestrator.js';
+import { evaluateCompactTrigger, runAutoCompact, type AutoCompactResult } from '../../services/code/auto-compact-orchestrator.js';
+import { type AutoCompactMode, thresholdFor } from '../../services/code/auto-compact-modes.js';
+import { resolveAutoCompactProfile } from '../../services/mode/mode-status-service.js';
+import { AUTO_COMPACT_SOFT_WARN_RATIO } from '../../services/context/auto-compact-types.js';
 import { auditContext } from '../../services/context/context-audit.js';
 import { syncHarnessWindowForProject } from '../../services/context/auto-compact-reader.js';
 import { describeHarnessWindowSync, harnessWindowSyncWarning } from '../../services/context/harness-window-config.js';
@@ -44,6 +47,53 @@ import {
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { probeInFlightBatch } from '../../services/workflow/workflow-inflight-probe.js';
 import { resolveOuterSessionId } from '../../services/session/binding-status-service.js';
+
+/** The one dispatch verb the action and red-line tiers name. */
+const COMPACT_CMD = 'peaks code auto-compact';
+
+/**
+ * Slice H4 (rid=h4-context-now-mode-blind) — the ONE mapping from the shared
+ * `CompactTrigger` to this command's `action` vocabulary, so the two cannot
+ * drift: the trigger is `evaluateCompactTrigger`, the same function `peaks
+ * code auto-compact` decides with.
+ *
+ * `auto-fire` maps to `soft-warn` in BOTH modes: that tier is `peaks skill
+ * presence`'s — the every-turn probe, which reads this same table and mode
+ * resolver — so `context-now` has no auto-fire tier of its own (SKILL.md
+ * "two probes, two thresholds"). Reporting it as `auto-compact-now` would
+ * change every non-24h session's output, which slice H4 forbids.
+ */
+export function contextNowActionFor(ratio: number, mode: AutoCompactMode): {
+  action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line';
+  next: string | null;
+} {
+  const kind = evaluateCompactTrigger(ratio, mode).kind;
+  if (kind === 'red-line') return { action: 'red-line', next: COMPACT_CMD };
+  if (kind === 'pre-compact') return { action: 'auto-compact-now', next: COMPACT_CMD };
+  return { action: kind === 'none' ? 'ok' : 'soft-warn', next: null };
+}
+
+/** Slice H4: the labels `context-now` prints, read out of the table for the mode
+ *  in force — the old hard-coded "≥0.85 / ≥0.95 / 50–85%" told a 24h operator
+ *  the wrong lines. `*Ratio` is the `0.85` form `gateModeNotice` uses. */
+function contextNowBandLabels(mode: AutoCompactMode): {
+  softWarn: string;
+  preCompact: string;
+  redLine: string;
+  preCompactRatio: string;
+  redLineRatio: string;
+} {
+  const pct = (r: number): string => `${(r * 100).toFixed(0)}`;
+  const pre = thresholdFor(mode, 'preCompact');
+  const red = thresholdFor(mode, 'redLine');
+  return {
+    softWarn: pct(AUTO_COMPACT_SOFT_WARN_RATIO),
+    preCompact: pct(pre),
+    redLine: pct(red),
+    preCompactRatio: pre.toFixed(2),
+    redLineRatio: red.toFixed(2)
+  };
+}
 
 /**
  * Adapt `runAutoCompact`'s domain result to a `ResultEnvelope`.
@@ -258,9 +308,9 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'Adapter-driven (no hard-coded IDE names): Claude Code is the MVP ' +
           'implementation; trae / codex / cursor / qoder / tongyi-lingma / ' +
           'hermes / openclaw register their own env-var via IdeAdapter.compact. ' +
-          'v3.1.2 / 2026-09-12: ≥0.85 emits action=auto-compact-now ' +
-          '(MANDATORY in every mode — single-rid included) and ' +
-          '≥0.95 emits action=red-line (the installed PreToolUse hook re-runs ' +
+          'v3.1.2 / 2026-09-12: the mode\'s pre-compact line emits ' +
+          'action=auto-compact-now (MANDATORY, single-rid included) and ' +
+          'the red line emits action=red-line (the installed PreToolUse hook re-runs ' +
           'this command on the next Bash/Task tool call; nothing is blocked). ' +
           '--enforce-job-mode only changes the reported `jobMode` label; ' +
           'the thresholds are identical. ' +
@@ -358,41 +408,29 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
         });
         const witnessNotice = describeHarnessWitness(harnessWitness);
         const ratioPct = (probe.ratio * 100).toFixed(1);
-        let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
-        let next: string | null = null;
-        if (probe.ratio >= 0.95) {
-          action = 'red-line';
-          next = 'peaks code auto-compact';
-        } else if (probe.ratio >= 0.85) {
-          // Slice 2026-09-12-compact-band-policy (defect A): the
-          // 0.85–0.95 band is MANDATORY auto-compact for single-rid
-          // sessions too. It used to be downgraded to `soft-warn` here,
-          // which contradicted this command's own help text, the
-          // `pre-compact` action from `peaks skill presence`, the
-          // peaks-code SKILL.md, and the 2026-07-27 user-calibrated
-          // threshold policy — and left an LLM that follows the "single
-          // source of truth" (`context-now`) never compacting in the
-          // zone, violating the zero-pause contract.
-          action = 'auto-compact-now';
-          next = 'peaks code auto-compact';
-        } else if (probe.ratio >= 0.5) {
-          action = 'soft-warn';
-        }
+        // Slice H4 (rid=h4-context-now-mode-blind): ONE table, ONE mode
+        // resolver. The hard-coded ladder that used to live here (≥0.95 / ≥0.85
+        // / ≥0.5) read no mode at all, so on a 24h run (`partial` =
+        // 0.65/0.70/0.85) it answered `soft-warn` + `next: null` across
+        // [0.70, 0.85) — the band in which `peaks code auto-compact` had
+        // already decided to compact. SKILL.md calls THIS command the "single
+        // source of truth", so an LLM obeying it did nothing.
+        const compactMode = resolveAutoCompactProfile(canonicalProjectRoot);
+        const decided = contextNowActionFor(probe.ratio, compactMode);
+        const action = decided.action;
+        const next = decided.next;
         const verdict =
           action === 'red-line' ? 'red-line'
             : action === 'auto-compact-now' ? 'pre-compact'
-            : action === 'soft-warn' ? 'soft-warn'
-            : 'ok';
-        // Slice 2026-09-12-compact-band-policy: the two modes no longer
-        // differ in behaviour ABOVE 0.50 — both auto-fire at ≥0.85 and
-        // both red-line at ≥0.95 — so the old "advisory mode
-        // (single-rid)" notice was a lie the moment the downgrade was
-        // removed. Job mode's remaining difference is that its threshold
-        // policy is recorded up front (`job-shape.json`), which the
-        // `jobMode` field already reports. The notice now says only that.
+            : action;
+        const bands = contextNowBandLabels(compactMode);
+        // Slice H4: the text here used to claim "the two modes no longer differ
+        // in behaviour ABOVE 0.50 — both auto-fire at ≥0.85 and both red-line at
+        // ≥0.95". That was false: `partial` fires at 0.70, red-lines at 0.85.
+        // The lines now come from the table for the mode in force.
         const gateModeNotice = isJobMode
-          ? 'Job mode (job-shape.json isJob=true): the same ≥0.85 / ≥0.95 thresholds apply, and the decision is recorded in job-shape.json.'
-          : 'Single-rid mode: the same ≥0.85 / ≥0.95 thresholds apply — ≥0.85 is MANDATORY auto-compact, not advisory.';
+          ? `Job mode (job-shape.json isJob=true): the same ≥${bands.preCompactRatio} / ≥${bands.redLineRatio} thresholds apply, and the decision is recorded in job-shape.json.`
+          : `Single-rid mode: the same ≥${bands.preCompactRatio} / ≥${bands.redLineRatio} thresholds apply — ≥${bands.preCompactRatio} is MANDATORY auto-compact, not advisory.`;
         printResult(
           io,
           ok('code.context-now', {
@@ -429,12 +467,12 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             ...(witnessNotice === null ? [] : [witnessNotice])
           ], [
             action === 'red-line'
-              ? `RED LINE: ≥ 95%. Next: \`${next}\` — peaks-loop asks the harness to compact and KEEPS WORKING (dispatch is not blocked); re-probe to confirm it landed.`
+              ? `RED LINE: ≥ ${bands.redLine}%. Next: \`${next}\` — peaks-loop asks the harness to compact and KEEPS WORKING (dispatch is not blocked); re-probe to confirm it landed.`
               : action === 'auto-compact-now'
-                ? `MANDATORY auto-compact (≥85%, every mode). Code MUST call \`${next}\` WITHOUT confirmation.`
+                ? `MANDATORY auto-compact (≥${bands.preCompact}%, every mode). Code MUST call \`${next}\` WITHOUT confirmation.`
                 : action === 'soft-warn'
-                  ? `Soft warn (50–85%). Continue working; the next \`peaks code auto-compact\` will re-check.`
-                  : `Below 50%. No action required.`,
+                  ? `Soft warn (${bands.softWarn}–${bands.preCompact}%). Continue working; the next \`peaks code auto-compact\` will re-check.`
+                  : `Below ${bands.softWarn}%. No action required.`,
             gateModeNotice,
             // Single wording, shared with `peaks code auto-compact` — see
             // `describeHarnessWindowSync`.
