@@ -1,31 +1,38 @@
 {
   "version": 1,
-  "active": {
-    "version": "4.0.52",
-    "currentStage": "promoted",
-    "stageHistory": [
-      {
-        "stage": "planned",
-        "at": "2026-09-17T02:49:55.500Z"
-      },
-      {
-        "stage": "canary-10",
-        "at": "2026-09-17T02:51:42.119Z",
-        "note": "4.0.52 codegraph index gate + repair + apply, defect sweep"
-      },
-      {
-        "stage": "canary-50",
-        "at": "2026-09-17T02:54:49.183Z",
-        "note": "promote 50%"
-      },
-      {
-        "stage": "promoted",
-        "at": "2026-09-17T02:56:15.140Z",
-        "note": "promote to 100%"
-      }
-    ],
-    "createdAt": "2026-09-17T02:49:55.500Z",
-    "promotedAt": "2026-09-17T02:56:15.140Z"
-  },
-  "history": []
+  "active": null,
+  "history": [
+    {
+      "version": "4.0.52",
+      "currentStage": "done",
+      "stageHistory": [
+        {
+          "stage": "planned",
+          "at": "2026-09-17T02:49:55.500Z"
+        },
+        {
+          "stage": "canary-10",
+          "at": "2026-09-17T02:51:42.119Z",
+          "note": "4.0.52 codegraph index gate + repair + apply, defect sweep"
+        },
+        {
+          "stage": "canary-50",
+          "at": "2026-09-17T02:54:49.183Z",
+          "note": "promote 50%"
+        },
+        {
+          "stage": "promoted",
+          "at": "2026-09-17T02:56:15.140Z",
+          "note": "promote to 100%"
+        },
+        {
+          "stage": "done",
+          "at": "2026-09-18T12:47:37.023Z"
+        }
+      ],
+      "createdAt": "2026-09-17T02:49:55.500Z",
+      "promotedAt": "2026-09-17T02:56:15.140Z",
+      "doneAt": "2026-09-18T12:47:37.023Z"
+    }
+  ]
 }

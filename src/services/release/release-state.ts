@@ -19,7 +19,9 @@ const VALID_TRANSITIONS: Readonly<Record<ReleaseStage, readonly ReleaseStage[]>>
   'planned': ['canary-10', 'rolled-back'],
   'canary-10': ['canary-50', 'rolled-back'],
   'canary-50': ['promoted', 'rolled-back'],
-  'promoted': ['watching', 'rolled-back'],
+  // 'watching' is the declared intermediate but is unreachable in practice
+  // (no command transitions into it), so 'done' is reachable from 'promoted'.
+  'promoted': ['watching', 'done', 'rolled-back'],
   'watching': ['done', 'rolled-back', 'hotfixed'],
   'done': [],
   'rolled-back': ['hotfixed', 'planned'],

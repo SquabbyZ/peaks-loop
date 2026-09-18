@@ -278,12 +278,12 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
       printResult(io, fail('release.done', 'NO_ACTIVE', 'no active release', { projectRoot }, []), opts.json ?? false);
       return;
     }
-    if (state.active.currentStage !== 'watching') {
-      printResult(io, fail('release.done', 'INVALID_STAGE', `must be in 'watching' stage to mark done (current: ${state.active.currentStage})`, { projectRoot }, [
-        'Run `peaks release watch` to check progress; transition requires the watch window to complete.'
-      ]), opts.json ?? false);
-      return;
-    }
+    // No stage guard here: `watching` is unreachable (nothing ever calls
+    // transitionRelease(state, 'watching')), so the real precondition is the
+    // watch window itself — the same thing this command's description
+    // documents ("Requires the watch window to be complete"). The stage
+    // table (`promoted → watching → done`) stays as the declared design, but
+    // `promoted` may now reach `done` directly.
     const win = watchWindow(state.active);
     if (win.percentComplete < 1.0) {
       printResult(io, fail('release.done', 'WATCH_INCOMPLETE', `watch window not yet complete (${Math.round(win.percentComplete * 100)}% elapsed)`, { projectRoot }, []), opts.json ?? false);
