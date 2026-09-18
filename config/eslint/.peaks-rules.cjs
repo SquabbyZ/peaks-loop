@@ -36,7 +36,20 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.build.json'],
+    // 2026-09-19 rid-s1-lint-config-coverage: the root tsconfig.json includes
+    // only src/** and tests/**, so every file under scripts/** and
+    // packages/** belonged to NO project and eslint failed 71 of them with
+    // "The file was not found in any of the provided project(s)" BEFORE
+    // parsing them. That is not a lint result — it is a hole, and it also
+    // masked real syntax errors (a .mjs with a broken string literal was found
+    // by prettier only, because eslint never reached the parser). The
+    // ESLint-only project below covers those directories without changing what
+    // `tsc -p tsconfig.json` sees.
+    project: [
+      './tsconfig.json',
+      './tsconfig.build.json',
+      './config/eslint/tsconfig.lint.json'
+    ],
     // 2026-08-06 lint-dogfood cycle-3 follow-up: the runner now uses
     // `node node_modules/eslint/bin/eslint.js` from the repo root, so
     // tsconfigRootDir must be the repo root (one level above config/).
@@ -52,16 +65,34 @@ module.exports = {
     'plugin:@typescript-eslint/recommended-type-checked'
   ],
   settings: {},
+  // 2026-09-19 rid-s1-lint-config-coverage: every pattern here used to be a
+  // bare trailing-slash name. ESLint reads those the way .gitignore does — a
+  // trailing slash with no inner slash matches a directory of that name at ANY
+  // depth — so `'skills/'` also swallowed `src/services/skills/`, `src/skills/`
+  // and two test directories: 33 tracked files, production source among them,
+  // silently reported as "0 findings" without ever being parsed. A LEADING
+  // slash anchors a pattern to the config's base path (the repo root), which
+  // is what these were always meant to mean: the repo-root prose / artifact /
+  // tooling directories.
+  //
+  // A leading slash alone is not enough for generated output, though: a
+  // per-package `dist/`, `coverage/` or `node_modules/` must still stay out of
+  // a directory walk, so those three are kept at any depth explicitly.
+  // `**/node_modules/` in particular must be spelled out, not left to
+  // eslint's own default ignore of `/**/node_modules/*`: a config that sets
+  // `ignorePatterns` REPLACES that default rather than adding to it.
   ignorePatterns: [
-    'node_modules/',
-    'dist/',
-    'coverage/',
-    'output-styles/',
-    'skills/',
-    'agents/',
-    'bin/',
-    'scratch/',
-    'examples/'
+    '/dist/',
+    '/coverage/',
+    '/output-styles/',
+    '/skills/',
+    '/agents/',
+    '/bin/',
+    '/scratch/',
+    '/examples/',
+    '**/dist/',
+    '**/coverage/',
+    '**/node_modules/'
   ],
   rules: {
     // L1 (eslint built-in) — always on, no plugin package required.
@@ -113,9 +144,28 @@ module.exports = {
       { prefer: 'type-imports' }
     ],
     '@typescript-eslint/no-non-null-assertion': 'warn',
-    '@typescript-eslint/no-implicit-any': 'warn',
+    // 2026-09-19 rid-s1-lint-config-coverage: `@typescript-eslint/no-implicit-any`
+    // was REMOVED here, not renamed. It does not exist in
+    // @typescript-eslint/eslint-plugin@8.66.0 (134 rules; verified against the
+    // shipped plugin's rule index) — typescript-eslint dropped it in v6 — and
+    // eslint answered every parsed file with 2 severity-2
+    // "Definition for rule ... was not found" messages, 2390 across the repo.
+    // Besides inflating the count, that made "a NEW file must be lint- and
+    // commit-able" unsatisfiable, since no new file could avoid those two.
+    // Its intent is already covered twice over, so nothing needs to replace it:
+    //   - tsc: this repo builds with `strict: true` (root tsconfig.json), which
+    //     turns on noImplicitAny at the compiler level;
+    //   - eslint: `plugin:@typescript-eslint/recommended-type-checked` above
+    //     already enables the implicit-any surface (`no-unsafe-assignment`,
+    //     `-argument`, `-call`, `-member-access`, `-return`, …) plus
+    //     `no-explicit-any`, which is re-declared as `warn` just above.
     // G-lint-1 §二 enum → as const: warn-only (escape hatch preserved).
-    '@typescript-eslint/no-restricted-syntax': [
+    // NOTE: this must stay the CORE `no-restricted-syntax`. The selector below
+    // is an ESLint-core selector, and core is where the rule lives —
+    // `@typescript-eslint/no-restricted-syntax` does not exist in
+    // @typescript-eslint/eslint-plugin@8.66.0 and produced the same phantom
+    // "Definition for rule ... was not found" on every file.
+    'no-restricted-syntax': [
       'warn',
       {
         selector: 'TSEnumDeclaration',

@@ -1,0 +1,45 @@
+// ESLint-ONLY tsconfig — see config/eslint/.peaks-rules.cjs. Never run tsc on
+// this file; it exists purely so parserOptions.project can see every file eslint
+// is asked to lint. The root tsconfig.json intentionally includes only src/**
+// and tests/**, so scripts/** and packages/** belonged to NO project at all:
+// eslint failed 71 of those files with "The file was not found in any of the
+// provided project(s)" BEFORE parsing them, which is not a lint result but a
+// hole — and one that also masked real syntax errors (a .mjs with a broken
+// string literal was ever only caught by prettier, because eslint never reached
+// the parser).
+//
+// allowJs is what lets the .mjs/.js tools under scripts/ into the program.
+//
+// The explicit `files` list below is NOT redundant. TypeScript's
+// extension-priority pass groups extensions as
+//   [[.ts,.tsx,.d.ts,.js,.jsx], [.cts,.d.cts,.cjs], [.mts,.d.mts,.mjs]]
+// and drops a file when a HIGHER-priority sibling exists; it carves out
+// .js/.jsx shadowed by .d.ts, but NOT .mjs shadowed by .d.mts. So a wildcard
+// include silently loses these four. Files named literally bypass that pass.
+// Any new <name>.mjs + <name>.d.mts pair under scripts/ must be added here —
+// tests/unit/lint/eslint-rules-config-coverage.test.ts asserts this program
+// contains every tracked in-scope file, so an omission fails a test instead of
+// silently reopening the coverage hole.
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true
+  },
+  "files": [
+    "../../scripts/_release-shared.mjs",
+    "../../scripts/release-pack.mjs",
+    "../../scripts/dist-freshness.mjs",
+    "../../scripts/install-skills.mjs"
+  ],
+  "include": [
+    "../../src/**/*",
+    "../../tests/**/*",
+    "../../scripts/**/*",
+    "../../packages/*/src/**/*",
+    "../../packages/*/tests/**/*",
+    "../../packages/*/vitest.config.ts"
+  ],
+  "exclude": ["../../dist", "../../node_modules", "../../tests/fixtures/bdd-reporter-tmp"]
+}

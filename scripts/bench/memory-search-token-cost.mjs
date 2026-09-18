@@ -92,7 +92,10 @@ function loadMemoryCorpus() {
 }
 
 function score(memory, query) {
-  const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 0);
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
   const haystack = `${memory.name} ${memory.description}`.toLowerCase();
   let s = 0;
   for (const term of terms) {
@@ -215,10 +218,11 @@ function run() {
   // Exclude degenerate zero-hit queries from the aggregate so the verdict
   // reflects the realistic case (when fuzzy finds candidates at all).
   const comparableRows = rows.filter((r) => !r.l1wIsZero);
-  const avgSavings = comparableRows.length > 0
-    ? comparableRows.reduce((a, r) => a + r.savingsVsL1Wide, 0) / comparableRows.length
-    : 0;
-  const verdict = avgSavings >= 0.20 ? 'GO' : 'NO-GO';
+  const avgSavings =
+    comparableRows.length > 0
+      ? comparableRows.reduce((a, r) => a + r.savingsVsL1Wide, 0) / comparableRows.length
+      : 0;
+  const verdict = avgSavings >= 0.2 ? 'GO' : 'NO-GO';
   const verdictEmoji = verdict === 'GO' ? 'PASS' : 'FAIL';
 
   const out = [];
@@ -232,7 +236,9 @@ function run() {
   out.push('');
   out.push('## Per-Query Token Cost');
   out.push('');
-  out.push('| Query | L1 (fuzzy top-5 + headroom) | L1W (fuzzy top-15 + headroom) | L2 (rerank top-5 + headroom) | L3 (rerank top-5, no headroom) | L2 vs L1W savings |');
+  out.push(
+    '| Query | L1 (fuzzy top-5 + headroom) | L1W (fuzzy top-15 + headroom) | L2 (rerank top-5 + headroom) | L3 (rerank top-5, no headroom) | L2 vs L1W savings |'
+  );
   out.push('|-------|------:|------:|------:|------:|------:|');
   for (const r of rows) {
     const savingsLabel = r.l1wIsZero ? 'n/a (L1W=0)' : `${(r.savingsVsL1Wide * 100).toFixed(1)}%`;
@@ -241,7 +247,9 @@ function run() {
   out.push('');
   out.push('## Aggregate');
   out.push('');
-  out.push(`- **Queries measured:** ${comparableRows.length} of ${rows.length} (degenerate zero-hit queries excluded)  `);
+  out.push(
+    `- **Queries measured:** ${comparableRows.length} of ${rows.length} (degenerate zero-hit queries excluded)  `
+  );
   out.push(`- **Average L2 vs L1W savings:** ${(avgSavings * 100).toFixed(1)}%  `);
   out.push(`- **Threshold (AC-ZA-5):** >= 20%  `);
   out.push(`- **Verdict:** [${verdictEmoji}] **${verdict}**  `);
@@ -249,28 +257,48 @@ function run() {
   out.push('## Interpretation');
   out.push('');
   if (verdict === 'GO') {
-    out.push(`L2 (fuzzy + rerank + headroom) saves >=20% tokens vs the recall-equivalent baseline (L1W). The rerank pays for itself: the upstream cost of the LLM call (~${RERANK_PROMPT_OVERHEAD_TOKENS} + ~50 output tokens) is dwarfed by the downstream savings from sending fewer, higher-relevance candidates through headroom.`);
+    out.push(
+      `L2 (fuzzy + rerank + headroom) saves >=20% tokens vs the recall-equivalent baseline (L1W). The rerank pays for itself: the upstream cost of the LLM call (~${RERANK_PROMPT_OVERHEAD_TOKENS} + ~50 output tokens) is dwarfed by the downstream savings from sending fewer, higher-relevance candidates through headroom.`
+    );
     out.push('');
-    out.push('**Recommendation:** proceed to Z-B (production rerank integration). Z-B must address the IdeAdapter.chat() gap surfaced as the spikes only blocker.');
+    out.push(
+      '**Recommendation:** proceed to Z-B (production rerank integration). Z-B must address the IdeAdapter.chat() gap surfaced as the spikes only blocker.'
+    );
   } else {
-    out.push('L2 does NOT save >=20% tokens vs the recall-equivalent baseline. The LLM rerank upstream cost is not recovered by downstream headroom savings at the current corpus size (~60 memories).');
+    out.push(
+      'L2 does NOT save >=20% tokens vs the recall-equivalent baseline. The LLM rerank upstream cost is not recovered by downstream headroom savings at the current corpus size (~60 memories).'
+    );
     out.push('');
-    out.push('**Recommendation:** stay on fuzzy + headroom (L1). The rerank is not worth the LLM cost at this corpus size. Revisit if memory corpus grows >5x or if a free / local LLM becomes available.');
+    out.push(
+      '**Recommendation:** stay on fuzzy + headroom (L1). The rerank is not worth the LLM cost at this corpus size. Revisit if memory corpus grows >5x or if a free / local LLM becomes available.'
+    );
   }
   out.push('');
   out.push('## Caveats');
   out.push('');
-  out.push('1. **No real LLM call.** The benchmark uses substring overlap as a proxy for fuzzy relevance and as a CONSERVATIVE estimate of LLM rerank quality. A real LLM would likely re-rank more aggressively on semantic queries that substring misses, so the L2 advantage may be understated.');
-  out.push('2. **Headroom ratio is approximate.** The 0.40 ratio is the SDK target; real headroom output varies with prompt structure.');
-  out.push('3. **Token heuristic is 4-bytes-per-token.** This matches peaks-loop's existing approximation but undercounts CJK content (Chinese text is denser per byte).');
-  out.push('4. **No IdeAdapter.chat() exists yet.** Z-B must add this — or route the rerank through SubAgentDispatcher with a rerank role — before Z-A results can be validated against a real LLM.');
+  out.push(
+    '1. **No real LLM call.** The benchmark uses substring overlap as a proxy for fuzzy relevance and as a CONSERVATIVE estimate of LLM rerank quality. A real LLM would likely re-rank more aggressively on semantic queries that substring misses, so the L2 advantage may be understated.'
+  );
+  out.push(
+    '2. **Headroom ratio is approximate.** The 0.40 ratio is the SDK target; real headroom output varies with prompt structure.'
+  );
+  out.push(
+    `3. **Token heuristic is 4-bytes-per-token.** This matches peaks-loop's existing approximation but undercounts CJK content (Chinese text is denser per byte).`
+  );
+  out.push(
+    '4. **No IdeAdapter.chat() exists yet.** Z-B must add this — or route the rerank through SubAgentDispatcher with a rerank role — before Z-A results can be validated against a real LLM.'
+  );
   out.push('');
   out.push('## Pipeline Definitions');
   out.push('');
   out.push('- **L1** = fuzzy top-5 + headroom balanced. Current production path.');
-  out.push('- **L1W** = fuzzy top-15 + headroom balanced. The recall-equivalent baseline: what L1 would need to send downstream to match L2s top-5 recall (since fuzzy top-5 is often lower-recall than rerank top-5).');
+  out.push(
+    '- **L1W** = fuzzy top-15 + headroom balanced. The recall-equivalent baseline: what L1 would need to send downstream to match L2s top-5 recall (since fuzzy top-5 is often lower-recall than rerank top-5).'
+  );
   out.push('- **L2** = fuzzy top-10 -> LLM rerank -> top-5 + headroom. Proposed new path.');
-  out.push('- **L3** = fuzzy top-10 -> LLM rerank -> top-5 (no headroom). Verifies whether headroom is still required after rerank.');
+  out.push(
+    '- **L3** = fuzzy top-10 -> LLM rerank -> top-5 (no headroom). Verifies whether headroom is still required after rerank.'
+  );
 
   console.log(out.join('\n'));
 }
