@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ClaudeAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/claude-adapter';
+import { ClaudeAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/claude-adapter.js';
 
 describe('ClaudeAdapter', () => {
   const a = new ClaudeAdapter();

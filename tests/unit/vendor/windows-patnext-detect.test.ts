@@ -4,9 +4,9 @@ const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn() }));
 
 vi.mock('node:child_process', () => ({ execFile: execFileMock }));
 
-import { ClaudeAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/claude-adapter';
-import { CodexAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/codex-adapter';
-import { CopilotAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/copilot-adapter';
+import { ClaudeAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/claude-adapter.js';
+import { CodexAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/codex-adapter.js';
+import { CopilotAdapter } from '../../../packages/peaks-loop-internal-runtime/src/vendor/copilot-adapter.js';
 
 const originalPlatform = process.platform;
 

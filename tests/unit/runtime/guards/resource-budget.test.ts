@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ResourceBudgetGuard } from '../../../../packages/peaks-loop-internal-runtime/src/guards/resource-budget';
+import { ResourceBudgetGuard } from '../../../../packages/peaks-loop-internal-runtime/src/guards/resource-budget.js';
 
 describe('ResourceBudgetGuard', () => {
   it('reports own rss and cpu%', () => {

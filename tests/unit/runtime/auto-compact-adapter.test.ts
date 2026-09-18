@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AutoCompactAdapter } from '../../../packages/peaks-loop-internal-runtime/src/auto-compact-adapter';
+import { AutoCompactAdapter } from '../../../packages/peaks-loop-internal-runtime/src/auto-compact-adapter.js';
 
 describe('AutoCompactAdapter (G8)', () => {
   it('emits peaks-auto-compact marker with thresholds 0.85 and 0.95', () => {

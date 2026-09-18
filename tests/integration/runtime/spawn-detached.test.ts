@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/index';
+import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/index.js';
 
 describe('spawn detached mock vendor', () => {
   it('writes pid file, log file path placeholder, status.json, owner-session', async () => {

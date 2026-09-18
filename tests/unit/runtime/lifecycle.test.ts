@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LifecycleOwner } from '../../../packages/peaks-loop-internal-runtime/src/lifecycle';
+import { LifecycleOwner } from '../../../packages/peaks-loop-internal-runtime/src/lifecycle.js';
 
 describe('LifecycleOwner closure', () => {
   let dir: string;

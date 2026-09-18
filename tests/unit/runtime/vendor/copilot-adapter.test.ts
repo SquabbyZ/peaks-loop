@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CopilotAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/copilot-adapter';
+import { CopilotAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/copilot-adapter.js';
 
 describe('CopilotAdapter', () => {
   const a = new CopilotAdapter();

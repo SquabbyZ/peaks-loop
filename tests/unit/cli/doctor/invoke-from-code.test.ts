@@ -4,7 +4,7 @@ vi.mock('../../../../packages/peaks-loop-internal-runtime/src/index', () => ({
   defaultRegistry: () => ({ list: () => [] }),
 }));
 
-import { doctorInvokeFromCode } from '../../../../src/cli/commands/doctor/invoke-from-code';
+import { doctorInvokeFromCode } from '../../../../src/cli/commands/doctor/invoke-from-code.js';
 import { mkdtempSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

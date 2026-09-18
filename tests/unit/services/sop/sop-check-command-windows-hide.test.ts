@@ -6,8 +6,8 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { execFileSync } from 'node:child_process';
-import { evaluateGate } from '../../../../src/services/sop/sop-check-service';
-import type { SopGate } from '../../../../src/services/sop/sop-types';
+import { evaluateGate } from '../../../../src/services/sop/sop-check-service.js';
+import type { SopGate } from '../../../../src/services/sop/sop-types.js';
 
 declareDimensions(
   'tests/unit/services/sop/sop-check-command-windows-hide.test.ts',

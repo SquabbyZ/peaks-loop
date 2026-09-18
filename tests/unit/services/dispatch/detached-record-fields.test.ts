@@ -6,7 +6,7 @@
 // upgrades legacy v3.2 records to the v4.1.0 schema with safe defaults.
 
 import { describe, it, expect } from 'vitest';
-import { writeInitialDispatchRecord, readRecord } from '../../../../src/services/dispatch/dispatch-record-writer';
+import { writeInitialDispatchRecord, readRecord } from '../../../../src/services/dispatch/dispatch-record-writer.js';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

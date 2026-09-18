@@ -16,7 +16,7 @@ vi.mock('peaks-loop-internal-runtime', () => ({
   }),
 }));
 
-import { vendorDetect } from '../../../src/cli/commands/vendor-detect';
+import { vendorDetect } from '../../../src/cli/commands/vendor-detect.js';
 
 describe('peaks vendor-detect', () => {
   it('reports installed vendors with recommended default', async () => {

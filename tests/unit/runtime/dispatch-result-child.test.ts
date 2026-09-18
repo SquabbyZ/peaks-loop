@@ -27,7 +27,7 @@ vi.mock('../../../packages/peaks-loop-internal-runtime/src/lifecycle', () => ({
   LifecycleOwner: class { register = vi.fn(); markExit = vi.fn(async () => {}); },
 }));
 
-import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/dispatch';
+import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/dispatch.js';
 
 describe('DispatchResult exposes ChildProcess (F1)', () => {
   it('returns the spawned ChildProcess reference on DispatchResult.child', async () => {

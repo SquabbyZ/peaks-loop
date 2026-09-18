@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StatusProtocol } from '../../../packages/peaks-loop-internal-runtime/src/index';
+import { StatusProtocol } from '../../../packages/peaks-loop-internal-runtime/src/index.js';
 
 describe('AutoCompact flow (G8)', () => {
   it('appends ≥ 5 consecutive compact events without record corruption', () => {

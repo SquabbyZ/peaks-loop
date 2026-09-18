@@ -24,7 +24,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { spawn } from 'node:child_process';
-import { ProcessSupervisor } from '../../../packages/peaks-loop-internal-runtime/src/process-supervisor';
+import { ProcessSupervisor } from '../../../packages/peaks-loop-internal-runtime/src/process-supervisor.js';
 
 const SUPERVISOR_PATH = resolve(
   __dirname,

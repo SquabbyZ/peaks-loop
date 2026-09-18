@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StatusProtocol } from '../../../packages/peaks-loop-internal-runtime/src/status-protocol';
+import { StatusProtocol } from '../../../packages/peaks-loop-internal-runtime/src/status-protocol.js';
 
 describe('StatusProtocol', () => {
   it('merges heartbeat into record and updates status', () => {

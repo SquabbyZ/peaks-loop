@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PromptBuilder } from '../../../packages/peaks-loop-internal-runtime/src/prompt-builder';
+import { PromptBuilder } from '../../../packages/peaks-loop-internal-runtime/src/prompt-builder.js';
 
 const FORBIDDEN = '@@@ORCHESTRATOR_SESSION_HISTORY_BOUNDARY@@@';
 

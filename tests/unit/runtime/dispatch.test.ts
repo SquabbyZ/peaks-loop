@@ -7,7 +7,7 @@ vi.mock('../../../packages/peaks-loop-internal-runtime/src/lifecycle', () => ({
   LifecycleOwner: class { register = vi.fn(); markExit = vi.fn(async () => {}); },
 }));
 
-import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/dispatch';
+import { dispatchDetached } from '../../../packages/peaks-loop-internal-runtime/src/dispatch.js';
 
 describe('dispatchDetached', () => {
   it('builds prompt, spawns child, writes detached dir, returns dispatch record path', async () => {

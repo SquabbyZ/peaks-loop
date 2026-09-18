@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CodexAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/codex-adapter';
+import { CodexAdapter } from '../../../../packages/peaks-loop-internal-runtime/src/vendor/codex-adapter.js';
 
 describe('CodexAdapter', () => {
   const a = new CodexAdapter();
