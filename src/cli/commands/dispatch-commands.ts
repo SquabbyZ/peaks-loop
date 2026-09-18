@@ -47,6 +47,7 @@ import {
   DispatchOptions,
   PROMPT_LIMIT_BYTES,
   RECOMMENDED_ROLES,
+  deprecatedReviewerWarnings,
   validateRole
 } from './sub-agent-shared.js';
 import { runDispatchFromDag } from './dispatch-from-dag.js';
@@ -563,7 +564,9 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           `if the file does not exist, your verdict MUST be \`status: "blocked"\` with reason "must_ls_files_failed". Do NOT silently skip this step.\n`;
       }
       const effectivePrompt = `${memoryAugmentedBody}${isolationBlock}${mustLsFilesBlock}`;
-      const warnings: string[] = [...decision.warnings];
+      // Slice F2 (rid-f2-ac1-wiring): deprecated reviewer slots are accepted
+      // + rerouted here, never refused — rationale on the helper itself.
+      const warnings: string[] = [...decision.warnings, ...deprecatedReviewerWarnings(role)];
 
       let toolCall: SubAgentToolCall;
       try {

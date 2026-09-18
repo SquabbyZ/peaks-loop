@@ -1,7 +1,9 @@
 // tests/unit/publish/files-entries-resolve.test.ts
 //
 // WHY. Slice E1 moved a PUBLISHED contract — `docs/test-style-contract.md` →
-// `.peaks/docs/test-style-contract.md`. Nothing went wrong, and the ONLY reason
+// `.peaks/docs/test-style-contract.md`, and slice F1 moved it once more, to
+// `contracts/test-style-contract.md`, so it stops being published from under a
+// dot-directory. Nothing went wrong either time, and the ONLY reason
 // nothing went wrong is that someone hand-edited `package.json#files` in the
 // same commit. Had that edit been missed, the tarball would have shipped one
 // file short, SILENTLY: `npm pack` exits 0, the tarball is well-formed, and no
@@ -21,7 +23,7 @@
 // carve-outs that make the guard pass:
 //
 //   1. CONCRETE PATH (`README.md`, `bin/peaks.js`, `LICENSE`,
-//      `.peaks/docs/test-style-contract.md`, the five `scripts/*.mjs`,
+//      `contracts/test-style-contract.md`, the five `scripts/*.mjs`,
 //      `config/eslint/.peaks-rules.cjs`, `CHANGELOG.md`, `README-en.md`,
 //      `dist/cli/index.js`). MUST exist. This is the class E1 nearly broke: a
 //      tracked file moves, the entry stays, the package loses a file.
@@ -278,6 +280,6 @@ describe('Scenario: integration — the real `package.json#files` resolves on th
     expect(entries.some((e) => e.startsWith('!'))).toBe(true);
     expect(entries.some((e) => e.includes('*') && !e.startsWith('!'))).toBe(true);
     expect(entries.some((e) => !e.includes('*') && !e.startsWith('!'))).toBe(true);
-    expect(entries).toContain('.peaks/docs/test-style-contract.md');
+    expect(entries).toContain('contracts/test-style-contract.md');
   });
 });

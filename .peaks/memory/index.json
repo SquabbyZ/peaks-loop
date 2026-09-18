@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-17T23:03:57.444Z",
+  "updatedAt": "2026-09-18T00:12:13.881Z",
   "hot": {
     "rule": [
       {
@@ -220,6 +220,14 @@
         "updatedAt": "2026-09-17"
       },
       {
+        "name": "i-fixed-the-three-places-is-itself-a-claim-and-it-is-the-one-nobody-checks",
+        "kind": "rule",
+        "description": "A report said three doc/code inconsistencies had been corrected.",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\i-fixed-the-three-places-is-itself-a-claim-and-it-is-the-one-nobody-checks.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-f-group.md",
+        "updatedAt": "2026-09-18"
+      },
+      {
         "name": "it-reddens-and-it-misses-nothing-are-two-different-claims-and-only-the-first-gets-tested",
         "kind": "rule",
         "description": "A new guard was accepted on the strength of two mutations that both reddened it.",
@@ -306,6 +314,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\removing-a-tool-removes-the-guarantees-it-made-implicitly.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/txt/handoff.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "rewriting-a-section-is-not-the-same-as-checking-it",
+        "kind": "rule",
+        "description": "A reference file was rewritten to correct a mechanism name ( → ).",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\rewriting-a-section-is-not-the-same-as-checking-it.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-f-group.md",
+        "updatedAt": "2026-09-18"
       },
       {
         "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
@@ -402,6 +418,14 @@
         "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verify-a-memory-entry-s-premise-before-relaying-it-as-an-open-item.md",
         "sourceArtifact": ".peaks/_runtime/2026-09-10-session-528a63/sc/tracker-reconciliation-2026-09-10.md",
         "updatedAt": "2026-09-10"
+      },
+      {
+        "name": "verifying-with-a-command-ci-does-not-run-is-not-verification",
+        "kind": "rule",
+        "description": "A published contract's path was changed, and the change was \"verified\" with .",
+        "sourcePath": "D:\\peaks-loop\\.peaks\\memory\\verifying-with-a-command-ci-does-not-run-is-not-verification.md",
+        "sourceArtifact": ".peaks/_runtime/2026-09-17-session-607ead/txt/handoff-rid-f-group.md",
+        "updatedAt": "2026-09-18"
       },
       {
         "name": "when-a-reviewer-objects-to-a-mechanism-ask-what-else-it-is-holding-up",

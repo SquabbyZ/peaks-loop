@@ -13,6 +13,12 @@
  */
 import type { SubAgentBatchResult } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
+// Slice F2 (rid-f2-ac1-wiring) — first caller of the RD dispatch policy
+// module. Before this wiring `src/services/rd/reviewer-dispatch-policy.ts`
+// had zero importers in src/ + packages/ + scripts/ and the 2 slots it
+// governs (`security-reviewer`, `perf-baseline-reviewer`) were neither
+// rejected nor rerouted by anything on the dispatch path.
+import { isDeprecatedReviewer } from '../../services/rd/reviewer-dispatch-policy.js';
 // Slice 2026-07-29-dispatch-stall-governance / S6 — `probeShell` is
 // re-exported here so the dispatch chokepoint (`dispatch-commands.ts`)
 // and the sub-agent batch-sync wait can lazily acquire a typed
@@ -185,6 +191,40 @@ export function validateRole(role: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Slice F2 (rid-f2-ac1-wiring) — the dispatch-side twin of the prereq-side
+ * back-compat in `artifact-prerequisites.ts` (`AUDIT_SECURITY` /
+ * `AUDIT_PERF` accept `rd/security-review.md` / `rd/perf-baseline.md` via
+ * `legacyRelativePaths`).
+ *
+ * `security-reviewer` and `perf-baseline-reviewer` left the RD 3-way
+ * fan-out in v2.12.0 (`RD_DEPRECATED_REVIEWERS`), so a dispatch of either
+ * name no longer runs a reviewer that exists. They are **accepted, not
+ * rejected**, for two reasons:
+ *   - the prereq side still accepts their legacy artifacts, so refusing
+ *     the dispatch would make the two halves of the same deprecation
+ *     disagree; and
+ *   - `reviewer-dispatch-policy.ts` states the intended behaviour as
+ *     "route to the new audit skill **instead of failing the gate**".
+ *
+ * The reroute is therefore advisory: the envelope carries this notice and
+ * the caller takes it to `peaks-security-audit` / `peaks-perf-audit`.
+ *
+ * Returns `[]` for every other role, so dispatching a current role
+ * produces the byte-identical envelope it produced before this wiring.
+ */
+export function deprecatedReviewerWarnings(role: string): string[] {
+  if (!isDeprecatedReviewer(role)) {
+    return [];
+  }
+  return [
+    `role "${role}" was removed from the RD fan-out in v2.12.0 — reroute to the standalone audit skill ` +
+      `(\`peaks security-audit run --rid <rid>\` / \`peaks perf-audit run --rid <rid>\`). The dispatch still ` +
+      `proceeds for back-compat, and the legacy rd/security-review.md / rd/perf-baseline.md artifact stays ` +
+      `accepted by the rd:qa-handoff prereq (artifact-prerequisites.ts legacyRelativePaths).`
+  ];
 }
 
 /**

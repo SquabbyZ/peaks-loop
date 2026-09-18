@@ -209,18 +209,23 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
  *     is not a gap either, because an anchor that resolves nothing is still
  *     resolved and still reported.
  *
- * `.peaks/docs/` — the former top-level `docs/` documents, moved there so the
- * superpowers prose keeps `docs/` to itself — is judged one file at a time, by
- * the same genre test:
- *   - `.peaks/docs/test-style-contract.md` IS in the corpus. It is a LIVE
+ * The four documents that left the top-level `docs/` are judged one file at a
+ * time, by the same genre test — and the tree now shows that split directly:
+ * the live one sits in `contracts/`, the archive three in `.peaks/docs/`.
+ *   - `contracts/test-style-contract.md` IS in the corpus. It is a LIVE
  *     contract: shipped in `package.json#files`, read opt-in by downstream
  *     projects. A citation in it that outlived its referent is precisely the
  *     defect this guard exists to catch. It joins `CORPUS_ENTRIES` as a single
  *     FILE rather than a `CORPUS_DIRS` directory on purpose — a directory would
  *     silently opt in whatever is moved into it next, which is the failure mode
- *     being avoided, not a convenience being skipped.
- *   - The other three stay OUT, for the reason the memory files and
- *     `CHANGELOG.md` stay out: they describe historical state. This is not
+ *     being avoided, not a convenience being skipped. Its address is part of
+ *     that decision: a document downstream projects are told to read belongs in
+ *     a PUBLIC directory, not under `.peaks/`, whose meaning is "this tool's
+ *     internal workspace". The entry named `.peaks/docs/test-style-contract.md`
+ *     until slice F1 moved the file; the two addresses are never both live.
+ *   - The other three — all that remain in `.peaks/docs/` — stay OUT, for the
+ *     reason the memory files and `CHANGELOG.md` stay out: they describe
+ *     historical state. This is not
  *     hypothetical. `diagnosis-2026-09-15-peaks-loop-state.md` carries a
  *     section (§3.10) whose entire content is three citations recorded as NOT
  *     resolving — `docs/superpowers/specs/2026-07-07-…`,
@@ -237,7 +242,7 @@ const CORPUS_ENTRIES = [
   'CLAUDE.md',
   '.peaks/PROJECT.md',
   'README.md',
-  '.peaks/docs/test-style-contract.md',
+  'contracts/test-style-contract.md',
 ] as const;
 const CORPUS_DIRS = ['.peaks/standards', 'skills'] as const;
 
@@ -1096,7 +1101,7 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     //        really carried by `CORPUS_ENTRIES`, which is the only reason the
     //        map finds anything to rewrite
     const texts = corpusTexts().map((t) =>
-      t.id === '.peaks/docs/test-style-contract.md'
+      t.id === 'contracts/test-style-contract.md'
         ? { ...t, body: 'The retired guide was `.peaks/docs/gone-contract.md`.' }
         : t,
     );
@@ -1104,14 +1109,14 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     // when: the checker runs over exactly that corpus
     const findings = findDanglingCitations(texts, resolveOnTree, (rel) => isDirectory(join(REPO_ROOT, rel)));
 
-    // then: it is reported. Drop `.peaks/docs/test-style-contract.md` from
+    // then: it is reported. Drop `contracts/test-style-contract.md` from
     //       `CORPUS_ENTRIES` and this goes RED — no id matches, nothing is
     //       rewritten, and the finding never appears. The contract document is
     //       the one file moved out of `docs/` that this guard takes: it is live
     //       and published, while its three neighbours are archive, and this
     //       case is the line between them made executable
     expect(findings).toEqual([
-      '.peaks/docs/test-style-contract.md:1 cites `.peaks/docs/gone-contract.md`',
+      'contracts/test-style-contract.md:1 cites `.peaks/docs/gone-contract.md`',
     ]);
   });
 
@@ -1124,9 +1129,9 @@ describe('Scenario: integration — the real corpus resolves on the real tree', 
     expect(ids).toContain('CLAUDE.md');
     expect(ids).toContain('.peaks/PROJECT.md');
     expect(ids).toContain('README.md');
-    // the live contract, taken from `.peaks/docs/` one file at a time — see the
+    // the live contract, taken from `contracts/` one file at a time — see the
     // genre test on `CORPUS_ENTRIES`
-    expect(ids).toContain('.peaks/docs/test-style-contract.md');
+    expect(ids).toContain('contracts/test-style-contract.md');
     expect(ids.filter((id) => id.startsWith('.peaks/standards/')).length).toBeGreaterThan(0);
     expect(ids.filter((id) => id.startsWith('skills/')).length).toBeGreaterThan(0);
   });

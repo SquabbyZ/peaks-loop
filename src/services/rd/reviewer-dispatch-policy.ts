@@ -26,12 +26,33 @@
  * PRD handoff + the project-scoped audit templates (slice v2.12.0
  * Tier 1+2+3 = Group A).
  *
- * The dispatch policy here is the **canonical decision table** consumed
- * by the LLM-side runner and pinned by tests:
- *   - `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts`
- *     (5 → 3 element pinning)
- *   - `tests/unit/rd/deprecated-reviewer-back-compat.test.ts`
- *     (NEW in v2.12.0 — 8 cases; back-compat for the 2 removed slots)
+ * This module holds the machine-readable decision table for that collapse;
+ * the prose the LLM runner actually reads is
+ * `skills/bee/peaks-rd/references/parallel-review-fanout.md`. It used to
+ * describe itself as "consumed by the LLM-side runner", which named no
+ * mechanism — an LLM reads prose, not TypeScript exports — and that is the
+ * reason every export below sat at zero importers until slice F2.
+ *
+ * Pinning is half-done. The two test files this block used to cite —
+ * `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` (the 5 → 3
+ * element pinning) and
+ * `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` (the 8
+ * back-compat cases) — were both deleted in `f17aa377`. The **predicate
+ * half** was re-pinned by `tests/unit/rd/reviewer-dispatch-policy.test.ts`
+ * (`7191140f`, 6 cases: `RD_DEPRECATED_REVIEWERS` + `isDeprecatedReviewer`).
+ * The **decision-table half** — `RD_FANOUT_REVIEWERS`' 3-element
+ * membership, `reviewerListFor`, `karpathySlotIndex`,
+ * `shouldDispatchKarpathy` — still has no pin.
+ *
+ * Slice F2 (rid-f2-ac1-wiring) gave this module its FIRST caller in
+ * `src/cli/commands/sub-agent-shared.ts` (`deprecatedReviewerWarnings`),
+ * invoked from the dispatch chokepoint in
+ * `src/cli/commands/dispatch-commands.ts` and pinned by
+ * `tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts`. Before
+ * that, all 13 exports had zero importers across src/ + packages/ +
+ * scripts/, so nothing rejected or rerouted `security-reviewer` /
+ * `perf-baseline-reviewer` on the way in. That import is still the only
+ * one: the other 12 exports below remain unreferenced in this repo.
  *
  * For `config | docs | chore` request types, the slice already skips
  * the entire fanout (SKILL.md line 132 says "Config / docs / chore: no
@@ -47,8 +68,15 @@
  * back-compat window. The `isDeprecatedReviewer(name)` predicate lets
  * dispatchers (or legacy on-disk rd/{security-review,perf-baseline}.md
  * readers) detect a removed slot and route to the new audit skill
- * instead of failing the gate. See Tier 5 (`artifact-prerequisites.ts`)
- * for the matching prereq-side back-compat (`mustContainAny` form).
+ * instead of failing the gate. Tier 5 (`artifact-prerequisites.ts`)
+ * holds the matching prereq-side back-compat: `AUDIT_SECURITY` /
+ * `AUDIT_PERF` accept the legacy `rd/security-review.md` /
+ * `rd/perf-baseline.md` artifacts via `legacyRelativePaths`.
+ *
+ * Both halves are wired as of slice F2 and both ACCEPT the legacy slot.
+ * The dispatch side emits the reroute notice as a warning
+ * (`deprecatedReviewerWarnings`) rather than a refusal, precisely so it
+ * does not disagree with the prereq side about the same deprecation.
  */
 
 export const RD_REVIEW_REQUEST_TYPES = [

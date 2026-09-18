@@ -20,10 +20,12 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`.
 > The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq.
 > The 1-minor-release back-compat window (`v2.12.0`) keeps the old
-> `rd/{security-review,perf-baseline}.md` paths readable via `mustContainAny` —
+> `rd/{security-review,perf-baseline}.md` paths readable via
+> `legacyRelativePaths` —
 > see `RD_DEPRECATED_REVIEWERS` in
 > `src/services/rd/reviewer-dispatch-policy.ts`. The two unit tests that
-> once pinned this were deleted in `f17aa377` and have not been replaced.
+> once pinned this were deleted in `f17aa377`; see §"Deprecated reviewer
+> back-compat" for which half has been re-pinned since and which has not.
 
 ## The 3 sub-agents
 
@@ -72,15 +74,16 @@ end of implementation, RD fires 3 sub-agents in parallel via
 > - ~~Sub-agent — security-reviewer~~ — moved to standalone
 >   `peaks-security-audit` skill; output `audit/security-<rid>.md`. The legacy
 >   path `.peaks/_runtime/<sessionId>/rd/security-review.md` remains
->   readable via `mustContainAny` for the v2.12.0 1-minor-release window.
+>   readable via `legacyRelativePaths` for the v2.12.0 1-minor-release window.
 > - ~~Sub-agent — perf-baseline-reviewer~~ — moved to standalone
 >   `peaks-perf-audit` skill; output `audit/perf-<rid>.md`. The legacy path
 >   `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` remains readable
->   via `mustContainAny` for the v2.12.0 1-minor-release window.
+>   via `legacyRelativePaths` for the v2.12.0 1-minor-release window.
 >
 > See `RD_DEPRECATED_REVIEWERS` in
 > `src/services/rd/reviewer-dispatch-policy.ts`. The unit test that once
-> pinned this was deleted in `f17aa377` and has not been replaced.
+> pinned this was deleted in `f17aa377`; see §"Deprecated reviewer
+> back-compat" for what replaced it.
 
 ## Hard prohibitions on all 3 sub-agents (single block)
 
@@ -199,13 +202,26 @@ failing the gate.
 - **Legacy review artifact paths**
   (`.peaks/_runtime/<sessionId>/rd/security-review.md`,
   `.peaks/_runtime/<sessionId>/rd/perf-baseline.md`) are accepted via
-  `mustContainAny: [...]` on the `AUDIT_SECURITY` / `AUDIT_PERF` prereqs
+  `legacyRelativePaths` on the `AUDIT_SECURITY` / `AUDIT_PERF` prereqs
   during the back-compat window. v2.13.0 hard-deletes the legacy paths.
 
-**Pinning:** none. The routing + legacy-path acceptance live in
-`RD_DEPRECATED_REVIEWERS` / `isDeprecatedReviewer` in
-`src/services/rd/reviewer-dispatch-policy.ts`; the unit test that pinned
-them (8 cases) was deleted in `f17aa377` and has not been replaced.
+**Pinning — half of it.** The **predicate half**
+(`RD_DEPRECATED_REVIEWERS` + `isDeprecatedReviewer`) is pinned by
+`tests/unit/rd/reviewer-dispatch-policy.test.ts` (`7191140f`, 6 cases), and
+its dispatch-side *use* by
+`tests/unit/cli/sub-agent-dispatch-deprecated-reviewer.test.ts`
+(slice F2, `rid-f2-ac1-wiring`) — that one drives the real dispatch action
+and fails if the reroute notice stops being emitted.
+
+The **decision-table half** (`RD_FANOUT_REVIEWERS`' 3-element membership,
+`reviewerListFor`, `karpathySlotIndex`, `shouldDispatchKarpathy`) has **no
+pin**: the file that carried it was deleted in `f17aa377` and was not
+replaced. The routing + legacy-path acceptance live in
+`src/services/rd/reviewer-dispatch-policy.ts`; the module had **no caller
+at all** until slice F2 wired `deprecatedReviewerWarnings`
+(`src/cli/commands/sub-agent-shared.ts`) into the dispatch chokepoint. The
+dispatch side therefore ACCEPTS the legacy slot and warns, rather than
+refusing — matching the prereq-side acceptance above.
 
 ## Gate C evidence (RD-side, type-specific)
 
