@@ -33,7 +33,7 @@ import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo, withEnv } from '../_setup/io.js';
 import {
   ConfirmationRequiredError,
-  requireUserConfirmation,
+  requireUserConfirmation
 } from '../../../src/services/mode/mode-enforcement.js';
 import { setPresenceLease } from '../../../src/services/skills/presence-lease-service.js';
 
@@ -41,7 +41,7 @@ declareDimensions('tests/unit/mode/confirm-gate-noninteractive.test.ts', [
   'render',
   'behavior',
   'integration',
-  'a11y',
+  'a11y'
 ]);
 
 const __m = vi.hoisted(() => ({ transitionRequestArtifact: vi.fn() }));
@@ -68,7 +68,7 @@ function makeProjectRoot(): string {
   writeFileSync(
     join(root, '.peaks', '_runtime', 'session.json'),
     JSON.stringify({ sessionId: SID, projectRoot: root }),
-    'utf8',
+    'utf8'
   );
   return root;
 }
@@ -82,7 +82,7 @@ function writeLease(projectRoot: string, mode: string): void {
     graphRef: 'graphs/wf-confirm-gate.json',
     skill: 'peaks-code',
     mode,
-    now: '2026-09-09T10:00:00.000Z',
+    now: '2026-09-09T10:00:00.000Z'
   });
 }
 
@@ -90,7 +90,7 @@ async function attempt(
   root: string,
   mode: string,
   transitionKey: `${string}:${string}`,
-  extra: { confirmed?: boolean; forceConfirm?: boolean } = {},
+  extra: { confirmed?: boolean; forceConfirm?: boolean } = {}
 ): Promise<unknown> {
   writeLease(root, mode);
   try {
@@ -114,10 +114,14 @@ async function withoutStdin<T>(fn: () => Promise<T>): Promise<T> {
   }
   Object.defineProperty(process, 'stdin', {
     configurable: true,
-    enumerable: descriptor.enumerable,
+    // `?? false` is runtime-equivalent to passing `descriptor.enumerable`
+    // directly: `Object.defineProperty` boolean-coerces the attribute, so an
+    // explicit `undefined` already meant `false`. Stating it satisfies
+    // exactOptionalPropertyTypes instead of relying on the coercion.
+    enumerable: descriptor.enumerable ?? false,
     get() {
       throw new Error('STDIN_ACCESSED');
-    },
+    }
   });
   try {
     return await fn();
@@ -146,7 +150,7 @@ describe('Scenario: behavior — refusal replaces the interactive prompt', () =>
     async () => {
       const error = await attempt(makeProjectRoot(), 'assisted', 'prd:confirmed-by-user');
       expect(error).toBeInstanceOf(ConfirmationRequiredError);
-    },
+    }
   );
 
   it('when assisted sees an unlisted transition, should proceed', async () => {
@@ -169,13 +173,13 @@ describe('Scenario: behavior — refusal replaces the interactive prompt', () =>
   it('when no presence is recorded, should not refuse', async () => {
     const root = makeProjectRoot();
     await expect(
-      requireUserConfirmation({ projectRoot: root, transitionKey: 'prd:confirmed-by-user' }),
+      requireUserConfirmation({ projectRoot: root, transitionKey: 'prd:confirmed-by-user' })
     ).resolves.toBeUndefined();
   });
 
   it('when --confirm is passed, should bypass the gate', async () => {
     const error = await attempt(makeProjectRoot(), 'assisted', 'prd:confirmed-by-user', {
-      confirmed: true,
+      confirmed: true
     });
     expect(error).toBeNull();
   });
@@ -183,7 +187,7 @@ describe('Scenario: behavior — refusal replaces the interactive prompt', () =>
   it('when --force-confirm is passed, should bypass with a warning', async () => {
     const warn = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const error = await attempt(makeProjectRoot(), 'strict', 'rd:qa-handoff', {
-      forceConfirm: true,
+      forceConfirm: true
     });
     expect(error).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
@@ -206,24 +210,18 @@ describe('Scenario: integration — PEAKS_AUTO_CONFIRM and stdin isolation', () 
     withEnv('PEAKS_AUTO_CONFIRM', '1');
     const warn = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const error = await attempt(makeProjectRoot(), 'assisted', 'prd:confirmed-by-user', {
-      forceConfirm: true,
+      forceConfirm: true
     });
     expect(error).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
   });
 
-  it(
-    'when the gate refuses, should never read process.stdin',
-    { timeout: 2000 },
-    async () => {
-      const root = makeProjectRoot();
-      const error = await withoutStdin(() =>
-        attempt(root, 'assisted', 'prd:confirmed-by-user'),
-      );
-      expect(error).toBeInstanceOf(ConfirmationRequiredError);
-      expect((error as Error).message).not.toContain('STDIN_ACCESSED');
-    },
-  );
+  it('when the gate refuses, should never read process.stdin', { timeout: 2000 }, async () => {
+    const root = makeProjectRoot();
+    const error = await withoutStdin(() => attempt(root, 'assisted', 'prd:confirmed-by-user'));
+    expect(error).toBeInstanceOf(ConfirmationRequiredError);
+    expect((error as Error).message).not.toContain('STDIN_ACCESSED');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -284,7 +282,7 @@ function collectFiles(dir: string, out: string[]): void {
 describe('Scenario: render — request.transition refusal envelope', () => {
   it('when the transition refuses, should render CONFIRMATION_REQUIRED with the error fields', async () => {
     __m.transitionRequestArtifact.mockRejectedValueOnce(
-      new ConfirmationRequiredError('rd:qa-handoff', 'assisted'),
+      new ConfirmationRequiredError('rd:qa-handoff', 'assisted')
     );
     const { io, captured } = makeCapturedIo();
     const program = new Command();
@@ -302,9 +300,9 @@ describe('Scenario: render — request.transition refusal envelope', () => {
         makeProjectRoot(),
         '--session-id',
         SID,
-        '--json',
+        '--json'
       ],
-      { from: 'user' },
+      { from: 'user' }
     );
 
     const envelope = JSON.parse(captured.text()) as {

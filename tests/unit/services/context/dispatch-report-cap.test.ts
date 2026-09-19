@@ -22,18 +22,26 @@ import {
   buildDispatchSystemPrompt,
   BINDING_RULE_TOKENS,
   missingRuleTokens,
-  REPORT_CAP_BLOCK,
+  REPORT_CAP_BLOCK
 } from '~/src/services/context/build-dispatch-system-prompt';
 
 declareDimensions(
   'tests/unit/services/context/dispatch-report-cap.test.ts',
   ['behavior', 'render', 'a11y'],
-  [
-    { dim: 'integration', reason: 'pure function; no fs / subprocess boundary' },
-  ],
+  [{ dim: 'integration', reason: 'pure function; no fs / subprocess boundary' }]
 );
 
-const ROLES = ['rd', 'qa', 'qa-business', 'qa-perf', 'qa-security', 'sc', 'prd', 'ui', 'txt'] as const;
+const ROLES = [
+  'rd',
+  'qa',
+  'qa-business',
+  'qa-perf',
+  'qa-security',
+  'sc',
+  'prd',
+  'ui',
+  'txt'
+] as const;
 
 /** The load-bearing sentence every sub-agent must see. */
 const CAP_SENTENCE = 'Your FINAL report to the parent MUST be ≤ 40 lines and ≤ 2 KB.';
@@ -44,7 +52,7 @@ function promptFor(role: string, memoryAvailable: boolean): string {
     taskBody: 'TASK_BODY_SENTINEL',
     memoryBlock: memoryAvailable
       ? { available: true, block: '## Project memory relevant to this task\n- * mem\n' }
-      : { available: false },
+      : { available: false }
   });
 }
 
@@ -66,7 +74,9 @@ describe('behavior — the cap reaches every role and every branch', () => {
 
   it('when a prompt is composed, should place the cap before the task body', () => {
     const out = promptFor('rd', false);
-    expect(out.indexOf('## Final report cap (mandatory)')).toBeLessThan(out.indexOf('TASK_BODY_SENTINEL'));
+    expect(out.indexOf('## Final report cap (mandatory)')).toBeLessThan(
+      out.indexOf('TASK_BODY_SENTINEL')
+    );
   });
 });
 
@@ -82,7 +92,7 @@ describe('render — the cap block stays small and keeps the mandatory fields', 
       'the exact commands you ran',
       'pass/fail counts',
       'tsc status',
-      'any blocker',
+      'any blocker'
     ]) {
       expect(REPORT_CAP_BLOCK).toContain(field);
     }
@@ -90,7 +100,9 @@ describe('render — the cap block stays small and keeps the mandatory fields', 
 
   it('when detail is too long, should point the parent at the artifact instead of dropping it', () => {
     // quality guard: the cap redirects detail, it never deletes it
-    expect(REPORT_CAP_BLOCK).toContain('Write any longer detail into the artifact file you already own');
+    expect(REPORT_CAP_BLOCK).toContain(
+      'Write any longer detail into the artifact file you already own'
+    );
     expect(REPORT_CAP_BLOCK).toContain('the parent can `Read` that file for the full detail');
     expect(REPORT_CAP_BLOCK).toContain('nothing is lost');
   });
@@ -102,7 +114,12 @@ describe('a11y — the cap is part of the binding-rule guard set', () => {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: { available: false },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
+      contextProbe: {
+        ratio: 0.28,
+        source: 'transcript-estimate',
+        ide: 'claude-code',
+        capturedAt: '2026-09-19T10:00:00.000Z'
+      }
     });
     expect(missingRuleTokens(out, BINDING_RULE_TOKENS)).toEqual([]);
   });

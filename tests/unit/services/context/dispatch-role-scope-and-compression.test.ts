@@ -24,9 +24,7 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/context/dispatch-role-scope-and-compression.test.ts',
   ['behavior', 'render', 'a11y'],
-  [
-    { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
-  ],
+  [{ dim: 'integration', reason: 'pure function, no fs / subprocess boundary' }]
 );
 
 import {
@@ -35,7 +33,7 @@ import {
   LIFECYCLE_RULES,
   BINDING_RULE_TOKENS,
   TEST_RUNNER_RULE_TOKENS,
-  missingRuleTokens,
+  missingRuleTokens
 } from '~/src/services/context/build-dispatch-system-prompt';
 import { TEST_TOOL_DETECTION_BLOCK } from '~/src/services/dispatch/test-tool-detection';
 
@@ -50,19 +48,24 @@ const PRE_SLICE_BYTES = {
   L1: 1244,
   LIFECYCLE: 569,
   TEST_TOOL_FULL: 1635,
-  CONTEXT_WITH_PROBE: 818,
+  CONTEXT_WITH_PROBE: 818
 } as const;
 
 const ROLES = ['rd', 'qa', 'qa-business', 'sc', 'prd', 'ui', 'txt'] as const;
 
-const PROBE = { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' } as const;
+const PROBE = {
+  ratio: 0.28,
+  source: 'transcript-estimate',
+  ide: 'claude-code',
+  capturedAt: '2026-09-19T10:00:00.000Z'
+} as const;
 
 function promptFor(role: string): string {
   return buildDispatchSystemPrompt({
     taskTitle: role,
     taskBody: 'TASK_BODY_SENTINEL',
     memoryBlock: { available: false },
-    contextProbe: PROBE,
+    contextProbe: PROBE
   });
 }
 
@@ -87,8 +90,15 @@ describe('Scenario: behavior — bytes drop (slice §1a)', () => {
 
   it('when the boilerplate is compared to the pre-slice total, should cut at least 25% for every role', () => {
     // given: the pre-slice boilerplate total (L1 + lifecycle + test block + context)
-    const preSliceTotal = PRE_SLICE_BYTES.L1 + PRE_SLICE_BYTES.LIFECYCLE + PRE_SLICE_BYTES.TEST_TOOL_FULL + PRE_SLICE_BYTES.CONTEXT_WITH_PROBE;
-    const postSlice = bytes(L1_WORKTREE_GOVERNANCE_BLOCK) + bytes(LIFECYCLE_RULES) + bytes(TEST_TOOL_DETECTION_BLOCK);
+    const preSliceTotal =
+      PRE_SLICE_BYTES.L1 +
+      PRE_SLICE_BYTES.LIFECYCLE +
+      PRE_SLICE_BYTES.TEST_TOOL_FULL +
+      PRE_SLICE_BYTES.CONTEXT_WITH_PROBE;
+    const postSlice =
+      bytes(L1_WORKTREE_GOVERNANCE_BLOCK) +
+      bytes(LIFECYCLE_RULES) +
+      bytes(TEST_TOOL_DETECTION_BLOCK);
     // when:  the compressed boilerplate is measured for every role
     // then:  the unified block saves >= 25% for all of them
     for (const role of ROLES) {
@@ -120,7 +130,9 @@ describe('Scenario: behavior — rule-presence set is unchanged for every role (
       expect(out).toContain('(PB-5)');
       // the two retained quality bits (not examples — must survive)
       expect(out).toContain('Only as a last resort, ask the user before assuming a runner.');
-      expect(out).toContain('`peaks test <file>` already resolves the local binary for you (Windows-aware).');
+      expect(out).toContain(
+        '`peaks test <file>` already resolves the local binary for you (Windows-aware).'
+      );
     });
   }
 
@@ -129,7 +141,7 @@ describe('Scenario: behavior — rule-presence set is unchanged for every role (
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     });
     // when:  the prompt is composed
     // then:  the block is prepended once (no double injection)

@@ -14,7 +14,7 @@
 // fails loudly if a test file accidentally skips a dimension. Use the
 // `expect*` helpers to make skipped dimensions visible in the report.
 
-import { describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 export type Dimension = 'render' | 'behavior' | 'integration' | 'a11y';
 
@@ -28,13 +28,13 @@ const ALL: readonly Dimension[] = ['render', 'behavior', 'integration', 'a11y'] 
 export function declareDimensions(
   file: string,
   covered: readonly Dimension[],
-  omitted: ReadonlyArray<{ dim: Dimension; reason: string }> = [],
+  omitted: ReadonlyArray<{ dim: Dimension; reason: string }> = []
 ): void {
   const coveredSet = new Set(covered);
   const missing = ALL.filter((d) => !coveredSet.has(d) && !omitted.find((o) => o.dim === d));
   if (missing.length > 0) {
     throw new Error(
-      `[${file}] missing dimensions ${missing.join(', ')}; either add a describe(...) or pass an omitted[] entry with a reason.`,
+      `[${file}] missing dimensions ${missing.join(', ')}; either add a describe(...) or pass an omitted[] entry with a reason.`
     );
   }
   // Sanity: each omit must reference a real dim.

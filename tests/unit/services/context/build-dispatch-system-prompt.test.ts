@@ -23,47 +23,47 @@ declareDimensions(
   [
     { dim: 'integration', reason: 'pure function, no fs / subprocess boundary' },
     { dim: 'render', reason: 'returns a string, no structured output surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import { buildDispatchSystemPrompt } from '~/src/services/context/build-dispatch-system-prompt';
 import { renderUiLibraryPriorityDispatchBlock } from '~/src/services/standards/ui-library-dispatch-block';
 import type { ProjectContext } from '~/src/services/standards/project-context';
 
-describe("Scenario: behavior — lifecycle-rule injection", () => {
-  it("when invoked, should mentions sub-agent shutdown register for long-lived services", () => {
+describe('Scenario: behavior — lifecycle-rule injection', () => {
+  it('when invoked, should mentions sub-agent shutdown register for long-lived services', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     });
     expect(out).toMatch(/sub-agent shutdown register/i);
   });
 
-  it("when invoked, should forbids the sub-agent from running E2E", () => {
+  it('when invoked, should forbids the sub-agent from running E2E', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     });
     expect(out).toMatch(/do NOT run E2E/i);
   });
 
-  it("when invoked, should forbids the sub-agent from calling git merge / pull / rebase", () => {
+  it('when invoked, should forbids the sub-agent from calling git merge / pull / rebase', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     });
     expect(out).toMatch(/do NOT call `git merge`, `git pull`, `git rebase`/i);
   });
@@ -72,13 +72,13 @@ describe("Scenario: behavior — lifecycle-rule injection", () => {
 describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph-preread)', () => {
   const COGRAPH_BLOCK = '## Codegraph structure\n\n- `src/services/context/` — 12 files\n';
 
-  it("when a codegraph structure payload is provided, should render the codegraph block into the prompt", () => {
+  it('when a codegraph structure payload is provided, should render the codegraph block into the prompt', () => {
     // given: a dispatch input with a codegraph structure block from a live index read
     const input = {
       taskTitle: 'rd',
       taskBody: 'plan the slice',
       memoryBlock: { available: false },
-      codegraphBlock: COGRAPH_BLOCK,
+      codegraphBlock: COGRAPH_BLOCK
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -88,13 +88,13 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     expect(out).not.toContain('codegraph unavailable');
   });
 
-  it("when the codegraph payload is null, should render the codegraph-unavailable note (fail-soft)", () => {
+  it('when the codegraph payload is null, should render the codegraph-unavailable note (fail-soft)', () => {
     // given: a dispatch input where the codegraph preflight returned unavailable (null)
     const input = {
       taskTitle: 'rd',
       taskBody: 'plan the slice',
       memoryBlock: { available: false },
-      codegraphBlock: null,
+      codegraphBlock: null
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -103,12 +103,12 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     expect(out).toContain('codegraph unavailable — proceeding on project-scan only');
   });
 
-  it("when the codegraph field is omitted, should keep the legacy prompt byte-identical (no codegraph text)", () => {
+  it('when the codegraph field is omitted, should keep the legacy prompt byte-identical (no codegraph text)', () => {
     // given: a legacy dispatch input that never opts into the codegraph preflight
     const input = {
       taskTitle: 'qa',
       taskBody: 'verify the slice',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -117,17 +117,23 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     expect(out).not.toContain('codegraph unavailable');
   });
 
-  it("when memory + codegraph are both available, should keep stable order context → codegraph → memory → task", () => {
+  it('when memory + codegraph are both available, should keep stable order context → codegraph → memory → task', () => {
     // given: a dispatch with a live codegraph block, an available memory block, and a context probe
     const input = {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: {
         available: true,
-        block: '## Project memory relevant to this task\n- * 2026-06-22-cc-connect-removal-publish\n',
+        block:
+          '## Project memory relevant to this task\n- * 2026-06-22-cc-connect-removal-publish\n'
       },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
-      codegraphBlock: COGRAPH_BLOCK,
+      contextProbe: {
+        ratio: 0.28,
+        source: 'transcript-estimate',
+        ide: 'claude-code',
+        capturedAt: '2026-09-19T10:00:00.000Z'
+      },
+      codegraphBlock: COGRAPH_BLOCK
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -142,13 +148,13 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     expect(taskIdx).toBeGreaterThan(memoryIdx);
   });
 
-  it("when memory is unavailable but codegraph is provided, should place the codegraph block before the task body", () => {
+  it('when memory is unavailable but codegraph is provided, should place the codegraph block before the task body', () => {
     // given: a dispatch with a codegraph block and no memory block
     const input = {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: { available: false },
-      codegraphBlock: COGRAPH_BLOCK,
+      codegraphBlock: COGRAPH_BLOCK
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -174,7 +180,7 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
       routing: [],
       dataFetching: [],
       notableDeps: [],
-      legacySignals: [],
+      legacySignals: []
     };
   }
 
@@ -189,11 +195,11 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
       routing: [],
       dataFetching: [],
       notableDeps: [],
-      legacySignals: [],
+      legacySignals: []
     };
   }
 
-  it("when an antd project-stack block is provided, should surface the antd library-first directive", () => {
+  it('when an antd project-stack block is provided, should surface the antd library-first directive', () => {
     // given: an antd project context rendered into a project-stack block
     const block = renderUiLibraryPriorityDispatchBlock(antdContext());
     // when: the composer is invoked with the block
@@ -201,7 +207,7 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
       taskTitle: 'rd',
       taskBody: 'build the form',
       memoryBlock: { available: false },
-      projectStackBlock: block,
+      projectStackBlock: block
     });
     // then: the prompt names the library, the build tool, and the CSS framework
     expect(out).toContain('## Project stack');
@@ -211,20 +217,20 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
     expect(out).toContain('CSS: Less');
   });
 
-  it("when the project scan finds no component library, should keep the prompt byte-identical to the legacy shape", () => {
+  it('when the project scan finds no component library, should keep the prompt byte-identical to the legacy shape', () => {
     // given: a none project context (block renders null) and the legacy input
     const noneBlock = renderUiLibraryPriorityDispatchBlock(noneContext());
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'ui',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false },
+      memoryBlock: { available: false }
     });
     // when: the composer is invoked with the null block (what the dispatch site passes)
     const out = buildDispatchSystemPrompt({
       taskTitle: 'ui',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: { available: false },
-      projectStackBlock: noneBlock,
+      projectStackBlock: noneBlock
     });
     // then: the helper returned null and the prompt has no project-stack heading and equals legacy
     expect(noneBlock).toBeNull();
@@ -232,18 +238,23 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
     expect(out).not.toContain('## Project stack');
   });
 
-  it("when memory, codegraph, and project stack are all available, should place the project-stack block after codegraph and before memory/task", () => {
+  it('when memory, codegraph, and project stack are all available, should place the project-stack block after codegraph and before memory/task', () => {
     // given: a dispatch with a codegraph block, an antd project-stack block, memory, and a context probe
     const input = {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
       memoryBlock: {
         available: true,
-        block: '## Project memory relevant to this task\n- * mem\n',
+        block: '## Project memory relevant to this task\n- * mem\n'
       },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
+      contextProbe: {
+        ratio: 0.28,
+        source: 'transcript-estimate',
+        ide: 'claude-code',
+        capturedAt: '2026-09-19T10:00:00.000Z'
+      },
       codegraphBlock: CODEGRAPH_PAYLOAD,
-      projectStackBlock: renderUiLibraryPriorityDispatchBlock(antdContext()),
+      projectStackBlock: renderUiLibraryPriorityDispatchBlock(antdContext())
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);

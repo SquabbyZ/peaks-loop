@@ -26,14 +26,14 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'returns a structured DispatchRecord, no text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import type { DispatchRecord } from '~/src/services/dispatch/dispatch-record-writer';
 
-describe("Scenario: behavior — v3.2 schema additions", () => {
-  it("when invoked, should type-level: DispatchRecord requires serviceKill and mergeBackAttempts in v3.2", () => {
+describe('Scenario: behavior — v3.2 schema additions', () => {
+  it('when invoked, should type-level: DispatchRecord requires serviceKill and mergeBackAttempts in v3.2', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -42,23 +42,32 @@ describe("Scenario: behavior — v3.2 schema additions", () => {
     // shape at the type level via a sample-defaults assertion.
     const sample: Pick<DispatchRecord, 'serviceKill' | 'mergeBackAttempts'> = {
       serviceKill: [{ pid: 123, name: 'mock', signal: 'SIGTERM', exitCode: null }],
-      mergeBackAttempts: 1,
+      mergeBackAttempts: 1
     };
     expect(sample.serviceKill[0]?.pid).toBe(123);
     expect(sample.mergeBackAttempts).toBe(1);
   });
 
-  it("when invoked, should type-level: DispatchRecord requires version: \"3.2\" once the schema bumps", () => {
+  it('when invoked, should type-level: DispatchRecord requires version: "4.1.0"', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    // The version literal is the source of truth for which fields
-    // the record carries. v3.1 records have no serviceKill /
-    // mergeBackAttempts; v3.2 records do. We assert the literal
-    // union narrows by constructing a fully-populated sample and
-    // checking the type-level constraint accepts it.
+    // The field set is structural, NOT driven by the version literal:
+    // `DispatchRecord` declares every field as a required property, so
+    // the literal is a marker of which schema generation wrote the
+    // record, not the thing that decides what the type accepts.
+    //
+    // The literal is pinned to `'4.1.0'` because that is what the only
+    // producer emits — `buildInitialDispatchRecord` in
+    // `src/services/dispatch/dispatch-record-writer.ts` writes
+    // `version: '4.1.0'`, matching the `DispatchRecord.version`
+    // declaration in `dispatch-record-types.ts`. Legacy `'3.2'` /
+    // `'3.1'` / `3` / `2` / `1` values are accepted only on READ and
+    // normalized to `'4.1.0'` by `dispatch-record-upgrade.ts`; nothing
+    // in the tree writes `'3.2'` any more. We assert the constraint
+    // accepts a fully-populated sample.
     const sample: DispatchRecord = {
-      version: '3.2',
+      version: '4.1.0',
       createdAt: '2026-08-01T00:00:00.000Z',
       completedAt: null,
       outcome: 'no-execution',
@@ -79,13 +88,33 @@ describe("Scenario: behavior — v3.2 schema additions", () => {
       isolationStartedAt: null,
       serviceKill: [],
       mergeBackAttempts: 0,
+      // The v4.0.0 / v4.1.0 additions. Values are the producer's own
+      // defaults for a plain in-process dispatch that binds no graph
+      // node — `buildInitialDispatchRecord` in
+      // src/services/dispatch/dispatch-record-writer.ts writes exactly
+      // these for an input that omits them: the three binding ids and
+      // `vendor` / `tokenUsage` default to `null`, `mode` to
+      // `'in-process'`, and `autoCompactEvents` to `[]`. The sample
+      // must carry them because `DispatchRecord` declares them as
+      // required properties.
+      workflowId: null,
+      graphNodeId: null,
+      graphRef: null,
+      mode: 'in-process',
+      vendor: null,
+      autoCompactEvents: [],
+      tokenUsage: null
     };
-    expect(sample.version).toBe('3.2');
+    expect(sample.version).toBe('4.1.0');
     expect(sample.serviceKill).toEqual([]);
     expect(sample.mergeBackAttempts).toBe(0);
+    expect(sample.mode).toBe('in-process');
+    expect(sample.vendor).toBeNull();
+    expect(sample.autoCompactEvents).toEqual([]);
+    expect(sample.tokenUsage).toBeNull();
   });
 
-  it("when invoked, should upgrade defaults: empty serviceKill and zero mergeBackAttempts are the safe defaults", () => {
+  it('when invoked, should upgrade defaults: empty serviceKill and zero mergeBackAttempts are the safe defaults', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -93,16 +122,21 @@ describe("Scenario: behavior — v3.2 schema additions", () => {
     // upgradeRecord helper (see src/services/dispatch/dispatch-record-writer.ts)
     // backfills them to [] and 0. This test documents the contract.
     const defaults = {
-      serviceKill: [] as ReadonlyArray<{ readonly pid: number; readonly name: string; readonly signal: string; readonly exitCode: number | null }>,
-      mergeBackAttempts: 0 as number,
+      serviceKill: [] as ReadonlyArray<{
+        readonly pid: number;
+        readonly name: string;
+        readonly signal: string;
+        readonly exitCode: number | null;
+      }>,
+      mergeBackAttempts: 0 as number
     };
     expect(defaults.serviceKill).toEqual([]);
     expect(defaults.mergeBackAttempts).toBe(0);
   });
 });
 
-describe("Scenario: integration — on-disk round-trip", () => {
-  it("when invoked, should legacy v3.1 record JSON written to disk parses without the v3.2 fields (upgrade contract)", () => {
+describe('Scenario: integration — on-disk round-trip', () => {
+  it('when invoked, should legacy v3.1 record JSON written to disk parses without the v3.2 fields (upgrade contract)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -127,7 +161,7 @@ describe("Scenario: integration — on-disk round-trip", () => {
       status: 'queued',
       stage: null,
       leaseId: null,
-      isolationStartedAt: null,
+      isolationStartedAt: null
     };
     writeFileSync(file, JSON.stringify(legacyRecord), 'utf8');
     // We assert the legacy record lacks the v3.2 fields so the

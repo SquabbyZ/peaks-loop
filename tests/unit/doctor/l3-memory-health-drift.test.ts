@@ -49,34 +49,56 @@ function makeContext(resolvedL3Root: string): DoctorContext {
   };
 }
 
+/** `DoctorCheckPlugin.run` may return a promise; this check is synchronous. */
 function run(): readonly DoctorCheck[] {
-  return check.run(makeContext(root));
+  const result = check.run(makeContext(root));
+
+  return Array.isArray(result) ? result : [];
 }
 
 function byId(checks: readonly DoctorCheck[], id: string): DoctorCheck {
   const found = checks.find((entry) => entry.id === id);
-  if (found === undefined) throw new Error(`missing check ${id}; got ${checks.map((c) => c.id).join(', ')}`);
+  if (found === undefined)
+    throw new Error(`missing check ${id}; got ${checks.map((c) => c.id).join(', ')}`);
   return found;
 }
 
 function writeMemory(fileName: string, type: string | null): void {
-  const frontmatter = type === null
-    ? '---\nname: x\ndescription: no kind here\n---\n'
-    : `---\nname: x\ndescription: y\nmetadata:\n  type: ${type}\n---\n`;
-  writeFileSync(join(memoryDir, fileName), `${frontmatter}\nBody text long enough to summarize.\n`, 'utf8');
+  const frontmatter =
+    type === null
+      ? '---\nname: x\ndescription: no kind here\n---\n'
+      : `---\nname: x\ndescription: y\nmetadata:\n  type: ${type}\n---\n`;
+  writeFileSync(
+    join(memoryDir, fileName),
+    `${frontmatter}\nBody text long enough to summarize.\n`,
+    'utf8'
+  );
 }
 
 function writeIndex(entries: Array<{ name: string; kind: string; sourcePath: string }>): void {
   const hot: Record<string, unknown[]> = {};
   for (const entry of entries) {
-    (hot[entry.kind] ??= []).push({ ...entry, description: 'd', sourceArtifact: null, updatedAt: '2026-01-01' });
+    (hot[entry.kind] ??= []).push({
+      ...entry,
+      description: 'd',
+      sourceArtifact: null,
+      updatedAt: '2026-01-01'
+    });
   }
-  writeFileSync(join(memoryDir, 'index.json'), JSON.stringify({
-    version: 1,
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    hot,
-    warm: {}
-  }, null, 2), 'utf8');
+  writeFileSync(
+    join(memoryDir, 'index.json'),
+    JSON.stringify(
+      {
+        version: 1,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        hot,
+        warm: {}
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
 }
 
 describe('l3-memory-health (no index)', () => {
@@ -153,7 +175,9 @@ describe('l3-memory-health (drift findings)', () => {
   it('warns on files with no resolvable kind', () => {
     writeMemory('classified.md', 'rule');
     writeMemory('mystery.md', null);
-    writeIndex([{ name: 'classified', kind: 'rule', sourcePath: join(memoryDir, 'classified.md') }]);
+    writeIndex([
+      { name: 'classified', kind: 'rule', sourcePath: join(memoryDir, 'classified.md') }
+    ]);
 
     const unclassified = byId(run(), 'L3:l3-memory-unclassified');
     expect(unclassified.ok).toBe(false);

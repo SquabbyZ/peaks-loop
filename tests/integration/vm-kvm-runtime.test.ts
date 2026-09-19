@@ -45,7 +45,11 @@ afterEach(() => {
         /* best-effort */
       }
     }
-    try { rmSync(project, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(project, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
   projects.length = 0;
 });
@@ -108,7 +112,7 @@ describe('peaks VM KVM runtime (Part 41)', () => {
         // eslint-disable-next-line no-console
         console.warn(`[vm-kvm] platform out of scope or host unprovisioned: ${probe.reason}`);
       }
-    },
+    }
   );
 
   test.runIf(probe.ok)('virsh create + virsh destroy round-trip succeeds', () => {
@@ -133,7 +137,12 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     writeFileSync(xmlPath, xml, 'utf8');
 
     // virsh create
-    const out = execFileSync('virsh', ['create', xmlPath], { cwd: project, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+    const out = execFileSync('virsh', ['create', xmlPath], {
+      cwd: project,
+      stdio: 'pipe',
+      encoding: 'utf8',
+      windowsHide: true
+    });
     const vmId = out.trim();
     expect(vmId).toMatch(/^peaks-part41-/);
 
@@ -169,54 +178,108 @@ describe('peaks VM KVM runtime (Part 41)', () => {
     // and the assertion below says so. Operators running this locally
     // should `pnpm build` first.
     const peaksBin = join(__dirname, '..', '..', 'bin', 'peaks.js');
-    expect(existsSync(peaksBin), `bin/peaks.js missing at ${peaksBin}; run \`pnpm build\` first`).toBe(true);
+    expect(
+      existsSync(peaksBin),
+      `bin/peaks.js missing at ${peaksBin}; run \`pnpm build\` first`
+    ).toBe(true);
 
     const project = makeProject();
     // Init a minimal cron schedule (not strictly required for
     // vm, but it keeps the test isolated from any other test).
-    execFileSync('node', [peaksBin, 'cron', 'init', '--project', project, '--json'], { cwd: project, stdio: 'pipe', windowsHide: true });
+    execFileSync('node', [peaksBin, 'cron', 'init', '--project', project, '--json'], {
+      cwd: project,
+      stdio: 'pipe',
+      windowsHide: true
+    });
 
     // spawn — should produce a lease with a real VM id.
-    const spawnOut = execFileSync('node', [peaksBin, 'vm', 'spawn',
-      '--rid', 'rid-part41', '--role', 'rd', '--purpose', 'Part 41 e2e',
-      '--hypervisor', 'kvm',
-      '--project', project, '--json'
-    ], { cwd: project, stdio: 'pipe', encoding: 'utf8', windowsHide: true });
-    const spawnEnv = JSON.parse(spawnOut) as { data: { lease: { hypervisor: string; vmId: string } } };
+    const spawnOut = execFileSync(
+      'node',
+      [
+        peaksBin,
+        'vm',
+        'spawn',
+        '--rid',
+        'rid-part41',
+        '--role',
+        'rd',
+        '--purpose',
+        'Part 41 e2e',
+        '--hypervisor',
+        'kvm',
+        '--project',
+        project,
+        '--json'
+      ],
+      { cwd: project, stdio: 'pipe', encoding: 'utf8', windowsHide: true }
+    );
+    // `leaseId` is part of the emitted lease (`VmLease.leaseId` in
+    // src/services/vm/vm-lease.ts, set by `vm-commands.ts` when the lease
+    // is built) and is consumed by `vm release --lease-id` below; the
+    // earlier inline annotation simply omitted it.
+    const spawnEnv = JSON.parse(spawnOut) as {
+      data: { lease: { hypervisor: string; vmId: string; leaseId: string } };
+    };
     expect(spawnEnv.data.lease.hypervisor).toBe('kvm');
     const vmId = spawnEnv.data.lease.vmId;
 
     // Verify the VM is in `virsh list` (best-effort; if qemu
     // failed to boot, the domain may already be gone).
     try {
-      const list = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+      const list = execFileSync('virsh', ['list', '--all'], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+        windowsHide: true
+      });
       // `virsh list` output is a text table; the name may be
       // truncated. We just check the prefix.
-      const found = list.split('\n').some((l) => l.includes(vmId.split('-').slice(0, 3).join('-')) || l.includes(vmId.slice(0, 10)));
+      const found = list
+        .split('\n')
+        .some(
+          (l) => l.includes(vmId.split('-').slice(0, 3).join('-')) || l.includes(vmId.slice(0, 10))
+        );
       if (!found) {
-        console.error(`KVM test: domain ${vmId} not in virsh list (qemu may have failed to boot; that is a host-config issue, not a CLI regression)`);
+        console.error(
+          `KVM test: domain ${vmId} not in virsh list (qemu may have failed to boot; that is a host-config issue, not a CLI regression)`
+        );
       }
     } catch {
       /* best-effort */
     }
 
     // release — destroys the VM via virsh destroy.
-    execFileSync('node', [peaksBin, 'vm', 'release',
-      '--lease-id', spawnEnv.data.lease.leaseId,
-      '--project', project, '--json'
-    ], { cwd: project, stdio: 'pipe', windowsHide: true });
+    execFileSync(
+      'node',
+      [
+        peaksBin,
+        'vm',
+        'release',
+        '--lease-id',
+        spawnEnv.data.lease.leaseId,
+        '--project',
+        project,
+        '--json'
+      ],
+      { cwd: project, stdio: 'pipe', windowsHide: true }
+    );
 
     // After release, the domain should be gone (best-effort
     // check; we do NOT assert hard because the destroy command
     // may have failed silently).
     try {
-      const listAfter = execFileSync('virsh', ['list', '--all'], { stdio: 'pipe', encoding: 'utf8', windowsHide: true });
+      const listAfter = execFileSync('virsh', ['list', '--all'], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+        windowsHide: true
+      });
       const stillThere = listAfter.split('\n').some((l) => l.includes(vmId.slice(0, 10)));
       // Soft assertion: the contract is the release command
       // returns ok, not that the VM is gone on the wire.
       // (qemu may take a moment to exit.)
       if (stillThere) {
-        console.error(`KVM test: domain ${vmId} still in virsh list after release (qemu may take a moment to exit)`);
+        console.error(
+          `KVM test: domain ${vmId} still in virsh list after release (qemu may take a moment to exit)`
+        );
       }
     } catch {
       /* best-effort */

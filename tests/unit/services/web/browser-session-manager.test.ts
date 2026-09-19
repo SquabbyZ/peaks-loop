@@ -30,14 +30,21 @@ declareDimensions(
   'tests/unit/services/web/browser-session-manager.test.ts',
   ['behavior', 'integration'],
   [
-    { dim: 'render', reason: 'the six verbs return structures; the CLI layer owns every text surface' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' },
-  ],
+    {
+      dim: 'render',
+      reason: 'the six verbs return structures; the CLI layer owns every text surface'
+    },
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' }
+  ]
 );
 
 import { BrowserSessionManager } from '../../../../src/services/web/browser-session-manager.js';
 import { MAX_TEXT_BYTES } from '../../../../src/services/web/bounded-output.js';
-import type { PwBrowser, PwContext, PwPage } from '../../../../src/services/web/playwright-loader.js';
+import type {
+  PwBrowser,
+  PwContext,
+  PwPage
+} from '../../../../src/services/web/playwright-loader.js';
 import { webDir } from '../../../../src/services/web/web-artifact-paths.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
@@ -52,7 +59,9 @@ interface FakeLocatorRecord {
 }
 
 interface FakePageRecord {
-  readonly page: PwPage;
+  // NOT readonly: the record is built first and `page` is filled in
+  // immediately after by `makeFakePage(record)`, which closes over the record.
+  page: PwPage;
   readonly gotoCalls: string[];
   readonly locators: FakeLocatorRecord[];
   readonly screenshotPaths: Array<string | undefined>;
@@ -103,13 +112,13 @@ function makeFakePage(record: FakePageRecord): PwPage {
       writeShotFile(options?.path);
       return Buffer.from(SHOT_BYTES, 'utf8');
     },
-    evaluate: async <T,>(): Promise<T> => record.vitals as T,
+    evaluate: async <T>(): Promise<T> => record.vitals as T,
     locator: (selector: string) => {
       const locatorRecord: FakeLocatorRecord = {
         selector,
         clickCalls: 0,
         innerTextCalls: 0,
-        ariaSnapshotCalls: 0,
+        ariaSnapshotCalls: 0
       };
       record.locators.push(locatorRecord);
       return {
@@ -130,11 +139,11 @@ function makeFakePage(record: FakePageRecord): PwPage {
               ariaSnapshotJSON: async (): Promise<unknown> => {
                 locatorRecord.ariaSnapshotCalls += 1;
                 return record.ariaSnapshot;
-              },
+              }
             }
-          : {}),
+          : {})
       };
-    },
+    }
   };
 }
 
@@ -156,7 +165,7 @@ function makeFakeBrowser(pageDefaults: Partial<FakePageRecord> = {}): FakeBrowse
         closeCalls: 0,
         closeThrows: false,
         storageStateThrows: false,
-        closeHangs: false,
+        closeHangs: false
       };
       const context: PwContext = {
         newPage: async () => {
@@ -171,7 +180,7 @@ function makeFakeBrowser(pageDefaults: Partial<FakePageRecord> = {}): FakeBrowse
             ariaSnapshot: [],
             vitals: null,
             hasAriaSnapshot: true,
-            ...pageDefaults,
+            ...pageDefaults
           };
           record.page = makeFakePage(record);
           pages.push(record);
@@ -195,13 +204,13 @@ function makeFakeBrowser(pageDefaults: Partial<FakePageRecord> = {}): FakeBrowse
           if (contextRecord.closeThrows) {
             throw new Error('context already closed');
           }
-        },
+        }
       };
       contexts.push(contextRecord);
       return context;
     },
     version: () => '1.63.0',
-    close: async () => undefined,
+    close: async () => undefined
   };
   return { browser, contexts };
 }
@@ -289,9 +298,9 @@ describe('behavior — the six page ops', () => {
     const manager = managerFor(fake, ws().path);
     const result = await manager.click('dispatch-1', '#submit');
     const record = pageRecord(fake);
-    expect(record.locators.some((entry) => entry.selector === '#submit' && entry.clickCalls === 1)).toBe(
-      true,
-    );
+    expect(
+      record.locators.some((entry) => entry.selector === '#submit' && entry.clickCalls === 1)
+    ).toBe(true);
     expect(Buffer.byteLength(result.result, 'utf8')).toBeLessThanOrEqual(MAX_TEXT_BYTES);
   });
 
@@ -312,7 +321,7 @@ describe('behavior — the six page ops', () => {
     // when:  metrics runs on an opened page
     // then:  only the three contract keys survive, junk is gone, inp became null
     const fake = makeFakeBrowser({
-      vitals: { lcp: 12.5, cls: 0.02, inp: { hostile: true }, junk: 'z'.repeat(5_000_000) },
+      vitals: { lcp: 12.5, cls: 0.02, inp: { hostile: true }, junk: 'z'.repeat(5_000_000) }
     });
     const manager = managerFor(fake, ws().path);
     await manager.open('dispatch-1', 'https://example.test/');
@@ -358,8 +367,8 @@ describe('behavior — the six page ops', () => {
     const fake = makeFakeBrowser({
       ariaSnapshot: [
         { role: 'heading', name: 'Title' },
-        { role: 'button', name: 'Go' },
-      ],
+        { role: 'button', name: 'Go' }
+      ]
     });
     const manager = managerFor(fake, ws().path);
     const result = await manager.snap('dispatch-1');
@@ -374,7 +383,7 @@ describe('behavior — the six page ops', () => {
     const fake = makeFakeBrowser();
     const manager = managerFor(fake, ws().path);
     await expect(manager.open('dispatch-1', 'file:///C:/Users/x/.ssh/id_rsa')).rejects.toThrow(
-      /WEB_URL_SCHEME_REJECTED/,
+      /WEB_URL_SCHEME_REJECTED/
     );
     expect(fake.contexts).toHaveLength(0);
   });

@@ -25,12 +25,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  clearStalePresenceOnRotation,
-} from '../../../src/services/skills/skill-presence-service.js';
+import { clearStalePresenceOnRotation } from '../../../src/services/skills/skill-presence-service.js';
 import {
   setPresenceLease,
-  type SetPresenceLeaseInput,
+  type SetPresenceLeaseInput
 } from '../../../src/services/skills/presence-lease-service.js';
 
 const projects: string[] = [];
@@ -59,7 +57,10 @@ function newProject(): string {
 // `workflowId`, `graphRef`, `skill`) — only the annotation was too loose for
 // the value to be passed to `setPresenceLease`. A type annotation is erased at
 // runtime, so this changes nothing the test does.
-function input(root: string, overrides: Partial<SetPresenceLeaseInput> = {}): SetPresenceLeaseInput {
+function input(
+  root: string,
+  overrides: Partial<SetPresenceLeaseInput> = {}
+): SetPresenceLeaseInput {
   return {
     projectRoot: root,
     sessionId: 'session-persistence-rotation',
@@ -69,7 +70,7 @@ function input(root: string, overrides: Partial<SetPresenceLeaseInput> = {}): Se
     skill: 'peaks-code',
     depth: 0,
     now: '2026-08-12T10:00:00.000Z',
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -120,7 +121,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: 'new-outer-id',
-      rotatedOutSessionId: 'old-outer-id',
+      rotatedOutSessionId: 'old-outer-id'
     });
     expect(outcome.cleared).toBe(true);
     expect(outcome.reason).toBe('outer-session-mismatch');
@@ -135,7 +136,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: 'shared-outer',
-      rotatedOutSessionId: 'old-outer-id',
+      rotatedOutSessionId: 'old-outer-id'
     });
     expect(outcome.cleared).toBe(false);
     expect(outcome.reason).toBe('not-stale');
@@ -151,7 +152,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: 'new-outer-id',
-      rotatedOutSessionId: 'old-outer-id',
+      rotatedOutSessionId: 'old-outer-id'
     });
     expect(outcome.cleared).toBe(false);
     expect(outcome.reason).toBe('recorded-by-different-outer');
@@ -167,7 +168,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: 'shared-outer',
-      rotatedOutSessionId: null,
+      rotatedOutSessionId: null
     });
     expect(outcome.cleared).toBe(false);
     expect(outcome.reason).toBe('not-stale');
@@ -183,7 +184,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: undefined,
-      rotatedOutSessionId: 'legacy-outer',
+      rotatedOutSessionId: 'legacy-outer'
     });
     expect(outcome.cleared).toBe(false);
     expect(outcome.reason).toBe('no-intent-source');
@@ -200,7 +201,7 @@ describe('slice rid-skill-persistence-001: clearStalePresenceOnRotation outerSes
     const outcome = clearStalePresenceOnRotation({
       projectRootOverride: root,
       currentOuterSessionId: 'new-outer-id',
-      rotatedOutSessionId: 'old-outer-id',
+      rotatedOutSessionId: 'old-outer-id'
     });
     expect(outcome.cleared).toBe(false);
     expect(outcome.reason).toBe('no-presence');

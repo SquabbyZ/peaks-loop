@@ -23,7 +23,15 @@
  *     on the same artifacts is idempotent (no overwrites, no new writes)
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -47,16 +55,56 @@ interface MemoryFixture {
 }
 
 const FIXTURES: readonly MemoryFixture[] = [
-  { title: 'Provider rotation policy', kind: 'rule', body: 'Rotate provider credentials every 90 days and on role change.' },
-  { title: 'CLI_VERSION shared chicken-egg', kind: 'lesson', body: 'peaks-loop imports CLI_VERSION from peaks-loop-shared; the npm pack rewrites the workspace:* dep.' },
-  { title: 'Index hot kinds include feedback', kind: 'reference', body: 'feedback, decision, rule, convention, module, lesson are the hot kinds.' },
-  { title: 'Apply gates must run before archive', kind: 'convention', body: 'Never archive an OpenSpec change before the Apply gate passes.' },
-  { title: 'Marketplace approval chain', kind: 'decision', body: 'Marketplace publishing is only allowed after team publishing succeeds.' },
-  { title: 'Refusing content with suspicious patterns', kind: 'feedback', body: 'If a memory body matches a sensitive regex, the extract path throws.' },
-  { title: 'Module layout for memory service', kind: 'module', body: 'parsers/, store/, index/, types.ts, index.ts facade.' },
-  { title: 'Idempotent re-extract', kind: 'project', body: 'Re-running executeProjectMemoryExtract on the same artifact does not overwrite existing files.' },
-  { title: 'Read-side bootstrap creates missing dir', kind: 'rule', body: 'readProjectMemories on a fresh project creates .peaks/memory/ + index.json.' },
-  { title: 'Backup workspace must be outside project root', kind: 'reference', body: 'createProjectMemoryBackupPlan throws if artifactWorkspace is inside the project root.' }
+  {
+    title: 'Provider rotation policy',
+    kind: 'rule',
+    body: 'Rotate provider credentials every 90 days and on role change.'
+  },
+  {
+    title: 'CLI_VERSION shared chicken-egg',
+    kind: 'lesson',
+    body: 'peaks-loop imports CLI_VERSION from peaks-loop-shared; the npm pack rewrites the workspace:* dep.'
+  },
+  {
+    title: 'Index hot kinds include feedback',
+    kind: 'reference',
+    body: 'feedback, decision, rule, convention, module, lesson are the hot kinds.'
+  },
+  {
+    title: 'Apply gates must run before archive',
+    kind: 'convention',
+    body: 'Never archive an OpenSpec change before the Apply gate passes.'
+  },
+  {
+    title: 'Marketplace approval chain',
+    kind: 'decision',
+    body: 'Marketplace publishing is only allowed after team publishing succeeds.'
+  },
+  {
+    title: 'Refusing content with suspicious patterns',
+    kind: 'feedback',
+    body: 'If a memory body matches a sensitive regex, the extract path throws.'
+  },
+  {
+    title: 'Module layout for memory service',
+    kind: 'module',
+    body: 'parsers/, store/, index/, types.ts, index.ts facade.'
+  },
+  {
+    title: 'Idempotent re-extract',
+    kind: 'project',
+    body: 'Re-running executeProjectMemoryExtract on the same artifact does not overwrite existing files.'
+  },
+  {
+    title: 'Read-side bootstrap creates missing dir',
+    kind: 'rule',
+    body: 'readProjectMemories on a fresh project creates .peaks/memory/ + index.json.'
+  },
+  {
+    title: 'Backup workspace must be outside project root',
+    kind: 'reference',
+    body: 'createProjectMemoryBackupPlan throws if artifactWorkspace is inside the project root.'
+  }
 ];
 
 // The single artifact path the test writes — every fixture will share
@@ -66,7 +114,10 @@ const ARTIFACT_RELATIVE_PATH = 'artifacts/rd.md';
 let projectRoot: string;
 
 beforeEach(() => {
-  projectRoot = join(tmpdir(), `peaks-memory-roundtrip-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  projectRoot = join(
+    tmpdir(),
+    `peaks-memory-roundtrip-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
   mkdirSync(projectRoot, { recursive: true });
 });
 
@@ -75,14 +126,16 @@ afterEach(() => {
 });
 
 function buildArtifact(fixtures: readonly MemoryFixture[]): string {
-  const blocks = fixtures.map((fixture) => [
-    '<!-- peaks-memory:start -->',
-    `title: ${fixture.title}`,
-    `kind: ${fixture.kind}`,
-    '---',
-    fixture.body,
-    '<!-- peaks-memory:end -->'
-  ].join('\n'));
+  const blocks = fixtures.map((fixture) =>
+    [
+      '<!-- peaks-memory:start -->',
+      `title: ${fixture.title}`,
+      `kind: ${fixture.kind}`,
+      '---',
+      fixture.body,
+      '<!-- peaks-memory:end -->'
+    ].join('\n')
+  );
   return blocks.join('\n');
 }
 
@@ -139,8 +192,39 @@ describe('project memory filesystem round-trip', () => {
     }
 
     // 7. Verify byKind buckets everything correctly.
+    // The bucket set is the FULL kind vocabulary, not just the 8 kinds this
+    // test happens to write fixtures for. The `Record<ProjectMemoryKind, …>`
+    // annotation is what enforces that: adding a kind to the canonical
+    // `PROJECT_MEMORY_KINDS` tuple (types.ts — the single source of truth)
+    // makes this literal a compile error until the bucket is added, so the
+    // list cannot silently drift. It previously listed only the original 8,
+    // leaving the 13 kinds appended by slice 2026-09-10-memory-vocab-and-rotate
+    // unasserted — and `byKind` is `Record<ProjectMemoryKind, …>`, so an
+    // unasserted bucket was a real gap. Buckets with no fixture must be empty.
     const expectedByKind: Record<ProjectMemoryKind, ExtractedProjectMemory[]> = {
-      project: [], rule: [], decision: [], reference: [], feedback: [], convention: [], module: [], lesson: []
+      // Original 8 (pre-2026-09-10).
+      project: [],
+      rule: [],
+      decision: [],
+      reference: [],
+      feedback: [],
+      convention: [],
+      module: [],
+      lesson: [],
+      // Slice E expansion.
+      bug: [],
+      investigation: [],
+      'technical-pattern': [],
+      'project-rule': [],
+      design: [],
+      handoff: [],
+      'session-handoff': [],
+      'project-todo': [],
+      'publish-closure': [],
+      'project-closure': [],
+      'slice-closure': [],
+      'slice-pilot-findings': [],
+      sediment: []
     };
     for (const fixture of FIXTURES) {
       expectedByKind[fixture.kind].push({ ...fixture, sourceArtifact: ARTIFACT_RELATIVE_PATH });
@@ -159,7 +243,9 @@ describe('project memory filesystem round-trip', () => {
     ];
     expect(allIndexEntries).toHaveLength(10);
     for (const fixture of FIXTURES) {
-      const entry = allIndexEntries.find((e) => e.kind === fixture.kind && e.sourceArtifact === ARTIFACT_RELATIVE_PATH);
+      const entry = allIndexEntries.find(
+        (e) => e.kind === fixture.kind && e.sourceArtifact === ARTIFACT_RELATIVE_PATH
+      );
       expect(entry, `no index entry for kind=${fixture.kind}`).toBeDefined();
       expect(typeof entry!.description).toBe('string');
       expect(entry!.description.length).toBeGreaterThan(0);

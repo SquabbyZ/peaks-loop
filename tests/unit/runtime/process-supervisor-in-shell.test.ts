@@ -116,8 +116,8 @@ describe('ProcessSupervisor in-shell (F2 detached-arch revision)', () => {
     // b) the returned child exposes stdout/stderr streams the parent can subscribe to
     expect(handle.child.stdout).toBe(stdoutLike);
     expect(handle.child.stderr).toBe(stderrLike);
-    expect(typeof handle.child.stdout.on).toBe('function');
-    expect(typeof handle.child.stderr.on).toBe('function');
+    expect(typeof handle.child.stdout?.on).toBe('function');
+    expect(typeof handle.child.stderr?.on).toBe('function');
     // c) the supervisor did NOT unref the child — the parent retains
     //    lifecycle ownership for SIGTERM/SIGKILL via handle.kill.
     //    (No code path in the supervisor calls child.unref().)

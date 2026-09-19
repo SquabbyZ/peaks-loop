@@ -7,12 +7,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-type AnyRecord = Record<string, unknown>;
+/**
+ * The real module surface, taken from the source via `typeof import`
+ * instead of a hand-written `Record<string, unknown>`. The previous
+ * alias made `module.dispatchSubAgent` `unknown`, which cannot be
+ * called — and hand-declaring the signature here would let it drift
+ * from `dispatch-sub-agent.ts`. Derived, so it cannot drift.
+ */
+type DispatchModule = typeof import('../../src/services/dispatch/dispatch-sub-agent.js');
 const projects: string[] = [];
-afterEach(async () => { for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true }); });
+afterEach(async () => {
+  for (const root of projects.splice(0)) await rm(root, { recursive: true, force: true });
+});
 
-async function loadDispatch(): Promise<AnyRecord> {
-  const module = await import('../../src/services/dispatch/dispatch-sub-agent.js') as unknown as AnyRecord;
+async function loadDispatch(): Promise<DispatchModule> {
+  const module =
+    (await import('../../src/services/dispatch/dispatch-sub-agent.js')) as unknown as DispatchModule;
   expect(typeof module.dispatchSubAgent).toBe('function');
   return module;
 }
@@ -28,7 +38,14 @@ describe('sub-agent graph binding', () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-graph-binding-'));
     projects.push(root);
     try {
-      await (await loadDispatch()).dispatchSubAgent({ projectRoot: root, role: 'qa', prompt: 'binding probe', sessionId: 'binding-session' });
+      await (
+        await loadDispatch()
+      ).dispatchSubAgent({
+        projectRoot: root,
+        role: 'qa',
+        prompt: 'binding probe',
+        sessionId: 'binding-session'
+      });
       throw new Error('expected graph-node requirement');
     } catch (error: unknown) {
       expect(codeOf(error)).toBe('PEAKS_GRAPH_NODE_REQUIRED');

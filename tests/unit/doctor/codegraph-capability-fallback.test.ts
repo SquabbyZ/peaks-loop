@@ -126,7 +126,13 @@ describe('codegraph-capability check (rid-CG-007)', () => {
         packagePath,
         version: '0.7.10',
         binaryPath,
-        binaryExists: true
+        binaryExists: true,
+        // Mirror the production probe's own managed-path resolution for this
+        // workspace: `defaultCodegraphCapabilityProbe` sets
+        // `managedPath: detectManagedCodegraphPath(process.cwd())`, and that
+        // helper returns a NON-null `{ source: 'root', codegraphDir, cwd }`.
+        // The field is required by `CodegraphCapabilityProbe`.
+        managedPath: { source: 'root', codegraphDir: join(tmpRoot, '.codegraph'), cwd: tmpRoot }
       });
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: fallbackProbe } });
@@ -154,7 +160,9 @@ describe('codegraph-capability check (rid-CG-007)', () => {
         packagePath,
         version: '0.7.11',
         binaryPath,
-        binaryExists: true
+        binaryExists: true,
+        // Same derivation as the fallback fixture above.
+        managedPath: { source: 'root', codegraphDir: join(tmpRoot, '.codegraph'), cwd: tmpRoot }
       });
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: driftProbe } });
@@ -192,7 +200,9 @@ describe('codegraph-capability check (rid-CG-007)', () => {
           'bin',
           'codegraph.js'
         ),
-        binaryExists: false
+        binaryExists: false,
+        // Same derivation as the other two fixtures above.
+        managedPath: { source: 'root', codegraphDir: join(tmpRoot, '.codegraph'), cwd: tmpRoot }
       });
 
       const result = check.run({ ...makeContext(), options: { codegraphProbe: noBinaryProbe } });

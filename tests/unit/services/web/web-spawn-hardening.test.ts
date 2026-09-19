@@ -38,15 +38,19 @@ import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
-import { daemonSpawnCommand, interpreterArgs, supportsImportFlag } from '../../../../src/services/web/daemon-supervisor.js';
+import {
+  daemonSpawnCommand,
+  interpreterArgs,
+  supportsImportFlag
+} from '../../../../src/services/web/daemon-supervisor.js';
 
 declareDimensions(
   'tests/unit/services/web/web-spawn-hardening.test.ts',
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'the scan asserts on source text and renders nothing' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced' }
+  ]
 );
 
 const ROOT = resolve(__dirname, '..', '..', '..', '..');
@@ -56,7 +60,14 @@ const CLI_SCAN_FILES = ['web-commands.ts', 'web-lifecycle-commands.ts'].map((nam
 );
 
 /** Names `child_process` exports that take options. `exec` is absent on purpose. */
-const DEFAULT_NAMES = ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'execSync', 'fork'] as const;
+const DEFAULT_NAMES = [
+  'spawn',
+  'spawnSync',
+  'execFile',
+  'execFileSync',
+  'execSync',
+  'fork'
+] as const;
 
 const CHILD_PROCESS_RE = /['"](?:node:)?child_process['"]/;
 
@@ -117,8 +128,14 @@ function spawnsWithoutWindowsHide(source: string): string[] {
   const offences: string[] = [];
   const { names, namespaces } = childProcessBindings(source);
   const name = [...names].join('|');
-  const isOurReceiver = (owner: string): boolean =>
-    namespaces.has(owner) || owner === 'child_process';
+  // `owner` is `string | undefined`: `match[owner]` is `string | undefined`
+  // under noUncheckedIndexedAccess (the group need not participate). An absent
+  // owner token is BY DEFINITION not our receiver, so it returns false — the
+  // same verdict the previous `owner === undefined` loose call produced at
+  // runtime, now stated in the signature instead of relying on a string
+  // comparison against undefined.
+  const isOurReceiver = (owner: string | undefined): boolean =>
+    owner !== undefined && (namespaces.has(owner) || owner === 'child_process');
 
   // `cp.spawn(`, `child_process.spawn(`, `cp['spawn'](`, and a bare `spawn(`.
   // `RegExp.exec(` is never a candidate: `exec` is not in the name set, and a
@@ -138,6 +155,9 @@ function spawnsWithoutWindowsHide(source: string): string[] {
   for (const { re, callee, owner } of patterns) {
     for (const match of source.matchAll(re)) {
       const ownerName = owner === null ? null : match[owner];
+      // `!== null` (not `!= null`) is load-bearing: an `undefined` group match
+      // must still enter this branch, where `isOurReceiver` returns false and
+      // the match is skipped — that is the pre-existing behavior.
       if (ownerName !== null && !isOurReceiver(ownerName)) {
         continue;
       }
@@ -287,8 +307,9 @@ describe('behavior — the daemon spawn chain', () => {
     // given: the command `spawnDaemon` hands to `spawn`
     const invocation = daemonSpawnCommand();
     // when: it is inspected element by element
-    const shellish = [invocation.command, ...invocation.args].filter((element) =>
-      /(\.cmd|\.bat|\.ps1)$/i.test(element) || /\bcmd\.exe\b|npx-cli|npx\.cmd/i.test(element)
+    const shellish = [invocation.command, ...invocation.args].filter(
+      (element) =>
+        /(\.cmd|\.bat|\.ps1)$/i.test(element) || /\bcmd\.exe\b|npx-cli|npx\.cmd/i.test(element)
     );
     // then: the interpreter is this Node and nothing routes through a shell
     expect(basename(invocation.command)).toBe(basename(process.execPath));

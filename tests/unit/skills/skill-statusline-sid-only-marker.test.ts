@@ -57,13 +57,13 @@ import { join } from 'node:path';
 
 import {
   buildStatusLineModel,
-  read24hOverlay,
+  read24hOverlay
 } from '~/src/services/skills/skill-statusline-service';
 import {
   renderStatusLine,
   computeRootSuffix,
   format24hSuffix,
-  type StatusLineCapability,
+  type StatusLineCapability
 } from '~/src/services/skills/skill-statusline-renderer';
 
 const SID = '2026-08-04-session-3fe1be';
@@ -99,22 +99,14 @@ function makeProjectRoot(): string {
   const parent = mkdtempSync(join(tmpdir(), 'peaks-statusline-sid-only-parent-'));
   const root = join(parent, 'peaks-loop');
   mkdirSync(join(root, '.peaks'), { recursive: true });
-  writeFileSync(
-    join(root, '.peaks', 'config.json'),
-    JSON.stringify({ schemaVersion: 1 }),
-    'utf8',
-  );
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }), 'utf8');
   return root;
 }
 
 function makeSessionBinding(projectRoot: string, sessionId: string): void {
   const dir = join(projectRoot, '.peaks', '_runtime');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, 'session.json'),
-    JSON.stringify({ sessionId, projectRoot }),
-    'utf8',
-  );
+  writeFileSync(join(dir, 'session.json'), JSON.stringify({ sessionId, projectRoot }), 'utf8');
 }
 
 function writePresenceLease(
@@ -126,7 +118,7 @@ function writePresenceLease(
   mode: string,
   status: 'preparing' | 'running' | 'terminalized' | 'lost' = 'running',
   startedAt: string = '2026-08-05T11:55:00.000Z',
-  lastHeartbeat: string = '2026-08-05T11:59:00.000Z',
+  lastHeartbeat: string = '2026-08-05T11:59:00.000Z'
 ): void {
   const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
   const leaseDir = join(sessionDir, 'leases');
@@ -134,7 +126,7 @@ function writePresenceLease(
   writeFileSync(
     join(sessionDir, `presence-${callerId}-${workflowId}.json`),
     JSON.stringify({ stub: true }),
-    'utf8',
+    'utf8'
   );
   writeFileSync(
     join(leaseDir, `presence-${callerId}-${workflowId}.json`),
@@ -148,14 +140,14 @@ function writePresenceLease(
       lastHeartbeat,
       status,
       mode,
-      schemaVersion: 1,
+      schemaVersion: 1
     }),
-    'utf8',
+    'utf8'
   );
 }
 
-describe("AC1 — idle + session bound appends [shortSid]", () => {
-  it("renders `Peaks ... empty -> peaks-loop [3fe1be]`", () => {
+describe('AC1 — idle + session bound appends [shortSid]', () => {
+  it('renders `Peaks ... empty -> peaks-loop [3fe1be]`', () => {
     // given: a project root with session.json bound, no leases on disk
     //        → buildStatusLineModel resolves state='idle', sessionId set
     // when:  renderStatusLine is called
@@ -184,8 +176,8 @@ describe("AC1 — idle + session bound appends [shortSid]", () => {
   });
 });
 
-describe("AC2 — stale + session bound appends [shortSid]", () => {
-  it("renders neutral stale text + `peaks-loop [3fe1be]`", () => {
+describe('AC2 — stale + session bound appends [shortSid]', () => {
+  it('renders neutral stale text + `peaks-loop [3fe1be]`', () => {
     // Slice rid-statusline-stale-ux AC-1 + AC-2: stale rendering
     // neutralized. The previous slice asserted `expect(out).toContain('stale')`
     // against the legacy `stale <N>h` token; renderStale now emits
@@ -205,14 +197,29 @@ describe("AC2 — stale + session bound appends [shortSid]", () => {
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
     writePresenceLease(
-      projectRoot, SID, CALLER_ACTIVE, 'wf-stale', 'peaks-code', 'full-auto',
-      'running', STALE_LEASE_START, STALE_LEASE_START
+      projectRoot,
+      SID,
+      CALLER_ACTIVE,
+      'wf-stale',
+      'peaks-code',
+      'full-auto',
+      'running',
+      STALE_LEASE_START,
+      STALE_LEASE_START
     );
     runWithNoCallerIdEnv(() => {
+      // `caller_id` is intentionally ABSENT rather than `null`. The declared
+      // shape (`StatusLineStdin.caller_id?: string` under
+      // exactOptionalPropertyTypes) does not admit an explicit `null`, and
+      // `resolveCallerId` collapses both spellings to the same branch:
+      // `typeof stdin?.caller_id === 'string'` is false for `null` and for
+      // absent alike, so both fall through to the (deliberately cleared) env
+      // fallback and return `null`. Same convention as
+      // skill-statusline-canonical-only.test.ts ("caller_id intentionally
+      // absent"). `session_id` must stay — it drives the outer-mismatch branch.
       const stdin = {
         workspace: { current_dir: projectRoot },
-        session_id: 'claude-code-outer-stale',
-        caller_id: null
+        session_id: 'claude-code-outer-stale'
       };
       const model = buildStatusLineModel(stdin, NOW_MS);
       expect(model.state).toBe('stale');
@@ -231,8 +238,8 @@ describe("AC2 — stale + session bound appends [shortSid]", () => {
   });
 });
 
-describe("AC3 — idle + unbound never appends [shortSid]", () => {
-  it("renders `Peaks ... empty -> peaks-loop` with no `[3fe1be]`", () => {
+describe('AC3 — idle + unbound never appends [shortSid]', () => {
+  it('renders `Peaks ... empty -> peaks-loop` with no `[3fe1be]`', () => {
     // given: stdin that points at a directory with no `.peaks/`
     //        (no project root, no session binding)
     // when:  buildStatusLineModel + renderStatusLine are called
@@ -251,7 +258,7 @@ describe("AC3 — idle + unbound never appends [shortSid]", () => {
     expect(out).not.toContain('[3fe1be]');
   });
 
-  it("bound session + no project root model still skips sid (defensive)", () => {
+  it('bound session + no project root model still skips sid (defensive)', () => {
     // given: a directly-constructed model with projectRoot=null
     // when:  renderStatusLine is called
     // then:  no sid is appended (computeRootSuffix returns '' when
@@ -271,8 +278,8 @@ describe("AC3 — idle + unbound never appends [shortSid]", () => {
   });
 });
 
-describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () => {
-  it("renders `Peaks ! presence unreadable -> peaks-loop` with no sid", () => {
+describe('AC4 — invalid-presence never appends [shortSid] (G2 invariant)', () => {
+  it('renders `Peaks ! presence unreadable -> peaks-loop` with no sid', () => {
     // given: a model that already carries state='invalid-presence'
     //        (the production case where the lease read threw — covered
     //        by the canonical-only test suite). The renderer must NOT
@@ -308,7 +315,15 @@ describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () 
       trailSeparator: ' -> ',
       idleLabel: 'empty',
       invalidMessage: 'presence unreadable',
-      compact: { queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+', completed: '*', failed: 'x' },
+      compact: {
+        queued: '[',
+        preparing: '+',
+        compacting: '+',
+        armed: '~',
+        verifying: '+',
+        completed: '*',
+        failed: 'x'
+      },
       barFilled: '#',
       barEmpty: '-',
       ratioArrow: '->'
@@ -330,12 +345,10 @@ describe("AC4 — invalid-presence never appends [shortSid] (G2 invariant)", () 
 });
 
 describe("AC5 — active + lease preserves the prior slice's sid suffix (no regression)", () => {
-  it("active lease → `peaks-code` + `[3fe1be]`", () => {
+  it('active lease → `peaks-code` + `[3fe1be]`', () => {
     const projectRoot = makeProjectRoot();
     makeSessionBinding(projectRoot, SID);
-    writePresenceLease(
-      projectRoot, SID, CALLER_ACTIVE, 'wf-active', 'peaks-code', 'full-auto'
-    );
+    writePresenceLease(projectRoot, SID, CALLER_ACTIVE, 'wf-active', 'peaks-code', 'full-auto');
     const stdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-active',
@@ -349,8 +362,8 @@ describe("AC5 — active + lease preserves the prior slice's sid suffix (no regr
   });
 });
 
-describe("AC10 — visual consistency across idle/active", () => {
-  it("idle and active produce byte-identical sid suffix characters", () => {
+describe('AC10 — visual consistency across idle/active', () => {
+  it('idle and active produce byte-identical sid suffix characters', () => {
     // given: idle and active renderings produced from the same
     //        project root + session binding
     // when:  both are rendered at the same pinned clock
@@ -370,9 +383,7 @@ describe("AC10 — visual consistency across idle/active", () => {
     expect(idleModel.state).toBe('idle');
 
     // active path: same project root, with a lease
-    writePresenceLease(
-      projectRoot, SID, CALLER_ACTIVE, 'wf-active', 'peaks-code', 'full-auto'
-    );
+    writePresenceLease(projectRoot, SID, CALLER_ACTIVE, 'wf-active', 'peaks-code', 'full-auto');
     const activeStdin = {
       workspace: { current_dir: projectRoot },
       session_id: 'claude-code-outer-active',
@@ -381,8 +392,12 @@ describe("AC10 — visual consistency across idle/active", () => {
     const activeModel = buildStatusLineModel(activeStdin, NOW_MS);
     expect(activeModel.state).toBe('active');
 
-    const idleOut = withPinnedClock(0, () => renderStatusLine(idleModel, { capability: 'ascii' as StatusLineCapability }));
-    const activeOut = withPinnedClock(0, () => renderStatusLine(activeModel, { capability: 'ascii' as StatusLineCapability }));
+    const idleOut = withPinnedClock(0, () =>
+      renderStatusLine(idleModel, { capability: 'ascii' as StatusLineCapability })
+    );
+    const activeOut = withPinnedClock(0, () =>
+      renderStatusLine(activeModel, { capability: 'ascii' as StatusLineCapability })
+    );
     const idleIdx = idleOut.indexOf('peaks-loop [3fe1be]');
     const activeIdx = activeOut.indexOf('peaks-loop [3fe1be]');
     expect(idleIdx).toBeGreaterThanOrEqual(0);
@@ -427,25 +442,17 @@ function makeOverlayProjectRoot(): string {
   const parent = mkdtempSync(join(tmpdir(), 'peaks-statusline-24h-parent-'));
   const root = join(parent, 'peaks-loop');
   mkdirSync(join(root, '.peaks'), { recursive: true });
-  writeFileSync(
-    join(root, '.peaks', 'config.json'),
-    JSON.stringify({ schemaVersion: 1 }),
-    'utf8',
-  );
+  writeFileSync(join(root, '.peaks', 'config.json'), JSON.stringify({ schemaVersion: 1 }), 'utf8');
   return root;
 }
 
-function write24hState(
-  projectRoot: string,
-  sessionId: string,
-  payload: unknown,
-): void {
+function write24hState(projectRoot: string, sessionId: string, payload: unknown): void {
   const dir = join(projectRoot, '.peaks', '_runtime', sessionId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, '24h-state.json'),
     typeof payload === 'string' ? payload : JSON.stringify(payload),
-    'utf8',
+    'utf8'
   );
 }
 
@@ -478,9 +485,7 @@ describe('rid-statusline-24h-overlay — buildStatusLineModel integration', () =
   it('case 4: attaches twentyFourHourState to model when state is active and 24h-state.json exists (AC-1 prep)', () => {
     const projectRoot = makeOverlayProjectRoot();
     makeSessionBinding(projectRoot, SID_24H);
-    writePresenceLease(
-      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
-    );
+    writePresenceLease(projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto');
     write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
     const stdin = {
       workspace: { current_dir: projectRoot },
@@ -504,7 +509,15 @@ describe('rid-statusline-24h-overlay — format24hSuffix helper', () => {
     trailSeparator: ' -> ',
     idleLabel: 'empty',
     invalidMessage: 'presence unreadable',
-    compact: { queued: '[', preparing: '+', compacting: '+', armed: '~', verifying: '+', completed: '*', failed: 'x' },
+    compact: {
+      queued: '[',
+      preparing: '+',
+      compacting: '+',
+      armed: '~',
+      verifying: '+',
+      completed: '*',
+      failed: 'x'
+    },
     barFilled: '#',
     barEmpty: '-',
     ratioArrow: '->'
@@ -516,22 +529,12 @@ describe('rid-statusline-24h-overlay — format24hSuffix helper', () => {
   });
 
   it('case 6: lowercase state conversion — [24h-24h_active]', () => {
-    const out = format24hSuffix(
-      { state: '24H_ACTIVE' },
-      basePalette,
-      'ascii',
-      true,
-    );
+    const out = format24hSuffix({ state: '24H_ACTIVE' }, basePalette, 'ascii', true);
     expect(out).toContain('[24h-24h_active]');
   });
 
   it('case 7: ASCII palette uses " . " inline separator (no Unicode-extra glyphs)', () => {
-    const out = format24hSuffix(
-      { state: '24H_ACTIVE' },
-      basePalette,
-      'ascii',
-      true,
-    );
+    const out = format24hSuffix({ state: '24H_ACTIVE' }, basePalette, 'ascii', true);
     expect(out).toContain(' . [24h-24h_active]');
     // No Unicode-extra glyphs: every char is ASCII (< 128).
     for (let i = 0; i < out.length; i++) {
@@ -544,9 +547,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
   it('case 8: AC-1 active + 24H_ACTIVE renders [24h-24h_active] suffix', () => {
     const projectRoot = makeOverlayProjectRoot();
     makeSessionBinding(projectRoot, SID_24H);
-    writePresenceLease(
-      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
-    );
+    writePresenceLease(projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto');
     write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
     const stdin = {
       workspace: { current_dir: projectRoot },
@@ -554,9 +555,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
       caller_id: CALLER_24H
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
-    const out = withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'ansi-unicode' }),
-    );
+    const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
     expect(model.state).toBe('active');
     expect(out).toContain('peaks-code');
     expect(out).toContain('full-auto');
@@ -566,9 +565,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
   it('case 9: AC-2 active + 24h-state.json missing renders no suffix', () => {
     const projectRoot = makeOverlayProjectRoot();
     makeSessionBinding(projectRoot, SID_24H);
-    writePresenceLease(
-      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
-    );
+    writePresenceLease(projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto');
     // NO 24h-state.json written
     const stdin = {
       workspace: { current_dir: projectRoot },
@@ -576,9 +573,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
       caller_id: CALLER_24H
     };
     const model = buildStatusLineModel(stdin, NOW_MS);
-    const out = withPinnedClock(0, () =>
-      renderStatusLine(model, { capability: 'ansi-unicode' }),
-    );
+    const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
     expect(model.state).toBe('active');
     expect(out).toContain('peaks-code');
     expect(out).not.toContain('[24h-');
@@ -587,9 +582,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
   it('case 10: AC-3 active + corrupt 24h-state.json renders no suffix + no exception', () => {
     const projectRoot = makeOverlayProjectRoot();
     makeSessionBinding(projectRoot, SID_24H);
-    writePresenceLease(
-      projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto',
-    );
+    writePresenceLease(projectRoot, SID_24H, CALLER_24H, 'wf-24h', 'peaks-code', 'full-auto');
     write24hState(projectRoot, SID_24H, '{not valid json');
     const stdin = {
       workspace: { current_dir: projectRoot },
@@ -598,9 +591,7 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
     };
     expect(() => {
       const model = buildStatusLineModel(stdin, NOW_MS);
-      const out = withPinnedClock(0, () =>
-        renderStatusLine(model, { capability: 'ansi-unicode' }),
-      );
+      const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
       expect(out).not.toContain('[24h-');
     }).not.toThrow();
   });
@@ -610,24 +601,30 @@ describe('rid-statusline-24h-overlay — renderer integration (PRD AC-1..AC-4)',
     makeSessionBinding(projectRoot, SID_24H);
     // STALE_LEASE_START is > 24h before NOW_MS → stale
     writePresenceLease(
-      projectRoot, SID_24H, 'old-outer-24h', 'wf-stale-24h', 'peaks-code', 'full-auto',
-      'running', STALE_LEASE_START, STALE_LEASE_START,
+      projectRoot,
+      SID_24H,
+      'old-outer-24h',
+      'wf-stale-24h',
+      'peaks-code',
+      'full-auto',
+      'running',
+      STALE_LEASE_START,
+      STALE_LEASE_START
     );
     write24hState(projectRoot, SID_24H, { state: '24H_ACTIVE' });
     // callerId mismatch → outer-mismatch branch falls through to idle
     // path → the 24h-state.json file on disk is irrelevant because
     // state is NOT 'active'.
     runWithNoCallerIdEnv(() => {
+      // `caller_id` absent, not `null` — same equivalence as the AC2 fixture
+      // above: `resolveCallerId` maps both to the same `null` branch.
       const stdin = {
         workspace: { current_dir: projectRoot },
-        session_id: 'new-outer-24h',
-        caller_id: null
+        session_id: 'new-outer-24h'
       };
       const model = buildStatusLineModel(stdin, NOW_MS);
       expect(model.state).toBe('stale');
-      const out = withPinnedClock(0, () =>
-        renderStatusLine(model, { capability: 'ansi-unicode' }),
-      );
+      const out = withPinnedClock(0, () => renderStatusLine(model, { capability: 'ansi-unicode' }));
       expect(out).not.toContain('[24h-');
     });
   });

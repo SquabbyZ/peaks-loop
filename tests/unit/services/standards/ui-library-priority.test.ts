@@ -20,22 +20,23 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   detectComponentLibrary,
   detectProjectContext,
+  type ProjectContext
 } from '~/src/services/standards/project-context';
-import {
-  renderUiLibraryPriorityRule,
-  type ProjectContext,
-} from '~/src/services/standards/project-standards-service';
+import { renderUiLibraryPriorityRule } from '~/src/services/standards/project-standards-service';
 
 let projectRoot: string;
 
 beforeEach(() => {
   projectRoot = mkdtempSync(join(tmpdir(), 'peaks-ui-priority-'));
   // writePackageJson() inside the project-context module reads this file.
-  writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
-    name: 'tmp-downstream',
-    version: '0.0.0',
-    dependencies: {},
-  }));
+  writeFileSync(
+    join(projectRoot, 'package.json'),
+    JSON.stringify({
+      name: 'tmp-downstream',
+      version: '0.0.0',
+      dependencies: {}
+    })
+  );
 });
 
 afterEach(() => {
@@ -44,11 +45,14 @@ afterEach(() => {
 });
 
 function withDeps(deps: Record<string, string>): void {
-  writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
-    name: 'tmp-downstream',
-    version: '0.0.0',
-    dependencies: deps,
-  }));
+  writeFileSync(
+    join(projectRoot, 'package.json'),
+    JSON.stringify({
+      name: 'tmp-downstream',
+      version: '0.0.0',
+      dependencies: deps
+    })
+  );
 }
 
 function withComponents(relative: string): void {
@@ -66,32 +70,39 @@ function renderFor(componentLibrary: string): string | null {
     routing: [],
     dataFetching: [],
     notableDeps: [],
-    legacySignals: [],
+    legacySignals: []
   };
   return renderUiLibraryPriorityRule(ctx);
 }
 
-describe("Scenario: detectComponentLibrary — shadcn recognition", () => {
-  it("when invoked, should detects shadcn when tailwindcss + class-variance-authority are both present", () => {
+describe('Scenario: detectComponentLibrary — shadcn recognition', () => {
+  it('when invoked, should detects shadcn when tailwindcss + class-variance-authority are both present', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     withDeps({ tailwindcss: '^3.0.0', 'class-variance-authority': '^0.7.0' });
-    expect(detectComponentLibrary(projectRoot, { tailwindcss: '^3.0.0', 'class-variance-authority': '^0.7.0' }).name).toBe('shadcn');
+    expect(
+      detectComponentLibrary(projectRoot, {
+        tailwindcss: '^3.0.0',
+        'class-variance-authority': '^0.7.0'
+      }).name
+    ).toBe('shadcn');
   });
 
-  it("when invoked, should detects shadcn via tailwind + clsx + tailwind-merge without components dir", () => {
+  it('when invoked, should detects shadcn via tailwind + clsx + tailwind-merge without components dir', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    expect(detectComponentLibrary(projectRoot, {
-      tailwindcss: '^3.4.0',
-      clsx: '^2.0.0',
-      'tailwind-merge': '^2.0.0',
-    }).name).toBe('shadcn');
+    expect(
+      detectComponentLibrary(projectRoot, {
+        tailwindcss: '^3.4.0',
+        clsx: '^2.0.0',
+        'tailwind-merge': '^2.0.0'
+      }).name
+    ).toBe('shadcn');
   });
 
-  it("when invoked, should detects shadcn via lucide-react + components/ui even without tailwind", () => {
+  it('when invoked, should detects shadcn via lucide-react + components/ui even without tailwind', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -99,23 +110,25 @@ describe("Scenario: detectComponentLibrary — shadcn recognition", () => {
     expect(detectComponentLibrary(projectRoot, { 'lucide-react': '^0.300.0' }).name).toBe('shadcn');
   });
 
-  it("when invoked, should does NOT detect shadcn when only tailwindcss is present", () => {
+  it('when invoked, should does NOT detect shadcn when only tailwindcss is present', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(detectComponentLibrary(projectRoot, { tailwindcss: '^3.0.0' }).name).toBe('none');
   });
 
-  it("when invoked, should does NOT detect shadcn when only cva is present (no tailwind signal)", () => {
+  it('when invoked, should does NOT detect shadcn when only cva is present (no tailwind signal)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
-    expect(detectComponentLibrary(projectRoot, { 'class-variance-authority': '^0.7.0' }).name).toBe('none');
+    expect(detectComponentLibrary(projectRoot, { 'class-variance-authority': '^0.7.0' }).name).toBe(
+      'none'
+    );
   });
 });
 
-describe("Scenario: renderUiLibraryPriorityRule — UI library priority rule", () => {
-  it("when invoked, should emits the priority rule for antd projects", () => {
+describe('Scenario: renderUiLibraryPriorityRule — UI library priority rule', () => {
+  it('when invoked, should emits the priority rule for antd projects', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -124,7 +137,7 @@ describe("Scenario: renderUiLibraryPriorityRule — UI library priority rule", (
     expect(out).toContain('this project uses `antd`');
   });
 
-  it("when invoked, should emits the priority rule for mui projects", () => {
+  it('when invoked, should emits the priority rule for mui projects', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -133,7 +146,7 @@ describe("Scenario: renderUiLibraryPriorityRule — UI library priority rule", (
     expect(out).toContain('this project uses `mui`');
   });
 
-  it("when invoked, should emits the priority rule for shadcn projects", () => {
+  it('when invoked, should emits the priority rule for shadcn projects', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -142,7 +155,7 @@ describe("Scenario: renderUiLibraryPriorityRule — UI library priority rule", (
     expect(out).toContain('this project uses `shadcn`');
   });
 
-  it("when invoked, should returns null for projects whose scan found no library", () => {
+  it('when invoked, should returns null for projects whose scan found no library', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -156,14 +169,14 @@ describe("Scenario: renderUiLibraryPriorityRule — UI library priority rule", (
       routing: [],
       dataFetching: [],
       notableDeps: [],
-      legacySignals: [],
+      legacySignals: []
     };
     expect(renderUiLibraryPriorityRule(ctx)).toBeNull();
   });
 });
 
-describe("Scenario: detectProjectContext — component library is propagated to standard rule", () => {
-  it("when invoked, should emits the priority rule for a downstream project whose scan finds shadcn", () => {
+describe('Scenario: detectProjectContext — component library is propagated to standard rule', () => {
+  it('when invoked, should emits the priority rule for a downstream project whose scan finds shadcn', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

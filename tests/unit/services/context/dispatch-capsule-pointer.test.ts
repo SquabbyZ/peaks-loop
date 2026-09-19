@@ -20,20 +20,21 @@ import { declareDimensions } from '../../_setup/4dim-template.js';
 declareDimensions(
   'tests/unit/services/context/dispatch-capsule-pointer.test.ts',
   ['behavior', 'render', 'a11y'],
-  [
-    { dim: 'integration', reason: 'pure composer; channel IO lives in peaks-loop-shared-channel' },
-  ],
+  [{ dim: 'integration', reason: 'pure composer; channel IO lives in peaks-loop-shared-channel' }]
 );
 
 import { buildDispatchSystemPrompt } from '~/src/services/context/build-dispatch-system-prompt';
-import { SESSION_CAPSULE_BATCH_ID, SESSION_CAPSULE_KEY } from '~/src/services/dispatch/session-capsule';
+import {
+  SESSION_CAPSULE_BATCH_ID,
+  SESSION_CAPSULE_KEY
+} from '~/src/services/dispatch/session-capsule';
 
 function prompt(capsule?: { batchId: string; key: string; bytes: number } | null): string {
   return buildDispatchSystemPrompt({
     taskTitle: 'rd',
     taskBody: 'TASK_BODY_SENTINEL',
     memoryBlock: { available: false },
-    ...(capsule !== undefined ? { capsule } : {}),
+    ...(capsule !== undefined ? { capsule } : {})
   });
 }
 
@@ -83,7 +84,9 @@ describe('Scenario: behavior — capsule presence', () => {
     expect(out).toContain('TASK_BODY_SENTINEL');
     expect(out).toContain('Do NOT run E2E');
     expect(out).toContain('Do NOT call `git merge`, `git pull`, `git rebase`');
-    expect(out.indexOf('TASK_BODY_SENTINEL')).toBeGreaterThan(out.indexOf('Shared session capsule'));
+    expect(out.indexOf('TASK_BODY_SENTINEL')).toBeGreaterThan(
+      out.indexOf('Shared session capsule')
+    );
   });
 });
 

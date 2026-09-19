@@ -29,7 +29,7 @@ import { join } from 'node:path';
 declareDimensions(
   'tests/unit/services/session/get-session-dir.test.ts',
   ['render', 'behavior', 'a11y'],
-  [{ dim: 'integration', reason: 'pure module' }],
+  [{ dim: 'integration', reason: 'pure module' }]
 );
 
 import { getSessionDir } from '~/src/services/session/getSessionDir';
@@ -38,18 +38,18 @@ import {
   CallerIdError,
   type CallerBinding,
   type CallerIdSource,
-  type CallerSkillPresence,
+  type CallerSkillPresence
 } from '~/src/services/session/caller-id-types';
 
-describe("Scenario: render — getSessionDir shape", () => {
-  it("when invoked, should composes <projectRoot>/.peaks/_runtime/<sessionId>", () => {
+describe('Scenario: render — getSessionDir shape', () => {
+  it('when invoked, should composes <projectRoot>/.peaks/_runtime/<sessionId>', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect(getSessionDir('/proj', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
   });
 
-  it("when invoked, should handles a project root that already ends with a path separator", () => {
+  it('when invoked, should handles a project root that already ends with a path separator', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -58,7 +58,7 @@ describe("Scenario: render — getSessionDir shape", () => {
     expect(getSessionDir('/proj/', 'sid-1')).toBe(join('/proj', '.peaks', '_runtime', 'sid-1'));
   });
 
-  it("when invoked, should uses only the canonical 3-segment path (no legacy top-level layout)", () => {
+  it('when invoked, should uses only the canonical 3-segment path (no legacy top-level layout)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -70,8 +70,8 @@ describe("Scenario: render — getSessionDir shape", () => {
   });
 });
 
-describe("Scenario: render — caller-id types", () => {
-  it("when invoked, should CALLER_ID_REGEX matches the documented shape (letters/digits/._- ; 1-200 chars)", () => {
+describe('Scenario: render — caller-id types', () => {
+  it('when invoked, should CALLER_ID_REGEX matches the documented shape (letters/digits/._- ; 1-200 chars)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -80,7 +80,7 @@ describe("Scenario: render — caller-id types", () => {
     expect('a'.repeat(200)).toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should CallerBinding interface includes all 7 documented fields", () => {
+  it('when invoked, should CallerBinding interface includes all 7 documented fields', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -97,50 +97,55 @@ describe("Scenario: render — caller-id types", () => {
       createdAt: '2026-07-30T00:00:00.000Z',
       skill: 'peaks-code',
       mode: 'full-auto',
-      gate: 'startup',
+      gate: 'startup'
     };
     expect(Object.keys(sample).sort()).toEqual([
-      'callerId', 'createdAt', 'gate',
-      'mode', 'peakSessionId', 'projectRoot', 'skill',
+      'callerId',
+      'createdAt',
+      'gate',
+      'mode',
+      'peakSessionId',
+      'projectRoot',
+      'skill'
     ]);
   });
 
-  it("when invoked, should CallerSkillPresence interface includes the 5 required + 2 optional fields", () => {
+  it('when invoked, should CallerSkillPresence interface includes the 5 required + 2 optional fields', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     const required: CallerSkillPresence = {
       callerId: 'c1',
       skill: 'peaks-code',
-      setAt: '2026-07-30T00:00:00.000Z',
+      setAt: '2026-07-30T00:00:00.000Z'
     };
     expect(required.callerId).toBe('c1');
     const withOptionals: CallerSkillPresence = {
       ...required,
       mode: 'full-auto',
       gate: 'startup',
-      lastHeartbeat: '2026-07-30T00:00:00.000Z',
+      lastHeartbeat: '2026-07-30T00:00:00.000Z'
     };
     expect(withOptionals.lastHeartbeat).toBeDefined();
   });
 });
 
-describe("Scenario: behavior — CALLER_ID_REGEX", () => {
-  it("when invoked, should rejects empty input", () => {
+describe('Scenario: behavior — CALLER_ID_REGEX', () => {
+  it('when invoked, should rejects empty input', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect('').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should rejects strings longer than 200 chars", () => {
+  it('when invoked, should rejects strings longer than 200 chars', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     expect('a'.repeat(201)).not.toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should rejects path separators (Windows + Unix)", () => {
+  it('when invoked, should rejects path separators (Windows + Unix)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -148,7 +153,7 @@ describe("Scenario: behavior — CALLER_ID_REGEX", () => {
     expect('a\\b').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should rejects whitespace and control chars", () => {
+  it('when invoked, should rejects whitespace and control chars', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -158,7 +163,7 @@ describe("Scenario: behavior — CALLER_ID_REGEX", () => {
     expect('a\0b').not.toMatch(CALLER_ID_REGEX);
   });
 
-  it("when invoked, should rejects non-ASCII Unicode", () => {
+  it('when invoked, should rejects non-ASCII Unicode', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -167,8 +172,8 @@ describe("Scenario: behavior — CALLER_ID_REGEX", () => {
   });
 });
 
-describe("Scenario: behavior — CallerIdError", () => {
-  it("when invoked, should EX_USAGE error: code + source + value + name are all set", () => {
+describe('Scenario: behavior — CallerIdError', () => {
+  it('when invoked, should EX_USAGE error: code + source + value + name are all set', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -180,7 +185,7 @@ describe("Scenario: behavior — CallerIdError", () => {
     expect(err.value).toBeUndefined();
   });
 
-  it("when invoked, should EX_DATAERR error: code + source + value are all set", () => {
+  it('when invoked, should EX_DATAERR error: code + source + value are all set', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -190,18 +195,24 @@ describe("Scenario: behavior — CallerIdError", () => {
     expect(err.value).toBe('a/b');
   });
 
-  it("when invoked, should throws when called without `new` (subclass of Error contract)", () => {
+  it('when invoked, should throws when called without `new` (subclass of Error contract)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
     // TypeScript prevents direct call at compile time, but the
     // runtime contract still requires `new`. Pin it.
-    expect(() => CallerIdError('EX_USAGE', 'none', 'msg')).toThrow(TypeError);
+    // `Reflect.apply` performs the same [[Call]] on the class constructor that
+    // `CallerIdError(...)` would, so the runtime contract (TypeError: class
+    // constructor cannot be invoked without 'new') is still pinned — but it
+    // type-checks, unlike the direct call the compiler rejects.
+    expect(() => Reflect.apply(CallerIdError, undefined, ['EX_USAGE', 'none', 'msg'])).toThrow(
+      TypeError
+    );
   });
 });
 
-describe("Scenario: a11y — CallerIdError message surface", () => {
-  it("when invoked, should message text is human-readable and starts with a capital letter (style guide)", () => {
+describe('Scenario: a11y — CallerIdError message surface', () => {
+  it('when invoked, should message text is human-readable and starts with a capital letter (style guide)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

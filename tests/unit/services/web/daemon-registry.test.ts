@@ -25,8 +25,8 @@ declareDimensions(
   ['behavior', 'integration'],
   [
     { dim: 'render', reason: 'these functions return objects and booleans, not text' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code is produced at this layer' }
+  ]
 );
 
 import {
@@ -34,14 +34,17 @@ import {
   isProcessAlive,
   readDaemonInfo,
   releaseSpawnLock,
-  writeDaemonInfo,
+  writeDaemonInfo
 } from '../../../../src/services/web/daemon-registry.js';
 import {
   parseDaemonInfo,
   PROTOCOL_VERSION,
-  type WebDaemonInfo,
+  type WebDaemonInfo
 } from '../../../../src/services/web/web-protocol.js';
-import { webDaemonInfoPath, webSpawnLockPath } from '../../../../src/services/web/web-artifact-paths.js';
+import {
+  webDaemonInfoPath,
+  webSpawnLockPath
+} from '../../../../src/services/web/web-artifact-paths.js';
 
 const SESSION_ID = '2026-09-10-session-528a63';
 const ws = withTmpWorkspacePerTest('peaks-web-registry-');
@@ -56,7 +59,7 @@ function daemonInfo(root: string, overrides: Partial<WebDaemonInfo> = {}): WebDa
     projectRoot: root,
     sessionId: SESSION_ID,
     startedAt: new Date().toISOString(),
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -107,7 +110,7 @@ describe('behavior — readDaemonInfo ownership', () => {
     // when:  the caller reads its own session's daemon
     // then:  the mismatched record is rejected rather than used
     const root = ws().path;
-    writeRawDaemonInfo(root, daemonInfo(root, { sessionId: 'someone-elses-session' }));
+    writeRawDaemonInfo(root, { ...daemonInfo(root, { sessionId: 'someone-elses-session' }) });
     expect(readDaemonInfo(root, SESSION_ID)).toBeNull();
   });
 
@@ -116,7 +119,7 @@ describe('behavior — readDaemonInfo ownership', () => {
     // when:  the caller reads its own session's daemon
     // then:  the mismatched record is rejected rather than used
     const root = ws().path;
-    writeRawDaemonInfo(root, daemonInfo(root, { projectRoot: `${root}-elsewhere` }));
+    writeRawDaemonInfo(root, { ...daemonInfo(root, { projectRoot: `${root}-elsewhere` }) });
     expect(readDaemonInfo(root, SESSION_ID)).toBeNull();
   });
 
@@ -187,7 +190,11 @@ describe('integration — the cold-start lock against a real file', () => {
     const root = ws().path;
     const lock = webSpawnLockPath(root, SESSION_ID);
     mkdirSync(dirname(lock), { recursive: true });
-    writeFileSync(lock, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), 'utf8');
+    writeFileSync(
+      lock,
+      JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+      'utf8'
+    );
     expect(acquireSpawnLock(root, SESSION_ID)).toBe(false);
   });
 

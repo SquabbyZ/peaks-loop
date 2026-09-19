@@ -15,7 +15,13 @@ const childMock = { spawnSync } as unknown as ChildProcessMock;
 type Capture = {
   stdout: string;
   stderr: string;
-  exitCode: number | undefined;
+  /**
+   * Mirrors the real Node surface rather than a narrowed `number | undefined`:
+   * `process.exitCode` is typed `string | number | null | undefined` (Node
+   * accepts a numeric string), so deriving the type keeps this capture honest
+   * as @types/node widens.
+   */
+  exitCode: typeof process.exitCode;
 };
 
 function makeIo(): { io: { stdout(s: string): void; stderr(s: string): void }; capture: Capture } {
@@ -27,14 +33,22 @@ function makeIo(): { io: { stdout(s: string): void; stderr(s: string): void }; c
       stderr: (s: string) => stderr.push(s)
     },
     capture: {
-      get stdout() { return stdout.join(''); },
-      get stderr() { return stderr.join(''); },
-      get exitCode() { return process.exitCode; }
+      get stdout() {
+        return stdout.join('');
+      },
+      get stderr() {
+        return stderr.join('');
+      },
+      get exitCode() {
+        return process.exitCode;
+      }
     }
   };
 }
 
-async function importFresh(): Promise<typeof import('../../../../src/cli/commands/lint-commands.js')> {
+async function importFresh(): Promise<
+  typeof import('../../../../src/cli/commands/lint-commands.js')
+> {
   vi.resetModules();
   return import('../../../../src/cli/commands/lint-commands.js');
 }
@@ -55,7 +69,7 @@ describe('registerLintCommands', () => {
     const mod = await importFresh();
     const program = new Command();
     mod.registerLintCommands(program, io);
-    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '10.8.0\n' } as never));
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '10.8.0\n' }) as never);
 
     // when: parseAsync invoked with `lint detect-eslint --json`
     await program.parseAsync(['lint', 'detect-eslint', '--json'], { from: 'user' });
@@ -71,7 +85,7 @@ describe('registerLintCommands', () => {
     const mod = await importFresh();
     const program = new Command();
     mod.registerLintCommands(program, io);
-    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '10.8.0\n' } as never));
+    childMock.spawnSync.mockImplementation(() => ({ status: 0, stdout: '10.8.0\n' }) as never);
 
     // when: parseAsync runs the default subcommand with --json
     await program.parseAsync(['lint', '--json'], { from: 'user' });
