@@ -53,7 +53,19 @@ tmp-shared-channel-*/
 tests/fixtures/bdd-reporter-tmp/
 # best-practice-scan artifacts — ephemeral, written to <project>/best-practice/<date>-<intent>.md.
 # The CLI's own help says "(gitignored)"; this is the rule that makes that true.
-best-practice/
+#
+# LEADING SLASH IS LOAD-BEARING. A bare `best-practice/` is read the way .gitignore
+# reads it everywhere else — a trailing slash with no inner slash matches a
+# DIRECTORY OF THAT NAME AT ANY DEPTH — so it also swallowed `src/services/best-practice/`
+# and `tests/unit/best-practice/`: 6 tracked source files, invisible to `git status`,
+# to `prettier --check` and to `pnpm format`. Prettier reads .gitignore by default,
+# so `prettier --check` printed "All matched files use Prettier code style!" while
+# never reading those files at all.
+#
+# Third instance of this class in this repository (cf. eslint's `ignorePatterns:
+# ['skills/']` swallowing src/services/skills/, and the codegraph excludes). The
+# intent here was always the ONE top-level artifact directory, so anchor it.
+/best-practice/
 
 # >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand
 # Consumer-project .claude/settings.local.json: written by `peaks workspace init`
