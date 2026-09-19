@@ -172,3 +172,42 @@ finding that had survived every test, every CI run, and every prior review.
 3. **When a claim cites a past incident, read the incident.** A fix was once declined by citing 4.0.48 — which
    records two slices overwriting the same rid-less `.peaks/_runtime/` artifact path, not two edits to a tracked
    test file. The citation looked rigorous and was never checked.
+
+---
+
+## 6. 开放项:`unidentified reformatter`（2026-09-19，四次）
+
+**现象**：每次切片提交之后，会出现一批"不该脏"的文件，内容恰好是**上一片提交过的文件里
+prettier 会重写的那些**，改动**纯格式化**、语义为零。四次发生，四次的受影响集合都符合这条规律。
+
+**已用逐字判据证明四次**：取上一片提交时的 blob，过一遍 prettier（仓库配置），
+与磁盘逐字节相等 ⇒ 纯格式化，无语义改动。判据是
+`.tmp/reformat-check.mjs`（未提交的临时件）。
+
+**为什么重要**：它污染每一次提交（把不属于本片的改动夹带进去），并**连续三次导致
+子代理给出错误归因** —— 有的说"另一个 slice 的"，有的说"parent 的 prettier"。
+一次"不是我的"如果没被核对，就会掩盖真实改动。这是本仓库反复出现的形状。
+
+**已经排除的假设（每一条都实测过，不是推理）**：
+
+| 假设 | 排除方式 |
+|---|---|
+| 编辑时钩子 | 用 Edit 工具插 118 字符长行 → **原样存活** |
+| SessionStart 钩子 | 直接跑 `peaks session primer` → 状态前后一致 |
+| PreToolUse ×3 | `gate-step-08`/`gate enforce` 由 RD 查；（本会话）`peaks code auto-compact` 实测 0→0 |
+| 用户级钩子 | `~/.claude/settings.json` **无 hooks 键内容** |
+| ECC 插件钩子 | 只有 `.cursor/` 下的，不在本会话生效 |
+| `peaks sub-agent dispatch` | 干净树上跑 → 0→0 |
+| lint-staged / git stash | `git stash list` 空；提交后立刻 `git status` 为空 |
+
+**存活的最强假设**（解释力最好，但**未证实**）：某个 agent 在会话早期对
+`git diff HEAD~1 --name-only` 的结果跑了一次范围化 `prettier --write`（当作 housekeeping），
+**跑完才 `git status`**，于是看见的是自己刚造成的脏，并归因给别的进程。这能同时解释
+"受影响集合 = 上一片提交的文件"与"三次都归错因"。
+
+**要最终定位它**需要什么：在某一整片期间挂一个文件系统 watcher（例如
+`node --watch` 或 `fs.watch` 记录 `tests/**`、`src/**` 的写入者），或给 `prettier`
+装一个 wrapper 记录调用栈。**两者都需要跨一整个子代理会话**，是独立的一片工作。
+
+**现行缓解（已生效四次）**：每次提交前跑那套逐字判据，把重排块**显式标注在提交信息里**，
+而不是默默吸收。这至少保证"夹带"是可见的、可审计的。
