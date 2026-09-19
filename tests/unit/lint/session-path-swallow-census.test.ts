@@ -114,28 +114,28 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 293,
+    line: 302,
     frame: 'CompactLifecyclePublisher.write',
     reason: 'an observer is a passive listener; a throwing observer must not change the envelope'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 425,
+    line: 439,
     frame: 'settleOpenLifecycleRun (emit)',
     reason: 'same observer contract as above, on the probe settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'empty-catch',
-    line: 558,
+    line: 580,
     frame: 'settleOpenLifecycleRunOnCompactEvent',
     reason: 'same observer contract, on the harness-event settle path'
   },
   {
     file: 'src/services/code/auto-compact-lifecycle.ts',
     rule: 'catch-return-null',
-    line: 631,
+    line: 653,
     frame: 'fillEventSettledMeasurement',
     reason:
       'the ONLY remaining catch-return-null on the surface. null means "no number was filled", ' +
@@ -146,7 +146,7 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/compact-statusline/compact-lifecycle-store.ts',
     rule: 'empty-catch',
-    line: 224,
+    line: 242,
     frame: 'writeCompactLifecycle',
     reason:
       'tmp-file unlink is best effort, and `throw error` follows the catch — nothing is swallowed'
@@ -154,14 +154,14 @@ const CENSUS: readonly Entry[] = [
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 941,
+    line: 956,
     frame: 'dispatch history append',
     reason: 'telemetry must not fail the compact return'
   },
   {
     file: 'src/services/code/auto-compact-orchestrator.ts',
     rule: 'empty-catch',
-    line: 1040,
+    line: 1059,
     frame: 'appendObservedCompactEvent',
     reason: 'same best-effort discipline on the post-compact measurement row'
   }
@@ -201,7 +201,7 @@ describe('Scenario: behavior — the swallow census on the session-path surface'
   it('when scanned, should keep exactly ONE catch-return-null, at the site the census names', async () => {
     const measured = await measuredCensus();
     expect(measured.filter((v) => v.rule === 'catch-return-null')).toEqual([
-      { file: 'src/services/code/auto-compact-lifecycle.ts', rule: 'catch-return-null', line: 631 }
+      { file: 'src/services/code/auto-compact-lifecycle.ts', rule: 'catch-return-null', line: 653 }
     ]);
   });
 

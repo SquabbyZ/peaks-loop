@@ -424,12 +424,12 @@ export function findRepoRootedArtifactReads(sourceFile: ts.SourceFile): RepoRoot
 //     to remove, in the test layer. Named again, RE-MEASURED by R7 on
 //     2026-09-15 with `findLiteralFirstIdJoins` over all of `src/` (7 rows
 //     total, 1 in reach, these 6 not scanned):
-//       src/services/prd/prd-blocks-checker.ts:62        later=[requestId]
-//       src/services/prd/prd-blocks-checker.ts:63        later=[requestId]
+//       src/services/prd/prd-blocks-checker.ts:87        later=[requestId]
+//       src/services/prd/prd-blocks-checker.ts:88        later=[requestId]
 //       src/services/session/caller-binding-service.ts:38 later=[callerId]
-//       src/services/workflow/artifact-paths.ts:63       later=[sessionId]
-//       src/services/workflow/pipeline-verify-gate-support.ts:260 later=[rdEvidenceDir]
-//       src/services/workflow/pipeline-verify-gate-support.ts:332 later=[rdEvidenceDir]
+//       src/services/workflow/artifact-paths.ts:64       later=[sessionId]
+//       src/services/workflow/pipeline-verify-gate-support.ts:323 later=[rdEvidenceDir]
+//       src/services/workflow/pipeline-verify-gate-support.ts:415 later=[rdEvidenceDir]
 //   * `handoff-auto-regen.ts` — a cross-file constructor, invisible to both
 //     routes; guarded in fact through `handoffRelativePath`.
 //
@@ -890,10 +890,10 @@ const NOT_SCANNED_LITERAL_FIRST: readonly {
   readonly pinned: string;
   readonly later: string;
 }[] = [
-  { file: 'src/services/prd/prd-blocks-checker.ts', line: 62, pinned: 'prd', later: 'requestId' },
+  { file: 'src/services/prd/prd-blocks-checker.ts', line: 87, pinned: 'prd', later: 'requestId' },
   {
     file: 'src/services/prd/prd-blocks-checker.ts',
-    line: 63,
+    line: 88,
     pinned: 'change',
     later: 'requestId'
   },
@@ -905,19 +905,19 @@ const NOT_SCANNED_LITERAL_FIRST: readonly {
   },
   {
     file: 'src/services/workflow/artifact-paths.ts',
-    line: 63,
+    line: 64,
     pinned: 'change',
     later: 'sessionId'
   },
   {
     file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    line: 260,
+    line: 323,
     pinned: 'change',
     later: 'rdEvidenceDir'
   },
   {
     file: 'src/services/workflow/pipeline-verify-gate-support.ts',
-    line: 332,
+    line: 415,
     pinned: 'change',
     later: 'rdEvidenceDir'
   }
@@ -1508,7 +1508,7 @@ describe('rule D — an id joined into the runtime tree carries a guard (slice 2
         (h) => `${relativeToRoot(h.file)}:${h.line} pinned=${h.pinned} later=[${h.later.join(',')}]`
       )
     ).toEqual([
-      "src/cli/commands/playwright-commands.ts:282 pinned='playwright-userdata' later=[terminalId]"
+      "src/cli/commands/playwright-commands.ts:321 pinned='playwright-userdata' later=[terminalId]"
     ]);
   });
 
