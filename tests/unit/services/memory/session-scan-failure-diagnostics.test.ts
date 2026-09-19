@@ -7,8 +7,8 @@
 // is the repo-wide grace marker read by `scripts/lint/silent-warning-detector.mjs`
 // (slice A.2 of v2-14-0-anti-fake-green-hardening, see its header):
 //
-//   "Grace period: any source line may carry `// TODO(g2):` to suppress the
-//    violation for one minor release (~6 weeks) per A2.2."
+//   "Grace period: a `// TODO(g2):` marker on any line the offending node spans
+//    suppresses that violation for one minor release (~6 weeks) per A2.2."
 //
 // The violation here is anti-pattern #1, `empty-catch`. So the marker asks for
 // the swallow to be replaced by a real channel, and it has been: the file is

@@ -9,13 +9,27 @@ if (typeof version !== 'string' || version.length === 0) {
   throw new Error('package.json version must be a non-empty string');
 }
 
+// Emitted SINGLE-quoted, not via `JSON.stringify`. `JSON.stringify` quotes with
+// `"`, and the repo's own prettier config (`package.json#prettier`,
+// `singleQuote: true`) is what the husky gate runs over this tracked file — so a
+// double-quoted emit made `prettier --check` fail on version.ts after every run.
+// This script runs in `build` / `prepack` / `prepublish` / `pretest`, so every
+// build dirtied a tracked file against a `prettierUnformatted` ceiling of 0
+// (reproduced + fixed in slice S5a, 2026-09-19). A version that cannot be
+// written as a single-quoted TS literal throws instead of being escaped: the
+// alternative is silently emitting broken source, which is the same failure the
+// RUNTIME_VERSION writer below refuses with a throw.
+if (/['\\\r\n]/.test(version)) {
+  throw new Error(`package.json version cannot be emitted as a single-quoted literal: ${version}`);
+}
+
 // Slice 3a — version.ts lives in the peaks-loop-shared workspace package.
 // The shared package is `private: true` and is consumed via workspace:*,
 // so its own package.json `version` field is irrelevant for downstream
 // consumers; we always emit the main peaks-loop version.
 writeFileSync(
   resolve('packages/peaks-loop-shared/src/version.ts'),
-  `export const CLI_VERSION = ${JSON.stringify(version)};\n`
+  `export const CLI_VERSION = '${version}';\n`
 );
 
 // Slice 2026-09-11 (runtime-version-lockstep) — sync RUNTIME_VERSION.

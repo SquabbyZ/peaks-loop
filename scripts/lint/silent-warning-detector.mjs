@@ -17,8 +17,11 @@
 // surfaced as exit-1 so `pnpm test` blocks merges (A2.4).
 //
 // Self-exemption: the detector skips itself and its own test cases.
-// Grace period: any source line may carry `// TODO(g2):` to suppress the
-// violation for one minor release (~6 weeks) per A2.2.
+// Grace period: a `// TODO(g2):` marker on any line the offending node spans
+// suppresses that violation for one minor release (~6 weeks) per A2.2. Line
+// EXTENT rather than one line, deliberately: prettier relocates a trailing
+// marker off the `catch` line and explodes one-line try/catch forms, and a
+// line-anchored anchor read 126 live markers as absent in one `--write` pass.
 //
 // Design notes (Karpathy #1 Think Before Coding):
 //   - TS Compiler API is the chosen parser — `typescript` is already a
@@ -113,6 +116,13 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
     source = sourceArg;
     file = fileArg;
   }
+  // Annotated with the real type instead of left `any`. This repo's type-aware
+  // lint fires on every member access off an `any`, and an untyped `sf` is why
+  // this file sits AT its ratchet (214 findings): any functional edit to
+  // `record()` cost more findings than the file had headroom for. Naming the
+  // type pays for the end-line read below and leaves the file one finding
+  // BETTER than it was found.
+  /** @type {import('typescript').SourceFile} */
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
   const violations = [];
   const lineText = source.split(/\r?\n/);
@@ -123,9 +133,22 @@ function analyzeSource(tsArg, sourceArg, fileArg) {
 
   function record(rule, node, message, snippet) {
     const { line, character } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-    // Suppress on lines that carry a grace marker.
+    const endLine = sf.getLineAndCharacterOfPosition(node.getEnd()).line;
     const txt = lineText[line] ?? '';
-    if (/TODO\(g2\)/.test(txt)) return;
+    // Suppress when a grace marker sits on ANY line the reported node spans —
+    // not on one hard-coded line. A line-anchored test broke under formatting
+    // four different ways at once (measured against this repo's own prettier
+    // config, slice S5a 2026-09-19): prettier drops a trailing
+    // `} catch { // TODO(g2): …` onto the next line, and it explodes a one-line
+    // `try { … } catch { … } // TODO(g2): …` into a block whose marker now sits
+    // after the closing brace. Either way the marker stayed visible in the file
+    // while the detector read it as absent — 126 live markers went inert in a
+    // single `--write` pass and broke the J03 ratchet on both rules. The node's
+    // own line extent is what survives reformatting: a marker cannot leave the
+    // construct it marks, whichever of the construct's lines it lands on.
+    for (let i = line; i <= endLine; i++) {
+      if (/TODO\(g2\)/.test(lineText[i] ?? '')) return;
+    }
     violations.push({
       rule,
       file: relative(REPO_ROOT, file).replace(/\\/g, '/'),
@@ -434,7 +457,8 @@ function printHelp() {
       '',
       'Defaults to scanning src/. Pass explicit file paths to narrow scope.',
       'Self-exempt: scripts/lint/* and tests/unit/lint/* are never scanned.',
-      'Grace marker: add `// TODO(g2):` on the offending line to suppress for one minor release.',
+      'Grace marker: add `// TODO(g2):` on any line the offending construct spans',
+      'to suppress it for one minor release (prettier may move it within those lines).',
       ''
     ].join('\n')
   );
