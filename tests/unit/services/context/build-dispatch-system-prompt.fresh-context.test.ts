@@ -35,7 +35,7 @@ describe('Scenario: behavior — fresh-context block injection (2026-09-07-searc
     const input = {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       freshContextBlock: FRESH_CONTEXT_BLOCK,
     };
     // when: the composer is invoked
@@ -51,13 +51,13 @@ describe('Scenario: behavior — fresh-context block injection (2026-09-07-searc
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     // when: the composer is invoked with no fresh-context field
     const out = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     // then: output equals the legacy shape and carries no fresh-context heading
     expect(out).toBe(legacy);
@@ -69,13 +69,13 @@ describe('Scenario: behavior — fresh-context block injection (2026-09-07-searc
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     // when: the composer is invoked with an explicit null block (what the dispatch site passes on a miss)
     const out = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       freshContextBlock: null,
     });
     // then: output is byte-identical to legacy (renderFreshContextBlock → '')

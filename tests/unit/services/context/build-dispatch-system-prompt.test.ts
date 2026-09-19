@@ -39,7 +39,7 @@ describe("Scenario: behavior — lifecycle-rule injection", () => {
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     expect(out).toMatch(/sub-agent shutdown register/i);
   });
@@ -51,7 +51,7 @@ describe("Scenario: behavior — lifecycle-rule injection", () => {
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     expect(out).toMatch(/do NOT run E2E/i);
   });
@@ -63,7 +63,7 @@ describe("Scenario: behavior — lifecycle-rule injection", () => {
     const out = buildDispatchSystemPrompt({
       taskTitle: 'add a button',
       taskBody: 'add a button',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     expect(out).toMatch(/do NOT call `git merge`, `git pull`, `git rebase`/i);
   });
@@ -77,7 +77,7 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     const input = {
       taskTitle: 'rd',
       taskBody: 'plan the slice',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       codegraphBlock: COGRAPH_BLOCK,
     };
     // when: the composer is invoked
@@ -93,7 +93,7 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     const input = {
       taskTitle: 'rd',
       taskBody: 'plan the slice',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       codegraphBlock: null,
     };
     // when: the composer is invoked
@@ -108,7 +108,7 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     const input = {
       taskTitle: 'qa',
       taskBody: 'verify the slice',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     };
     // when: the composer is invoked
     const out = buildDispatchSystemPrompt(input);
@@ -126,7 +126,7 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
         available: true,
         block: '## Project memory relevant to this task\n- * 2026-06-22-cc-connect-removal-publish\n',
       },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code' },
+      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
       codegraphBlock: COGRAPH_BLOCK,
     };
     // when: the composer is invoked
@@ -147,7 +147,7 @@ describe('Scenario: behavior — codegraph structure block (2026-09-03-codegraph
     const input = {
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       codegraphBlock: COGRAPH_BLOCK,
     };
     // when: the composer is invoked
@@ -200,7 +200,7 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
     const out = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'build the form',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       projectStackBlock: block,
     });
     // then: the prompt names the library, the build tool, and the CSS framework
@@ -217,13 +217,13 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'ui',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     // when: the composer is invoked with the null block (what the dispatch site passes)
     const out = buildDispatchSystemPrompt({
       taskTitle: 'ui',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
       projectStackBlock: noneBlock,
     });
     // then: the helper returned null and the prompt has no project-stack heading and equals legacy
@@ -241,7 +241,7 @@ describe('Scenario: behavior — project-stack block (2026-09-06-ui-lib-dispatch
         available: true,
         block: '## Project memory relevant to this task\n- * mem\n',
       },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code' },
+      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
       codegraphBlock: CODEGRAPH_PAYLOAD,
       projectStackBlock: renderUiLibraryPriorityDispatchBlock(antdContext()),
     };

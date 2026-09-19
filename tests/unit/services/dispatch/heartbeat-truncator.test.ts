@@ -25,13 +25,13 @@ declareDimensions(
   [
     { dim: 'render', reason: 'returns a structured TruncationResult, no text surface' },
     { dim: 'integration', reason: 'pure function, no fs/network/process boundary' },
-    { dim: 'a11y', reason: 'no user-visible text or exit code' },
-  ],
+    { dim: 'a11y', reason: 'no user-visible text or exit code' }
+  ]
 );
 
 import {
   HEARTBEAT_TRUNCATE_LIMIT,
-  truncateHeartbeats,
+  truncateHeartbeats
 } from '~/src/services/dispatch/heartbeat-truncator';
 
 /**
@@ -47,12 +47,12 @@ function hb(seq: number): Heartbeat {
     at: new Date(2026, 6, 30, 0, 0, seq).toISOString(),
     status: 'running',
     progress: 0,
-    note: `heartbeat #${seq}`,
+    note: `heartbeat #${seq}`
   };
 }
 
-describe("Scenario: behavior — truncation boundary", () => {
-  it("when invoked, should returns a copy of the input unchanged when length <= LIMIT", () => {
+describe('Scenario: behavior — truncation boundary', () => {
+  it('when invoked, should returns a copy of the input unchanged when length <= LIMIT', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -65,7 +65,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats[49]?.at).toBe(hb(49).at);
   });
 
-  it("when invoked, should returns the input unchanged when length equals LIMIT exactly", () => {
+  it('when invoked, should returns the input unchanged when length equals LIMIT exactly', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -76,7 +76,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats).toHaveLength(HEARTBEAT_TRUNCATE_LIMIT);
   });
 
-  it("when invoked, should keeps the most recent LIMIT entries when length > LIMIT", () => {
+  it('when invoked, should keeps the most recent LIMIT entries when length > LIMIT', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -92,7 +92,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats[HEARTBEAT_TRUNCATE_LIMIT - 1]?.at).toBe(hb(total - 1).at);
   });
 
-  it("when invoked, should drops the oldest half when input is 2x the limit", () => {
+  it('when invoked, should drops the oldest half when input is 2x the limit', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -104,7 +104,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats[0]?.at).toBe(hb(HEARTBEAT_TRUNCATE_LIMIT).at);
   });
 
-  it("when invoked, should handles a single-entry array (no-op)", () => {
+  it('when invoked, should handles a single-entry array (no-op)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -114,7 +114,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats).toEqual([hb(1)]);
   });
 
-  it("when invoked, should handles an empty array (no-op)", () => {
+  it('when invoked, should handles an empty array (no-op)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -124,7 +124,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(out.heartbeats).toEqual([]);
   });
 
-  it("when invoked, should returns a NEW array, never aliases the input", () => {
+  it('when invoked, should returns a NEW array, never aliases the input', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -136,7 +136,7 @@ describe("Scenario: behavior — truncation boundary", () => {
     expect(input).toHaveLength(2);
   });
 
-  it("when invoked, should preserves entry order (most-recent at the end)", () => {
+  it('when invoked, should preserves entry order (most-recent at the end)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation
@@ -146,8 +146,8 @@ describe("Scenario: behavior — truncation boundary", () => {
   });
 });
 
-describe("Scenario: behavior — LIMIT constant sanity", () => {
-  it("when invoked, should HEARTBEAT_TRUNCATE_LIMIT is the documented value (100)", () => {
+describe('Scenario: behavior — LIMIT constant sanity', () => {
+  it('when invoked, should HEARTBEAT_TRUNCATE_LIMIT is the documented value (100)', () => {
     // given: the test setup
     // when:  the function under test is invoked
     // then:  the result matches the expectation

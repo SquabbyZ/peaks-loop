@@ -55,13 +55,13 @@ const PRE_SLICE_BYTES = {
 
 const ROLES = ['rd', 'qa', 'qa-business', 'sc', 'prd', 'ui', 'txt'] as const;
 
-const PROBE = { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code' } as const;
+const PROBE = { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' } as const;
 
 function promptFor(role: string): string {
   return buildDispatchSystemPrompt({
     taskTitle: role,
     taskBody: 'TASK_BODY_SENTINEL',
-    memoryBlock: { available: false, block: null },
+    memoryBlock: { available: false },
     contextProbe: PROBE,
   });
 }
@@ -129,7 +129,7 @@ describe('Scenario: behavior — rule-presence set is unchanged for every role (
     const legacy = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
+      memoryBlock: { available: false },
     });
     // when:  the prompt is composed
     // then:  the block is prepended once (no double injection)

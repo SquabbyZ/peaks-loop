@@ -44,7 +44,7 @@ function promptFor(role: string, memoryAvailable: boolean): string {
     taskBody: 'TASK_BODY_SENTINEL',
     memoryBlock: memoryAvailable
       ? { available: true, block: '## Project memory relevant to this task\n- * mem\n' }
-      : { available: false, block: null },
+      : { available: false },
   });
 }
 
@@ -101,8 +101,8 @@ describe('a11y — the cap is part of the binding-rule guard set', () => {
     const out = buildDispatchSystemPrompt({
       taskTitle: 'rd',
       taskBody: 'TASK_BODY_SENTINEL',
-      memoryBlock: { available: false, block: null },
-      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code' },
+      memoryBlock: { available: false },
+      contextProbe: { ratio: 0.28, source: 'transcript-estimate', ide: 'claude-code', capturedAt: '2026-09-19T10:00:00.000Z' },
     });
     expect(missingRuleTokens(out, BINDING_RULE_TOKENS)).toEqual([]);
   });

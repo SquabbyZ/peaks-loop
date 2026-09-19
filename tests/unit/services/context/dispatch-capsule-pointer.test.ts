@@ -32,7 +32,7 @@ function prompt(capsule?: { batchId: string; key: string; bytes: number } | null
   return buildDispatchSystemPrompt({
     taskTitle: 'rd',
     taskBody: 'TASK_BODY_SENTINEL',
-    memoryBlock: { available: false, block: null },
+    memoryBlock: { available: false },
     ...(capsule !== undefined ? { capsule } : {}),
   });
 }

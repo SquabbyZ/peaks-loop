@@ -28,7 +28,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearStalePresenceOnRotation,
 } from '../../../src/services/skills/skill-presence-service.js';
-import { setPresenceLease } from '../../../src/services/skills/presence-lease-service.js';
+import {
+  setPresenceLease,
+  type SetPresenceLeaseInput,
+} from '../../../src/services/skills/presence-lease-service.js';
 
 const projects: string[] = [];
 
@@ -51,7 +54,12 @@ function newProject(): string {
   return root;
 }
 
-function input(root: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+// Typed as the function's real input rather than `Record<string, unknown>`.
+// The literal below already carried every required field (`projectRoot`,
+// `workflowId`, `graphRef`, `skill`) — only the annotation was too loose for
+// the value to be passed to `setPresenceLease`. A type annotation is erased at
+// runtime, so this changes nothing the test does.
+function input(root: string, overrides: Partial<SetPresenceLeaseInput> = {}): SetPresenceLeaseInput {
   return {
     projectRoot: root,
     sessionId: 'session-persistence-rotation',

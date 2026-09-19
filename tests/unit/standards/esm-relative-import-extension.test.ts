@@ -279,7 +279,14 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // to `codegraph-capability-fallback.test.ts` and
     // `codegraph-resolved-path-capability.test.ts`. Both carry the `.js` extension
     // the rule requires, which is why the violation assertion below is unaffected.
-    expect(scan.specifiers.length).toBe(2717);
+    //
+    // 2717 -> 2718 (slice S3e): +1 is the `type SkillPresenceLease` import added
+    // to `tests/integration/skill-presence-lease-gc.test.ts` so its `stale` lease
+    // fixture is declared as the contract type instead of an untyped literal. It
+    // carries the `.js` extension the rule requires, so — as with S3c — the
+    // violation assertion below is unaffected. `scan.files.length` did NOT move:
+    // no `.ts` file was added or removed.
+    expect(scan.specifiers.length).toBe(2718);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {

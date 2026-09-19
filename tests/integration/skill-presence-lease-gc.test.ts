@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { SkillPresenceLease } from '../../src/services/skills/presence-lease-types.js';
+
 // Slice S3b (rid-s3b-doctor-check-typing): `as unknown as AnyRecord` erased the
 // imported module's type, so `setPresenceLease` / `gcStalePresenceLeases` were
 // `unknown` and calling them was a TS18046. The module's own type is the source
@@ -25,14 +27,22 @@ async function loadGc() {
   return module;
 }
 
-const stale = {
+// Declared as the contract type so the fixture cannot drift again: the GC
+// predicate reads `lastHeartbeat` / `startedAt` / `graphRef` / `workflowId`,
+// and the three fields it never looks at (`skill` / `depth` / `schemaVersion`)
+// are required by `SkillPresenceLease` all the same. The fixture previously
+// omitted them and carried a `sessionId` no lease has — `sessionId` lives on
+// `SetPresenceLeaseInput` (see the call below), not on a lease record.
+const stale: SkillPresenceLease = {
   workflowId: 'stale',
   callerId: 'caller',
-  sessionId: 'session',
   startedAt: '2026-08-01T00:00:00.000Z',
   lastHeartbeat: '2026-08-01T01:00:00.000Z',
   graphRef: 'graphs/stale.json',
-  status: 'running'
+  skill: 'peaks-code',
+  depth: 0,
+  status: 'running',
+  schemaVersion: 1
 };
 
 describe('presence lease GC integration', () => {
@@ -68,7 +78,12 @@ describe('presence lease GC integration', () => {
       staleLeases: [stale]
     });
     expect(result.gc?.removed).toBe(1);
-    expect(result.lease?.status ?? result.status).toBe('preparing');
+    // The test's own pass criterion names `result.lease.status`. The
+    // `?? result.status` fallback was dead: `setPresenceLease` returns
+    // `{ ...lease, lease, index, gc }`, so `result.lease` is never nullish and
+    // its `status` is the literal 'preparing' — `??` never evaluates its right
+    // operand. Dropping it removes an acceptance path the producer cannot take.
+    expect(result.lease?.status).toBe('preparing');
   });
 
   it('workspace-init trigger invokes the same GC service before binding a new lease. RD §3. Pass criterion: assert.equal(result.trigger, "workspace-init") and assert.equal(result.removed, 1).', async () => {
