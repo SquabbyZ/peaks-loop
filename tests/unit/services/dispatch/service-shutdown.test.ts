@@ -16,6 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { HEAVY_SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/services/dispatch/service-shutdown.test.ts',
@@ -23,7 +24,15 @@ declareDimensions(
   [
     {
       dim: 'integration',
-      reason: 'execFileSync is best-effort; unit tests stay on the skip branches'
+      // NOT "skipped in unit tests" — measured 2026-09-19, the win32 branch
+      // really does spawn `taskkill`, one real 18.7-28.7 s process per
+      // registration that reaches it. That cost is what made this file the
+      // source of two `Test timed out in 30000ms` failures; it is why the two
+      // spawning tests carry HEAVY_SUBPROCESS_TEST_TIMEOUT_MS. The dimension is
+      // still omitted: no describe here tests the SPAWN contract itself (which
+      // pid tree, which signal), only the skip/order mapping around it.
+      reason:
+        'no integration describe: the real taskkill spawn is incidental to the skip/order assertions'
     },
     { dim: 'render', reason: 'returns a structured ServiceKillResult, no text surface' },
     { dim: 'a11y', reason: 'no user-visible text or exit code' }
@@ -40,16 +49,20 @@ describe('Scenario: behavior — kill shape', () => {
     expect(killRegisteredServices({ registrations: [] })).toEqual([]);
   });
 
-  it('when invoked, should returns skipped: not-running when a pid that does not exist is given on win32', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const out = killRegisteredServices({
-      registrations: [{ pid: 99999, name: 'mock' }],
-      platform: 'win32'
-    });
-    expect(out).toEqual([{ pid: 99999, name: 'mock', skipped: true, reason: 'not-running' }]);
-  });
+  it(
+    'when invoked, should returns skipped: not-running when a pid that does not exist is given on win32',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      const out = killRegisteredServices({
+        registrations: [{ pid: 99999, name: 'mock' }],
+        platform: 'win32'
+      });
+      expect(out).toEqual([{ pid: 99999, name: 'mock', skipped: true, reason: 'not-running' }]);
+    }
+  );
 
   it('when invoked, should treats pid 0 as not-running without invoking kill', () => {
     // given: the test setup
@@ -62,17 +75,21 @@ describe('Scenario: behavior — kill shape', () => {
     expect(out[0]).toEqual({ pid: 0, name: 'self', skipped: true, reason: 'not-running' });
   });
 
-  it('when invoked, should preserves the order of registrations', () => {
-    // given: the test setup
-    // when:  the function under test is invoked
-    // then:  the result matches the expectation
-    const out = killRegisteredServices({
-      registrations: [
-        { pid: 99998, name: 'a' },
-        { pid: 99997, name: 'b' }
-      ],
-      platform: 'win32'
-    });
-    expect(out.map((r) => r.name)).toEqual(['a', 'b']);
-  });
+  it(
+    'when invoked, should preserves the order of registrations',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // given: the test setup
+      // when:  the function under test is invoked
+      // then:  the result matches the expectation
+      const out = killRegisteredServices({
+        registrations: [
+          { pid: 99998, name: 'a' },
+          { pid: 99997, name: 'b' }
+        ],
+        platform: 'win32'
+      });
+      expect(out.map((r) => r.name)).toEqual(['a', 'b']);
+    }
+  );
 });

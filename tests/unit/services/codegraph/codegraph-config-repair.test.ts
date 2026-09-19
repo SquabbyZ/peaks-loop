@@ -68,6 +68,7 @@ import {
   readTrackedFiles,
   reconcileCodegraphExclude
 } from '../../../../src/services/codegraph/codegraph-exclude-reconciler.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 import { upstreamUnnamedIncludeExtensions } from '../../../../src/services/codegraph/codegraph-include-reconciler.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
 
@@ -484,34 +485,41 @@ describe('reindex option — the dead-row purge path', () => {
     expect(runs[0]?.args).toContain('--force');
   });
 
-  it('both repair modes should keep the repair — `force` differs only in the rebuild', async () => {
-    const plainRoot = makeOrderingFixture();
-    const forcedRoot = makeOrderingFixture();
+  it(
+    'both repair modes should keep the repair — `force` differs only in the rebuild',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const plainRoot = makeOrderingFixture();
+      const forcedRoot = makeOrderingFixture();
 
-    const plain = await repairCodegraphExcludeFromProject(plainRoot, makeRecordingRunner().runner);
-    const forced = await repairCodegraphExcludeFromProject(
-      forcedRoot,
-      makeRecordingRunner().runner,
-      {
-        reindex: 'force'
-      }
-    );
+      const plain = await repairCodegraphExcludeFromProject(
+        plainRoot,
+        makeRecordingRunner().runner
+      );
+      const forced = await repairCodegraphExcludeFromProject(
+        forcedRoot,
+        makeRecordingRunner().runner,
+        {
+          reindex: 'force'
+        }
+      );
 
-    // The two modes produce the SAME config, byte for byte: `'force'` is not a
-    // different repair, it is the same repair followed by a different rebuild.
-    // Without this control the case above could be satisfied by a `'force'`
-    // special case that happens to write something else.
-    expect(readFileSync(configPathOf(forcedRoot), 'utf8')).toBe(
-      readFileSync(configPathOf(plainRoot), 'utf8')
-    );
-    expect(forced.rulesRemoved).toEqual(plain.rulesRemoved);
-    expect(forced.includePatternsAdded).toEqual(plain.includePatternsAdded);
-    expect(readFileSync(configPathOf(plainRoot), 'utf8')).not.toContain('"**/tool.mjs"');
+      // The two modes produce the SAME config, byte for byte: `'force'` is not a
+      // different repair, it is the same repair followed by a different rebuild.
+      // Without this control the case above could be satisfied by a `'force'`
+      // special case that happens to write something else.
+      expect(readFileSync(configPathOf(forcedRoot), 'utf8')).toBe(
+        readFileSync(configPathOf(plainRoot), 'utf8')
+      );
+      expect(forced.rulesRemoved).toEqual(plain.rulesRemoved);
+      expect(forced.includePatternsAdded).toEqual(plain.includePatternsAdded);
+      expect(readFileSync(configPathOf(plainRoot), 'utf8')).not.toContain('"**/tool.mjs"');
 
-    // …and the ONLY difference is the flag that reaches upstream.
-    expect(plain.forcedRebuild).toBe(false);
-    expect(forced.forcedRebuild).toBe(true);
-  });
+      // …and the ONLY difference is the flag that reaches upstream.
+      expect(plain.forcedRebuild).toBe(false);
+      expect(forced.forcedRebuild).toBe(true);
+    }
+  );
 
   it('should write the repair to disk BEFORE the follow-up index is spawned', async () => {
     const projectRoot = makeOrderingFixture();
@@ -543,39 +551,43 @@ describe('reindex option — the dead-row purge path', () => {
 // ── 3. render + a11y: the writer and its degraded paths ──────────────
 
 describe('the writer keeps the third-party config intact', () => {
-  it('DECLARED LIMITATION — a config with no `include` key is not repaired at all', async () => {
-    const projectRoot = makeProjectRoot('peaks-cg-repair-noinclude-');
-    git(projectRoot, ['init', '-q']);
-    git(projectRoot, ['config', 'user.email', 'peaks-test@example.com']);
-    git(projectRoot, ['config', 'user.name', 'peaks test']);
-    mkdirSync(join(projectRoot, 'vendor'), { recursive: true });
-    writeFileSync(join(projectRoot, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
-    git(projectRoot, ['add', '-A']);
-    git(projectRoot, ['commit', '-qm', 'fixture']);
-    // A hand-written minimal config with no `include` at all. Upstream's own
-    // `validateConfig` rejects such a file, and the READER here is strict
-    // about both keys, so the whole step degrades to its documented warning.
-    //
-    // This is UNCHANGED behaviour, asserted so that the widening did not
-    // quietly turn it into a throw or into a half-repair: before slice-002 the
-    // same strict read made the exclude axis skip this config too.
-    //
-    // (The WRITER is deliberately more tolerant than the reader — it repairs a
-    // config that carries only `exclude` without inventing an `include` key.
-    // That is what keeps `applyCodegraphConfigRepair`'s exclude-only callers
-    // working; it is pinned by the "no-op the second time" case in
-    // `codegraph-exclude-repair.test.ts`, which repairs such a config first.)
-    writeConfig(projectRoot, { exclude: ['**/vendor/**'] });
-    const before = readFileSync(configPathOf(projectRoot), 'utf8');
+  it(
+    'DECLARED LIMITATION — a config with no `include` key is not repaired at all',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const projectRoot = makeProjectRoot('peaks-cg-repair-noinclude-');
+      git(projectRoot, ['init', '-q']);
+      git(projectRoot, ['config', 'user.email', 'peaks-test@example.com']);
+      git(projectRoot, ['config', 'user.name', 'peaks test']);
+      mkdirSync(join(projectRoot, 'vendor'), { recursive: true });
+      writeFileSync(join(projectRoot, 'vendor', 'lib.ts'), 'export const lib = 1;\n', 'utf8');
+      git(projectRoot, ['add', '-A']);
+      git(projectRoot, ['commit', '-qm', 'fixture']);
+      // A hand-written minimal config with no `include` at all. Upstream's own
+      // `validateConfig` rejects such a file, and the READER here is strict
+      // about both keys, so the whole step degrades to its documented warning.
+      //
+      // This is UNCHANGED behaviour, asserted so that the widening did not
+      // quietly turn it into a throw or into a half-repair: before slice-002 the
+      // same strict read made the exclude axis skip this config too.
+      //
+      // (The WRITER is deliberately more tolerant than the reader — it repairs a
+      // config that carries only `exclude` without inventing an `include` key.
+      // That is what keeps `applyCodegraphConfigRepair`'s exclude-only callers
+      // working; it is pinned by the "no-op the second time" case in
+      // `codegraph-exclude-repair.test.ts`, which repairs such a config first.)
+      writeConfig(projectRoot, { exclude: ['**/vendor/**'] });
+      const before = readFileSync(configPathOf(projectRoot), 'utf8');
 
-    const { runs, runner } = makeRecordingRunner();
-    const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
+      const { runs, runner } = makeRecordingRunner();
+      const report = await repairCodegraphExcludeFromProject(projectRoot, runner);
 
-    expect(report.applied).toBe(false);
-    expect(report.warning).toContain('reconcile skipped');
-    expect(runs).toHaveLength(0);
-    expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(before);
-  });
+      expect(report.applied).toBe(false);
+      expect(report.warning).toContain('reconcile skipped');
+      expect(runs).toHaveLength(0);
+      expect(readFileSync(configPathOf(projectRoot), 'utf8')).toBe(before);
+    }
+  );
 
   it('should report the include axis in the warning when the follow-up index fails', async () => {
     const projectRoot = makeOrderingFixture();

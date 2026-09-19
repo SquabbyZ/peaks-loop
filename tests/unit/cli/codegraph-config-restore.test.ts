@@ -43,6 +43,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
 import { makeCapturedIo } from '../_setup/io.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 import {
   cleanupTmpWorkspace,
   useTmpWorkspace,
@@ -266,38 +267,46 @@ describe('behavior — every refusal shape, and what survives it', () => {
     expect(readFileSync(configPathOf(project), 'utf8')).not.toContain('INJECTED');
   });
 
-  it('should refuse a DIRECTORY at the backup path', async () => {
-    const project = seedProject(ws);
-    mkdirSync(backupPathOf(project));
+  it(
+    'should refuse a DIRECTORY at the backup path',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const project = seedProject(ws);
+      mkdirSync(backupPathOf(project));
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(parseJson(captured).ok).toBe(false);
-    // "at", not "through": there is nowhere for the bytes to land.
-    expect(parseJson(captured).data.reason).toContain('refusing to restore at a directory');
-  });
+      expect(parseJson(captured).ok).toBe(false);
+      // "at", not "through": there is nowhere for the bytes to land.
+      expect(parseJson(captured).data.reason).toContain('refusing to restore at a directory');
+    }
+  );
 });
 
 // ── integration: the real round trip ─────────────────────────────────
 
 describe('integration — repair then restore, against real files', () => {
-  it('should put the config back byte-for-byte to where it was before the repair', async () => {
-    const project = seedProject(ws);
-    const original = readFileSync(configPathOf(project), 'utf8');
+  it(
+    'should put the config back byte-for-byte to where it was before the repair',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const project = seedProject(ws);
+      const original = readFileSync(configPathOf(project), 'utf8');
 
-    await repairOnce(project);
-    // Non-vacuity control: the repair really moved the file, so the assertion
-    // below is a RESTORE and not a no-op that never had anything to undo.
-    expect(readFileSync(configPathOf(project), 'utf8')).not.toBe(original);
+      await repairOnce(project);
+      // Non-vacuity control: the repair really moved the file, so the assertion
+      // below is a RESTORE and not a no-op that never had anything to undo.
+      expect(readFileSync(configPathOf(project), 'utf8')).not.toBe(original);
 
-    const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
+      const captured = await runCodegraph(['config-restore', '--project', project, '--peaks-json']);
 
-    expect(parseJson(captured).data.restored).toBe(true);
-    expect(readFileSync(configPathOf(project), 'utf8')).toBe(original);
-    // The rollback point survives the restore, so a second restore is possible
-    // and the operator can undo an accidental one by repairing again.
-    expect(existsSync(backupPathOf(project))).toBe(true);
-  });
+      expect(parseJson(captured).data.restored).toBe(true);
+      expect(readFileSync(configPathOf(project), 'utf8')).toBe(original);
+      // The rollback point survives the restore, so a second restore is possible
+      // and the operator can undo an accidental one by repairing again.
+      expect(existsSync(backupPathOf(project))).toBe(true);
+    }
+  );
 
   it('should hand the backup`s own mode back to the config', async () => {
     const project = seedProject(ws);

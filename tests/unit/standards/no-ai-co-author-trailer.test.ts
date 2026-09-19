@@ -59,6 +59,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { declareDimensions } from '../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 declareDimensions(
   'tests/unit/standards/no-ai-co-author-trailer.test.ts',
@@ -238,57 +239,61 @@ describe('integration — the real commit history', () => {
     ).toEqual([]);
   });
 
-  it('flags a repository that really has the trailer — the injection control', () => {
-    // The test above asserts the real repo is CLEAN. A guard that cannot go
-    // red on an unclean one is indistinguishable from a guard that reads
-    // nothing, and this repo has shipped that shape before (diagnosis
-    // 2026-09-15: an assertion that could not fail). So: build a real git
-    // repository, commit a real violating message into it, and drive the SAME
-    // `readCommitMessages` + `findAiAttributionTrailers` chain over it.
-    //
-    // Both halves matter — the clean repo below is the control that shows the
-    // red result comes from the trailer and not from "any temp repo fails".
-    const base = mkdtempSync(join(tmpdir(), 'peaks-coauthor-injection-'));
-    const cleanRepo = join(base, 'clean');
-    const dirtyRepo = join(base, 'dirty');
-    const commit = (repo: string, message: string, file: string): void => {
-      mkdirSync(repo, { recursive: true });
-      execFileSync('git', ['init', '-q'], { cwd: repo, windowsHide: true });
-      execFileSync('git', ['config', 'user.name', 'SquabbyZ'], { cwd: repo, windowsHide: true });
-      execFileSync('git', ['config', 'user.email', '601709253@qq.com'], {
-        cwd: repo,
-        windowsHide: true
-      });
-      // Keeps `git add` from warning about LF→CRLF on a machine with
-      // core.autocrlf=true; the warning is stderr noise in the suite report.
-      execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: repo, windowsHide: true });
-      writeFileSync(join(repo, file), 'x\n', 'utf8');
-      execFileSync('git', ['add', '-A'], { cwd: repo, windowsHide: true });
-      execFileSync('git', ['commit', '-q', '-m', message], { cwd: repo, windowsHide: true });
-    };
-    try {
-      commit(cleanRepo, 'fix(misc): a normal commit', 'a.txt');
-      commit(dirtyRepo, 'fix(misc): a normal commit', 'a.txt');
-      commit(
-        dirtyRepo,
-        'fix(misc): an injected commit\n\nCo-Authored-By: Claude <noreply@anthropic.com>',
-        'b.txt'
-      );
+  it(
+    'flags a repository that really has the trailer — the injection control',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    () => {
+      // The test above asserts the real repo is CLEAN. A guard that cannot go
+      // red on an unclean one is indistinguishable from a guard that reads
+      // nothing, and this repo has shipped that shape before (diagnosis
+      // 2026-09-15: an assertion that could not fail). So: build a real git
+      // repository, commit a real violating message into it, and drive the SAME
+      // `readCommitMessages` + `findAiAttributionTrailers` chain over it.
+      //
+      // Both halves matter — the clean repo below is the control that shows the
+      // red result comes from the trailer and not from "any temp repo fails".
+      const base = mkdtempSync(join(tmpdir(), 'peaks-coauthor-injection-'));
+      const cleanRepo = join(base, 'clean');
+      const dirtyRepo = join(base, 'dirty');
+      const commit = (repo: string, message: string, file: string): void => {
+        mkdirSync(repo, { recursive: true });
+        execFileSync('git', ['init', '-q'], { cwd: repo, windowsHide: true });
+        execFileSync('git', ['config', 'user.name', 'SquabbyZ'], { cwd: repo, windowsHide: true });
+        execFileSync('git', ['config', 'user.email', '601709253@qq.com'], {
+          cwd: repo,
+          windowsHide: true
+        });
+        // Keeps `git add` from warning about LF→CRLF on a machine with
+        // core.autocrlf=true; the warning is stderr noise in the suite report.
+        execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: repo, windowsHide: true });
+        writeFileSync(join(repo, file), 'x\n', 'utf8');
+        execFileSync('git', ['add', '-A'], { cwd: repo, windowsHide: true });
+        execFileSync('git', ['commit', '-q', '-m', message], { cwd: repo, windowsHide: true });
+      };
+      try {
+        commit(cleanRepo, 'fix(misc): a normal commit', 'a.txt');
+        commit(dirtyRepo, 'fix(misc): a normal commit', 'a.txt');
+        commit(
+          dirtyRepo,
+          'fix(misc): an injected commit\n\nCo-Authored-By: Claude <noreply@anthropic.com>',
+          'b.txt'
+        );
 
-      // then: the control is clean and reads a non-empty history…
-      const cleanMessages = readCommitMessages(cleanRepo);
-      expect(cleanMessages.length).toBe(1);
-      expect(findAiAttributionTrailers(cleanMessages)).toEqual([]);
+        // then: the control is clean and reads a non-empty history…
+        const cleanMessages = readCommitMessages(cleanRepo);
+        expect(cleanMessages.length).toBe(1);
+        expect(findAiAttributionTrailers(cleanMessages)).toEqual([]);
 
-      // …and the injected repo is RED, naming the trailer it found
-      const dirtyMessages = readCommitMessages(dirtyRepo);
-      expect(dirtyMessages.length).toBe(2);
-      const findings = findAiAttributionTrailers(dirtyMessages);
-      expect(findings).toHaveLength(1);
-      expect(findings[0]?.trailer).toBe('Co-Authored-By: Claude <noreply@anthropic.com>');
-      expect(describeFindings(findings, dirtyMessages)).toContain('an injected commit');
-    } finally {
-      rmSync(base, { recursive: true, force: true });
+        // …and the injected repo is RED, naming the trailer it found
+        const dirtyMessages = readCommitMessages(dirtyRepo);
+        expect(dirtyMessages.length).toBe(2);
+        const findings = findAiAttributionTrailers(dirtyMessages);
+        expect(findings).toHaveLength(1);
+        expect(findings[0]?.trailer).toBe('Co-Authored-By: Claude <noreply@anthropic.com>');
+        expect(describeFindings(findings, dirtyMessages)).toContain('an injected commit');
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
     }
-  });
+  );
 });

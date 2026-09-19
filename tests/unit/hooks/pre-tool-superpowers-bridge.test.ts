@@ -19,6 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../_setup/subprocess-timeouts.js';
 
 const HOOK = resolve(
   __dirname,
@@ -62,19 +63,23 @@ function runBridge(payload: string): { status: number | null; stdout: string; st
 
 describe('slice rid-skill-persistence-001: bridge.sh rejects the 4 newly-denied superpowers skills', () => {
   for (const skillId of NEW_SKILLS) {
-    it(`emits the bridge reminder when Skill tool calls superpowers:${skillId}`, () => {
-      const payload = JSON.stringify({
-        tool_name: 'Skill',
-        tool_input: { skill: `superpowers:${skillId}` }
-      });
-      const { status, stdout } = runBridge(payload);
-      expect(status).toBe(0);
-      // The bridge envelope surfaces in stdout as a JSON object with
-      // `hookSpecificOutput.additionalContext`. We accept either the
-      // raw envelope (Claude Code shape) or one with a `decision`
-      // wrapper (some IDEs expect a normalized outer shape).
-      expect(stdout).toMatch(/hookSpecificOutput/);
-      expect(stdout).toMatch(/additionalContext/);
-    });
+    it(
+      `emits the bridge reminder when Skill tool calls superpowers:${skillId}`,
+      { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+      () => {
+        const payload = JSON.stringify({
+          tool_name: 'Skill',
+          tool_input: { skill: `superpowers:${skillId}` }
+        });
+        const { status, stdout } = runBridge(payload);
+        expect(status).toBe(0);
+        // The bridge envelope surfaces in stdout as a JSON object with
+        // `hookSpecificOutput.additionalContext`. We accept either the
+        // raw envelope (Claude Code shape) or one with a `decision`
+        // wrapper (some IDEs expect a normalized outer shape).
+        expect(stdout).toMatch(/hookSpecificOutput/);
+        expect(stdout).toMatch(/additionalContext/);
+      }
+    );
   }
 });

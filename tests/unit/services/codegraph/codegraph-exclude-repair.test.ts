@@ -60,6 +60,7 @@ import { rollbackCodegraphConfig } from '../../../../src/services/codegraph/code
 import type { CodegraphConfigRollbackResult } from '../../../../src/services/codegraph/codegraph-config-repair-writer.js';
 import { inspectCodegraphExcludeIntegrity } from '../../../../src/services/codegraph/codegraph-exclude-integrity.js';
 import { declareDimensions } from '../../_setup/4dim-template.js';
+import { SUBPROCESS_TEST_TIMEOUT_MS } from '../../_setup/subprocess-timeouts.js';
 
 declareDimensions('tests/unit/services/codegraph/codegraph-exclude-repair.test.ts', [
   'render',
@@ -335,42 +336,46 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
     }
   });
 
-  it('reproduces the defect from the upstream template, then converges to zero violations', async () => {
-    const projectRoot = makeFreshCloneFixture();
+  it(
+    'reproduces the defect from the upstream template, then converges to zero violations',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const projectRoot = makeFreshCloneFixture();
 
-    // before — upstream default template, untouched
-    const before = inspectCodegraphExcludeIntegrity(projectRoot);
-    expect(before.gap).toBe(true);
-    expect(before.excludedTrackedCount).toBe(HIT_DIRS.length);
-    expect([...before.rulesToRemove].sort()).toEqual([...OFFENDER_RULES].sort());
+      // before — upstream default template, untouched
+      const before = inspectCodegraphExcludeIntegrity(projectRoot);
+      expect(before.gap).toBe(true);
+      expect(before.excludedTrackedCount).toBe(HIT_DIRS.length);
+      expect([...before.rulesToRemove].sort()).toEqual([...OFFENDER_RULES].sort());
 
-    const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
+      const report = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
 
-    expect(report.applied).toBe(true);
-    expect(report.filesRecovered).toBe(HIT_DIRS.length);
-    expect(report.reindexed).toBe(true);
-    expect(report.warning).toBeNull();
-    expect([...report.rulesRemoved].sort()).toEqual([...OFFENDER_RULES].sort());
+      expect(report.applied).toBe(true);
+      expect(report.filesRecovered).toBe(HIT_DIRS.length);
+      expect(report.reindexed).toBe(true);
+      expect(report.warning).toBeNull();
+      expect([...report.rulesRemoved].sort()).toEqual([...OFFENDER_RULES].sort());
 
-    // after — idempotent and converged
-    const after = inspectCodegraphExcludeIntegrity(projectRoot);
-    expect(after.gap).toBe(false);
-    expect(after.rulesToRemove).toEqual([]);
-    expect(after.excludedTrackedCount).toBe(0);
+      // after — idempotent and converged
+      const after = inspectCodegraphExcludeIntegrity(projectRoot);
+      expect(after.gap).toBe(false);
+      expect(after.rulesToRemove).toEqual([]);
+      expect(after.excludedTrackedCount).toBe(0);
 
-    // the harmless default rules survived
-    const excludeAfter = readConfig(projectRoot).exclude as string[];
-    expect(excludeAfter).toContain('**/node_modules/**');
-    expect(excludeAfter).toContain('**/target/release/**');
-    expect(excludeAfter.length).toBe(
-      UPSTREAM_DEFAULT_CONFIG.exclude.length - OFFENDER_RULES.length
-    );
+      // the harmless default rules survived
+      const excludeAfter = readConfig(projectRoot).exclude as string[];
+      expect(excludeAfter).toContain('**/node_modules/**');
+      expect(excludeAfter).toContain('**/target/release/**');
+      expect(excludeAfter.length).toBe(
+        UPSTREAM_DEFAULT_CONFIG.exclude.length - OFFENDER_RULES.length
+      );
 
-    // second run has nothing left to do and writes nothing
-    const second = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
-    expect(second.applied).toBe(false);
-    expect(second.warning).toBeNull();
-  });
+      // second run has nothing left to do and writes nothing
+      const second = await repairCodegraphExcludeFromProject(projectRoot, stubRunner);
+      expect(second.applied).toBe(false);
+      expect(second.warning).toBeNull();
+    }
+  );
 
   it('never counts — and never removes a rule for — an untracked file', () => {
     const projectRoot = makeFreshCloneFixture();
@@ -427,29 +432,33 @@ describe('repairCodegraphExcludeFromProject (fresh clone self-heal)', () => {
     expect(report.warning).toContain('reconcile skipped');
   });
 
-  it('with reindex:false, should repair the config but leave the index rebuild to the caller', async () => {
-    // The pre-dispatch preflight and the post-slice autorefresh both run
-    // `index` immediately after this step, so asking for a second rebuild
-    // here would index the same tree twice (5-30 s each).
-    const projectRoot = makeFreshCloneFixture();
-    let runnerCalls = 0;
-    const countingRunner = async () => {
-      runnerCalls += 1;
-      return { exitCode: 0, stdout: '', stderr: '' };
-    };
+  it(
+    'with reindex:false, should repair the config but leave the index rebuild to the caller',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The pre-dispatch preflight and the post-slice autorefresh both run
+      // `index` immediately after this step, so asking for a second rebuild
+      // here would index the same tree twice (5-30 s each).
+      const projectRoot = makeFreshCloneFixture();
+      let runnerCalls = 0;
+      const countingRunner = async () => {
+        runnerCalls += 1;
+        return { exitCode: 0, stdout: '', stderr: '' };
+      };
 
-    const report = await repairCodegraphExcludeFromProject(projectRoot, countingRunner, {
-      reindex: false
-    });
+      const report = await repairCodegraphExcludeFromProject(projectRoot, countingRunner, {
+        reindex: false
+      });
 
-    expect(report.applied).toBe(true);
-    expect(runnerCalls).toBe(0);
-    expect(report.reindexed).toBe(false);
-    // Not a degradation: nothing went wrong, so there is nothing to warn about.
-    expect(report.warning).toBeNull();
-    // The config repair itself still landed.
-    expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
-  });
+      expect(report.applied).toBe(true);
+      expect(runnerCalls).toBe(0);
+      expect(report.reindexed).toBe(false);
+      // Not a degradation: nothing went wrong, so there is nothing to warn about.
+      expect(report.warning).toBeNull();
+      // The config repair itself still landed.
+      expect(inspectCodegraphExcludeIntegrity(projectRoot).gap).toBe(false);
+    }
+  );
 });
 
 // ── A1 + A4 (`2026-09-17-codegraph-msg-and-refresh`) ──────────────────

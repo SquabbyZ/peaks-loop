@@ -37,6 +37,10 @@ import {
   resolveOutputBudget,
   type LlmRunner
 } from '~/src/services/final-review/final-review-service';
+import {
+  HEAVY_SUBPROCESS_TEST_TIMEOUT_MS,
+  SUBPROCESS_TEST_TIMEOUT_MS
+} from '../_setup/subprocess-timeouts.js';
 
 const RID = '2026-09-12-d1-fixture';
 const SESSION_ID = '2026-09-12-session-fixture';
@@ -277,43 +281,47 @@ function dimensionsCovered(prompt: string): ReadonlySet<string> {
 }
 
 describe('prepareFinalReview — on-disk evidence (D1)', () => {
-  it('inlines every present evidence source into the prompt', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders', 'AC2: exit code 0']);
-    writeAllEvidence(root);
+  it(
+    'inlines every present evidence source into the prompt',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders', 'AC2: exit code 0']);
+      writeAllEvidence(root);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    expect(calls).toHaveLength(1);
-    const prompt = calls[0]?.userPrompt ?? '';
-    for (const marker of [
-      'MARKER-QA-TEST-REPORT',
-      'MARKER-QA-TEST-CASES',
-      'MARKER-QA-SECURITY',
-      'MARKER-QA-PERFORMANCE',
-      'MARKER-RD-CODE-REVIEW',
-      'MARKER-RD-SECURITY-REVIEW',
-      'MARKER-RD-TECH-DOC',
-      'MARKER-RD-BUG-ANALYSIS',
-      'MARKER-PRD-HANDOFF'
-    ]) {
-      expect(prompt).toContain(marker);
+      expect(calls).toHaveLength(1);
+      const prompt = calls[0]?.userPrompt ?? '';
+      for (const marker of [
+        'MARKER-QA-TEST-REPORT',
+        'MARKER-QA-TEST-CASES',
+        'MARKER-QA-SECURITY',
+        'MARKER-QA-PERFORMANCE',
+        'MARKER-RD-CODE-REVIEW',
+        'MARKER-RD-SECURITY-REVIEW',
+        'MARKER-RD-TECH-DOC',
+        'MARKER-RD-BUG-ANALYSIS',
+        'MARKER-PRD-HANDOFF'
+      ]) {
+        expect(prompt).toContain(marker);
+      }
+      expect(prompt).toContain('AC1: the widget renders');
+      expect(prompt).toContain('STATUS: FOUND');
+
+      // Evidence existed and backed the passes — including the pre/post baseline
+      // the 4th dimension needs — so an honest 4/4 pass survives.
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
     }
-    expect(prompt).toContain('AC1: the widget renders');
-    expect(prompt).toContain('STATUS: FOUND');
-
-    // Evidence existed and backed the passes — including the pre/post baseline
-    // the 4th dimension needs — so an honest 4/4 pass survives.
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
-  });
+  );
 
   it('never returns pass when every evidence source is missing (core D1 property)', async () => {
     const root = makeProject();
@@ -698,114 +706,122 @@ describe('prepareFinalReview — output contract', () => {
 // the F-BLOCK describe below pins both non-delivery and delivery.
 // ---------------------------------------------------------------------------
 describe('prepareFinalReview — evidence budget (D2: no dimension is starved)', () => {
-  it('gives all four dimensions evidence when the sources saturate the budget', async () => {
-    // A git fixture so the 4th dimension's `pre-post-diff` source exists at all
-    // (see `makeGitProject`); it is allocated LAST and is one of the sources F1
-    // gives a floor to.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    // Every fixed source is EXACTLY the per-file cap, so each one is a WHOLE
-    // document — which is the delivery rule for a source whose producer
-    // publishes no conclusion literal — while the ten of them together are far
-    // past the total budget. That is the configuration the reservation exists
-    // for: four units fit and six do not, and the four that fit have to be the
-    // ones whose dimensions could not be judged without them.
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
+  it(
+    'gives all four dimensions evidence when the sources saturate the budget',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // A git fixture so the 4th dimension's `pre-post-diff` source exists at all
+      // (see `makeGitProject`); it is allocated LAST and is one of the sources F1
+      // gives a floor to.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      // Every fixed source is EXACTLY the per-file cap, so each one is a WHOLE
+      // document — which is the delivery rule for a source whose producer
+      // publishes no conclusion literal — while the ten of them together are far
+      // past the total budget. That is the configuration the reservation exists
+      // for: four units fit and six do not, and the four that fit have to be the
+      // ones whose dimensions could not be judged without them.
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const prompt = calls[0]?.userPrompt ?? '';
-    const rendered = parseRenderedSources(prompt);
-    const covered = dimensionsCovered(prompt);
-    for (const dimension of REQUIRED) {
-      expect([...covered]).toContain(dimension);
+      const prompt = calls[0]?.userPrompt ?? '';
+      const rendered = parseRenderedSources(prompt);
+      const covered = dimensionsCovered(prompt);
+      for (const dimension of REQUIRED) {
+        expect([...covered]).toContain(dimension);
+      }
+
+      // The two sources the DELIVERY GATES rest on, named explicitly. Pre-F1 they
+      // were the two the budget omitted on every saturated run; the floor is what
+      // makes them reachable, and reachability is the whole point — a gate whose
+      // source never fits is a gate that is always red.
+      expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
+      expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
+      // ...and the source F1 took the floor AWAY from is the one that loses now:
+      // `rd-tech-doc.md` supports the 4th dimension, which prompt rule 6 declares
+      // it insufficient for (a design-intent document is not a before/after
+      // comparison), so it is the legitimate casualty.
+      expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
+      expect(prompt).toContain('MISSING (omitted)');
+
+      // Delivery was restored for all four dimensions, so a clean 4/4 survives —
+      // "achievability", not "green": the reviewer's own verdicts still have to
+      // be backed by what arrived, and everything that arrived arrived whole.
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
+      expect(out.dimensions.find((d) => d.dimension === 'functional-completeness')?.verdict).toBe(
+        'pass'
+      );
+      expect(
+        out.dimensions.find((d) => d.dimension === 'existing-functionality-intact')?.verdict
+      ).toBe('pass');
+
+      // The reservation is a floor, not a quota: the first source still gets the
+      // full per-file cap before any floor is drawn on.
+      expect(rendered[0]?.includedBytes).toBe(MAX_EVIDENCE_BYTES_PER_FILE);
     }
+  );
 
-    // The two sources the DELIVERY GATES rest on, named explicitly. Pre-F1 they
-    // were the two the budget omitted on every saturated run; the floor is what
-    // makes them reachable, and reachability is the whole point — a gate whose
-    // source never fits is a gate that is always red.
-    expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
-    expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
-    // ...and the source F1 took the floor AWAY from is the one that loses now:
-    // `rd-tech-doc.md` supports the 4th dimension, which prompt rule 6 declares
-    // it insufficient for (a design-intent document is not a before/after
-    // comparison), so it is the legitimate casualty.
-    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
-    expect(prompt).toContain('MISSING (omitted)');
+  it(
+    'reaches a dimension whose only evidence is the very last source in the order',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
+      // Drop the EARLIER of the sources that can back
+      // `existing-functionality-intact`, so its only remaining chances are the
+      // 9th and LAST two sources. First-come-first-served reaches neither.
+      rmSync(join(root, '.peaks', '_runtime', SESSION_ID, 'rd', 'tech-doc.md'));
 
-    // Delivery was restored for all four dimensions, so a clean 4/4 survives —
-    // "achievability", not "green": the reviewer's own verdicts still have to
-    // be backed by what arrived, and everything that arrived arrived whole.
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
-    expect(out.dimensions.find((d) => d.dimension === 'functional-completeness')?.verdict).toBe(
-      'pass'
-    );
-    expect(
-      out.dimensions.find((d) => d.dimension === 'existing-functionality-intact')?.verdict
-    ).toBe('pass');
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    // The reservation is a floor, not a quota: the first source still gets the
-    // full per-file cap before any floor is drawn on.
-    expect(rendered[0]?.includedBytes).toBe(MAX_EVIDENCE_BYTES_PER_FILE);
-  });
+      const prompt = calls[0]?.userPrompt ?? '';
+      const rendered = parseRenderedSources(prompt);
+      // All ten blocks are still rendered — nine fixed sources plus the
+      // pre/post-diff artifact — and a missing file is stated, not skipped.
+      expect(rendered).toHaveLength(10);
+      expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('missing');
 
-  it('reaches a dimension whose only evidence is the very last source in the order', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
-    // Drop the EARLIER of the sources that can back
-    // `existing-functionality-intact`, so its only remaining chances are the
-    // 9th and LAST two sources. First-come-first-served reaches neither.
-    rmSync(join(root, '.peaks', '_runtime', SESSION_ID, 'rd', 'tech-doc.md'));
+      // The 8th and 9th sources are this dimension's last chances, and the floors
+      // reach them: reserving the source a GATE depends on is what keeps the
+      // dimension from being blind, which is exactly what F1 fixed.
+      const handoff = rendered.find((s) => s.key === 'prd-handoff');
+      const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
+      expect(handoff?.status).toBe('found');
+      expect(handoff?.includedBytes).toBeGreaterThan(0);
+      expect(ppd?.status).toBe('found');
+      expect(ppd?.includedBytes).toBeGreaterThan(0);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      for (const dimension of REQUIRED) {
+        expect([...dimensionsCovered(prompt)]).toContain(dimension);
+      }
 
-    const prompt = calls[0]?.userPrompt ?? '';
-    const rendered = parseRenderedSources(prompt);
-    // All ten blocks are still rendered — nine fixed sources plus the
-    // pre/post-diff artifact — and a missing file is stated, not skipped.
-    expect(rendered).toHaveLength(10);
-    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('missing');
-
-    // The 8th and 9th sources are this dimension's last chances, and the floors
-    // reach them: reserving the source a GATE depends on is what keeps the
-    // dimension from being blind, which is exactly what F1 fixed.
-    const handoff = rendered.find((s) => s.key === 'prd-handoff');
-    const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
-    expect(handoff?.status).toBe('found');
-    expect(handoff?.includedBytes).toBeGreaterThan(0);
-    expect(ppd?.status).toBe('found');
-    expect(ppd?.includedBytes).toBeGreaterThan(0);
-
-    for (const dimension of REQUIRED) {
-      expect([...dimensionsCovered(prompt)]).toContain(dimension);
+      // ...so the dimension keeps a `pass` the reviewer did back with evidence:
+      // the comparison it names is among the blocks, delivered whole, and the
+      // fixture's own baseline reports no drift.
+      const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      expect(dimension?.verdict).toBe('pass');
+      expect(dimension?.summary).not.toContain('pre-post-diff-gate');
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
     }
-
-    // ...so the dimension keeps a `pass` the reviewer did back with evidence:
-    // the comparison it names is among the blocks, delivered whole, and the
-    // fixture's own baseline reports no drift.
-    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    expect(dimension?.verdict).toBe('pass');
-    expect(dimension?.summary).not.toContain('pre-post-diff-gate');
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
-  });
+  );
 
   it('states the reservation as the reason when a source is held back by it', async () => {
     const root = makeProject();
@@ -869,53 +885,57 @@ describe('prepareFinalReview — evidence budget (D2: no dimension is starved)',
 // early return swallowed.
 // ---------------------------------------------------------------------------
 describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOCK)', () => {
-  it('delivers the baseline the gate rests on, so the gate is not the only defence', async () => {
-    // The QA probe's shape: a real git work tree (so a baseline IS computed)
-    // with every source at the per-file cap, i.e. a run that saturates the
-    // budget. Pre-F1 the appended block was the FIRST thing the budget dropped
-    // on exactly this fixture, every run, and the delivery gate had to catch it
-    // afterwards. F1 reserves the block's unit for the dimension whose contract
-    // names it, so the bytes are there and the gate never has to fire.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
+  it(
+    'delivers the baseline the gate rests on, so the gate is not the only defence',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The QA probe's shape: a real git work tree (so a baseline IS computed)
+      // with every source at the per-file cap, i.e. a run that saturates the
+      // budget. Pre-F1 the appended block was the FIRST thing the budget dropped
+      // on exactly this fixture, every run, and the delivery gate had to catch it
+      // afterwards. F1 reserves the block's unit for the dimension whose contract
+      // names it, so the bytes are there and the gate never has to fire.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const prompt = calls[0]?.userPrompt ?? '';
-    const ppd = parseRenderedSources(prompt).find((s) => s.key === 'final-review-pre-post-diff');
-    expect(ppd?.status).toBe('found');
-    // Whole, and the conclusion came with it: the artifact opens with its
-    // `VERDICT:` line, which is the `conclusion` delivery rule for this source.
-    expect(ppd?.includedBytes).toBeGreaterThan(0);
-    expect(prompt).toContain('VERDICT: ');
-    // The producer block and the source block agree, which was the whole
-    // F-BLOCK point — and now they agree because the block WAS delivered.
-    expect(prompt).toContain('STATUS: COMPUTED —');
-    expect(prompt).not.toContain('STATUS: COMPUTED ON DISK, NOT DELIVERED');
+      const prompt = calls[0]?.userPrompt ?? '';
+      const ppd = parseRenderedSources(prompt).find((s) => s.key === 'final-review-pre-post-diff');
+      expect(ppd?.status).toBe('found');
+      // Whole, and the conclusion came with it: the artifact opens with its
+      // `VERDICT:` line, which is the `conclusion` delivery rule for this source.
+      expect(ppd?.includedBytes).toBeGreaterThan(0);
+      expect(prompt).toContain('VERDICT: ');
+      // The producer block and the source block agree, which was the whole
+      // F-BLOCK point — and now they agree because the block WAS delivered.
+      expect(prompt).toContain('STATUS: COMPUTED —');
+      expect(prompt).not.toContain('STATUS: COMPUTED ON DISK, NOT DELIVERED');
 
-    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    expect(dimension?.verdict).toBe('pass');
-    expect(dimension?.summary).not.toContain('pre-post-diff-gate');
-    // The artifact the verdict rests on IS attached, because the reviewer had
-    // it: the attachment follows the same delivery judgement as the gate.
-    expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
+      const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      expect(dimension?.verdict).toBe('pass');
+      expect(dimension?.summary).not.toContain('pre-post-diff-gate');
+      // The artifact the verdict rests on IS attached, because the reviewer had
+      // it: the attachment follows the same delivery judgement as the gate.
+      expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
 
-    // Neither delivery gate fires on this run, and nothing else moves.
-    for (const other of out.dimensions) {
-      expect(other.verdict).toBe('pass');
-      expect(other.summary).not.toContain('gate');
+      // Neither delivery gate fires on this run, and nothing else moves.
+      for (const other of out.dimensions) {
+        expect(other.verdict).toBe('pass');
+        expect(other.summary).not.toContain('gate');
+      }
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
     }
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
-  });
+  );
 
   it('leaves its marker when the evidence gate already downgraded the same dimension', async () => {
     // No evidence at all AND no computable baseline: both gates fire on the
@@ -941,32 +961,36 @@ describe('prepareFinalReview — the pre/post-diff gate keys on DELIVERY (F-BLOC
     expect(dimension?.summary).toContain('is already non-"pass" and is left unchanged');
   });
 
-  it('does not let an "inconclusive" verdict keep "high" confidence (F-NIT)', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root);
+  it(
+    'does not let an "inconclusive" verdict keep "high" confidence (F-NIT)',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root);
 
-    // The reviewer itself returns the contradiction the schema allows but the
-    // meaning does not: "high" confidence that it could not tell.
-    const verdicts = { ...allVerdicts('pass'), 'no-new-bugs': 'inconclusive' as Verdict };
-    const { runner } = captureRunner(reviewJson(verdicts, { allPass: true, needsAttention: [] }));
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      // The reviewer itself returns the contradiction the schema allows but the
+      // meaning does not: "high" confidence that it could not tell.
+      const verdicts = { ...allVerdicts('pass'), 'no-new-bugs': 'inconclusive' as Verdict };
+      const { runner } = captureRunner(reviewJson(verdicts, { allPass: true, needsAttention: [] }));
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const noNewBugs = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
-    expect(noNewBugs?.verdict).toBe('inconclusive');
-    expect(noNewBugs?.confidence).toBe('medium');
-    expect(noNewBugs?.summary).toContain('confidence-gate');
-    // A verdict that says something real keeps its confidence.
-    expect(out.dimensions.find((d) => d.dimension === 'functional-completeness')?.confidence).toBe(
-      'high'
-    );
-    expect(out.allPass).toBe(false);
-    expect(out.needsAttention).toEqual(['no-new-bugs']);
-  });
+      const noNewBugs = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
+      expect(noNewBugs?.verdict).toBe('inconclusive');
+      expect(noNewBugs?.confidence).toBe('medium');
+      expect(noNewBugs?.summary).toContain('confidence-gate');
+      // A verdict that says something real keeps its confidence.
+      expect(
+        out.dimensions.find((d) => d.dimension === 'functional-completeness')?.confidence
+      ).toBe('high');
+      expect(out.allPass).toBe(false);
+      expect(out.needsAttention).toEqual(['no-new-bugs']);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1009,206 +1033,226 @@ describe('prepareFinalReview — a source is delivered whole or not at all (F-BL
   const ppDiffPath = (root: string): string =>
     join(root, '.peaks', '_runtime', SESSION_ID, 'final-review', 'api-diff.txt');
 
-  it('never treats a fragment of the baseline as a delivered baseline (the 1-byte repro)', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    // The QA probe's shape: nine sources of exactly 4,551 B — 9 x 4,551 = 40,959
-    // — leave 1 byte of the 40,960-byte budget free when the appended baseline
-    // is reached.
-    writeAllEvidence(root, '', 4551);
+  it(
+    'never treats a fragment of the baseline as a delivered baseline (the 1-byte repro)',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      // The QA probe's shape: nine sources of exactly 4,551 B — 9 x 4,551 = 40,959
+      // — leave 1 byte of the 40,960-byte budget free when the appended baseline
+      // is reached.
+      writeAllEvidence(root, '', 4551);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
-
-    const prompt = calls[0]?.userPrompt ?? '';
-    const rendered = parseRenderedSources(prompt);
-    const ppd = rendered.find((s) => s.key === PP_DIFF_KEY);
-
-    // Ten blocks are rendered, and the tenth is delivered WHOLE. The one byte
-    // the old allocator had left is no longer what the block rests on: F1
-    // reserves this source's unit for the dimension whose contract names it,
-    // and under all-or-nothing a reserved unit is served or the reservation is
-    // a lie. What matters here is that the old reading is unreachable — no
-    // source is ever delivered as a fragment (1 byte of 4,226 was the repro).
-    expect(rendered).toHaveLength(10);
-    expect(prompt).not.toMatch(/showing the first \d+ of/);
-    expect(prompt).not.toContain('showing the first 1 of');
-    expect(ppd?.status).toBe('found');
-    expect(ppd?.includedBytes).toBe(statSync(ppDiffPath(root)).size);
-    expect(prompt).toContain('VERDICT: ');
-    expect(prompt).toContain('STATUS: COMPUTED —');
-
-    // ...so the baseline the pass rests on is one the reviewer actually had,
-    // and the artifact is attached because of it.
-    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    expect(dimension?.verdict).toBe('pass');
-    expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
-    expect(out.allPass).toBe(true);
-  });
-
-  it('delivers the CONCLUSION even when the artifact is over the per-file cap', async () => {
-    // A baseline bigger than the cap arrives truncated — legitimately, because
-    // the FILE is the thing that is too big. Truncation is only survivable
-    // because the verdict is the first thing in the artifact: the head slice
-    // contains the conclusion, so the dimension can still be judged. With the
-    // verdict back at the END of the file (where it used to live), every
-    // over-cap delivery deterministically lost it and this test goes red.
-    const root = makeGitProject();
-    mkdirSync(join(root, 'tests'), { recursive: true });
-    mkdirSync(join(root, 'src'), { recursive: true });
-    for (let i = 0; i < 240; i += 1) {
-      writeFileSync(
-        join(root, 'tests', `case-${String(i)}.test.ts`),
-        `it('case ${String(i)}', () => {});\n`,
-        'utf8'
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
       );
-      writeFileSync(
-        join(root, 'src', `module-${String(i)}.ts`),
-        `export const value${String(i)} = ${String(i)};\n`,
-        'utf8'
-      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
+
+      const prompt = calls[0]?.userPrompt ?? '';
+      const rendered = parseRenderedSources(prompt);
+      const ppd = rendered.find((s) => s.key === PP_DIFF_KEY);
+
+      // Ten blocks are rendered, and the tenth is delivered WHOLE. The one byte
+      // the old allocator had left is no longer what the block rests on: F1
+      // reserves this source's unit for the dimension whose contract names it,
+      // and under all-or-nothing a reserved unit is served or the reservation is
+      // a lie. What matters here is that the old reading is unreachable — no
+      // source is ever delivered as a fragment (1 byte of 4,226 was the repro).
+      expect(rendered).toHaveLength(10);
+      expect(prompt).not.toMatch(/showing the first \d+ of/);
+      expect(prompt).not.toContain('showing the first 1 of');
+      expect(ppd?.status).toBe('found');
+      expect(ppd?.includedBytes).toBe(statSync(ppDiffPath(root)).size);
+      expect(prompt).toContain('VERDICT: ');
+      expect(prompt).toContain('STATUS: COMPUTED —');
+
+      // ...so the baseline the pass rests on is one the reviewer actually had,
+      // and the artifact is attached because of it.
+      const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      expect(dimension?.verdict).toBe('pass');
+      expect((dimension?.evidence ?? []).filter((i) => i.kind === 'pre-post-diff')).toHaveLength(1);
+      expect(out.allPass).toBe(true);
     }
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root);
+  );
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
-
-    const artifact = statSync(ppDiffPath(root)).size;
-    expect(artifact).toBeGreaterThan(MAX_EVIDENCE_BYTES_PER_FILE);
-
-    const prompt = calls[0]?.userPrompt ?? '';
-    const ppd = parseRenderedSources(prompt).find((s) => s.key === PP_DIFF_KEY);
-    expect(ppd?.status).toBe('found');
-    expect(ppd?.includedBytes).toBe(MAX_EVIDENCE_BYTES_PER_FILE);
-    expect(prompt).toContain('TRUNCATED');
-    // The whole point: the delivered slice CARRIES the conclusion.
-    expect(prompt).toContain('VERDICT: ');
-
-    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    expect(dimension?.verdict).toBe('pass');
-    expect(out.allPass).toBe(true);
-  });
-
-  it('inlines every source whole or omits it — never a slice in between', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    // Every source is EXACTLY the 8 KiB per-file cap, so "a source stopped
-    // strictly between 0 and its own size" is unambiguous: it is a slice the
-    // budget cut, not a file the cap trimmed. Pre-fix the fifth source was cut
-    // to the 4,096 bytes the reservation left free.
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
-
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
-
-    const prompt = calls[0]?.userPrompt ?? '';
-    const rendered = parseRenderedSources(prompt);
-    const onDisk: Record<string, number> = Object.fromEntries(
-      NINE_SOURCE_KEYS.map((key) => [key, MAX_EVIDENCE_BYTES_PER_FILE])
-    );
-    onDisk[PP_DIFF_KEY] = statSync(ppDiffPath(root)).size;
-
-    let omitted = 0;
-    for (const source of rendered) {
-      if (source.status === 'omitted') {
-        omitted += 1;
-        expect(source.includedBytes).toBe(0);
-        continue;
+  it(
+    'delivers the CONCLUSION even when the artifact is over the per-file cap',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // A baseline bigger than the cap arrives truncated — legitimately, because
+      // the FILE is the thing that is too big. Truncation is only survivable
+      // because the verdict is the first thing in the artifact: the head slice
+      // contains the conclusion, so the dimension can still be judged. With the
+      // verdict back at the END of the file (where it used to live), every
+      // over-cap delivery deterministically lost it and this test goes red.
+      const root = makeGitProject();
+      mkdirSync(join(root, 'tests'), { recursive: true });
+      mkdirSync(join(root, 'src'), { recursive: true });
+      for (let i = 0; i < 240; i += 1) {
+        writeFileSync(
+          join(root, 'tests', `case-${String(i)}.test.ts`),
+          `it('case ${String(i)}', () => {});\n`,
+          'utf8'
+        );
+        writeFileSync(
+          join(root, 'src', `module-${String(i)}.ts`),
+          `export const value${String(i)} = ${String(i)};\n`,
+          'utf8'
+        );
       }
-      // The invariant: whatever a FOUND block carries is its WHOLE unit —
-      // `min(file bytes, per-file cap)` — never a fragment of it.
-      expect(source.includedBytes).toBe(
-        Math.min(onDisk[source.key] ?? 0, MAX_EVIDENCE_BYTES_PER_FILE)
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root);
+
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
       );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
+
+      const artifact = statSync(ppDiffPath(root)).size;
+      expect(artifact).toBeGreaterThan(MAX_EVIDENCE_BYTES_PER_FILE);
+
+      const prompt = calls[0]?.userPrompt ?? '';
+      const ppd = parseRenderedSources(prompt).find((s) => s.key === PP_DIFF_KEY);
+      expect(ppd?.status).toBe('found');
+      expect(ppd?.includedBytes).toBe(MAX_EVIDENCE_BYTES_PER_FILE);
+      expect(prompt).toContain('TRUNCATED');
+      // The whole point: the delivered slice CARRIES the conclusion.
+      expect(prompt).toContain('VERDICT: ');
+
+      const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      expect(dimension?.verdict).toBe('pass');
+      expect(out.allPass).toBe(true);
     }
+  );
 
-    // The fixture is genuinely saturated (the invariant is not vacuous), and the
-    // sources it holds back are F1's deliberate casualties, not fragments.
-    expect(omitted).toBeGreaterThan(0);
-    expect(rendered.find((s) => s.key === 'rd-code-review')?.status).toBe('omitted');
-    expect(prompt).not.toMatch(/showing the first \d+ of/);
-  });
+  it(
+    'inlines every source whole or omits it — never a slice in between',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      // Every source is EXACTLY the 8 KiB per-file cap, so "a source stopped
+      // strictly between 0 and its own size" is unambiguous: it is a slice the
+      // budget cut, not a file the cap trimmed. Pre-fix the fifth source was cut
+      // to the 4,096 bytes the reservation left free.
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
 
-  it('does not let a pass on functional-completeness outlive a contract that never arrived', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
-    // F4's repro, kept as the shell of the F-BLOCK-1BYTE one: the contract is
-    // NOT absent (that is the test below), it is ON DISK for this run and the
-    // reviewer received none of it. `qa-test-report` — which also backs this
-    // dimension, and is first in the order — is delivered whole, which is the
-    // exact configuration in which the pre-fix rule let the pass stand.
-    writeFileSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'), '', 'utf8');
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const prompt = calls[0]?.userPrompt ?? '';
+      const rendered = parseRenderedSources(prompt);
+      const onDisk: Record<string, number> = Object.fromEntries(
+        NINE_SOURCE_KEYS.map((key) => [key, MAX_EVIDENCE_BYTES_PER_FILE])
+      );
+      onDisk[PP_DIFF_KEY] = statSync(ppDiffPath(root)).size;
 
-    // The contract that defines the dimension ("complete" = the APPROVED scope,
-    // non-goals included) exists and carried nothing — the dimension may not
-    // report a pass on the strength of a test report alone.
-    const handoff = parseRenderedSources(calls[0]?.userPrompt ?? '').find(
-      (s) => s.key === 'prd-handoff'
-    );
-    expect(handoff?.status).toBe('empty');
+      let omitted = 0;
+      for (const source of rendered) {
+        if (source.status === 'omitted') {
+          omitted += 1;
+          expect(source.includedBytes).toBe(0);
+          continue;
+        }
+        // The invariant: whatever a FOUND block carries is its WHOLE unit —
+        // `min(file bytes, per-file cap)` — never a fragment of it.
+        expect(source.includedBytes).toBe(
+          Math.min(onDisk[source.key] ?? 0, MAX_EVIDENCE_BYTES_PER_FILE)
+        );
+      }
 
-    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
-    expect(dimension?.verdict).toBe('inconclusive');
-    expect(dimension?.confidence).toBe('low');
-    expect(dimension?.summary).toContain('scope-contract-gate');
-    expect(out.allPass).toBe(false);
-    expect(out.needsAttention).toContain('functional-completeness');
-  });
+      // The fixture is genuinely saturated (the invariant is not vacuous), and the
+      // sources it holds back are F1's deliberate casualties, not fragments.
+      expect(omitted).toBeGreaterThan(0);
+      expect(rendered.find((s) => s.key === 'rd-code-review')?.status).toBe('omitted');
+      expect(prompt).not.toMatch(/showing the first \d+ of/);
+    }
+  );
 
-  it('does not redden that dimension when there is no contract to deliver', async () => {
-    // The gate is a DELIVERY gate, not a blanket red: a workflow with no PRD
-    // phase has no contract to lose, and a gate that can never go green is one
-    // operators learn to ignore. `missing` (ENOENT) is therefore not a delivery
-    // failure — F4's other half: the file that exists and could not be READ is.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
-    rmSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'));
+  it(
+    'does not let a pass on functional-completeness outlive a contract that never arrived',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
+      // F4's repro, kept as the shell of the F-BLOCK-1BYTE one: the contract is
+      // NOT absent (that is the test below), it is ON DISK for this run and the
+      // reviewer received none of it. `qa-test-report` — which also backs this
+      // dimension, and is first in the order — is delivered whole, which is the
+      // exact configuration in which the pre-fix rule let the pass stand.
+      writeFileSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'), '', 'utf8');
 
-    const { runner } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
-    expect(dimension?.verdict).toBe('pass');
-    expect(dimension?.summary).not.toContain('scope-contract-gate');
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
-  });
+      // The contract that defines the dimension ("complete" = the APPROVED scope,
+      // non-goals included) exists and carried nothing — the dimension may not
+      // report a pass on the strength of a test report alone.
+      const handoff = parseRenderedSources(calls[0]?.userPrompt ?? '').find(
+        (s) => s.key === 'prd-handoff'
+      );
+      expect(handoff?.status).toBe('empty');
+
+      const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
+      expect(dimension?.verdict).toBe('inconclusive');
+      expect(dimension?.confidence).toBe('low');
+      expect(dimension?.summary).toContain('scope-contract-gate');
+      expect(out.allPass).toBe(false);
+      expect(out.needsAttention).toContain('functional-completeness');
+    }
+  );
+
+  it(
+    'does not redden that dimension when there is no contract to deliver',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The gate is a DELIVERY gate, not a blanket red: a workflow with no PRD
+      // phase has no contract to lose, and a gate that can never go green is one
+      // operators learn to ignore. `missing` (ENOENT) is therefore not a delivery
+      // failure — F4's other half: the file that exists and could not be READ is.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeAllEvidence(root, '', MAX_EVIDENCE_BYTES_PER_FILE);
+      rmSync(join(root, '.peaks', '_runtime', SESSION_ID, 'prd', 'handoff.md'));
+
+      const { runner } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
+
+      const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
+      expect(dimension?.verdict).toBe('pass');
+      expect(dimension?.summary).not.toContain('scope-contract-gate');
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
+    }
+  );
 
   it('keeps the reservation affordable for every dimension, by construction', () => {
     // The allocator reserves one UNIT per pending holder and promises the holder
@@ -1509,85 +1553,97 @@ function writeRealSizedEvidence(root: string): void {
 }
 
 describe('prepareFinalReview — the floor protects the source the GATE needs (F1)', () => {
-  it('delivers BOTH contract sources whole at the real machine sizes', async () => {
-    // Measured on this repo's own run: the ten units sum to ~78 KB against a
-    // 40,960-byte budget, so six sources must lose. Pre-F1 the two that lost
-    // were the two the delivery gates rest on — necessarily, because both sit
-    // last in the order and neither was a floor holder — and two of the four
-    // dimensions were `inconclusive` on every run.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
+  it(
+    'delivers BOTH contract sources whole at the real machine sizes',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // Measured on this repo's own run: the ten units sum to ~78 KB against a
+      // 40,960-byte budget, so six sources must lose. Pre-F1 the two that lost
+      // were the two the delivery gates rest on — necessarily, because both sit
+      // last in the order and neither was a floor holder — and two of the four
+      // dimensions were `inconclusive` on every run.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const prompt = calls[0]?.userPrompt ?? '';
-    const rendered = parseRenderedSources(prompt);
-    const handoff = rendered.find((s) => s.key === 'prd-handoff');
-    const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
+      const prompt = calls[0]?.userPrompt ?? '';
+      const rendered = parseRenderedSources(prompt);
+      const handoff = rendered.find((s) => s.key === 'prd-handoff');
+      const ppd = rendered.find((s) => s.key === 'final-review-pre-post-diff');
 
-    // The approved-scope contract arrives WHOLE — 8,164 of 8,164 bytes, which is
-    // the `whole` delivery rule and, before F1, was unreachable because the
-    // budget was spent before source 8 was opened.
-    expect(handoff?.status).toBe('found');
-    expect(handoff?.includedBytes).toBe(8164);
-    // The baseline the 4th dimension is defined by arrives too, whole, and the
-    // conclusion travels with it.
-    expect(ppd?.status).toBe('found');
-    expect(prompt).toContain('VERDICT: ');
+      // The approved-scope contract arrives WHOLE — 8,164 of 8,164 bytes, which is
+      // the `whole` delivery rule and, before F1, was unreachable because the
+      // budget was spent before source 8 was opened.
+      expect(handoff?.status).toBe('found');
+      expect(handoff?.includedBytes).toBe(8164);
+      // The baseline the 4th dimension is defined by arrives too, whole, and the
+      // conclusion travels with it.
+      expect(ppd?.status).toBe('found');
+      expect(prompt).toContain('VERDICT: ');
 
-    // The two dimensions that were structurally locked to `inconclusive` are
-    // judged on delivered evidence, and neither delivery gate fires.
-    const functional = out.dimensions.find((d) => d.dimension === 'functional-completeness');
-    const intact = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    expect(functional?.verdict).toBe('pass');
-    expect(functional?.confidence).toBe('high');
-    expect(functional?.summary).not.toContain('scope-contract-gate');
-    expect(intact?.verdict).toBe('pass');
-    expect(intact?.summary).not.toContain('pre-post-diff-gate');
+      // The two dimensions that were structurally locked to `inconclusive` are
+      // judged on delivered evidence, and neither delivery gate fires.
+      const functional = out.dimensions.find((d) => d.dimension === 'functional-completeness');
+      const intact = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      expect(functional?.verdict).toBe('pass');
+      expect(functional?.confidence).toBe('high');
+      expect(functional?.summary).not.toContain('scope-contract-gate');
+      expect(intact?.verdict).toBe('pass');
+      expect(intact?.summary).not.toContain('pre-post-diff-gate');
 
-    // All four dimensions have delivered evidence — 4/4, not 2/4.
-    expect([...dimensionsCovered(prompt)].sort()).toEqual([...REQUIRED].sort());
-    expect(out.allPass).toBe(true);
-    expect(out.needsAttention).toEqual([]);
+      // All four dimensions have delivered evidence — 4/4, not 2/4.
+      expect([...dimensionsCovered(prompt)].sort()).toEqual([...REQUIRED].sort());
+      expect(out.allPass).toBe(true);
+      expect(out.needsAttention).toEqual([]);
 
-    // The floor is what makes it affordable, and the arithmetic is the one QA
-    // verified: the three gate-source units fit the total.
-    const artifact = join(root, '.peaks', '_runtime', SESSION_ID, 'final-review', 'api-diff.txt');
-    expect(8164 + statSync(artifact).size).toBeLessThan(MAX_EVIDENCE_BYTES_TOTAL);
-  });
+      // The floor is what makes it affordable, and the arithmetic is the one QA
+      // verified: the three gate-source units fit the total.
+      const artifact = join(root, '.peaks', '_runtime', SESSION_ID, 'final-review', 'api-diff.txt');
+      expect(8164 + statSync(artifact).size).toBeLessThan(MAX_EVIDENCE_BYTES_TOTAL);
+    }
+  );
 
-  it('keeps a floor on the gate sources even when the gate source is not the first mention', async () => {
-    // The property, stated as arithmetic rather than as an example: whatever
-    // the allocator does, the sources whose delivery the gates depend on may
-    // not be the ones it starves. Pre-F1 `qa-test-report` (index 0) held
-    // `functional-completeness`'s floor and `rd/tech-doc` (index 6) held
-    // `existing-functionality-intact`'s — the first is the source the budget can
-    // never starve anyway, and the second is the source prompt rule 6 declares
-    // INSUFFICIENT for that dimension.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
+  it(
+    'keeps a floor on the gate sources even when the gate source is not the first mention',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The property, stated as arithmetic rather than as an example: whatever
+      // the allocator does, the sources whose delivery the gates depend on may
+      // not be the ones it starves. Pre-F1 `qa-test-report` (index 0) held
+      // `functional-completeness`'s floor and `rd/tech-doc` (index 6) held
+      // `existing-functionality-intact`'s — the first is the source the budget can
+      // never starve anyway, and the second is the source prompt rule 6 declares
+      // INSUFFICIENT for that dimension.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    await prepareFinalReview(RID, { projectRoot: root, sessionId: SESSION_ID, llmRunner: runner });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const rendered = parseRenderedSources(calls[0]?.userPrompt ?? '');
-    // `rd/tech-doc.md` is the source F1 took the floor from, and it is the one
-    // that loses now — a redundant design-intent document, not the comparison.
-    expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
-    expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
-    expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
-  });
+      const rendered = parseRenderedSources(calls[0]?.userPrompt ?? '');
+      // `rd/tech-doc.md` is the source F1 took the floor from, and it is the one
+      // that loses now — a redundant design-intent document, not the comparison.
+      expect(rendered.find((s) => s.key === 'rd-tech-doc')?.status).toBe('omitted');
+      expect(rendered.find((s) => s.key === 'prd-handoff')?.status).toBe('found');
+      expect(rendered.find((s) => s.key === 'final-review-pre-post-diff')?.status).toBe('found');
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1746,73 +1802,81 @@ describe('prepareFinalReview — an undeliverable dimension is stated, never sil
 });
 
 describe('prepareFinalReview — delivery is a content judgement (1.3)', () => {
-  it('does not count a truncated document as delivered evidence for its dimension', async () => {
-    // The QA round-5 probe, reproduced: ONE source, 20,545 bytes, whose first
-    // 10,240 bytes are front matter with no findings in them. Pre-fix the
-    // service answered "functional-completeness has evidence" from the source
-    // merely being INLINED, so all four verdicts came back `pass`/`high` — the
-    // service could not tell "the model read the findings" from "the model read
-    // the table of contents".
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeUnderProject(
-      root,
-      ['qa', 'test-reports', `${RID}.md`],
-      `# front matter\n\n${'table of contents '.repeat(700)}\n`
-    );
+  it(
+    'does not count a truncated document as delivered evidence for its dimension',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The QA round-5 probe, reproduced: ONE source, 20,545 bytes, whose first
+      // 10,240 bytes are front matter with no findings in them. Pre-fix the
+      // service answered "functional-completeness has evidence" from the source
+      // merely being INLINED, so all four verdicts came back `pass`/`high` — the
+      // service could not tell "the model read the findings" from "the model read
+      // the table of contents".
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeUnderProject(
+        root,
+        ['qa', 'test-reports', `${RID}.md`],
+        `# front matter\n\n${'table of contents '.repeat(700)}\n`
+      );
 
-    const { runner } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    // The dimension's only supporting source was inlined as a head slice, so the
-    // dimension has no DELIVERED evidence and the pass cannot stand. The three
-    // dimensions that source backs are all downgraded for the same reason; the
-    // 4th is delivered its baseline and keeps its pass.
-    for (const dimension of [
-      'functional-completeness',
-      'problem-resolution',
-      'no-new-bugs'
-    ] as const) {
-      const entry = out.dimensions.find((d) => d.dimension === dimension);
-      expect(entry?.verdict).toBe('inconclusive');
-      expect(entry?.confidence).toBe('low');
-      expect(entry?.summary).toContain('evidence-gate');
+      // The dimension's only supporting source was inlined as a head slice, so the
+      // dimension has no DELIVERED evidence and the pass cannot stand. The three
+      // dimensions that source backs are all downgraded for the same reason; the
+      // 4th is delivered its baseline and keeps its pass.
+      for (const dimension of [
+        'functional-completeness',
+        'problem-resolution',
+        'no-new-bugs'
+      ] as const) {
+        const entry = out.dimensions.find((d) => d.dimension === dimension);
+        expect(entry?.verdict).toBe('inconclusive');
+        expect(entry?.confidence).toBe('low');
+        expect(entry?.summary).toContain('evidence-gate');
+      }
+      expect(out.allPass).toBe(false);
+      expect([...out.needsAttention].sort()).toEqual([
+        'functional-completeness',
+        'no-new-bugs',
+        'problem-resolution'
+      ]);
     }
-    expect(out.allPass).toBe(false);
-    expect([...out.needsAttention].sort()).toEqual([
-      'functional-completeness',
-      'no-new-bugs',
-      'problem-resolution'
-    ]);
-  });
+  );
 
-  it('counts a source that arrived WHOLE as delivered evidence', async () => {
-    // The other half of the same judgement, so the rule cannot be satisfied by
-    // making everything red: 9,492 bytes is under the per-file cap, so the
-    // source arrives whole and the dimension it backs is judgeable.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
+  it(
+    'counts a source that arrived WHOLE as delivered evidence',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // The other half of the same judgement, so the rule cannot be satisfied by
+      // making everything red: 9,492 bytes is under the per-file cap, so the
+      // source arrives whole and the dimension it backs is judgeable.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
 
-    const { runner } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const report = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
-    expect(report?.verdict).toBe('pass');
-    expect(report?.summary).not.toContain('evidence-gate');
-  });
+      const report = out.dimensions.find((d) => d.dimension === 'no-new-bugs');
+      expect(report?.verdict).toBe('pass');
+      expect(report?.summary).not.toContain('evidence-gate');
+    }
+  );
 });
 
 describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () => {
@@ -1841,34 +1905,38 @@ describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () 
     return root;
   }
 
-  it('forces a detected structural drift into needsAttention, however the model answered', async () => {
-    const root = makeDriftedGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
+  it(
+    'forces a detected structural drift into needsAttention, however the model answered',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeDriftedGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    // The precondition, so the test cannot pass vacuously: the delivered
-    // comparison really does report a removal.
-    expect(calls[0]?.userPrompt ?? '').toContain('STRUCTURAL DRIFT DETECTED');
-    expect(calls[0]?.userPrompt ?? '').toContain('1 export name(s)');
+      // The precondition, so the test cannot pass vacuously: the delivered
+      // comparison really does report a removal.
+      expect(calls[0]?.userPrompt ?? '').toContain('STRUCTURAL DRIFT DETECTED');
+      expect(calls[0]?.userPrompt ?? '').toContain('1 export name(s)');
 
-    const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
-    // The verdict is NOT forced to `fail` — an authorized removal is the
-    // reviewer's and the human's call. What is refused is SILENCE.
-    expect(dimension?.verdict).toBe('pass');
-    expect(dimension?.summary).toContain('pre-post-diff-drift-gate');
-    expect(out.needsAttention).toContain('existing-functionality-intact');
-    // A handoff with a machine-detected drift in it is not a clean one.
-    expect(out.allPass).toBe(false);
-  });
+      const dimension = out.dimensions.find((d) => d.dimension === 'existing-functionality-intact');
+      // The verdict is NOT forced to `fail` — an authorized removal is the
+      // reviewer's and the human's call. What is refused is SILENCE.
+      expect(dimension?.verdict).toBe('pass');
+      expect(dimension?.summary).toContain('pre-post-diff-drift-gate');
+      expect(out.needsAttention).toContain('existing-functionality-intact');
+      // A handoff with a machine-detected drift in it is not a clean one.
+      expect(out.allPass).toBe(false);
+    }
+  );
 
   it('does not claim a conclusion was unreadable when no baseline was delivered at all', async () => {
     // The trap `null` exists to avoid: a project with no baseline has delivered
@@ -1894,113 +1962,125 @@ describe('prepareFinalReview — a delivered drift conclusion is read (F2)', () 
     expect(dimension?.summary).not.toContain('never actually read');
   });
 
-  it('says nothing extra when the delivered comparison reports no drift', async () => {
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
+  it(
+    'says nothing extra when the delivered comparison reports no drift',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    expect(calls[0]?.userPrompt ?? '').toContain('NO STRUCTURAL DRIFT');
-    expect(out.needsAttention).toEqual([]);
-    expect(out.allPass).toBe(true);
-    for (const dimension of out.dimensions) {
-      expect(dimension.summary).not.toContain('drift-gate');
+      expect(calls[0]?.userPrompt ?? '').toContain('NO STRUCTURAL DRIFT');
+      expect(out.needsAttention).toEqual([]);
+      expect(out.allPass).toBe(true);
+      for (const dimension of out.dimensions) {
+        expect(dimension.summary).not.toContain('drift-gate');
+      }
     }
-  });
+  );
 });
 
 describe('prepareFinalReview — missing, empty and unreadable are three facts (F4)', () => {
-  it('tells the reviewer a contract exists but could not be read, and fires the gate', async () => {
-    // EACCES / EBUSY / EISDIR used to collapse into the same `raw === null` as
-    // ENOENT, so a contract that is ON DISK and unreadable was reported — and
-    // gated — as "this run had no PRD phase". A directory at the contract's
-    // path is the portable way to make the read fail with something other than
-    // ENOENT.
-    const root = makeGitProject();
-    writeAuditGoal(root, ['AC1: the widget renders']);
-    writeRealSizedEvidence(root);
-    // The capsule `writeRealSizedEvidence` laid down is the slice's OWN, so
-    // the perturbation has to land there — the bare name is the legacy tier
-    // and an older copy is never consulted while a newer one resolves.
-    const contractPath = join(root, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`);
-    rmSync(contractPath);
-    mkdirSync(contractPath, { recursive: true });
+  it(
+    'tells the reviewer a contract exists but could not be read, and fires the gate',
+    { timeout: SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // EACCES / EBUSY / EISDIR used to collapse into the same `raw === null` as
+      // ENOENT, so a contract that is ON DISK and unreadable was reported — and
+      // gated — as "this run had no PRD phase". A directory at the contract's
+      // path is the portable way to make the read fail with something other than
+      // ENOENT.
+      const root = makeGitProject();
+      writeAuditGoal(root, ['AC1: the widget renders']);
+      writeRealSizedEvidence(root);
+      // The capsule `writeRealSizedEvidence` laid down is the slice's OWN, so
+      // the perturbation has to land there — the bare name is the legacy tier
+      // and an older copy is never consulted while a newer one resolves.
+      const contractPath = join(root, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`);
+      rmSync(contractPath);
+      mkdirSync(contractPath, { recursive: true });
 
-    const { runner, calls } = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const out = await prepareFinalReview(RID, {
-      projectRoot: root,
-      sessionId: SESSION_ID,
-      llmRunner: runner
-    });
+      const { runner, calls } = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const out = await prepareFinalReview(RID, {
+        projectRoot: root,
+        sessionId: SESSION_ID,
+        llmRunner: runner
+      });
 
-    const prompt = calls[0]?.userPrompt ?? '';
-    expect(prompt).toContain('STATUS: UNREADABLE');
-    expect(prompt).not.toContain(`STATUS: MISSING (unreadable)`);
-    expect(prompt).toContain(contractPath.split('\\').join('/').split('/').slice(-4).join('/'));
+      const prompt = calls[0]?.userPrompt ?? '';
+      expect(prompt).toContain('STATUS: UNREADABLE');
+      expect(prompt).not.toContain(`STATUS: MISSING (unreadable)`);
+      expect(prompt).toContain(contractPath.split('\\').join('/').split('/').slice(-4).join('/'));
 
-    const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
-    expect(dimension?.verdict).toBe('inconclusive');
-    expect(dimension?.summary).toContain('scope-contract-gate');
-    expect(dimension?.summary).toContain('unreadable');
-  });
+      const dimension = out.dimensions.find((d) => d.dimension === 'functional-completeness');
+      expect(dimension?.verdict).toBe('inconclusive');
+      expect(dimension?.summary).toContain('scope-contract-gate');
+      expect(dimension?.summary).toContain('unreadable');
+    }
+  );
 
-  it('distinguishes a contract that is absent from one that is empty', async () => {
-    // ZERO bytes — QA's literal repro. The file EXISTS for this run, so the
-    // `totalBytes === 0` early return was wrong (it stopped the gate on a fact
-    // that is true of an absent file AND of an empty one) and the gate must
-    // fire. The whitespace-only case is the same status and is covered by the
-    // read phase's `blank` rule.
-    const emptyRoot = makeGitProject();
-    writeAuditGoal(emptyRoot, ['AC1']);
-    writeRealSizedEvidence(emptyRoot);
-    writeFileSync(
-      join(emptyRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`),
-      '',
-      'utf8'
-    );
+  it(
+    'distinguishes a contract that is absent from one that is empty',
+    { timeout: HEAVY_SUBPROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      // ZERO bytes — QA's literal repro. The file EXISTS for this run, so the
+      // `totalBytes === 0` early return was wrong (it stopped the gate on a fact
+      // that is true of an absent file AND of an empty one) and the gate must
+      // fire. The whitespace-only case is the same status and is covered by the
+      // read phase's `blank` rule.
+      const emptyRoot = makeGitProject();
+      writeAuditGoal(emptyRoot, ['AC1']);
+      writeRealSizedEvidence(emptyRoot);
+      writeFileSync(
+        join(emptyRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`),
+        '',
+        'utf8'
+      );
 
-    const empty = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const emptyOut = await prepareFinalReview(RID, {
-      projectRoot: emptyRoot,
-      sessionId: SESSION_ID,
-      llmRunner: empty.runner
-    });
-    expect(empty.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (empty)');
-    expect(
-      emptyOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
-    ).toContain('scope-contract-gate');
+      const empty = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const emptyOut = await prepareFinalReview(RID, {
+        projectRoot: emptyRoot,
+        sessionId: SESSION_ID,
+        llmRunner: empty.runner
+      });
+      expect(empty.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (empty)');
+      expect(
+        emptyOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
+      ).toContain('scope-contract-gate');
 
-    // ...while an absent contract stays a non-event: no PRD phase, no gate.
-    const absentRoot = makeGitProject();
-    writeAuditGoal(absentRoot, ['AC1']);
-    writeRealSizedEvidence(absentRoot);
-    rmSync(join(absentRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`));
+      // ...while an absent contract stays a non-event: no PRD phase, no gate.
+      const absentRoot = makeGitProject();
+      writeAuditGoal(absentRoot, ['AC1']);
+      writeRealSizedEvidence(absentRoot);
+      rmSync(join(absentRoot, '.peaks', '_runtime', SESSION_ID, 'prd', `handoff-${RID}.md`));
 
-    const absent = captureRunner(
-      reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
-    );
-    const absentOut = await prepareFinalReview(RID, {
-      projectRoot: absentRoot,
-      sessionId: SESSION_ID,
-      llmRunner: absent.runner
-    });
-    expect(absent.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (missing)');
-    expect(
-      absentOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
-    ).not.toContain('scope-contract-gate');
-  });
+      const absent = captureRunner(
+        reviewJson(allVerdicts('pass'), { allPass: true, needsAttention: [] })
+      );
+      const absentOut = await prepareFinalReview(RID, {
+        projectRoot: absentRoot,
+        sessionId: SESSION_ID,
+        llmRunner: absent.runner
+      });
+      expect(absent.calls[0]?.userPrompt ?? '').toContain('STATUS: MISSING (missing)');
+      expect(
+        absentOut.dimensions.find((d) => d.dimension === 'functional-completeness')?.summary
+      ).not.toContain('scope-contract-gate');
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

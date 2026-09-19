@@ -266,7 +266,11 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // `tests/unit/lint/silent-warning-grace-marker.test.ts`, which pins the
     // silent-warning grace marker against the real prettier. A new file is the
     // documented reason this pin moves.
-    expect(scan.files.length).toBe(1194);
+    // 1194 -> 1195 (slice rid-s6-slow-test-timeouts): +1 is
+    // `tests/unit/_setup/subprocess-timeouts.ts`, the shared measured budgets for
+    // the tests whose cost is a real process spawn. As in S3c and S5a, a new file
+    // is the documented reason this pin moves.
+    expect(scan.files.length).toBe(1195);
   });
 
   it('visits every relative specifier in those files (the recursion is pinned)', () => {
@@ -297,7 +301,16 @@ describe('Scenario: integration — the guard walks the real src/ + tests/ trees
     // the `.js` extension the rule requires, so — as with S3c and S3e — the
     // violation assertion below is unaffected. `scan.files.length` moved by +1
     // as well, in the pin above.
-    expect(scan.specifiers.length).toBe(2719);
+    // 2719 -> 2727 (slice rid-s6-slow-test-timeouts): +8 is the
+    // `'../_setup/subprocess-timeouts.js'` / `'../../_setup/subprocess-timeouts.js'`
+    // import added to each of the eight test files that now carry an explicit
+    // budget — service-shutdown, the two final-review suites,
+    // codegraph-config-restore, codegraph-config-repair, codegraph-exclude-repair,
+    // pre-tool-superpowers-bridge and no-ai-co-author-trailer. All eight carry the
+    // `.js` extension the rule requires, so — as with S3c, S3e and S5a — the
+    // violation assertion below is unaffected. `scan.files.length` moved by +1 as
+    // well, in the pin above.
+    expect(scan.specifiers.length).toBe(2727);
   });
 
   it('reaches every relative specifier that crosses into packages/*/src', () => {
